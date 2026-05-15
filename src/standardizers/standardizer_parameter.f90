@@ -2,13 +2,10 @@ module standardizer_parameter
     use ast_arena_modern, only: ast_arena_t
     use string_utils_mod, only: to_lower
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use standardizer_declarations_state, only: &
+        get_shared_type_standardization => get_standardizer_type_standardization
     implicit none
     private
-    ! Type standardization configuration (local copy)
-    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
-    ! depend on exact type matching. Users should explicitly use real(8) or
-    ! kind parameters if they want double precision.
-    logical, save :: standardizer_type_standardization_enabled = .false.
 
     ! Input mode: Distinguish standard Fortran (.f90) vs lazy Fortran (.lf)
     ! Used to determine whether to add default intents and perform inference
@@ -46,7 +43,7 @@ contains
 
     subroutine get_standardizer_type_standardization(enabled)
         logical, intent(out) :: enabled
-        enabled = standardizer_type_standardization_enabled
+        call get_shared_type_standardization(enabled)
     end subroutine get_standardizer_type_standardization
 
     pure logical function is_type_variable_str(type_name) result(is_variable)

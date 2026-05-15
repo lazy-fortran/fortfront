@@ -107,12 +107,14 @@ module frontend_transformation_pipeline
 contains
     ! String-based transformation function for CLI usage
     subroutine transform_lazy_fortran_string(input, output, error_msg, &
-                                             enable_ast_wrapping, operating_mode)
+                                             enable_ast_wrapping, operating_mode, &
+                                             preserve_format_config)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
         logical, intent(in), optional :: enable_ast_wrapping
         integer, intent(in), optional :: operating_mode
+        logical, intent(in), optional :: preserve_format_config
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable, target :: tokens(:)
@@ -120,7 +122,11 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: source
         logical :: apply_ast_wrapping
+        logical :: apply_default_format
         integer :: local_operating_mode
+        integer :: saved_size, saved_line_length
+        character(len=1) :: saved_char
+        logical :: saved_standardize_types, saved_standardizer_types
 
         allocate (character(len=0) :: output)
         output = ""
@@ -134,6 +140,10 @@ contains
         end if
         local_operating_mode = OPERATING_MODE_INFER
         if (present(operating_mode)) local_operating_mode = operating_mode
+        apply_default_format = .not. present(enable_ast_wrapping)
+        if (present(preserve_format_config)) then
+            if (preserve_format_config) apply_default_format = .false.
+        end if
 
         call trace_init()
 
@@ -235,8 +245,20 @@ contains
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
+        if (apply_default_format) then
+            call save_current_configuration(saved_size, saved_char, &
+                                            saved_line_length, &
+                                            saved_standardize_types, &
+                                            saved_standardizer_types)
+            call apply_format_options(format_options_t())
+        end if
         call run_final_phases(arena, prog_index, output, error_msg, &
                               apply_ast_wrapping, local_operating_mode)
+        if (apply_default_format) then
+            call restore_configuration(saved_size, saved_char, saved_line_length, &
+                                       saved_standardize_types, &
+                                       saved_standardizer_types)
+        end if
         call trace_leave('phase:final')
         if (error_msg /= "") then
             call arena%destroy()
@@ -288,7 +310,8 @@ contains
         call apply_format_options(format_opts)
 
         ! Call the regular transformation function
-        call transform_lazy_fortran_string(input, output, error_msg)
+        call transform_lazy_fortran_string(input, output, error_msg, &
+                                           preserve_format_config=.true.)
 
         ! Restore original configuration
         call restore_configuration(saved_size, saved_char, saved_line_length, &
@@ -362,6 +385,9 @@ contains
         logical :: has_functions, has_subroutines, has_main_code
         type(signatures_map_t) :: signatures
         character(len=:), allocatable :: source
+        integer :: saved_size, saved_line_length
+        character(len=1) :: saved_char
+        logical :: saved_standardize_types, saved_standardizer_types
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
@@ -438,12 +464,20 @@ contains
             return
         end if
 
+        call save_current_configuration(saved_size, saved_char, saved_line_length, &
+                                        saved_standardize_types, &
+                                        saved_standardizer_types)
+        call apply_format_options(format_options_t())
+
         ! Run semantic analysis and standardization (but not code generation yet)
         call run_semantic_analysis_phase(arena, prog_index, &
                                          context%operating_mode, error_msg, &
                                          signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             call run_code_generation_phase(arena, prog_index, output)
+            call restore_configuration(saved_size, saved_char, saved_line_length, &
+                                       saved_standardize_types, &
+                                       saved_standardizer_types)
             call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
@@ -470,6 +504,8 @@ contains
 
         ! Generate code from (possibly wrapped) AST
         call run_code_generation_phase(arena, prog_index, output)
+        call restore_configuration(saved_size, saved_char, saved_line_length, &
+                                   saved_standardize_types, saved_standardizer_types)
 
         ! Preserve leading comments
         if (has_leading_comment(source)) then
