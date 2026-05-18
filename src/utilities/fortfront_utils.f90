@@ -10,7 +10,10 @@ module fortfront_utils
     use ast_base, only: ast_node
     use ast_nodes_core, only: program_node, assignment_node, identifier_node, &
                               literal_node, call_or_subscript_node
-    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_data, only: declaration_node, derived_type_node
+    use ast_nodes_core, only: array_literal_node
+    use ast_nodes_misc, only: interface_block_node, import_statement_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
     use fortfront_types, only: source_range_t, diagnostic_t
@@ -30,6 +33,15 @@ module fortfront_utils
               get_type_for_node, get_diagnostics, ast_to_json, &
               semantic_info_to_json, find_nodes_by_type, get_max_depth, &
               get_node_as_program, get_node_as_assignment, get_node_as_function_def
+
+    ! Compiler-facing queries (issue #173 wish list for lazy-fortran/ffc)
+    public :: get_declaration_initializer
+    public :: get_derived_type_components
+    public :: get_array_literal_elements
+    public :: get_import_list
+    public :: get_interface_block_body
+    public :: has_bind_c_attribute
+    public :: get_bind_c_name
 
 contains
 
@@ -89,6 +101,169 @@ contains
 
         column = arena%get_node_column(node_index)
     end function get_node_column
+
+    ! Compiler-facing query: return the arena index of a declaration's
+    ! initializer expression, or 0 if the declaration has none.  Wraps
+    ! declaration_node%initializer_index / has_initializer behind a
+    ! stable API so consumers do not reach into the AST struct.
+    function get_declaration_initializer(arena, decl_index) result(init_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        integer :: init_index
+
+        init_index = 0
+        if (.not. node_exists(arena, decl_index)) return
+        select type (node => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (node%has_initializer .and. node%initializer_index > 0) then
+                init_index = node%initializer_index
+            end if
+        end select
+    end function get_declaration_initializer
+
+    ! Compiler-facing query: copy the component_indices of a derived
+    ! type definition into an allocatable result.  Returns a zero-length
+    ! array when the node is not a derived_type_node or has no
+    ! components.
+    subroutine get_derived_type_components(arena, type_index, components)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        integer, allocatable, intent(out) :: components(:)
+
+        if (.not. node_exists(arena, type_index)) then
+            allocate (components(0))
+            return
+        end if
+        select type (node => arena%entries(type_index)%node)
+        type is (derived_type_node)
+            if (allocated(node%component_indices)) then
+                components = node%component_indices
+            else
+                allocate (components(0))
+            end if
+        class default
+            allocate (components(0))
+        end select
+    end subroutine get_derived_type_components
+
+    ! Compiler-facing query: copy the element_indices of an array
+    ! literal (Fortran array constructor) into an allocatable result.
+    subroutine get_array_literal_elements(arena, node_index, elements)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: elements(:)
+
+        if (.not. node_exists(arena, node_index)) then
+            allocate (elements(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (array_literal_node)
+            if (allocated(node%element_indices)) then
+                elements = node%element_indices
+            else
+                allocate (elements(0))
+            end if
+        class default
+            allocate (elements(0))
+        end select
+    end subroutine get_array_literal_elements
+
+    ! Compiler-facing query: copy the import_list of an import_statement_node
+    ! into an allocatable character array.  Returns a zero-length array on
+    ! mismatched node kind or empty/unspecified list.
+    subroutine get_import_list(arena, node_index, names)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: names(:)
+        integer :: i, max_len
+
+        if (.not. node_exists(arena, node_index)) then
+            allocate (character(len=1) :: names(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (import_statement_node)
+            if (.not. allocated(node%import_list)) then
+                allocate (character(len=1) :: names(0))
+                return
+            end if
+            max_len = 1
+            do i = 1, size(node%import_list)
+                if (allocated(node%import_list(i)%s)) then
+                    if (len(node%import_list(i)%s) > max_len) &
+                        max_len = len(node%import_list(i)%s)
+                end if
+            end do
+            allocate (character(len=max_len) :: names(size(node%import_list)))
+            do i = 1, size(node%import_list)
+                if (allocated(node%import_list(i)%s)) then
+                    names(i) = node%import_list(i)%s
+                else
+                    names(i) = ''
+                end if
+            end do
+        class default
+            allocate (character(len=1) :: names(0))
+        end select
+    end subroutine get_import_list
+
+    ! Compiler-facing query: return whether an interface_block_node has
+    ! body indices and copy them out.
+    subroutine get_interface_block_body(arena, node_index, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        if (.not. node_exists(arena, node_index)) then
+            allocate (body_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (interface_block_node)
+            if (allocated(node%procedure_indices)) then
+                body_indices = node%procedure_indices
+            else
+                allocate (body_indices(0))
+            end if
+        class default
+            allocate (body_indices(0))
+        end select
+    end subroutine get_interface_block_body
+
+    ! Compiler-facing query: whether a function/subroutine definition or
+    ! derived type carries a bind(c) clause.
+    function has_bind_c_attribute(arena, node_index) result(present_flag)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: present_flag
+
+        present_flag = .false.
+        if (.not. node_exists(arena, node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            present_flag = allocated(node%bind_c_clause)
+        type is (subroutine_def_node)
+            present_flag = allocated(node%bind_c_clause)
+        end select
+    end function has_bind_c_attribute
+
+    ! Compiler-facing query: return the bind-name from a bind(c, name="...")
+    ! clause if specified; empty string otherwise.
+    function get_bind_c_name(arena, node_index) result(bind_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: bind_name
+
+        bind_name = ''
+        if (.not. node_exists(arena, node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
+        type is (subroutine_def_node)
+            if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
+        end select
+    end function get_bind_c_name
 
     ! Get parent node for a given node index
     function get_parent(arena, node_index) result(parent_index)
