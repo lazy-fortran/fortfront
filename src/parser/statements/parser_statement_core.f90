@@ -492,7 +492,11 @@ contains
                                                          parent_index, callbacks)
                     return
                 end if
-            case ("(")
+            case ("(", "%")
+                ! '(' covers array-element or call assignments; '%' covers
+                ! derived-type component assignments (e.g. p%x = 7).  Both
+                ! route through parse_complex_assignment which parses the
+                ! full LHS expression up to '=' / '=>'.
                 stmt_index = parse_complex_assignment(parser, arena, &
                                                       parent_index, tokens, &
                                                       id_token)
