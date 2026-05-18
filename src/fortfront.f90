@@ -182,7 +182,12 @@ module fortfront
                                get_node_as_program, get_node_as_assignment, &
                                get_node_as_function_def, &
                                get_children, traverse_ast, traverse_node, &
-                               get_node_range
+                               get_node_range, &
+                               get_declaration_initializer, &
+                               get_derived_type_components, &
+                               get_array_literal_elements, &
+                               get_import_list, get_interface_block_body, &
+                               has_bind_c_attribute, get_bind_c_name
     use fortfront_node_constants
 
     ! Re-export types from fortfront_types
