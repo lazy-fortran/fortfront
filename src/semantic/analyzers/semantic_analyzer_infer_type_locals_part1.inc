@@ -428,6 +428,11 @@
 
             call init_post_frame(current, post_frame)
             call push_frame_local(post_frame)
+            if (allocated(expr%else_body_indices)) then
+                do i = size(expr%else_body_indices), 1, -1
+                    call push_child(expr%else_body_indices(i))
+                end do
+            end if
             if (allocated(expr%then_body_indices)) then
                 do i = size(expr%then_body_indices), 1, -1
                     call push_child(expr%then_body_indices(i))
