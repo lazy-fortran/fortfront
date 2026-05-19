@@ -9,6 +9,7 @@ module codegen_module_generation
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
+    use codegen_program_body, only: maybe_require_dp_kind_use
     use ast_traversal_utils, only: get_ancestor_of_type
     use string_utils_mod, only: to_lower
     implicit none
@@ -53,6 +54,7 @@ contains
         if (len(remainder_block) > 0) code = code // remainder_block
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
+        call maybe_require_dp_kind_use(code)
         in_module_context = .false.
     end function generate_code_module
 
@@ -85,6 +87,7 @@ contains
         if (len(remainder_block) > 0) code = code // remainder_block
         code = code // build_contains_section_submodule(arena, node)
         code = code // "end submodule " // node%name
+        call maybe_require_dp_kind_use(code)
         in_module_context = .false.
     end function generate_code_submodule
 

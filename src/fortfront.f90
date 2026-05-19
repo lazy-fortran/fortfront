@@ -187,7 +187,11 @@ module fortfront
                                get_derived_type_components, &
                                get_array_literal_elements, &
                                get_import_list, get_interface_block_body, &
-                               has_bind_c_attribute, get_bind_c_name
+                               has_bind_c_attribute, get_bind_c_name, &
+                               get_select_case_info, get_case_block_info, &
+                               get_case_default_body, get_case_range_info, &
+                               get_select_type_info, get_type_guard_info, &
+                               get_dummy_allocatable_attribute
     use fortfront_node_constants
 
     ! Re-export types from fortfront_types

@@ -7,6 +7,9 @@ module codegen_program_body
     implicit none
     private
     public :: append_program_body
+    public :: maybe_require_dp_kind_use
+    public :: ensure_iso_clause
+    public :: rename_dp_kind_alias_on_collision
 
 contains
 
@@ -37,6 +40,7 @@ contains
         call add_loop_variable_decls(code, body_code)
 
         code = code // body_code
+        call rename_dp_kind_alias_on_collision(code)
     end subroutine append_program_body
 
     subroutine ensure_iso_clause(code, clause)
@@ -260,17 +264,181 @@ contains
 
     subroutine maybe_require_dp_kind_use(code, body_code)
         character(len=:), allocatable, intent(inout) :: code
-        character(len=:), allocatable, intent(in) :: body_code
+        character(len=:), allocatable, intent(in), optional :: body_code
         logical :: needs_dp
 
         needs_dp = code_requires_dp_kind(code)
-        if (.not. needs_dp) needs_dp = code_requires_dp_kind(body_code)
+        if (.not. needs_dp .and. present(body_code)) then
+            needs_dp = code_requires_dp_kind(body_code)
+        end if
         if (.not. needs_dp) return
 
         if (iso_line_has_clause(code, 'dp => real64')) return
 
         call ensure_iso_clause(code, 'dp => real64')
+        call rename_dp_kind_alias_on_collision(code)
     end subroutine maybe_require_dp_kind_use
+
+    ! If the user has declared an identifier `dp` (a frequent name for a
+    ! dot-product result), the kind alias `dp => real64` we emit collides
+    ! with that variable.  Rewrite the alias and its `real(dp)` uses to a
+    ! private name (`lf_dp_kind`) that cannot collide; the user's own `dp`
+    ! survives unchanged.  No-op when no collision is present.
+    subroutine rename_dp_kind_alias_on_collision(code)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable :: out
+        character(len=*), parameter :: new_alias = 'lf_dp_kind'
+        integer :: i, n
+
+        if (.not. has_user_dp_variable(code)) return
+
+        n = len(code)
+        i = 1
+        out = ''
+        do while (i <= n)
+            if (matches_alias_decl(code, i)) then
+                ! Replace `dp =>` with `lf_dp_kind =>` in the use-only list.
+                out = out // new_alias
+                i = i + 2
+            else if (matches_real_dp(code, i)) then
+                ! Replace `(dp)` after the keyword `real` with the new alias.
+                out = out // '(' // new_alias // ')'
+                i = i + 4
+            else if (matches_underscore_dp(code, i)) then
+                ! Replace `_dp` literal suffix with `_lf_dp_kind`.
+                out = out // '_' // new_alias
+                i = i + 3
+            else
+                out = out // code(i:i)
+                i = i + 1
+            end if
+        end do
+
+        code = out
+    end subroutine rename_dp_kind_alias_on_collision
+
+    pure logical function matches_underscore_dp(code, i) result(is_match)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: i
+        integer :: n
+        character(len=1) :: prev_char, next_char
+
+        is_match = .false.
+        n = len(code)
+        if (i + 2 > n) return
+        if (code(i:i + 2) /= '_dp') return
+        if (i == 1) return
+        prev_char = code(i - 1:i - 1)
+        ! `_dp` must follow a digit (or a `.`/`e`/`E`) to be a literal kind.
+        if (.not. is_real_literal_tail(prev_char)) return
+        if (i + 3 <= n) then
+            next_char = code(i + 3:i + 3)
+            if (is_identifier_char(next_char)) return
+        end if
+        is_match = .true.
+    end function matches_underscore_dp
+
+    pure logical function is_real_literal_tail(ch) result(is_valid)
+        character(len=1), intent(in) :: ch
+        integer :: code
+
+        code = iachar(ch)
+        is_valid = (ch == '.') .or. (ch == 'e') .or. (ch == 'E') .or. &
+                   (code >= iachar('0') .and. code <= iachar('9'))
+    end function is_real_literal_tail
+
+    pure logical function has_user_dp_variable(code) result(found)
+        character(len=*), intent(in) :: code
+        integer :: start, pos, n
+
+        found = .false.
+        n = len(code)
+        start = 1
+        do
+            pos = index(code(start:), ':: dp')
+            if (pos == 0) exit
+            pos = start + pos - 1
+            if (pos + 5 > n) then
+                found = .true.
+                return
+            end if
+            if (.not. is_identifier_char(code(pos + 5:pos + 5))) then
+                found = .true.
+                return
+            end if
+            start = pos + 5
+            if (start > n) exit
+        end do
+    end function has_user_dp_variable
+
+    pure logical function matches_alias_decl(code, i) result(is_match)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: i
+        integer :: n
+        character(len=1) :: prev
+
+        is_match = .false.
+        n = len(code)
+        if (i + 4 > n) return
+        if (code(i:i + 1) /= 'dp') return
+        if (i + 2 > n) return
+        ! Must be followed (after optional whitespace) by '=>'
+        if (.not. (code(i + 2:i + 2) == ' ' .or. &
+                   code(i + 2:i + 2) == '=')) return
+        ! Require previous non-identifier character (e.g. `: ` after only:)
+        if (i == 1) then
+            prev = ' '
+        else
+            prev = code(i - 1:i - 1)
+        end if
+        if (is_identifier_char(prev)) return
+        ! Lookahead for '=>'
+        if (locate_arrow_after(code, i + 2) > 0) is_match = .true.
+    end function matches_alias_decl
+
+    pure integer function locate_arrow_after(code, start) result(pos)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: start
+        integer :: i, n
+
+        pos = 0
+        n = len(code)
+        i = start
+        do while (i <= n)
+            if (code(i:i) == ' ' .or. code(i:i) == char(9)) then
+                i = i + 1
+                cycle
+            end if
+            if (i + 1 <= n) then
+                if (code(i:i + 1) == '=>') then
+                    pos = i
+                    return
+                end if
+            end if
+            return
+        end do
+    end function locate_arrow_after
+
+    pure logical function matches_real_dp(code, i) result(is_match)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: i
+        integer :: n
+        character(len=1) :: prev_char
+
+        is_match = .false.
+        n = len(code)
+        if (i + 3 > n) return
+        if (code(i:i + 3) /= '(dp)') return
+        if (i == 1) return
+        ! Require the preceding token to end with `real` (lower-cased emitter).
+        if (i - 4 < 1) return
+        if (code(i - 4:i - 1) /= 'real') return
+        if (i - 5 >= 1) then
+            prev_char = code(i - 5:i - 5)
+            if (is_identifier_char(prev_char)) return
+        end if
+        is_match = .true.
+    end function matches_real_dp
 
     pure logical function code_requires_dp_kind(text) result(needs_dp)
         character(len=*), intent(in) :: text
