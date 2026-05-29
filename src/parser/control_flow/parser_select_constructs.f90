@@ -187,11 +187,12 @@ contains
         case_count = 0
         default_index = 0
 
-        ! Define end keywords for statement parsing
-        ! Note: end is NOT included because parse_statement_body would stop at
-        ! ANY end keyword (end if, end do, etc.), not just end select.
-        ! We handle end select detection in the main loop below.
-        end_keywords = [character(len=20) :: "case", ""]
+        ! Define end keywords for statement parsing. "end select" terminates a
+        ! case body so the last arm (which has no following "case") stops there
+        ! instead of consuming statements after the construct. The "end select"
+        ! form matches only end + select, not nested "end if"/"end do", which
+        ! are consumed inside their own recursive statement parse.
+        end_keywords = [character(len=20) :: "case", "end select"]
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_case => parse_select_case
