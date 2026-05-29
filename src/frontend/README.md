@@ -148,7 +148,9 @@ end subroutine
 - **Compiler queries**: `is_subroutine_call_statement`,
   `get_subroutine_call_name`, and `get_subroutine_call_arg_indices` expose
   explicit `CALL` statements without requiring backend consumers to inspect
-  concrete AST node storage.
+  concrete AST node storage. `is_binary_op` and `get_binary_op_info`
+  (operator text, left/right operand indices, node location) do the same for
+  binary operations.
 
 ## Dependencies
 
