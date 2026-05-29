@@ -1,14 +1,64 @@
 module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: subroutine_call_node
+    use ast_nodes_core, only: binary_op_node
     implicit none
     private
 
     public :: is_subroutine_call_statement
     public :: get_subroutine_call_name
     public :: get_subroutine_call_arg_indices
+    public :: is_binary_op
+    public :: get_binary_op_info
 
 contains
+
+    logical function is_binary_op(arena, node_index) result(is_op)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_op = .false.
+        if (.not. arena%has_node_at(node_index)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            is_op = .true.
+        end select
+    end function is_binary_op
+
+    subroutine get_binary_op_info(arena, node_index, operator, left_index, &
+                                  right_index, line, column, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: operator
+        integer, intent(out) :: left_index
+        integer, intent(out) :: right_index
+        integer, intent(out) :: line
+        integer, intent(out) :: column
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(operator)
+        left_index = 0
+        right_index = 0
+        line = 0
+        column = 0
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'binary op index does not reference an AST node'
+            return
+        end if
+
+        select type (node => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            if (allocated(node%operator)) operator = node%operator
+            left_index = node%left_index
+            right_index = node%right_index
+            line = node%line
+            column = node%column
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a binary operation'
+        end select
+    end subroutine get_binary_op_info
 
     logical function is_subroutine_call_statement(arena, node_index) result(is_call)
         type(ast_arena_t), intent(in) :: arena
