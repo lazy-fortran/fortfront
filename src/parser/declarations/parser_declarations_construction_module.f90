@@ -86,6 +86,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
@@ -107,6 +108,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
@@ -126,6 +128,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
                          character_length_expr=type_spec%character_length_expr)
         else
@@ -146,6 +149,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous)
         end if
     end function create_dimensional_declaration
@@ -177,6 +181,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
@@ -197,6 +202,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
@@ -215,6 +221,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
                          character_length_expr=type_spec%character_length_expr)
         else
@@ -234,6 +241,7 @@ contains
                          is_volatile=attr_info%is_volatile, &
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous)
         end if
     end function create_scalar_declaration
@@ -328,6 +336,7 @@ contains
                              is_volatile=attr_info%is_volatile, &
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                              is_contiguous=attr_info%is_contiguous)
             else
                 decl_index = push_declaration( &
@@ -345,6 +354,7 @@ contains
                              is_volatile=attr_info%is_volatile, &
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                              is_contiguous=attr_info%is_contiguous)
             end if
         else
@@ -364,6 +374,7 @@ contains
                              is_volatile=attr_info%is_volatile, &
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                              is_contiguous=attr_info%is_contiguous)
             else
                 decl_index = push_declaration( &
@@ -380,6 +391,7 @@ contains
                              is_volatile=attr_info%is_volatile, &
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
+                         accessibility=attr_info%accessibility, &
                              is_contiguous=attr_info%is_contiguous)
             end if
         end if

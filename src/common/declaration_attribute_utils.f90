@@ -26,6 +26,7 @@ module declaration_attribute_utils
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
+        character(len=:), allocatable :: accessibility  ! 'public'/'private'
         integer, allocatable :: global_dimension_indices(:)
     end type declaration_attribute_info_t
 
@@ -48,6 +49,7 @@ contains
         attr%is_contiguous = .false.
         attr%has_intent = .false.
         if (allocated(attr%intent)) deallocate (attr%intent)
+        if (allocated(attr%accessibility)) deallocate (attr%accessibility)
         attr%has_global_dimensions = .false.
         if (allocated(attr%global_dimension_indices)) then
             deallocate (attr%global_dimension_indices)
