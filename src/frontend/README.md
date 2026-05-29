@@ -150,7 +150,8 @@ end subroutine
   explicit `CALL` statements without requiring backend consumers to inspect
   concrete AST node storage. `is_binary_op` and `get_binary_op_info`
   (operator text, left/right operand indices, node location) do the same for
-  binary operations.
+  binary operations. `is_literal` and `get_literal_info` (value text,
+  literal type) do the same for literals.
 
 ## Dependencies
 
