@@ -224,7 +224,7 @@ contains
                               is_external, is_unsigned, intent_value, is_optional, &
                               is_parameter, is_save, is_volatile, is_protected, &
                               is_asynchronous, is_contiguous, line, column, &
-                              parent_index, character_length_expr) &
+                              parent_index, character_length_expr, accessibility) &
         result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
@@ -247,11 +247,15 @@ contains
         logical, intent(in), optional :: is_asynchronous
         logical, intent(in), optional :: is_contiguous
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: accessibility
         integer :: decl_index
         type(declaration_node) :: decl
 
         decl%type_name = type_name
         if (size(names) > 0) decl%var_name = names(1)
+        if (present(accessibility)) then
+            if (len_trim(accessibility) > 0) decl%accessibility = trim(accessibility)
+        end if
 
         if (size(names) > 1) then
             decl%is_multi_declaration = .true.

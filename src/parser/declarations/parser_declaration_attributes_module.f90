@@ -109,6 +109,10 @@ contains
             attr_info%is_contiguous = .true.
             token = parser%consume()
             handled = .true.
+        case ("public", "private")
+            attr_info%accessibility = trim(token%text)
+            token = parser%consume()
+            handled = .true.
         case default
             handled = .false.
         end select

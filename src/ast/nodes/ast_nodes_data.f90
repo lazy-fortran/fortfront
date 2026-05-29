@@ -72,6 +72,7 @@ module ast_nodes_data
         logical :: is_contiguous = .false.  ! Whether contiguous
         ! attribute is present
         logical :: disable_grouping = .false.  ! Skip declaration grouping
+        character(len=:), allocatable :: accessibility  ! 'public'/'private'
     contains
         procedure :: accept => declaration_accept
         procedure :: assign => declaration_assign
@@ -245,6 +246,7 @@ contains
         lhs%is_asynchronous = rhs%is_asynchronous
         lhs%is_contiguous = rhs%is_contiguous
         lhs%disable_grouping = rhs%disable_grouping
+        if (allocated(rhs%accessibility)) lhs%accessibility = rhs%accessibility
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if
