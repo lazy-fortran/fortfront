@@ -1,7 +1,7 @@
 module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: subroutine_call_node
-    use ast_nodes_core, only: binary_op_node, literal_node
+    use ast_nodes_core, only: binary_op_node, literal_node, identifier_node
     implicit none
     private
 
@@ -12,8 +12,44 @@ module frontend_compiler_queries
     public :: get_binary_op_info
     public :: is_literal
     public :: get_literal_info
+    public :: is_identifier
+    public :: get_identifier_name
 
 contains
+
+    logical function is_identifier(arena, node_index) result(is_id)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_id = .false.
+        if (.not. arena%has_node_at(node_index)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            is_id = .true.
+        end select
+    end function is_identifier
+
+    subroutine get_identifier_name(arena, node_index, name, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(name)
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'identifier index does not reference an AST node'
+            return
+        end if
+
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name)) name = node%name
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not an identifier'
+        end select
+    end subroutine get_identifier_name
 
     logical function is_literal(arena, node_index) result(is_lit)
         type(ast_arena_t), intent(in) :: arena
