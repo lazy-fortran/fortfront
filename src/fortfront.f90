@@ -46,7 +46,8 @@ module fortfront
                                          get_subroutine_call_name, &
                                          get_subroutine_call_arg_indices, &
                                          is_binary_op, get_binary_op_info, &
-                                         is_literal, get_literal_info
+                                         is_literal, get_literal_info, &
+                                         is_identifier, get_identifier_name
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
