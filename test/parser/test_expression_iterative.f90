@@ -451,7 +451,9 @@ contains
                         collapsed = collapsed // line(i:i)
                     end if
                 end do
-                if (index(collapsed, 'value=(-2)**2+3') == 0) then
+                ! Unary minus binds looser than ** (issue #215): -2 ** 2 + 3
+                ! parses as -(2**2) + 3, so no (-2) grouping is emitted.
+                if (index(collapsed, 'value=-2**2+3') == 0) then
                     print *, &
                         '  FAIL: Mixed precedence expression not normalized as expected'
                     test_mixed_precedence_output = .false.
