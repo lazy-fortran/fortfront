@@ -88,13 +88,19 @@ contains
         success = .true.
 
         do
-            lower_index = parse_expression_until(sub_parser, arena, [":", ","])
-            if (lower_index <= 0) then
-                success = .false.
-                exit
-            end if
-
             sub_token = sub_parser%peek()
+            if (sub_token%kind == TK_OPERATOR .and. sub_token%text == ":") then
+                ! Leading colon: one-sided range with no lower bound (:hi).
+                lower_index = 0
+            else
+                lower_index = parse_expression_until(sub_parser, arena, &
+                                                     [":", ","])
+                if (lower_index <= 0) then
+                    success = .false.
+                    exit
+                end if
+                sub_token = sub_parser%peek()
+            end if
 
             if (sub_token%kind == TK_OPERATOR .and. sub_token%text == ":") then
                 sub_token = sub_parser%consume()
