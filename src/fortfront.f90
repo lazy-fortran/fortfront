@@ -45,7 +45,8 @@ module fortfront
     use frontend_compiler_queries, only: is_subroutine_call_statement, &
                                          get_subroutine_call_name, &
                                          get_subroutine_call_arg_indices, &
-                                         is_binary_op, get_binary_op_info
+                                         is_binary_op, get_binary_op_info, &
+                                         is_literal, get_literal_info
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c

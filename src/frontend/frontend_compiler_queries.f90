@@ -1,7 +1,7 @@
 module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: subroutine_call_node
-    use ast_nodes_core, only: binary_op_node
+    use ast_nodes_core, only: binary_op_node, literal_node
     implicit none
     private
 
@@ -10,8 +10,47 @@ module frontend_compiler_queries
     public :: get_subroutine_call_arg_indices
     public :: is_binary_op
     public :: get_binary_op_info
+    public :: is_literal
+    public :: get_literal_info
 
 contains
+
+    logical function is_literal(arena, node_index) result(is_lit)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_lit = .false.
+        if (.not. arena%has_node_at(node_index)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (literal_node)
+            is_lit = .true.
+        end select
+    end function is_literal
+
+    subroutine get_literal_info(arena, node_index, value, literal_type, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: value
+        character(len=:), allocatable, intent(out) :: literal_type
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(value)
+        call set_empty(literal_type)
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'literal index does not reference an AST node'
+            return
+        end if
+
+        select type (node => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (allocated(node%value)) value = node%value
+            if (allocated(node%literal_type)) literal_type = node%literal_type
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a literal'
+        end select
+    end subroutine get_literal_info
 
     logical function is_binary_op(arena, node_index) result(is_op)
         type(ast_arena_t), intent(in) :: arena
