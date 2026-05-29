@@ -359,6 +359,15 @@ contains
         current_index = parse_operand_base(parser, arena, view)
         if (current_index > 0) then
             current_index = parse_postfix_ops(parser, arena, view, current_index)
+            ! A leading unary sign binds looser than ** (Fortran precedence,
+            ! issue #215): -a**b parses as -(a**b), not (-a)**b. When a sign is
+            ! pending and the operand is immediately followed by **, fold the
+            ! whole power chain first, then apply the prefix.
+            if (prefix_stack_has_sign(prefix_stack) .and. &
+                peek_is_power_op(view, parser)) then
+                current_index = fold_power_after_sign(parser, arena, view, &
+                                                      current_index)
+            end if
             current_index = apply_prefix_stack(arena, prefix_stack, current_index)
             call operand_stack_push(operands, current_index)
         else
@@ -366,6 +375,42 @@ contains
         end if
         expect_operand = .false.
     end subroutine handle_operand_token
+
+    logical function prefix_stack_has_sign(prefix_stack)
+        type(token_stack_t), intent(in) :: prefix_stack
+
+        prefix_stack_has_sign = .false.
+        if (prefix_stack%size <= 0) return
+        prefix_stack_has_sign = &
+            prefix_stack%values(prefix_stack%size)%kind /= PREFIX_MARKER_KIND
+    end function prefix_stack_has_sign
+
+    logical function peek_is_power_op(view, parser)
+        type(token_view_t), intent(in) :: view
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        token = view_peek_token(view, parser)
+        peek_is_power_op = token%kind == TK_OPERATOR .and. trim(token%text) == "**"
+    end function peek_is_power_op
+
+    recursive function fold_power_after_sign(parser, arena, view, base_index) &
+            result(result_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        integer, intent(in) :: base_index
+        integer :: result_index
+        type(token_t) :: power_token
+        integer :: exponent_index
+
+        power_token = view_consume_token(view, parser)
+        exponent_index = parse_expression_with_precedence(parser, arena, &
+                                                          PREC_POWER)
+        result_index = push_binary_op(arena, base_index, exponent_index, &
+                                      power_token%text, power_token%line, &
+                                      power_token%column)
+    end function fold_power_after_sign
 
     subroutine handle_infix_operator(parser, view, operators, operands, arena, &
                                      token, minimum_precedence, expect_operand, &
