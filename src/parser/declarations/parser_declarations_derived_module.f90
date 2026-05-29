@@ -438,11 +438,12 @@ contains
     end function read_binding_keyword
 
     logical function consume_binding_prefix(parser, is_deferred, pass_arg, &
-                                            accessibility) result(found_prefix)
+                                            accessibility, pass_name) result(found_prefix)
         type(parser_state_t), intent(inout) :: parser
         logical, intent(inout) :: is_deferred
         logical, intent(inout) :: pass_arg
         character(len=:), allocatable, intent(inout) :: accessibility
+        character(len=:), allocatable, intent(inout), optional :: pass_name
         type(token_t) :: token
         character(len=:), allocatable :: attr
 
@@ -473,8 +474,22 @@ contains
                     pass_arg = .false.
                     token = parser%consume()
                 else if (attr == "pass") then
-                    ! Just consume pass (or pass(arg))
+                    ! Consume pass; capture the dummy name in pass(arg).
                     token = parser%consume()
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                        token = parser%consume()
+                        token = parser%peek()
+                        if (token%kind == TK_IDENTIFIER .or. &
+                            token%kind == TK_KEYWORD) then
+                            if (present(pass_name)) &
+                                pass_name = to_lower(trim(token%text))
+                            token = parser%consume()
+                        end if
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == ")") &
+                            token = parser%consume()
+                    end if
                 else if (attr == "public" .or. attr == "private") then
                     accessibility = attr
                     token = parser%consume()
@@ -656,6 +671,7 @@ contains
         logical :: is_final
         logical :: is_deferred
         logical :: pass_arg
+        character(len=:), allocatable :: pass_name
         integer :: line
         integer :: column
         binding_index = 0
@@ -669,7 +685,7 @@ contains
                                        is_final)) return
         call read_interface_name(parser, interface_name)
         if (.not. consume_binding_prefix(parser, is_deferred, pass_arg, &
-                                         accessibility)) return
+                                         accessibility, pass_name)) return
         if (.not. read_binding_name(parser, binding_name)) return
         if (is_generic) then
             call read_generic_target_list(parser, generic_list, generic_count)
@@ -684,6 +700,7 @@ contains
                                     interface_name=interface_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     generic_list=generic_list, &
                                     line=line, column=column)
@@ -692,6 +709,7 @@ contains
                                     arena, binding_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     generic_list=generic_list, &
                                     line=line, column=column)
@@ -703,6 +721,7 @@ contains
                                     interface_name=interface_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     generic_list=generic_list, &
                                     line=line, column=column)
                 else
@@ -710,6 +729,7 @@ contains
                                     arena, binding_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     generic_list=generic_list, &
                                     line=line, column=column)
                 end if
@@ -723,6 +743,7 @@ contains
                                     interface_name=interface_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     line=line, column=column)
                 else
@@ -731,6 +752,7 @@ contains
                                     implementation=implementation, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     line=line, column=column)
                 end if
@@ -741,6 +763,7 @@ contains
                                     interface_name=interface_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     line=line, column=column)
                 else
@@ -748,6 +771,7 @@ contains
                                     arena, binding_name, &
                                     is_generic=is_generic, is_final=is_final, &
                                     is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                     accessibility=accessibility, &
                                     line=line, column=column)
                 end if
@@ -760,6 +784,7 @@ contains
                                 interface_name=interface_name, &
                                 is_generic=is_generic, is_final=is_final, &
                                 is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                 line=line, column=column)
             else
                 binding_index = push_type_binding( &
@@ -767,6 +792,7 @@ contains
                                 implementation=implementation, &
                                 is_generic=is_generic, is_final=is_final, &
                                 is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                 line=line, column=column)
             end if
         else
@@ -776,12 +802,14 @@ contains
                                 interface_name=interface_name, &
                                 is_generic=is_generic, is_final=is_final, &
                                 is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                 line=line, column=column)
             else
                 binding_index = push_type_binding( &
                                 arena, binding_name, &
                                 is_generic=is_generic, is_final=is_final, &
                                 is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    pass_name=pass_name, &
                                 line=line, column=column)
             end if
         end if

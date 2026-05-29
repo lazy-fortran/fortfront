@@ -157,6 +157,7 @@ module ast_nodes_data
         logical :: is_final = .false.  ! FINAL procedure
         logical :: is_deferred = .false.  ! DEFERRED (for abstract)
         logical :: pass_arg = .true.  ! PASS vs NOPASS
+        character(len=:), allocatable :: pass_name  ! PASS(name) dummy, if named
         character(len=:), allocatable :: accessibility  ! PUBLIC/PRIVATE
     contains
         procedure :: accept => type_binding_accept
@@ -435,6 +436,7 @@ contains
         lhs%is_final = rhs%is_final
         lhs%is_deferred = rhs%is_deferred
         lhs%pass_arg = rhs%pass_arg
+        if (allocated(rhs%pass_name)) lhs%pass_name = rhs%pass_name
         if (allocated(rhs%accessibility)) lhs%accessibility = rhs%accessibility
     end subroutine type_binding_assign
 

@@ -350,7 +350,7 @@ contains
     function push_type_binding(arena, binding_name, implementation, is_generic, &
                                is_final, is_deferred, pass_arg, accessibility, &
                                interface_name, generic_list, line, column, &
-                               parent_index) result(binding_index)
+                               parent_index, pass_name) result(binding_index)
         use string_types, only: string_t
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: binding_name
@@ -363,10 +363,14 @@ contains
         character(len=*), intent(in), optional :: interface_name
         type(string_t), intent(in), optional :: generic_list(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: pass_name
         integer :: binding_index
         type(type_binding_node) :: binding
 
         binding%binding_name = binding_name
+        if (present(pass_name)) then
+            if (len_trim(pass_name) > 0) binding%pass_name = trim(pass_name)
+        end if
 
         if (present(implementation)) then
             if (len_trim(implementation) > 0) then
