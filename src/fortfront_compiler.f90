@@ -17,7 +17,11 @@ module fortfront_compiler
                                          get_select_case_info, get_case_block_info, &
                                          get_case_default_body, get_case_range_info, &
                                          get_select_type_info, get_type_guard_info, &
-                                         get_dummy_allocatable_attribute
+                                         get_dummy_allocatable_attribute, &
+                                         get_program_body_info, &
+                                         get_module_body_info, &
+                                         get_function_body_info, &
+                                         get_subroutine_body_info
     use fortfront_semantic, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
                                   OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use fortfront_ast, only: ast_arena_t
