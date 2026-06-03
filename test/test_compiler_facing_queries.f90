@@ -10,16 +10,17 @@ program test_compiler_facing_queries
     !   get_bind_c_name
     use fortfront, only: compile_frontend_from_string, &
                          compiler_frontend_options_t, &
-                         compiler_frontend_result_t, INPUT_MODE_STANDARD
-    use fortfront, only: get_node_type_at, get_declaration_initializer, &
-                         get_derived_type_components, &
-                         get_array_literal_elements, get_import_list, &
-                         get_interface_block_body, has_bind_c_attribute, &
-                         get_bind_c_name, &
-                         get_select_case_info, get_case_block_info, &
-                         get_case_default_body, get_case_range_info, &
-                         get_select_type_info, get_type_guard_info, &
-                         get_dummy_allocatable_attribute
+                         compiler_frontend_result_t, INPUT_MODE_STANDARD, &
+                         get_node_type_at
+    use fortfront_compiler, only: get_declaration_initializer, &
+                                  get_derived_type_components, &
+                                  get_array_literal_elements, get_import_list, &
+                                  get_interface_block_body, has_bind_c_attribute, &
+                                  get_bind_c_name, &
+                                  get_select_case_info, get_case_block_info, &
+                                  get_case_default_body, get_case_range_info, &
+                                  get_select_type_info, get_type_guard_info, &
+                                  get_dummy_allocatable_attribute
     implicit none
 
     call test_declaration_initializer()
