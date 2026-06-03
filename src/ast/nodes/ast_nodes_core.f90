@@ -1,6 +1,6 @@
 module ast_nodes_core
     use ast_base, only: ast_node, visit_interface, &
-                        ast_visitor_base_t
+                        ast_visitor_base_t, copy_ast_node_base
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: subroutine_call_node
     implicit none
@@ -153,16 +153,7 @@ contains
     subroutine program_assign(lhs, rhs)
         class(program_node), intent(inout) :: lhs
         class(program_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
@@ -182,16 +173,7 @@ contains
     subroutine assignment_assign(lhs, rhs)
         class(assignment_node), intent(inout) :: lhs
         class(assignment_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         lhs%target_index = rhs%target_index
         lhs%value_index = rhs%value_index
@@ -216,16 +198,7 @@ contains
     subroutine pointer_assignment_assign(lhs, rhs)
         class(pointer_assignment_node), intent(inout) :: lhs
         class(pointer_assignment_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         lhs%pointer_index = rhs%pointer_index
         lhs%target_index = rhs%target_index
@@ -242,16 +215,7 @@ contains
         class(identifier_node), intent(inout) :: lhs
         class(identifier_node), intent(in) :: rhs
 
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         ! Copy derived class fields
         if (allocated(rhs%name)) then
@@ -270,16 +234,7 @@ contains
         class(literal_node), intent(inout) :: lhs
         class(literal_node), intent(in) :: rhs
 
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         ! Copy derived class fields
         if (allocated(rhs%value)) then
@@ -301,16 +256,7 @@ contains
     subroutine binary_op_assign(lhs, rhs)
         class(binary_op_node), intent(inout) :: lhs
         class(binary_op_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         lhs%left_index = rhs%left_index
         lhs%right_index = rhs%right_index
@@ -327,16 +273,7 @@ contains
     subroutine call_or_subscript_assign(lhs, rhs)
         class(call_or_subscript_node), intent(inout) :: lhs
         class(call_or_subscript_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
@@ -357,16 +294,7 @@ contains
     subroutine array_literal_assign(lhs, rhs)
         class(array_literal_node), intent(inout) :: lhs
         class(array_literal_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
         if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
@@ -421,16 +349,7 @@ contains
         class(component_access_node), intent(inout) :: lhs
         class(component_access_node), intent(in) :: rhs
 
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index
@@ -465,16 +384,7 @@ contains
         class(range_subscript_node), intent(inout) :: lhs
         class(range_subscript_node), intent(in) :: rhs
 
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index
