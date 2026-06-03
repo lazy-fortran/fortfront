@@ -1,6 +1,13 @@
 program test_ast_base_coverage
-    use ast_base
-    use ast_nodes_core, only: identifier_node, literal_node
+    use ast_base, only: copy_ast_node_base, LITERAL_INTEGER, LITERAL_REAL, &
+                        LITERAL_STRING, LITERAL_LOGICAL, LITERAL_ARRAY, &
+                        LITERAL_COMPLEX, ast_node_wrapper
+    use ast_nodes_core, only: identifier_node, literal_node, binary_op_node, &
+                              assignment_node
+    use type_system_unified, only: create_mono_type
+    use type_constants, only: TINT
+    use uid_generator, only: generate_uid
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     integer :: total_tests, passed_tests
@@ -34,6 +41,10 @@ program test_ast_base_coverage
     ! Test 6: Default initialization
     call test_start("default initialization")
     call test_default_initialization()
+
+    ! Test 7: Copy assignment preserves base fields on identifier_node
+    call test_start("copy assignment preserves base fields (identifier_node)")
+    call test_copy_assignment_base_fields()
 
     call print_results()
 
@@ -242,6 +253,86 @@ contains
 
         call test_pass()
     end subroutine test_default_initialization
+
+    subroutine test_copy_assignment_base_fields()
+        type(identifier_node) :: src, dst
+
+        ! Set base fields to non-default values
+        src%line = 42
+        src%column = 17
+        src%uid = generate_uid()
+        src%inferred_type = create_mono_type(TINT)
+        src%is_constant = .true.
+        src%constant_logical = .true.
+        src%constant_integer = 99
+        src%constant_real = 3.14_dp
+        src%constant_type = LITERAL_INTEGER
+
+        ! Set derived field
+        src%name = "test_name"
+
+        ! Copy assignment (uses identifier_assign which calls copy_ast_node_base)
+        dst = src
+
+        ! Verify base fields survived
+        if (dst%line /= 42) then
+            call test_fail("line should survive copy assignment")
+            return
+        end if
+
+        if (dst%column /= 17) then
+            call test_fail("column should survive copy assignment")
+            return
+        end if
+
+        if (dst%uid%value /= src%uid%value) then
+            call test_fail("uid should survive copy assignment")
+            return
+        end if
+
+        if (dst%inferred_type%kind /= TINT) then
+            call test_fail("inferred_type kind should survive copy assignment")
+            return
+        end if
+
+        if (dst%inferred_type%size /= src%inferred_type%size) then
+            call test_fail("inferred_type size should survive copy assignment")
+            return
+        end if
+
+        if (.not. dst%is_constant) then
+            call test_fail("is_constant should survive copy assignment")
+            return
+        end if
+
+        if (.not. dst%constant_logical) then
+            call test_fail("constant_logical should survive copy assignment")
+            return
+        end if
+
+        if (dst%constant_integer /= 99) then
+            call test_fail("constant_integer should survive copy assignment")
+            return
+        end if
+
+        if (dst%constant_real /= 3.14_dp) then
+            call test_fail("constant_real should survive copy assignment")
+            return
+        end if
+
+        if (dst%constant_type /= LITERAL_INTEGER) then
+            call test_fail("constant_type should survive copy assignment")
+            return
+        end if
+
+        ! Verify derived field survived
+        if (dst%name /= "test_name") then
+            call test_fail("derived field name should survive copy assignment")
+            return
+        end if
+
+        call test_pass()
+    end subroutine test_copy_assignment_base_fields
 
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name

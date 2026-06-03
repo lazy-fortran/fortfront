@@ -64,8 +64,23 @@ module ast_base
 
     ! Make interface and visitor base public
     public :: visit_interface, ast_visitor_base_t
+    public :: copy_ast_node_base
 
 contains
+
+    subroutine copy_ast_node_base(lhs, rhs)
+        class(ast_node), intent(inout) :: lhs
+        class(ast_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+    end subroutine copy_ast_node_base
 
     subroutine ast_node_wrapper_assign(lhs, rhs)
         class(ast_node_wrapper), intent(inout) :: lhs
