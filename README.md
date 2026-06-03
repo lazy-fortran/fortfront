@@ -7,7 +7,8 @@ Fortran and exposes AST/tooling APIs for downstream tools.
 
 FortFront is not a complete compiler backend. It does not emit backend IR,
 objects, or executables. Compiler work belongs in downstream drivers such as
-`ffc`, whose current direction is LIRIC.
+`ffc`, which consumes FortFront through compiler-facing APIs and lowers the
+supported subset through LIRIC.
 
 ## Features
 
@@ -21,8 +22,6 @@ Current limits:
 - The C API is a small validation/status bridge, not a full AST or semantic API.
 - Nested internal procedures and some newer/legacy Fortran constructs remain
   unsupported.
-- The compiler-facing API should be improved before a native backend consumes
-  FortFront directly.
 
 ## Lazy Fortran vs Standard Fortran
 
