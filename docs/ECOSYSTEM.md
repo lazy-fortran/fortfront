@@ -21,7 +21,7 @@ The ecosystem tools live in separate repositories and build on fortfront.
 | Tool | Purpose | Current status | Repository |
 |------|---------|----------------|------------|
 | **fluff** | Static analysis and formatting | Experimental; built on FortFront; some README-level feature claims are roadmap items | [lazy-fortran/fluff](https://github.com/lazy-fortran/fluff) |
-| **ffc** | Compiler driver/backend | Not a working compiler yet; the active backend direction is LIRIC via its C API | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
+| **ffc** | Compiler driver/backend | Active experimental compiler driver using FortFront and LIRIC for the supported subset | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
 | **fortrun** | Build/run enhancement service | Experimental and currently on hold | [lazy-fortran/fortrun](https://github.com/lazy-fortran/fortrun) |
 | **fortnb** | Notebook processing | Experimental and currently on hold | [lazy-fortran/fortnb](https://github.com/lazy-fortran/fortnb) |
 | **fortcov** | Coverage analysis | Independent gcov/FPM coverage tool; not part of compiler bootstrap | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
@@ -42,15 +42,10 @@ fo format                   # fluff code formatting
 
 ## Compiler Direction
 
-The near-term compiler path is:
-
-1. Keep FortFront responsible for lexing, parsing, type inference, AST
-   standardization, and diagnostics.
-2. Add a stable compiler-facing FortFront API that returns a typed AST and
-   semantic data without forcing standard Fortran emission.
-3. Rework `ffc` as the compiler driver.
-4. Add a LIRIC backend in `ffc` through ISO C bindings to LIRIC's C API.
-5. Start with a small executable subset, then expand language coverage.
+The active compiler path keeps FortFront backend-neutral. FortFront owns
+lexing, parsing, type inference, AST standardization, and diagnostics.
+`ffc` consumes the typed frontend result and lowers the supported subset
+through LIRIC. LIRIC stays behind `ffc`.
 
 LIRIC should not be coupled directly into FortFront. FortFront should remain
 backend-neutral so `fluff`, `fortrun`, and other tools can keep using the same
