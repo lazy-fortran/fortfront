@@ -3,9 +3,9 @@ module frontend_compiler_queries
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
                                    subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
-                              array_literal_node
+                               array_literal_node, program_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                              parameter_declaration_node
+                               parameter_declaration_node, module_node
     use ast_nodes_misc, only: interface_block_node, import_statement_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
                                      case_default_node, case_range_node, &
@@ -36,6 +36,10 @@ module frontend_compiler_queries
     public :: get_select_type_info
     public :: get_type_guard_info
     public :: get_dummy_allocatable_attribute
+    public :: get_program_body_info
+    public :: get_module_body_info
+    public :: get_function_body_info
+    public :: get_subroutine_body_info
 
 contains
 
@@ -557,6 +561,152 @@ contains
             is_alloc = .false.
         end select
     end function get_dummy_allocatable_attribute
+
+    ! Compiler-facing query: return the name and body statement indices of a
+    ! program_node.  Wrong node kind returns zero-length body_indices, an empty
+    ! name, and a non-empty error_msg naming the expected node kind.
+    subroutine get_program_body_info(arena, node_index, name, body_indices, &
+                                      error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: body_indices(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(name)
+        allocate (body_indices(0))
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'program body index does not reference an AST node'
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (program_node)
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a program; expected program_node'
+        end select
+    end subroutine get_program_body_info
+
+    ! Compiler-facing query: return the name, declaration indices, and
+    ! procedure (contains-section) indices of a module_node.
+    subroutine get_module_body_info(arena, node_index, name, &
+                                     declaration_indices, procedure_indices, &
+                                     error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        integer, allocatable, intent(out) :: procedure_indices(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(name)
+        allocate (declaration_indices(0))
+        allocate (procedure_indices(0))
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'module body index does not reference an AST node'
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (module_node)
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%declaration_indices)) then
+                declaration_indices = node%declaration_indices
+            else
+                allocate (declaration_indices(0))
+            end if
+            if (allocated(node%procedure_indices)) then
+                procedure_indices = node%procedure_indices
+            else
+                allocate (procedure_indices(0))
+            end if
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a module; expected module_node'
+        end select
+    end subroutine get_module_body_info
+
+    ! Compiler-facing query: return the name, parameter indices, body indices,
+    ! and result-variable name of a function_def_node.
+    subroutine get_function_body_info(arena, node_index, name, param_indices, &
+                                       body_indices, result_name, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: param_indices(:)
+        integer, allocatable, intent(out) :: body_indices(:)
+        character(len=:), allocatable, intent(out) :: result_name
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(name)
+        call set_empty(result_name)
+        allocate (param_indices(0))
+        allocate (body_indices(0))
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'function body index does not reference an AST node'
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%param_indices)) then
+                param_indices = node%param_indices
+            else
+                allocate (param_indices(0))
+            end if
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+            if (allocated(node%result_variable)) result_name = node%result_variable
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a function; expected function_def_node'
+        end select
+    end subroutine get_function_body_info
+
+    ! Compiler-facing query: return the name, parameter indices, and body
+    ! indices of a subroutine_def_node.
+    subroutine get_subroutine_body_info(arena, node_index, name, param_indices, &
+                                         body_indices, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: param_indices(:)
+        integer, allocatable, intent(out) :: body_indices(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        call set_empty(name)
+        allocate (param_indices(0))
+        allocate (body_indices(0))
+        if (.not. arena%has_node_at(node_index)) then
+            error_msg = 'subroutine body index does not reference an AST node'
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (subroutine_def_node)
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%param_indices)) then
+                param_indices = node%param_indices
+            else
+                allocate (param_indices(0))
+            end if
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+            call set_empty(error_msg)
+        class default
+            error_msg = 'AST node is not a subroutine; expected subroutine_def_node'
+        end select
+    end subroutine get_subroutine_body_info
 
     subroutine set_empty(value)
         character(len=:), allocatable, intent(out) :: value

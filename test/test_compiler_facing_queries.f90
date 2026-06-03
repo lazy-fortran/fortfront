@@ -12,15 +12,19 @@ program test_compiler_facing_queries
                          compiler_frontend_options_t, &
                          compiler_frontend_result_t, INPUT_MODE_STANDARD, &
                          get_node_type_at
-    use fortfront_compiler, only: get_declaration_initializer, &
-                                  get_derived_type_components, &
-                                  get_array_literal_elements, get_import_list, &
-                                  get_interface_block_body, has_bind_c_attribute, &
-                                  get_bind_c_name, &
-                                  get_select_case_info, get_case_block_info, &
-                                  get_case_default_body, get_case_range_info, &
-                                  get_select_type_info, get_type_guard_info, &
-                                  get_dummy_allocatable_attribute
+  use fortfront_compiler, only: get_declaration_initializer, &
+                                   get_derived_type_components, &
+                                   get_array_literal_elements, get_import_list, &
+                                   get_interface_block_body, has_bind_c_attribute, &
+                                   get_bind_c_name, &
+                                   get_select_case_info, get_case_block_info, &
+                                   get_case_default_body, get_case_range_info, &
+                                   get_select_type_info, get_type_guard_info, &
+                                   get_dummy_allocatable_attribute, &
+                                   get_program_body_info, &
+                                   get_module_body_info, &
+                                   get_function_body_info, &
+                                   get_subroutine_body_info
     implicit none
 
     call test_declaration_initializer()
@@ -32,6 +36,12 @@ program test_compiler_facing_queries
     call test_select_type_queries()
     call test_dummy_allocatable_attribute()
     call test_per_name_initializer_split()
+    call test_program_body_info()
+    call test_module_body_info()
+    call test_function_body_info()
+    call test_subroutine_body_info()
+    call test_wrong_node_kind_program_query()
+    call test_wrong_node_kind_declaration_query()
 
     print *, 'PASS: compiler-facing queries work as documented'
 
@@ -459,5 +469,312 @@ contains
             error stop 1
         end if
     end subroutine test_per_name_initializer_split
+
+    subroutine test_program_body_info()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: body_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'program myprog'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              '  x = 1'//new_line('a')// &
+              'end program myprog'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected program source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'program') cycle
+            call get_program_body_info(result%arena, i, name, body_indices, &
+                                        error_msg)
+            if (len_trim(name) == 0) then
+                print *, 'FAIL: program name is empty'
+                error stop 1
+            end if
+            if (size(body_indices) < 1) then
+                print *, 'FAIL: program body has no statements'
+                error stop 1
+            end if
+            if (len_trim(error_msg) > 0) then
+                print *, 'FAIL: error_msg set for valid program: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_program_body_info
+
+    subroutine test_module_body_info()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: declaration_indices(:), procedure_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'module mymod'//new_line('a')// &
+              '  implicit none'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              'contains'//new_line('a')// &
+              '  subroutine s()'//new_line('a')// &
+              '    x = 1'//new_line('a')// &
+              '  end subroutine s'//new_line('a')// &
+              'end module mymod'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected module source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'module') cycle
+            call get_module_body_info(result%arena, i, name, &
+                                       declaration_indices, procedure_indices, &
+                                       error_msg)
+            if (len_trim(name) == 0) then
+                print *, 'FAIL: module name is empty'
+                error stop 1
+            end if
+            if (size(declaration_indices) < 1) then
+                print *, 'FAIL: module has no declarations'
+                error stop 1
+            end if
+            if (size(procedure_indices) < 1) then
+                print *, 'FAIL: module has no procedures'
+                error stop 1
+            end if
+            if (len_trim(error_msg) > 0) then
+                print *, 'FAIL: error_msg set for valid module: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_module_body_info
+
+    subroutine test_function_body_info()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: param_indices(:), body_indices(:)
+        character(:), allocatable :: name, result_name, error_msg
+
+        src = 'program t'//new_line('a')// &
+              'contains'//new_line('a')// &
+              '  function add(a, b) result(r)'//new_line('a')// &
+              '    integer, intent(in) :: a, b'//new_line('a')// &
+              '    integer :: r'//new_line('a')// &
+              '    r = a + b'//new_line('a')// &
+              '  end function add'//new_line('a')// &
+              'end program t'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected function source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'function_def') &
+                cycle
+            call get_function_body_info(result%arena, i, name, param_indices, &
+                                         body_indices, result_name, error_msg)
+            if (len_trim(name) == 0) then
+                print *, 'FAIL: function name is empty'
+                error stop 1
+            end if
+            if (size(param_indices) < 2) then
+                print *, 'FAIL: function parameters not returned'
+                error stop 1
+            end if
+            if (size(body_indices) < 1) then
+                print *, 'FAIL: function body has no statements'
+                error stop 1
+            end if
+            if (len_trim(result_name) == 0) then
+                print *, 'FAIL: function result name is empty'
+                error stop 1
+            end if
+            if (len_trim(error_msg) > 0) then
+                print *, 'FAIL: error_msg set for valid function: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_function_body_info
+
+    subroutine test_subroutine_body_info()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: param_indices(:), body_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'program t'//new_line('a')// &
+              'contains'//new_line('a')// &
+              '  subroutine greet(msg)'//new_line('a')// &
+              '    character(len=*), intent(in) :: msg'//new_line('a')// &
+              '    print *, msg'//new_line('a')// &
+              '  end subroutine greet'//new_line('a')// &
+              'end program t'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected subroutine source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'subroutine_def') &
+                cycle
+            call get_subroutine_body_info(result%arena, i, name, param_indices, &
+                                           body_indices, error_msg)
+            if (len_trim(name) == 0) then
+                print *, 'FAIL: subroutine name is empty'
+                error stop 1
+            end if
+            if (size(param_indices) < 1) then
+                print *, 'FAIL: subroutine parameters not returned'
+                error stop 1
+            end if
+            if (size(body_indices) < 1) then
+                print *, 'FAIL: subroutine body has no statements'
+                error stop 1
+            end if
+            if (len_trim(error_msg) > 0) then
+                print *, 'FAIL: error_msg set for valid subroutine: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_subroutine_body_info
+
+    subroutine test_wrong_node_kind_program_query()
+        ! Query get_program_body_info with a declaration node (wrong kind).
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: body_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'program t'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              'end program t'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'declaration') cycle
+            call get_program_body_info(result%arena, i, name, body_indices, &
+                                        error_msg)
+            if (len_trim(error_msg) == 0) then
+                print *, 'FAIL: expected non-empty error_msg for wrong node kind'
+                error stop 1
+            end if
+            if (index(error_msg, 'program') == 0) then
+                print *, 'FAIL: error_msg does not mention program: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            if (size(body_indices) /= 0) then
+                print *, 'FAIL: body_indices should be empty for wrong node kind'
+                error stop 1
+            end if
+            if (len_trim(name) > 0) then
+                print *, 'FAIL: name should be empty for wrong node kind'
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_wrong_node_kind_program_query
+
+    subroutine test_wrong_node_kind_declaration_query()
+        ! Query get_module_body_info with a program node (wrong kind).
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: declaration_indices(:), procedure_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'program t'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              'end program t'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'program') cycle
+            call get_module_body_info(result%arena, i, name, &
+                                       declaration_indices, procedure_indices, &
+                                       error_msg)
+            if (len_trim(error_msg) == 0) then
+                print *, 'FAIL: expected non-empty error_msg for wrong node kind'
+                error stop 1
+            end if
+            if (index(error_msg, 'module') == 0) then
+                print *, 'FAIL: error_msg does not mention module: ', &
+                    trim(error_msg)
+                error stop 1
+            end if
+            if (size(declaration_indices) /= 0) then
+                print *, 'FAIL: declaration_indices should be empty for wrong node kind'
+                error stop 1
+            end if
+            if (size(procedure_indices) /= 0) then
+                print *, 'FAIL: procedure_indices should be empty for wrong node kind'
+                error stop 1
+            end if
+            if (len_trim(name) > 0) then
+                print *, 'FAIL: name should be empty for wrong node kind'
+                error stop 1
+            end if
+            exit
+        end do
+    end subroutine test_wrong_node_kind_declaration_query
 
 end program test_compiler_facing_queries

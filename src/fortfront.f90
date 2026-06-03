@@ -56,7 +56,11 @@ module fortfront
                                          get_select_case_info, get_case_block_info, &
                                          get_case_default_body, get_case_range_info, &
                                          get_select_type_info, get_type_guard_info, &
-                                         get_dummy_allocatable_attribute
+                                         get_dummy_allocatable_attribute, &
+                                         get_program_body_info, &
+                                         get_module_body_info, &
+                                         get_function_body_info, &
+                                         get_subroutine_body_info
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
@@ -183,16 +187,20 @@ module fortfront
     ! NEW: Extensible Semantic Pipeline (issue #202)
     use semantic_analyzer_base, only: semantic_analyzer_t
 
-    use frontend_compiler_queries, only: get_declaration_initializer, &
-                                         get_derived_type_components, &
-                                         get_array_literal_elements, &
-                                         get_import_list, &
-                                         get_interface_block_body, &
-                                         has_bind_c_attribute, get_bind_c_name, &
-                                         get_select_case_info, get_case_block_info, &
-                                         get_case_default_body, get_case_range_info, &
-                                         get_select_type_info, get_type_guard_info, &
-                                         get_dummy_allocatable_attribute
+ use frontend_compiler_queries, only: get_declaration_initializer, &
+                                          get_derived_type_components, &
+                                          get_array_literal_elements, &
+                                          get_import_list, &
+                                          get_interface_block_body, &
+                                          has_bind_c_attribute, get_bind_c_name, &
+                                          get_select_case_info, get_case_block_info, &
+                                          get_case_default_body, get_case_range_info, &
+                                          get_select_type_info, get_type_guard_info, &
+                                          get_dummy_allocatable_attribute, &
+                                          get_program_body_info, &
+                                          get_module_body_info, &
+                                          get_function_body_info, &
+                                          get_subroutine_body_info
 
   ! Re-export utility functions from fortfront_utils
     use fortfront_utils, only: node_exists, get_node_type_at, get_node_location, &
