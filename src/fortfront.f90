@@ -47,7 +47,16 @@ module fortfront
                                          get_subroutine_call_arg_indices, &
                                          is_binary_op, get_binary_op_info, &
                                          is_literal, get_literal_info, &
-                                         is_identifier, get_identifier_name
+                                         is_identifier, get_identifier_name, &
+                                         get_declaration_initializer, &
+                                         get_derived_type_components, &
+                                         get_array_literal_elements, &
+                                         get_import_list, get_interface_block_body, &
+                                         has_bind_c_attribute, get_bind_c_name, &
+                                         get_select_case_info, get_case_block_info, &
+                                         get_case_default_body, get_case_range_info, &
+                                         get_select_type_info, get_type_guard_info, &
+                                         get_dummy_allocatable_attribute
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
@@ -174,27 +183,29 @@ module fortfront
     ! NEW: Extensible Semantic Pipeline (issue #202)
     use semantic_analyzer_base, only: semantic_analyzer_t
 
-    ! Re-export utility functions from fortfront_utils
+    use frontend_compiler_queries, only: get_declaration_initializer, &
+                                         get_derived_type_components, &
+                                         get_array_literal_elements, &
+                                         get_import_list, &
+                                         get_interface_block_body, &
+                                         has_bind_c_attribute, get_bind_c_name, &
+                                         get_select_case_info, get_case_block_info, &
+                                         get_case_default_body, get_case_range_info, &
+                                         get_select_type_info, get_type_guard_info, &
+                                         get_dummy_allocatable_attribute
+
+  ! Re-export utility functions from fortfront_utils
     use fortfront_utils, only: node_exists, get_node_type_at, get_node_location, &
-                               get_node_line, get_node_column, &
-                               get_parent, get_next_sibling, get_previous_sibling, &
-                               get_block_statements, is_last_in_block, is_block_node, &
-                               get_node_type, find_nodes_by_type, ast_to_json, &
-                               get_arena_stats, analyze_program, get_type_for_node, &
-                               get_diagnostics, semantic_info_to_json, get_max_depth, &
-                               get_node_as_program, get_node_as_assignment, &
-                               get_node_as_function_def, &
-                               get_children, traverse_ast, traverse_node, &
-                               get_node_range, &
-                               get_declaration_initializer, &
-                               get_derived_type_components, &
-                               get_array_literal_elements, &
-                               get_import_list, get_interface_block_body, &
-                               has_bind_c_attribute, get_bind_c_name, &
-                               get_select_case_info, get_case_block_info, &
-                               get_case_default_body, get_case_range_info, &
-                               get_select_type_info, get_type_guard_info, &
-                               get_dummy_allocatable_attribute
+                                get_node_line, get_node_column, &
+                                get_parent, get_next_sibling, get_previous_sibling, &
+                                get_block_statements, is_last_in_block, is_block_node, &
+                                get_node_type, find_nodes_by_type, ast_to_json, &
+                                get_arena_stats, analyze_program, get_type_for_node, &
+                                get_diagnostics, semantic_info_to_json, get_max_depth, &
+                                get_node_as_program, get_node_as_assignment, &
+                                get_node_as_function_def, &
+                                get_children, traverse_ast, traverse_node, &
+                                get_node_range
     use fortfront_node_constants
 
     ! Re-export types from fortfront_types

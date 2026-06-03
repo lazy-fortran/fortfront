@@ -1,7 +1,15 @@
 module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_procedure, only: subroutine_call_node
-    use ast_nodes_core, only: binary_op_node, literal_node, identifier_node
+    use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
+                                   subroutine_def_node
+    use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
+                              array_literal_node
+    use ast_nodes_data, only: declaration_node, derived_type_node, &
+                              parameter_declaration_node
+    use ast_nodes_misc, only: interface_block_node, import_statement_node
+    use ast_nodes_conditional, only: select_case_node, case_block_node, &
+                                     case_default_node, case_range_node, &
+                                     select_type_node, type_guard_block_node
     implicit none
     private
 
@@ -14,6 +22,20 @@ module frontend_compiler_queries
     public :: get_literal_info
     public :: is_identifier
     public :: get_identifier_name
+    public :: get_declaration_initializer
+    public :: get_derived_type_components
+    public :: get_array_literal_elements
+    public :: get_import_list
+    public :: get_interface_block_body
+    public :: has_bind_c_attribute
+    public :: get_bind_c_name
+    public :: get_select_case_info
+    public :: get_case_block_info
+    public :: get_case_default_body
+    public :: get_case_range_info
+    public :: get_select_type_info
+    public :: get_type_guard_info
+    public :: get_dummy_allocatable_attribute
 
 contains
 
@@ -196,6 +218,345 @@ contains
             error_msg = 'AST node is not an explicit subroutine CALL statement'
         end select
     end subroutine get_subroutine_call_arg_indices
+
+    ! Compiler-facing query: return the arena index of a declaration's
+    ! initializer expression, or 0 if the declaration has none.
+    function get_declaration_initializer(arena, decl_index) result(init_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        integer :: init_index
+
+        init_index = 0
+        if (.not. arena%has_node_at(decl_index)) return
+        select type (node => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (node%has_initializer .and. node%initializer_index > 0) then
+                init_index = node%initializer_index
+            end if
+        end select
+    end function get_declaration_initializer
+
+    ! Compiler-facing query: copy the component_indices of a derived
+    ! type definition into an allocatable result.
+    subroutine get_derived_type_components(arena, type_index, components)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        integer, allocatable, intent(out) :: components(:)
+
+        if (.not. arena%has_node_at(type_index)) then
+            allocate (components(0))
+            return
+        end if
+        select type (node => arena%entries(type_index)%node)
+        type is (derived_type_node)
+            if (allocated(node%component_indices)) then
+                components = node%component_indices
+            else
+                allocate (components(0))
+            end if
+        class default
+            allocate (components(0))
+        end select
+    end subroutine get_derived_type_components
+
+    ! Compiler-facing query: copy the element_indices of an array
+    ! literal (Fortran array constructor) into an allocatable result.
+    subroutine get_array_literal_elements(arena, node_index, elements)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: elements(:)
+
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (elements(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (array_literal_node)
+            if (allocated(node%element_indices)) then
+                elements = node%element_indices
+            else
+                allocate (elements(0))
+            end if
+        class default
+            allocate (elements(0))
+        end select
+    end subroutine get_array_literal_elements
+
+    ! Compiler-facing query: copy the import_list of an import_statement_node
+    ! into an allocatable character array.
+    subroutine get_import_list(arena, node_index, names)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: names(:)
+        integer :: i, max_len
+
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (character(len=1) :: names(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (import_statement_node)
+            if (.not. allocated(node%import_list)) then
+                allocate (character(len=1) :: names(0))
+                return
+            end if
+            max_len = 1
+            do i = 1, size(node%import_list)
+                if (allocated(node%import_list(i)%s)) then
+                    if (len(node%import_list(i)%s) > max_len) &
+                        max_len = len(node%import_list(i)%s)
+                end if
+            end do
+            allocate (character(len=max_len) :: names(size(node%import_list)))
+            do i = 1, size(node%import_list)
+                if (allocated(node%import_list(i)%s)) then
+                    names(i) = node%import_list(i)%s
+                else
+                    names(i) = ''
+                end if
+            end do
+        class default
+            allocate (character(len=1) :: names(0))
+        end select
+    end subroutine get_import_list
+
+    ! Compiler-facing query: return whether an interface_block_node has
+    ! body indices and copy them out.
+    subroutine get_interface_block_body(arena, node_index, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (body_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (interface_block_node)
+            if (allocated(node%procedure_indices)) then
+                body_indices = node%procedure_indices
+            else
+                allocate (body_indices(0))
+            end if
+        class default
+            allocate (body_indices(0))
+        end select
+    end subroutine get_interface_block_body
+
+    ! Compiler-facing query: whether a function/subroutine definition has
+    ! a bind(c) clause.
+    function has_bind_c_attribute(arena, node_index) result(present_flag)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: present_flag
+
+        present_flag = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            present_flag = allocated(node%bind_c_clause)
+        type is (subroutine_def_node)
+            present_flag = allocated(node%bind_c_clause)
+        end select
+    end function has_bind_c_attribute
+
+    ! Compiler-facing query: return the bind-name from a bind(c, name="...")
+    ! clause if specified; empty string otherwise.
+    function get_bind_c_name(arena, node_index) result(bind_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: bind_name
+
+        bind_name = ''
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
+        type is (subroutine_def_node)
+            if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
+        end select
+    end function get_bind_c_name
+
+    ! Compiler-facing query: return the selector index, the case-arm arena
+    ! indices, and the optional default-arm arena index of a select_case_node.
+    subroutine get_select_case_info(arena, node_index, selector_index, &
+                                    case_indices, default_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: selector_index
+        integer, allocatable, intent(out) :: case_indices(:)
+        integer, intent(out) :: default_index
+
+        selector_index = 0
+        default_index = 0
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (case_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (select_case_node)
+            selector_index = node%selector_index
+            default_index = node%default_index
+            if (allocated(node%case_indices)) then
+                case_indices = node%case_indices
+            else
+                allocate (case_indices(0))
+            end if
+        class default
+            allocate (case_indices(0))
+        end select
+    end subroutine get_select_case_info
+
+    ! Compiler-facing query: copy a case_block_node's case-value and body
+    ! indices.
+    subroutine get_case_block_info(arena, node_index, value_indices, &
+                                   body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: value_indices(:)
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (value_indices(0))
+            allocate (body_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (case_block_node)
+            if (allocated(node%value_indices)) then
+                value_indices = node%value_indices
+            else
+                allocate (value_indices(0))
+            end if
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+        class default
+            allocate (value_indices(0))
+            allocate (body_indices(0))
+        end select
+    end subroutine get_case_block_info
+
+    ! Compiler-facing query: copy a case_default_node's body indices.
+    subroutine get_case_default_body(arena, node_index, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (body_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (case_default_node)
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+        class default
+            allocate (body_indices(0))
+        end select
+    end subroutine get_case_default_body
+
+    ! Compiler-facing query: return the inclusive start/end integer values of
+    ! a case_range_node.
+    subroutine get_case_range_info(arena, node_index, start_value, end_value)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: start_value
+        integer, intent(out) :: end_value
+
+        start_value = 0
+        end_value = 0
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (case_range_node)
+            start_value = node%start_value
+            end_value = node%end_value
+        end select
+    end subroutine get_case_range_info
+
+    ! Compiler-facing query: return the selector index, the type-guard arena
+    ! indices, and the optional class-default arena index of a
+    ! select_type_node.
+    subroutine get_select_type_info(arena, node_index, selector_index, &
+                                    guard_indices, default_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: selector_index
+        integer, allocatable, intent(out) :: guard_indices(:)
+        integer, intent(out) :: default_index
+
+        selector_index = 0
+        default_index = 0
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (guard_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (select_type_node)
+            selector_index = node%selector_index
+            default_index = node%default_index
+            if (allocated(node%guard_indices)) then
+                guard_indices = node%guard_indices
+            else
+                allocate (guard_indices(0))
+            end if
+        class default
+            allocate (guard_indices(0))
+        end select
+    end subroutine get_select_type_info
+
+    ! Compiler-facing query: return the guard kind string, the type-name
+    ! identifier arena index, and the body statement indices of a
+    ! type_guard_block_node.
+    subroutine get_type_guard_info(arena, node_index, guard_type, &
+                                   type_name_index, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: guard_type
+        integer, intent(out) :: type_name_index
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        type_name_index = 0
+        guard_type = ''
+        if (.not. arena%has_node_at(node_index)) then
+            allocate (body_indices(0))
+            return
+        end if
+        select type (node => arena%entries(node_index)%node)
+        type is (type_guard_block_node)
+            guard_type = trim(node%guard_type)
+            type_name_index = node%type_name_index
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+        class default
+            allocate (body_indices(0))
+        end select
+    end subroutine get_type_guard_info
+
+    ! Compiler-facing query: whether a declaration carries the allocatable
+    ! attribute.
+    function get_dummy_allocatable_attribute(arena, node_index) result(is_alloc)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_alloc
+
+        is_alloc = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+        type is (declaration_node)
+            is_alloc = node%is_allocatable
+        type is (parameter_declaration_node)
+            is_alloc = .false.
+        end select
+    end function get_dummy_allocatable_attribute
 
     subroutine set_empty(value)
         character(len=:), allocatable, intent(out) :: value
