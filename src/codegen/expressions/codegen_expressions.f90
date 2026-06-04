@@ -13,6 +13,7 @@ module codegen_expressions
     use string_types, only: string_t
     use codegen_indent
     use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_type_utils, only: get_type_standardization
     implicit none
     private
 

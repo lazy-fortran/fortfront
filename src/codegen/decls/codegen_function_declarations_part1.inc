@@ -562,6 +562,7 @@
         logical :: is_deferred_char
         character(len=:), allocatable :: signature
         integer :: func_pos
+        logical :: standardize_types_enabled
 
         is_result_var = is_function_result_identifier(func, var_name)
         is_array_result = is_result_var .and. should_use_result_for_array(arena, &
@@ -614,14 +615,17 @@
             end if
         end if
 
+        call get_type_standardization(standardize_types_enabled)
         if (is_result_var .and. type_choice%kind == TARRAY .and. &
             (type_choice%size == 0 .or. type_choice%alloc_info%is_allocatable)) &
             then
             deferred_type = convert_array_to_deferred_shape(type_choice)
             type_str = mono_type_to_string(deferred_type, include_shape=.true., &
+                                           standardize_real=standardize_types_enabled, &
                                            fallback='integer')
         else
             type_str = mono_type_to_string(type_choice, include_shape=.true., &
+                                           standardize_real=standardize_types_enabled, &
                                            fallback='integer')
         end if
     end function get_result_type_string
