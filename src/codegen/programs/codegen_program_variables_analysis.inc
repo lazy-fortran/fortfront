@@ -358,7 +358,13 @@
                                        include_shape=.true., &
                                        standardize_real=standardize_types_enabled, &
                                        fallback='')
-        if (len_trim(type_buf) == 0) type_buf = 'real'
+        if (len_trim(type_buf) == 0) then
+            if (standardize_types_enabled) then
+                type_buf = 'real(dp)'
+            else
+                type_buf = 'real'
+            end if
+        end if
         call try_add_variable(state, name, trim(type_buf))
     end subroutine register_identifier_reference
 
