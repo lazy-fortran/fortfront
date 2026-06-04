@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
-"""Run fortfront round-trip tests over GCC's gfortran DejaGNU suite.
+"""Run FortFront frontend conformance over external Fortran suites.
 
-This script validates fortfront's standard Fortran parsing and emission by:
-1. Parsing each test file with fortfront
-2. Re-parsing the output (round-trip verification)
-3. Optionally compiling and running both versions to check semantic equivalence
-
-Key outputs:
-- JSONL file with per-test results including status, duration, and metadata
-- Summary JSON with aggregated statistics, keyword analysis, and failure patterns
-- Console output with live progress and detailed keyword statistics
+The runner probes compile_frontend_from_file with semantics enabled, records
+parse and semantic-analysis state, round-trips accepted files, and keeps the
+failure digest and construct histogram that help prioritize coverage gaps.
 
 Usage:
-    python run_gfortran_roundtrip.py --gcc-root ../gcc-dev/gcc
-    python run_gfortran_roundtrip.py --resume  # Continue interrupted run
+    python run_gfortran_roundtrip.py --suite gfortran-dg --gcc-root ../gcc
+    python run_gfortran_roundtrip.py --suite lfortran --lfortran-root ../lfortran
     python run_gfortran_roundtrip.py --max-tests 100  # Quick iteration
 
 The script detects Fortran language constructs in failing tests to help identify
@@ -281,7 +275,7 @@ def discover_gfortran_tests(gcc_root: Path) -> List[Path]:
 
 
 def discover_lfortran_tests(lfortran_root: Path) -> List[Path]:
-    """Discover Fortran test files in the lfortran testsuite.
+    """Discover Fortran test files in the lfortran integration suite.
 
     Returns an empty list (no exception) when the lfortran source tree
     is absent so callers can skip the suite cleanly.
