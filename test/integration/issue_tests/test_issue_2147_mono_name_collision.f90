@@ -54,7 +54,10 @@ program test_issue_2147_mono_name_collision
             index(output, "real(dp), intent(in) :: arr(:)") > 0 .or. &
             index(output, "real(dp), dimension(:), intent(in) :: arr") > 0 .or. &
             index(output, "real(8), intent(in) :: arr(:)") > 0 .or. &
-            index(output, "real(8), dimension(:), intent(in) :: arr") > 0) then
+            index(output, "real(8), dimension(:), intent(in) :: arr") > 0 .or. &
+            index(output, "double precision, intent(in) :: arr(:)") > 0 .or. &
+            index(output, "double precision, dimension(:), intent(in) :: arr") &
+            > 0) then
             test_passed = .true.
         end if
     end if

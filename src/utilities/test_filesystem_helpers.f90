@@ -381,19 +381,21 @@ contains
         character(len=*), intent(out) :: suffix
         integer :: date_vals(8)
         integer :: clock_count, clock_rate, clock_max
+        integer :: pid
 
         suffix = ''
         call date_and_time(values=date_vals)
         call system_clock(count=clock_count, count_rate=clock_rate, &
                           count_max=clock_max)
+        pid = getpid()
 
-        write (suffix, '(I4.4,I2.2,I2.2,"_",I2.2,I2.2,I2.2,"_",I0)') &
-            date_vals(1), date_vals(2), date_vals(3), date_vals(5), &
+        write (suffix, '(I0,"_",I4.4,I2.2,I2.2,"_",I2.2,I2.2,I2.2,"_",I0)') &
+            pid, date_vals(1), date_vals(2), date_vals(3), date_vals(5), &
             date_vals(6), date_vals(7), abs(clock_count)
 
         suffix = trim(adjustl(suffix))
         if (len_trim(suffix) == 0) then
-            write (suffix, '(I0)') abs(clock_count)
+            write (suffix, '(I0,"_",I0)') pid, abs(clock_count)
             suffix = trim(adjustl(suffix))
         end if
     end subroutine generate_temp_suffix

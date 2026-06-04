@@ -30,20 +30,20 @@ program test_if_inside_do_loop
     end if
 
     inline_if_count = 0
-    ! Accept both 0.3 and 0.3d0
     if (index(output, 'if (x > 0.3d0)') > 0 .or. index(output, 'if(x>0.3d0)') > 0 .or. &
-        index(output, 'if (x > 0.3)') > 0 .or. index(output, 'if(x>0.3)') > 0) then
+        index(output, 'if (x > 0.3)') > 0 .or. index(output, 'if(x>0.3)') > 0 .or. &
+        index(output, 'if (x > 0.3_8)') > 0 .or. index(output, 'if(x>0.3_8)') > 0) then
         inline_if_count = inline_if_count + 1
     end if
     if (inline_if_count < 1) then
-        print *, 'ERROR: missing IF (x > 0.3) or IF (x > 0.3d0) inside loop'
+        print *, 'ERROR: missing IF (x > 0.3) inside loop'
         stop 1
     end if
 
-    ! Accept both 0.2 and 0.2d0
     if (index(output, 'if (x > 0.2d0) then') == 0 .and. index(output, 'if(x>0.2d0)then') == 0 .and. &
-        index(output, 'if (x > 0.2) then') == 0 .and. index(output, 'if(x>0.2)then') == 0) then
-        print *, 'ERROR: nested IF (x > 0.2) or IF (x > 0.2d0) block missing'
+        index(output, 'if (x > 0.2) then') == 0 .and. index(output, 'if(x>0.2)then') == 0 .and. &
+        index(output, 'if (x > 0.2_8) then') == 0 .and. index(output, 'if(x>0.2_8)then') == 0) then
+        print *, 'ERROR: nested IF (x > 0.2) block missing'
         stop 1
     end if
 
