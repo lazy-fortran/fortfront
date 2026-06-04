@@ -50,8 +50,17 @@ FORTRAN_SUFFIXES: Sequence[str] = (
     ".fpp",
 )
 
+# File extensions for lfortran test corpus
+LFORTRAN_SUFFIXES: Sequence[str] = (
+    ".f90",
+    ".f95",
+    ".f03",
+    ".f08",
+)
+
 DEFAULT_OUTPUT = Path("logs") / "gfortran_dejagnu_roundtrip_results.jsonl"
-DEFAULT_GCC_ROOT = Path("..") / "gcc-dev" / "gcc"
+DEFAULT_GCC_ROOT = Path(os.environ.get("FF_GFORTRAN_DG_DIR", "../gcc"))
+DEFAULT_LFORTRAN_ROOT = Path(os.environ.get("FF_LFORTRAN_DIR", "../lfortran"))
 DEFAULT_JOBS = min(32, max(1, (os.cpu_count() or 1)))
 DEFAULT_TEST_TIMEOUT = 0.05  # seconds; default timeout per test (fast path)
 DEFAULT_LIVE_DIGEST = 5.0  # seconds between live digest updates (fast feedback)
@@ -67,12 +76,31 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
+        "--suite",
+        choices=["gfortran-dg", "lfortran"],
+        default="gfortran-dg",
+        help=(
+            "Test suite to run (default: gfortran-dg). "
+            "Use 'lfortran' for the lfortran test corpus."
+        ),
+    )
+    parser.add_argument(
         "--gcc-root",
         type=Path,
         default=DEFAULT_GCC_ROOT,
         help=(
             "Path to the GCC source tree containing gcc/testsuite "
-            "(default: ../gcc-dev/gcc relative to repository root)."
+            "or directly to a gfortran testsuite directory "
+            "(default: $FF_GFORTRAN_DG_DIR or ../gcc relative to repository root)."
+        ),
+    )
+    parser.add_argument(
+        "--lfortran-root",
+        type=Path,
+        default=DEFAULT_LFORTRAN_ROOT,
+        help=(
+            "Path to the lfortran source tree root "
+            "(default: $FF_LFORTRAN_DIR or ../lfortran relative to repository root)."
         ),
     )
     parser.add_argument(
@@ -84,7 +112,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--frontend-probe",
+        type=Path,
+        help=(
+            "Path to the frontend_probe executable. When omitted, the script "
+            "searches build/gfortran_*/app/frontend_probe and uses the newest binary."
+        ),
+    )
+    parser.add_argument(
         "--output",
+        "--report",
+        dest="output",
         type=Path,
         default=DEFAULT_OUTPUT,
         help=f"Result file to write (default: {DEFAULT_OUTPUT}).",
@@ -159,25 +197,29 @@ def resolve_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def resolve_fortfront_binary(explicit: Path | None, project_root: Path) -> Path:
+def resolve_build_binary(
+    binary_name: str, explicit: Path | None, project_root: Path
+) -> Path:
     if explicit is not None:
         candidate = explicit if explicit.is_absolute() else (Path.cwd() / explicit)
         candidate = candidate.resolve()
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return candidate
-        raise FileNotFoundError(f"fortfront binary not found or not executable: {candidate}")
+        raise FileNotFoundError(
+            f"{binary_name} binary not found or not executable: {candidate}"
+        )
 
     build_root = project_root / "build"
     if not build_root.exists():
         raise FileNotFoundError(
             "No build directory found. Run `fpm build --profile release` first "
-            "or provide --fortfront."
+            f"or provide --{binary_name}."
         )
 
     newest_binary = None
     newest_mtime = -1.0
     for build_dir in build_root.glob("gfortran_*"):
-        binary = build_dir / "app" / "fortfront"
+        binary = build_dir / "app" / binary_name
         if binary.is_file() and os.access(binary, os.X_OK):
             mtime = binary.stat().st_mtime
             if mtime > newest_mtime:
@@ -186,34 +228,77 @@ def resolve_fortfront_binary(explicit: Path | None, project_root: Path) -> Path:
 
     if newest_binary is None:
         raise FileNotFoundError(
-            "Could not locate fortfront binary under build/. Run `fpm build` "
-            "or pass --fortfront."
+            f"Could not locate {binary_name} binary under build/. Run `fpm build` "
+            f"or pass --{binary_name}."
         )
     return newest_binary
 
 
+def resolve_fortfront_binary(explicit: Path | None, project_root: Path) -> Path:
+    return resolve_build_binary("fortfront", explicit, project_root)
+
+
+def resolve_frontend_probe_binary(explicit: Path | None, project_root: Path) -> Path:
+    return resolve_build_binary("frontend_probe", explicit, project_root)
+
+
+def resolve_gfortran_testsuite_root(gcc_root: Path) -> Optional[Path]:
+    gcc_root = gcc_root.resolve()
+    if gcc_root.is_dir() and gcc_root.name.startswith("gfortran"):
+        return gcc_root.parent
+    if gcc_root.is_dir() and gcc_root.name == "testsuite":
+        return gcc_root
+    for candidate in (gcc_root / "gcc" / "testsuite", gcc_root / "testsuite"):
+        if candidate.is_dir():
+            return candidate.resolve()
+    return None
+
+
 def discover_gfortran_tests(gcc_root: Path) -> List[Path]:
     gcc_root = gcc_root.resolve()
-    testsuite_root = gcc_root / "gcc" / "testsuite"
-    if not testsuite_root.is_dir():
-        raise FileNotFoundError(f"Missing GCC testsuite directory: {testsuite_root}")
+    if gcc_root.is_dir() and gcc_root.name.startswith("gfortran"):
+        test_dirs = [gcc_root]
+    else:
+        testsuite_root = resolve_gfortran_testsuite_root(gcc_root)
+        if testsuite_root is None:
+            return []
 
-    test_dirs = sorted(
-        path
-        for path in testsuite_root.iterdir()
-        if path.is_dir() and path.name.startswith("gfortran")
-    )
-    if not test_dirs:
-        raise FileNotFoundError(
-            f"No gfortran* directories found under {testsuite_root}. "
-            "Verify --gcc-root is correct."
+        test_dirs = sorted(
+            path
+            for path in testsuite_root.iterdir()
+            if path.is_dir() and path.name.startswith("gfortran")
         )
+        if not test_dirs:
+            return []
 
     files: List[Path] = []
     for directory in test_dirs:
         for candidate in directory.rglob("*"):
             if candidate.is_file() and candidate.suffix.lower() in FORTRAN_SUFFIXES:
                 files.append(candidate.resolve())
+    files.sort()
+    return files
+
+
+def discover_lfortran_tests(lfortran_root: Path) -> List[Path]:
+    """Discover Fortran test files in the lfortran testsuite.
+
+    Returns an empty list (no exception) when the lfortran source tree
+    is absent so callers can skip the suite cleanly.
+    """
+    lfortran_root = lfortran_root.resolve()
+    suite_roots = [
+        lfortran_root / "integration_tests",
+        lfortran_root / "testsuite",
+    ]
+    testsuite_root = next((root for root in suite_roots if root.is_dir()), None)
+    if testsuite_root is None:
+        return []
+
+    files: List[Path] = []
+    for candidate in testsuite_root.rglob("*"):
+        if candidate.is_file() and candidate.suffix.lower() in LFORTRAN_SUFFIXES:
+            files.append(candidate.resolve())
     files.sort()
     return files
 
@@ -237,6 +322,19 @@ def load_existing_results(path: Path) -> Set[str]:
             if rel_path:
                 processed.add(rel_path)
     return processed
+
+
+def load_manifest_paths(path: Path) -> Set[str]:
+    paths: Set[str] = set()
+    if not path.is_file():
+        return paths
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            paths.add(stripped)
+    return paths
 
 
 def truncate_text(text: str, limit: int = 400) -> str:
@@ -565,7 +663,7 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
     if status == "skipped_ref_no_compile":
         # Don't count skipped tests as failures
         return None
-    if status == "pass":
+    if status in {"pass", "pass_equivalent"}:
         if expected:
             path_hint = extract_path_cluster(record)
             desc_suffix = f" [{path_hint}]" if path_hint else ""
@@ -578,6 +676,69 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
                 )
             )
         return None
+    if status == "parse_fail":
+        diagnostic = str(record.get("diagnostic_text", ""))
+        path_hint = extract_path_cluster(record)
+        label = categorize_message(diagnostic)
+        signature = f"parse:{path_hint or label or 'generic'}"
+        description = (
+            f"Frontend parse failed: {first_line(diagnostic) or path_hint or 'no diagnostic'}"
+        )
+        return finalize(
+            Classification(
+                category="frontend_parse_fail",
+                signature=signature,
+                description=description,
+                features={"label": label, "path": path_hint},
+            )
+        )
+    if status == "sema_fail":
+        diagnostic = str(record.get("diagnostic_text", ""))
+        path_hint = extract_path_cluster(record)
+        label = categorize_message(diagnostic)
+        signature = f"sema:{path_hint or label or 'generic'}"
+        description = (
+            f"Frontend semantic analysis failed: {first_line(diagnostic) or path_hint or 'no diagnostic'}"
+        )
+        return finalize(
+            Classification(
+                category="frontend_sema_fail",
+                signature=signature,
+                description=description,
+                features={"label": label, "path": path_hint},
+            )
+        )
+    if status == "probe_timeout":
+        return finalize(
+            Classification(
+                category="frontend_probe_timeout",
+                signature="probe_timeout",
+                description="Frontend probe timed out",
+            )
+        )
+    if status == "probe_json":
+        return finalize(
+            Classification(
+                category="frontend_probe_json",
+                signature="probe_json",
+                description="Frontend probe produced invalid JSON",
+            )
+        )
+    if status == "probe_exit":
+        code = record.get("probe_exit_code")
+        raw_stderr = str(record.get("probe_stderr", ""))
+        stderr_line = first_line(raw_stderr)
+        label = categorize_message(raw_stderr)
+        signature = f"probe_exit:{code}:{label or 'generic'}"
+        description = f"Frontend probe exit {code}: {label or stderr_line or 'no stderr'}"
+        return finalize(
+            Classification(
+                category="frontend_probe_exit",
+                signature=signature,
+                description=description,
+                features={"label": label},
+            )
+        )
     if expected:
         path_hint = extract_path_cluster(record)
         desc_suffix = f" [{path_hint}]" if path_hint else ""
@@ -589,7 +750,7 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
                 features={"expected": True, "path": path_hint},
             )
         )
-    if status == "fail":
+    if status in {"fail", "roundtrip_fail"}:
         # legacy catch-all
         if "roundtrip_diff" in record:
             diff_text = str(record.get("roundtrip_diff", ""))
@@ -1184,7 +1345,9 @@ def detect_expected_failure(test_path: Path, text: Optional[str] = None) -> bool
     return ("dg-shouldfail" in text) or ("dg-xfail" in text)
 
 
-def parse_dg_metadata(test_path: Path, gcc_root: Path, text: Optional[str] = None) -> Dict[str, object]:
+def parse_dg_metadata(
+    test_path: Path, gcc_root: Path, text: Optional[str] = None
+) -> Dict[str, object]:
     """
     Minimal dg directive parser to approximate GCC harness context without copying code.
     Supports:
@@ -1222,12 +1385,13 @@ def parse_dg_metadata(test_path: Path, gcc_root: Path, text: Optional[str] = Non
         for match in re.findall(pat, text, flags=re.IGNORECASE):
             for token in shlex.split(match):
                 extras.append(token)
-    testsuite_root = (gcc_root / "gcc" / "testsuite").resolve()
+    testsuite_root = resolve_gfortran_testsuite_root(gcc_root)
     extra_paths: List[str] = []
-    for rel in extras:
-        candidate = (testsuite_root / rel).resolve()
-        if candidate.exists():
-            extra_paths.append(str(candidate))
+    if testsuite_root is not None:
+        for rel in extras:
+            candidate = (testsuite_root / rel).resolve()
+            if candidate.exists():
+                extra_paths.append(str(candidate))
     meta["extra_sources"] = extra_paths
     # dg-do
     do_compile = re.search(r"dg-do\\s+compile", text, flags=re.IGNORECASE)
@@ -1499,81 +1663,122 @@ def verify_roundtrip(
     }
 
 
+def probe_frontend(
+    probe_bin: Path,
+    test_path: Path,
+    timeout: float,
+) -> tuple[str, Dict[str, object]]:
+    try:
+        completed = subprocess.run(
+            [str(probe_bin), str(test_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return "probe_timeout", {
+            "probe_timeout": True,
+            "probe_note": "Frontend probe timed out",
+        }
+
+    stdout_text = completed.stdout.decode("utf-8", errors="replace").strip()
+    stderr_text = completed.stderr.decode("utf-8", errors="replace").strip()
+    if completed.returncode != 0:
+        return "probe_exit", {
+            "probe_exit_code": completed.returncode,
+            "probe_stderr": truncate_text(stderr_text, 600),
+            "probe_stdout": truncate_text(stdout_text, 600),
+        }
+
+    try:
+        payload = json.loads(stdout_text)
+    except json.JSONDecodeError:
+        return "probe_json", {
+            "probe_stdout": truncate_text(stdout_text, 600),
+            "probe_stderr": truncate_text(stderr_text, 600),
+        }
+
+    return "ok", {
+        "parse_ok": bool(payload.get("parse_ok", False)),
+        "semantic_ok": bool(payload.get("semantic_ok", False)),
+        "diagnostic_text": str(payload.get("diagnostic_text", "")),
+        "source_path": str(payload.get("source_path", test_path)),
+    }
+
+
 def run_case(
     test_path: Path,
+    suite: str,
     fortfront_bin: Path,
+    frontend_probe_bin: Path,
     gcc_root: Path,
+    rel_root: Path,
+    manifest_paths: Set[str],
     timeout: float,
     compile_timeout: float,
     run_timeout: float,
 ) -> Dict[str, object]:
-    """Execute a single round-trip test case.
-
-    Pipeline:
-    1. Check if reference source compiles (skip if not)
-    2. Run fortfront on source file
-    3. Verify round-trip (re-parse fortfront output)
-    4. If diff detected, check semantic equivalence via compile+run
-
-    Args:
-        test_path: Path to the Fortran test file
-        fortfront_bin: Path to fortfront executable
-        gcc_root: Root of GCC source tree (for relative paths)
-        timeout: Timeout for fortfront invocations
-        compile_timeout: Timeout for gfortran compilation
-        run_timeout: Timeout for compiled binary execution
-
-    Returns:
-        Dictionary with test results including:
-        - file: Relative path to test file
-        - status: Result status (pass, fatal, timeout, etc.)
-        - duration_s: Execution time
-        - source_keywords: Detected keywords in source
-        - source_patterns: Detected Fortran constructs
-    """
-    rel_path = str(test_path.relative_to(gcc_root))
+    """Execute a single frontend-conformance test case."""
+    rel_path = str(test_path.relative_to(rel_root))
     try:
         source_text = test_path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         source_text = ""
-    source_features = analyze_source_text(source_text)
-    expected_failure = detect_expected_failure(test_path, text=source_text)
-    dg_meta = parse_dg_metadata(test_path, gcc_root, text=source_text)
-    include_dirs = [
-        (gcc_root / "gcc" / "testsuite"),
-        (gcc_root / "gcc" / "testsuite" / "gfortran.dg"),
-        (gcc_root / "gcc" / "testsuite" / "gfortran.dg" / "include"),
-    ]
 
-    # Check if reference source compiles with gfortran before running fortfront
-    ref_compile = compile_and_run(
-        source_text,
-        suffix=".f90",
-        compile_timeout=compile_timeout,
-        run_timeout=0.01,  # minimal timeout, we don't run yet
-        options=dg_meta.get("options", []),
-        extra_sources=dg_meta.get("extra_sources", []),
-        include_dirs=include_dirs,
-        do_run=False,  # Only check if it compiles
-    )
-    if ref_compile.get("status") in {"compile_fail", "compile_timeout"}:
-        # Reference doesn't compile - skip this test entirely
-        return {
-            "file": rel_path,
-            "status": "skipped_ref_no_compile",
-            "duration_s": 0.0,
-            "stdout_bytes": 0,
-            "expected_failure": expected_failure,
-            "source_keywords": source_features.get("source_keywords", []),
-            "source_patterns": source_features.get("source_patterns", []),
-            "note": "Reference source does not compile with gfortran",
-        }
+    source_features = analyze_source_text(source_text)
+    expected_failure = rel_path in manifest_paths
+    if suite == "gfortran-dg":
+        expected_failure = expected_failure or detect_expected_failure(
+            test_path, text=source_text
+        )
+
+    record: Dict[str, object] = {
+        "file": rel_path,
+        "suite": suite,
+        "expected_failure": expected_failure,
+        "source_keywords": source_features.get("source_keywords", []),
+        "source_patterns": source_features.get("source_patterns", []),
+    }
+
+    probe_status, probe_detail = probe_frontend(frontend_probe_bin, test_path, timeout)
+    if probe_status != "ok":
+        record.update(
+            {
+                "status": probe_status,
+                "parse_ok": False,
+                "semantic_ok": False,
+                "parse_state": "PARSE_FAIL",
+                "sema_state": "SEMA_SKIP",
+                "roundtrip_state": "ROUNDTRIP_SKIP",
+                "probe_detail": probe_detail,
+            }
+        )
+        return record
+
+    parse_ok = bool(probe_detail.get("parse_ok", False))
+    semantic_ok = bool(probe_detail.get("semantic_ok", False))
+    diagnostic_text = str(probe_detail.get("diagnostic_text", ""))
+    record["parse_ok"] = parse_ok
+    record["semantic_ok"] = semantic_ok
+    record["diagnostic_text"] = truncate_text(diagnostic_text, 600)
+    record["parse_state"] = "PARSE_OK" if parse_ok else "PARSE_FAIL"
+    record["sema_state"] = "SEMA_OK" if semantic_ok else "SEMA_FAIL"
+
+    if not parse_ok:
+        record["status"] = "parse_fail"
+        record["roundtrip_state"] = "ROUNDTRIP_SKIP"
+        return record
+
+    if not semantic_ok:
+        record["status"] = "sema_fail"
+        record["roundtrip_state"] = "ROUNDTRIP_SKIP"
+        return record
 
     started = time.monotonic()
-    cmd = [str(fortfront_bin), str(test_path)]
     try:
         completed = subprocess.run(
-            cmd,
+            [str(fortfront_bin), str(test_path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
@@ -1582,99 +1787,119 @@ def run_case(
         duration = time.monotonic() - started
         stderr_text = completed.stderr.decode("utf-8", errors="replace").strip()
         stdout_text = completed.stdout.decode("utf-8", errors="replace")
-        record = {
-            "file": rel_path,
-            "exit_code": completed.returncode,
-            "duration_s": round(duration, 4),
-            "stdout_bytes": len(completed.stdout),
-            "expected_failure": expected_failure,
-            "source_keywords": source_features.get("source_keywords", []),
-            "source_patterns": source_features.get("source_patterns", []),
-        }
+        record["exit_code"] = completed.returncode
+        record["duration_s"] = round(duration, 4)
+        record["stdout_bytes"] = len(completed.stdout)
         if completed.returncode != 0:
             record["status"] = "fatal"
+            record["roundtrip_state"] = "ROUNDTRIP_FAIL"
             record["stderr_preview"] = truncate_text(stderr_text, 600)
             return record
         if len(stdout_text.strip()) == 0:
             record["status"] = "fatal"
+            record["roundtrip_state"] = "ROUNDTRIP_FAIL"
             record["stderr_preview"] = "No output produced for successful transform"
             return record
+
         rt_status, detail = verify_roundtrip(stdout_text, fortfront_bin, timeout)
         if rt_status == "pass":
             record["status"] = "pass"
+            record["roundtrip_state"] = "ROUNDTRIP_OK"
             return record
         if rt_status == "roundtrip_timeout":
             record["status"] = "roundtrip_timeout"
+            record["roundtrip_state"] = "ROUNDTRIP_FAIL"
             record.update(detail)
             return record
         if rt_status == "roundtrip_exit":
             record["status"] = "roundtrip_exit"
+            record["roundtrip_state"] = "ROUNDTRIP_FAIL"
             record.update(detail)
             return record
+
         roundtrip_text = detail.get("roundtrip_output", "")
-        semantic = semantic_compare_sources(
-            stdout_text,
-            roundtrip_text,
-            compile_timeout=compile_timeout,
-            run_timeout=run_timeout,
-            options=dg_meta.get("options", []),
-            extra_sources=dg_meta.get("extra_sources", []),
-            include_dirs=include_dirs,
-            do_run=dg_meta.get("do_run", True),
-        )
+        record["roundtrip_state"] = "ROUNDTRIP_FAIL"
         record["roundtrip_diff"] = detail.get("roundtrip_diff", "")
-        record["semantic_check"] = semantic
-        ref_status = semantic["ref"].get("status")
-        rt_status_compile = semantic["roundtrip"].get("status")
-        success_status = {"run_ok", "compile_ok"}
-        if (
-            ref_status in success_status
-            and rt_status_compile in success_status
-            and semantic.get("output_match", False)
-        ):
-            record["status"] = "pass_equivalent"
+
+        if suite == "gfortran-dg":
+            dg_meta = parse_dg_metadata(test_path, gcc_root, text=source_text)
+            testsuite_root = resolve_gfortran_testsuite_root(gcc_root)
+            include_dirs = []
+            if testsuite_root is not None:
+                include_dirs = [
+                    testsuite_root,
+                    testsuite_root / "gfortran.dg",
+                    testsuite_root / "gfortran.dg" / "include",
+                ]
+            semantic = semantic_compare_sources(
+                stdout_text,
+                roundtrip_text,
+                compile_timeout=compile_timeout,
+                run_timeout=run_timeout,
+                options=dg_meta.get("options", []),
+                extra_sources=dg_meta.get("extra_sources", []),
+                include_dirs=include_dirs,
+                do_run=dg_meta.get("do_run", True),
+            )
+            record["semantic_check"] = semantic
+            ref_status = semantic["ref"].get("status")
+            rt_status_compile = semantic["roundtrip"].get("status")
+            success_status = {"run_ok", "compile_ok"}
+            if (
+                ref_status in success_status
+                and rt_status_compile in success_status
+                and semantic.get("output_match", False)
+            ):
+                record["status"] = "pass_equivalent"
+                return record
+            if ref_status in {"compile_fail", "compile_timeout"}:
+                record["status"] = "compile_fail_ref"
+                return record
+            if rt_status_compile in {"compile_fail", "compile_timeout"}:
+                record["status"] = "compile_fail_roundtrip"
+                return record
+            if ref_status in {"run_fail", "run_timeout"}:
+                record["status"] = "runtime_fail_ref"
+                return record
+            if rt_status_compile in {"run_fail", "run_timeout"}:
+                record["status"] = "runtime_fail_roundtrip"
+                return record
+            if (
+                ref_status == "run_ok"
+                and rt_status_compile == "run_ok"
+                and not semantic.get("output_match", True)
+            ):
+                record["status"] = "output_mismatch"
+                record["ref_stdout"] = truncate_text(
+                    semantic["ref"].get("stdout", ""), 400
+                )
+                record["roundtrip_stdout"] = truncate_text(
+                    semantic["roundtrip"].get("stdout", ""), 400
+                )
+                return record
+            record["status"] = "compare_failure"
             return record
-        if ref_status in {"compile_fail", "compile_timeout"}:
-            record["status"] = "compile_fail_ref"
-            return record
-        if rt_status_compile in {"compile_fail", "compile_timeout"}:
-            record["status"] = "compile_fail_roundtrip"
-            return record
-        if ref_status in {"run_fail", "run_timeout"}:
-            record["status"] = "runtime_fail_ref"
-            return record
-        if rt_status_compile in {"run_fail", "run_timeout"}:
-            record["status"] = "runtime_fail_roundtrip"
-            return record
-        if (
-            ref_status == "run_ok"
-            and rt_status_compile == "run_ok"
-            and not semantic.get("output_match", True)
-        ):
-            record["status"] = "output_mismatch"
-            record["ref_stdout"] = truncate_text(semantic["ref"].get("stdout", ""), 400)
-            record["roundtrip_stdout"] = truncate_text(semantic["roundtrip"].get("stdout", ""), 400)
-            return record
-        record["status"] = "compare_failure"
+
+        record["status"] = "roundtrip_fail"
         return record
     except subprocess.TimeoutExpired as exc:
         duration = time.monotonic() - started
-        return {
-            "file": rel_path,
-            "status": "timeout",
-            "exit_code": None,
-            "duration_s": round(duration, 4),
-            "stdout_bytes": exc.output and len(exc.output) or 0,
-            "stderr_preview": truncate_text(
-                (exc.stderr or b"").decode("utf-8", errors="replace"), 600
-            ),
-            "source_keywords": source_features.get("source_keywords", []),
-            "source_patterns": source_features.get("source_patterns", []),
-        }
+        record["status"] = "timeout"
+        record["roundtrip_state"] = "ROUNDTRIP_FAIL"
+        record["exit_code"] = None
+        record["duration_s"] = round(duration, 4)
+        record["stdout_bytes"] = exc.output and len(exc.output) or 0
+        record["stderr_preview"] = truncate_text(
+            (exc.stderr or b"").decode("utf-8", errors="replace"), 600
+        )
+        return record
 
 
 STATUS_PASS = {"pass", "pass_equivalent"}
 STATUS_FAILURE = {
+    "parse_fail",
+    "sema_fail",
+    "roundtrip_fail",
     "fail",
     "roundtrip_exit",
     "roundtrip_timeout",
@@ -1710,12 +1935,14 @@ class TestCounters:
             self.passes += 1
             if expected:
                 self.xpasses += 1
+        elif expected and (status in STATUS_FAILURE or status == "fatal"):
+            self.xfails += 1
+        elif status in {"timeout", "probe_timeout"}:
+            self.timeouts += 1
+        elif status in {"fatal", "probe_exit", "probe_json"}:
+            self.fatals += 1
         elif status in STATUS_FAILURE:
             self.roundtrip_failures += 1
-            if expected:
-                self.xfails += 1
-        elif status == "fatal":
-            self.fatals += 1
         else:
             self.timeouts += 1
 
@@ -1749,11 +1976,20 @@ def print_progress(
     sys.stdout.flush()
 
 
-def write_meta_block(handle, gcc_root: Path, fortfront_bin: Path, total: int) -> None:
+def write_meta_block(
+    handle,
+    suite: str,
+    rel_root: Path,
+    fortfront_bin: Path,
+    frontend_probe_bin: Path,
+    total: int,
+) -> None:
     meta = {
         "type": "meta",
-        "gcc_root": str(gcc_root),
+        "suite": suite,
+        "rel_root": str(rel_root),
         "fortfront": str(fortfront_bin),
+        "frontend_probe": str(frontend_probe_bin),
         "total_tests": total,
         "timestamp": int(time.time()),
     }
@@ -1765,23 +2001,51 @@ def main() -> int:
     args = parse_args()
     project_root = resolve_project_root()
     gcc_root = (
-        args.gcc_root
-        if args.gcc_root.is_absolute()
-        else (project_root / args.gcc_root)
+        args.gcc_root if args.gcc_root.is_absolute() else (project_root / args.gcc_root)
+    ).resolve()
+    lfortran_root = (
+        args.lfortran_root
+        if args.lfortran_root.is_absolute()
+        else (project_root / args.lfortran_root)
     ).resolve()
 
-    fortfront_bin = resolve_fortfront_binary(args.fortfront, project_root)
-    tests = discover_gfortran_tests(gcc_root)
+    if args.suite == "gfortran-dg":
+        suite = "gfortran-dg"
+        rel_root = resolve_gfortran_testsuite_root(gcc_root) or gcc_root
+        tests = discover_gfortran_tests(gcc_root)
+        manifest_path = (
+            project_root / "test" / "conformance" / "frontend_xfail_gfortran_dg.txt"
+        )
+    else:
+        suite = "lfortran"
+        rel_root = lfortran_root
+        tests = discover_lfortran_tests(lfortran_root)
+        manifest_path = (
+            project_root / "test" / "conformance" / "frontend_xfail_lfortran.txt"
+        )
+
     if args.dry_run:
-        print(f"Discovered {len(tests)} gfortran test files:")
-        for path in tests:
-            print(f"  {path}")
+        if tests:
+            print(f"Discovered {len(tests)} {suite} test files:")
+            for path in tests:
+                print(f"  {path}")
+        else:
+            print(f"SKIP: {suite} suite unavailable at {rel_root}")
         return 0
+
+    if not tests:
+        print(f"SKIP: {suite} suite unavailable at {rel_root}")
+        return 0
+
+    fortfront_bin = resolve_fortfront_binary(args.fortfront, project_root)
+    frontend_probe_bin = resolve_frontend_probe_binary(args.frontend_probe, project_root)
 
     output_path = (
         args.output if args.output.is_absolute() else (project_root / args.output)
     ).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    manifest_paths = load_manifest_paths(manifest_path)
 
     already_done: Set[str] = set()
     if args.resume and output_path.exists():
@@ -1790,7 +2054,7 @@ def main() -> int:
     queue = [
         path
         for path in tests
-        if str(path.relative_to(gcc_root)) not in already_done
+        if str(path.relative_to(rel_root)) not in already_done
     ]
     total_to_run = len(queue)
     if total_to_run == 0:
@@ -1800,7 +2064,14 @@ def main() -> int:
     mode = "a" if args.resume and output_path.exists() else "w"
     with output_path.open(mode, encoding="utf-8") as handle:
         if mode == "w" or (mode == "a" and output_path.stat().st_size == 0):
-            write_meta_block(handle, gcc_root, fortfront_bin, len(tests))
+            write_meta_block(
+                handle,
+                suite,
+                rel_root,
+                fortfront_bin,
+                frontend_probe_bin,
+                len(tests),
+            )
 
         processed = len(tests) - len(queue)
         counters = TestCounters()
@@ -1810,7 +2081,7 @@ def main() -> int:
         last_digest = start_time
 
         print(
-            f"Running fortfront round-trip on {total_to_run} tests "
+            f"Running {suite} frontend conformance on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
         print_progress(
@@ -1821,8 +2092,12 @@ def main() -> int:
 
         worker = partial(
             run_case,
+            suite=suite,
             fortfront_bin=fortfront_bin,
+            frontend_probe_bin=frontend_probe_bin,
             gcc_root=gcc_root,
+            rel_root=rel_root,
+            manifest_paths=manifest_paths,
             timeout=effective_timeout,
             compile_timeout=args.compile_timeout,
             run_timeout=args.run_timeout,
@@ -1861,7 +2136,7 @@ def main() -> int:
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {counters.passes}, FAIL: {counters.roundtrip_failures}, "
+        f"Complete [{suite}]. PASS: {counters.passes}, FAIL: {counters.roundtrip_failures}, "
         f"FATAL: {counters.fatals}, TIMEOUT: {counters.timeouts}, "
         f"SKIP: {counters.skipped}. XFAIL: {counters.xfails}, XPASS: {counters.xpasses}. "
         f"Results: {output_path}"
@@ -1922,6 +2197,8 @@ def main() -> int:
         0,
     )
     summary_data = {
+        "suite": suite,
+        "rel_root": str(rel_root),
         "output_file": str(output_path),
         "summary": digest,
         "totals": {

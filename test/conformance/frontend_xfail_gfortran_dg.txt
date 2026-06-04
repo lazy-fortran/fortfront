@@ -1,0 +1,4 @@
+# One testsuite-relative path per expected frontend failure.
+# Example path format: gfortran.dg/select_rank_1.f90
+#
+# Keep this file empty until a real GCC suite run seeds the baseline.
