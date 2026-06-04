@@ -574,6 +574,7 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
 
         call set_empty(name)
+        if (allocated(body_indices)) deallocate (body_indices)
         allocate (body_indices(0))
         if (.not. arena%has_node_at(node_index)) then
             error_msg = 'program body index does not reference an AST node'
@@ -584,8 +585,6 @@ contains
             if (allocated(node%name)) name = node%name
             if (allocated(node%body_indices)) then
                 body_indices = node%body_indices
-            else
-                allocate (body_indices(0))
             end if
             call set_empty(error_msg)
         class default
@@ -606,6 +605,8 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
 
         call set_empty(name)
+        if (allocated(declaration_indices)) deallocate (declaration_indices)
+        if (allocated(procedure_indices)) deallocate (procedure_indices)
         allocate (declaration_indices(0))
         allocate (procedure_indices(0))
         if (.not. arena%has_node_at(node_index)) then
@@ -617,13 +618,9 @@ contains
             if (allocated(node%name)) name = node%name
             if (allocated(node%declaration_indices)) then
                 declaration_indices = node%declaration_indices
-            else
-                allocate (declaration_indices(0))
             end if
             if (allocated(node%procedure_indices)) then
                 procedure_indices = node%procedure_indices
-            else
-                allocate (procedure_indices(0))
             end if
             call set_empty(error_msg)
         class default
@@ -645,6 +642,8 @@ contains
 
         call set_empty(name)
         call set_empty(result_name)
+        if (allocated(param_indices)) deallocate (param_indices)
+        if (allocated(body_indices)) deallocate (body_indices)
         allocate (param_indices(0))
         allocate (body_indices(0))
         if (.not. arena%has_node_at(node_index)) then
@@ -656,13 +655,9 @@ contains
             if (allocated(node%name)) name = node%name
             if (allocated(node%param_indices)) then
                 param_indices = node%param_indices
-            else
-                allocate (param_indices(0))
             end if
             if (allocated(node%body_indices)) then
                 body_indices = node%body_indices
-            else
-                allocate (body_indices(0))
             end if
             if (allocated(node%result_variable)) result_name = node%result_variable
             call set_empty(error_msg)
@@ -683,6 +678,8 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
 
         call set_empty(name)
+        if (allocated(param_indices)) deallocate (param_indices)
+        if (allocated(body_indices)) deallocate (body_indices)
         allocate (param_indices(0))
         allocate (body_indices(0))
         if (.not. arena%has_node_at(node_index)) then
@@ -694,13 +691,9 @@ contains
             if (allocated(node%name)) name = node%name
             if (allocated(node%param_indices)) then
                 param_indices = node%param_indices
-            else
-                allocate (param_indices(0))
             end if
             if (allocated(node%body_indices)) then
                 body_indices = node%body_indices
-            else
-                allocate (body_indices(0))
             end if
             call set_empty(error_msg)
         class default
