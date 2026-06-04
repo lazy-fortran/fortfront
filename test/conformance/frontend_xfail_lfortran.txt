@@ -1,0 +1,4 @@
+# One lfortran integration_tests-relative path per expected frontend failure.
+# Example path format: arrays_01.f90
+#
+# Keep this file empty until a real lfortran suite run seeds the baseline.

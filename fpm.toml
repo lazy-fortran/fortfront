@@ -18,6 +18,11 @@ name = "fortfront"
 source-dir = "app"
 main = "fortfront.f90"
 
+[[executable]]
+name = "frontend_probe"
+source-dir = "app"
+main = "frontend_probe.f90"
+
 [fortran]
 implicit-external = false
 implicit-typing = false
