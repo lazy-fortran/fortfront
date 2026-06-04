@@ -377,9 +377,15 @@
         integer :: i
         integer :: mapped_kind
         character(len=:), allocatable :: temp_type_string
+        logical :: standardize
 
         if (.not. allocated(signature%param_kinds)) return
         if (size(signature%param_kinds) == 0) return
+
+        call get_type_standardization(standardize)
+        if (standardize) then
+            call promote_real_to_double(signature)
+        end if
 
         fallback_kind = determine_fallback_kind(signature%param_kinds, &
                                                 signature%param_type_strings)
@@ -392,14 +398,11 @@
             end if
             if (allocated(signature%param_type_strings)) then
                 if (i <= size(signature%param_type_strings)) then
-                    ! Only process if the type string is non-empty
                     if (len_trim(signature%param_type_strings(i)) == 0) cycle
 
                     mapped_kind = &
                         map_type_string_to_kind(signature%param_type_strings(i))
-                    ! For array types, normalize while preserving dimension info
                     if (signature%param_kinds(i) == TARRAY) then
-                        ! Only normalize if it contains "dimension"
                         if (index(to_lower(signature%param_type_strings(i)), &
                                   'dimension') > 0) then
                             temp_type_string = signature%param_type_strings(i)
@@ -411,8 +414,6 @@
                         signature%param_type_strings(i) = kind_to_string_local( &
                                                           signature%param_kinds(i))
                     end if
-                    ! Normalize character types to ignore length for monomorphization
-                    ! Fortran forbids generics that differ only by character length
                     if (signature%param_kinds(i) == TCHAR) then
                         signature%param_type_strings(i) = "character(len=*)"
                     end if
@@ -420,13 +421,97 @@
             end if
         end do
 
-        ! Also normalize return type string if it's a character
         if (allocated(signature%return_type_string)) then
             if (signature%return_kind == TCHAR) then
                 signature%return_type_string = "character(len=*)"
             end if
         end if
+
+        if (signature%return_kind > 0 .and. &
+            signature%return_kind /= TVAR) then
+            signature%return_type_string = &
+                kind_to_string_local(signature%return_kind)
+        end if
     end subroutine normalize_signature_param_types
+
+    subroutine promote_real_to_double(signature)
+        type(type_signature_t), intent(inout) :: signature
+        integer :: i, n, max_len
+        character(len=:), allocatable :: new_strings(:)
+
+        do i = 1, size(signature%param_kinds)
+            if (signature%param_kinds(i) == TREAL) then
+                signature%param_kinds(i) = TDOUBLE
+            end if
+        end do
+        if (signature%return_kind == TREAL) then
+            signature%return_kind = TDOUBLE
+        end if
+
+        if (.not. allocated(signature%param_type_strings)) return
+        n = size(signature%param_type_strings)
+
+        max_len = 32
+        do i = 1, n
+            if (len_trim(signature%param_type_strings(i)) > max_len) then
+                max_len = len_trim(signature%param_type_strings(i))
+            end if
+        end do
+
+        allocate (character(len=max_len) :: new_strings(n))
+        do i = 1, n
+            new_strings(i) = signature%param_type_strings(i)
+        end do
+        do i = 1, n
+            if (signature%param_kinds(i) == TDOUBLE) then
+                if (index(to_lower(new_strings(i)), 'real') == 1 .and. &
+                    index(to_lower(new_strings(i)), 'real(') == 0) then
+                    new_strings(i) = 'double precision'
+                end if
+            else if (signature%param_kinds(i) == TCOMPLEX) then
+                if (to_lower(trim(new_strings(i))) == 'complex') then
+                    new_strings(i) = 'complex(8)'
+                end if
+            else if (signature%param_kinds(i) == TARRAY) then
+                call promote_array_element_type(new_strings(i))
+            end if
+        end do
+        deallocate (signature%param_type_strings)
+        signature%param_type_strings = new_strings
+
+        if (allocated(signature%return_type_string)) then
+            if (signature%return_kind == TDOUBLE) then
+                if (index(to_lower(signature%return_type_string), 'real') == 1 &
+                    .and. index(to_lower(signature%return_type_string), &
+                    'real(') == 0) then
+                    signature%return_type_string = 'double precision'
+                end if
+            else if (signature%return_kind == TCOMPLEX) then
+                if (to_lower(trim(signature%return_type_string)) == 'complex') &
+                    then
+                    signature%return_type_string = 'complex(8)'
+                end if
+            end if
+        end if
+    end subroutine promote_real_to_double
+
+    subroutine promote_array_element_type(type_str)
+        character(len=*), intent(inout) :: type_str
+        character(len=:), allocatable :: lowered
+        integer :: dim_pos
+
+        lowered = to_lower(trim(type_str))
+        if (index(lowered, 'real') /= 1) return
+        if (index(lowered, 'real(') == 1) return
+
+        dim_pos = index(lowered, ', dimension')
+        if (dim_pos == 0) dim_pos = index(lowered, ',dimension')
+        if (dim_pos > 0) then
+            type_str = 'double precision' // type_str(dim_pos:len_trim(type_str))
+        else
+            type_str = 'double precision'
+        end if
+    end subroutine promote_array_element_type
 
     subroutine normalize_array_type_string(type_string)
         character(len=:), allocatable, intent(inout) :: type_string
@@ -539,24 +624,16 @@
 
         identical = .false.
 
-        ! Check parameter count
         if (allocated(sig1%param_kinds) .neqv. allocated(sig2%param_kinds)) return
         if (allocated(sig1%param_kinds)) then
             if (size(sig1%param_kinds) /= size(sig2%param_kinds)) return
-        end if
-
-        ! Check parameter kinds
-        if (allocated(sig1%param_kinds)) then
             if (.not. all(sig1%param_kinds == sig2%param_kinds)) return
         end if
 
-        ! Check return kind
         if (sig1%return_kind /= sig2%return_kind) return
 
-        ! Check parameter type strings (normalized form)
-        if (allocated(sig1%param_type_strings) .neqv. &
-            allocated(sig2%param_type_strings)) return
-        if (allocated(sig1%param_type_strings)) then
+        if (allocated(sig1%param_type_strings) .and. &
+            allocated(sig2%param_type_strings)) then
             if (size(sig1%param_type_strings) /= size(sig2%param_type_strings)) &
                 return
             do i = 1, size(sig1%param_type_strings)
@@ -565,10 +642,8 @@
             end do
         end if
 
-        ! Check return type string (normalized form)
-        if (allocated(sig1%return_type_string) .neqv. &
-            allocated(sig2%return_type_string)) return
-        if (allocated(sig1%return_type_string)) then
+        if (allocated(sig1%return_type_string) .and. &
+            allocated(sig2%return_type_string)) then
             if (trim(sig1%return_type_string) /= trim(sig2%return_type_string)) &
                 return
         end if

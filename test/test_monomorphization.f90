@@ -96,7 +96,8 @@ program test_monomorphization
     if (index(output, "real function square__r32") > 0 .or. &
         index(output, "real(dp) function square__r32") > 0 .or. &
         index(output, "real(dp) function square__r64") > 0 .or. &
-        index(output, "real(8) function square__r64") > 0) then
+        index(output, "real(8) function square__r64") > 0 .or. &
+        index(output, "double precision function square__r64") > 0) then
         if (index(output, "integer function square__r32") == 0 .and. &
             index(output, "integer function square__r64") == 0) then
             test_passed = .true.
