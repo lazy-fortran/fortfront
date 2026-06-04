@@ -92,7 +92,7 @@ contains
                 end if
             type is (parameter_declaration_node)
                 call process_param_decl_node(arena, node, param_map, indent_str, &
-                                             code)
+                                             standardize_types_enabled, code)
             end select
         end do
     end subroutine gen_param_declarations
