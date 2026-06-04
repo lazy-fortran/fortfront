@@ -32,7 +32,15 @@ import difflib
 from collections import Counter, defaultdict
 import re
 import shlex
-from rapidfuzz import fuzz
+def _token_set_ratio(a: str, b: str) -> int:
+    """Token-set similarity ratio (0-100), no external deps."""
+    ta = set(a.lower().split())
+    tb = set(b.lower().split())
+    if not ta and not tb:
+        return 100
+    if not ta or not tb:
+        return 0
+    return int(200 * len(ta & tb) / (len(ta) + len(tb)))
 
 FORTRAN_SUFFIXES: Sequence[str] = (
     ".f",
@@ -566,7 +574,7 @@ class FailureAggregator:
             signature_text = classification.features.get("signature_text", classification.signature)
             assigned = False
             for idx, (prototype, items) in enumerate(clusters):
-                score = fuzz.token_set_ratio(signature_text, prototype)
+                score = _token_set_ratio(signature_text, prototype)
                 if score >= threshold:
                     items.append((record, classification))
                     # Update prototype to average maybe keep first for determinism.
