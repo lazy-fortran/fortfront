@@ -7,6 +7,7 @@ module codegen_procedure_shared
     use codegen_declarations_core, only: build_parameter_dimensions, &
                                          fix_character_len_placeholder
     use codegen_parameter_info, only: parameter_info_t
+    use codegen_type_utils, only: get_type_standardization
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, TARRAY
@@ -490,33 +491,49 @@ contains
         type(parameter_declaration_node), intent(in) :: param_node
         character(len=:), allocatable :: param_type
         character(len=:), allocatable :: lowered
+        logical :: standardize
 
         if (allocated(param_node%type_name) .and. &
             len_trim(param_node%type_name) > 0) then
             param_type = param_node%type_name
         else
+            call get_type_standardization(standardize)
             param_type = mono_type_to_string(param_node%inferred_type, &
-                                             include_shape=.false., fallback='real')
+                                             include_shape=.false., &
+                                             standardize_real=standardize, &
+                                             fallback='real')
             if (len_trim(param_type) == 0) param_type = 'real'
         end if
 
-        if (.not. param_node%has_kind) return
-        if (param_node%kind_value <= 0) return
+        if (param_node%has_kind .and. param_node%kind_value > 0) then
+            lowered = to_lower(trim(param_type))
+            if (lowered == 'real' .and. param_node%kind_value == 8) then
+                param_type = 'real(dp)'
+            else if (lowered == 'real') then
+                param_type = trim(param_type) // '(' // &
+                             trim(adjustl(int_to_string(param_node%kind_value))) // ')'
+            end if
+            return
+        end if
 
-        lowered = to_lower(trim(param_type))
-        if (lowered == 'real' .and. param_node%kind_value == 8) then
-            param_type = 'real(dp)'
-        else if (lowered == 'real') then
-            param_type = trim(param_type) // '(' // &
-                         trim(adjustl(int_to_string(param_node%kind_value))) // ')'
+        call get_type_standardization(standardize)
+        if (standardize) then
+            lowered = to_lower(trim(param_type))
+            if (lowered == 'real') param_type = 'real(dp)'
         end if
     end function get_param_type_from_param_decl
 
     function get_param_type_fallback(param_node) result(param_type)
         class(*), intent(in) :: param_node
         character(len=:), allocatable :: param_type
+        logical :: standardize
 
-        param_type = 'real'
+        call get_type_standardization(standardize)
+        if (standardize) then
+            param_type = 'real(dp)'
+        else
+            param_type = 'real'
+        end if
     end function get_param_type_fallback
 
     logical function is_parameter_name(name, param_map) result(is_param)

@@ -2,26 +2,45 @@
     function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
         character(len=:), allocatable :: code
+        logical :: standardize
 
-        ! Generate literal value - handle missing values gracefully
         if (allocated(node%value)) then
-            ! Transform non-Fortran boolean literals to Fortran format
             if (node%value == "true") then
                 code = ".true."
             else if (node%value == "false") then
                 code = ".false."
             else
                 code = node%value
-                ! Do NOT automatically promote real literals to double precision
-                ! because it breaks generic interface resolution that depends on
-                ! exact type matching (real vs real(dp)). Users should explicitly
-                ! write 5.0d0 or use kind parameters if they want double precision.
+                if (node%literal_kind == LITERAL_REAL) then
+                    call get_type_standardization(standardize)
+                    if (standardize) then
+                        code = trim(adjustl(code))
+                        if (.not. literal_has_kind_suffix(code)) then
+                            code = code // "_8"
+                        end if
+                    end if
+                end if
             end if
         else
-            ! Fallback for missing literal value
-            code = "0"  ! Safe default literal
+            code = "0"
         end if
     end function generate_code_literal
+
+    pure logical function literal_has_kind_suffix(val) result(has_suffix)
+        character(len=*), intent(in) :: val
+        integer :: i
+        has_suffix = .false.
+        do i = 1, len_trim(val)
+            if (val(i:i) == '_') then
+                has_suffix = .true.
+                return
+            end if
+            if (val(i:i) == 'd' .or. val(i:i) == 'D') then
+                has_suffix = .true.
+                return
+            end if
+        end do
+    end function literal_has_kind_suffix
 
     ! Generate code for identifier nodes
     function generate_code_identifier(node) result(code)
@@ -768,13 +787,13 @@
         character(len=*), intent(in) :: code
         character(len=:), allocatable :: promoted
         character(len=:), allocatable :: trimmed
+        logical :: standardize
 
         trimmed = trim(code)
         promoted = trimmed
 
         if (len_trim(promoted) == 0) return
 
-        ! Respect existing explicit kind suffixes and exponential forms
         if (index(promoted, '_') /= 0) then
             promoted = "real(" // promoted // ")"
             return
@@ -783,7 +802,12 @@
         if (index(promoted, 'e') /= 0 .or. index(promoted, 'E') /= 0) return
         if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
 
-        promoted = promoted // ".0"
+        call get_type_standardization(standardize)
+        if (standardize) then
+            promoted = promoted // ".0_8"
+        else
+            promoted = promoted // ".0"
+        end if
     end function promote_integer_literal_to_real
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
