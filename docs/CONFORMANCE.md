@@ -7,8 +7,8 @@ construct and diagnostic pattern.
 
 ## Suites
 
-- `gfortran-dg`: GCC DejaGNU Fortran tests. Set `FF_GFORTRAN_DG_DIR` to either a
-  GCC source root or a direct `gfortran.dg` directory. The default is `../gcc`
+- `gfortran-dg`: GCC DejaGNU Fortran tests. Set `FF_GFORTRAN_DG_DIR` to the
+  `gfortran.dg` directory. The default is `../gcc/gcc/testsuite/gfortran.dg`
   relative to this repository.
 - `lfortran`: lfortran integration tests. Set `FF_LFORTRAN_DIR` to the lfortran
   source root. The default is `../lfortran` relative to this repository.
@@ -34,7 +34,8 @@ FF_LFORTRAN_DIR=/path/to/lfortran \
   --report /tmp/ff_lfortran.jsonl
 ```
 
-The wrapper forwards other options to `scripts/run_gfortran_roundtrip.py`, for
+The wrapper accepts `--gcc-root` and `--lfortran-root` as explicit overrides.
+It forwards the other options to `scripts/run_gfortran_roundtrip.py`, for
 example `--max-tests 50`, `--jobs 1`, `--timeout 0.2`, `--fortfront`, or
 `--frontend-probe`.
 

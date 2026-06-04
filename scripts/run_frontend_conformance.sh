@@ -7,6 +7,8 @@ python_bin=${PYTHON:-python3}
 
 suite=all
 report="$project_root/logs/frontend_conformance.jsonl"
+gcc_root_arg=""
+lfortran_root_arg=""
 extra_args=()
 
 usage() {
@@ -16,7 +18,13 @@ Usage: scripts/run_frontend_conformance.sh [options]
 Options:
   --suite {all,gfortran-dg,lfortran}
   --report PATH
+  --gcc-root PATH
+  --lfortran-root PATH
   -h, --help
+
+Environment:
+  FF_GFORTRAN_DG_DIR
+  FF_LFORTRAN_DIR
 
 All other options are passed to scripts/run_gfortran_roundtrip.py.
 USAGE
@@ -40,6 +48,22 @@ while (($# > 0)); do
             report=$2
             shift 2
             ;;
+        --gcc-root)
+            if (($# < 2)); then
+                echo "ERROR: --gcc-root requires a path" >&2
+                exit 2
+            fi
+            gcc_root_arg=$2
+            shift 2
+            ;;
+        --lfortran-root)
+            if (($# < 2)); then
+                echo "ERROR: --lfortran-root requires a path" >&2
+                exit 2
+            fi
+            lfortran_root_arg=$2
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -58,6 +82,19 @@ case "$suite" in
         exit 2
         ;;
 esac
+
+gfortran_suite_dir=${FF_GFORTRAN_DG_DIR:-$project_root/../gcc/gcc/testsuite/gfortran.dg}
+if [[ -n "$gcc_root_arg" ]]; then
+    gfortran_root=$gcc_root_arg
+else
+    gfortran_root=$(dirname "$(dirname "$(dirname "$gfortran_suite_dir")")")
+fi
+
+if [[ -n "$lfortran_root_arg" ]]; then
+    lfortran_root=$lfortran_root_arg
+else
+    lfortran_root=${FF_LFORTRAN_DIR:-$project_root/../lfortran}
+fi
 
 report_for_suite() {
     local suite_name=$1
@@ -83,10 +120,22 @@ run_suite() {
     mkdir -p "$(dirname -- "$suite_report")"
 
     echo "== frontend conformance: $suite_name =="
-    "$python_bin" "$project_root/scripts/run_gfortran_roundtrip.py" \
-        --suite "$suite_name" \
-        --report "$suite_report" \
-        "${extra_args[@]}"
+    case "$suite_name" in
+        gfortran-dg)
+            "$python_bin" "$project_root/scripts/run_gfortran_roundtrip.py" \
+                --suite "$suite_name" \
+                --gcc-root "$gfortran_root" \
+                --report "$suite_report" \
+                "${extra_args[@]}"
+            ;;
+        lfortran)
+            "$python_bin" "$project_root/scripts/run_gfortran_roundtrip.py" \
+                --suite "$suite_name" \
+                --lfortran-root "$lfortran_root" \
+                --report "$suite_report" \
+                "${extra_args[@]}"
+            ;;
+    esac
     status=$?
     if ((status != 0)); then
         echo "suite $suite_name failed with exit $status" >&2

@@ -59,9 +59,11 @@ scripts/run_frontend_conformance.sh --suite lfortran --jobs 1
 ```
 
 Suite roots:
-- `FF_GFORTRAN_DG_DIR`, or `--gcc-root`, points to a GCC source root or a direct
-  `gfortran.dg` directory.
+- `FF_GFORTRAN_DG_DIR` points to the `gfortran.dg` directory. The wrapper
+  derives the GCC root from it.
+- `--gcc-root` overrides the derived GCC root.
 - `FF_LFORTRAN_DIR`, or `--lfortran-root`, points to a lfortran source root.
+- `--lfortran-root` overrides `FF_LFORTRAN_DIR`.
 
 If a suite is absent, the runner prints `SKIP` and exits 0.
 
@@ -102,6 +104,9 @@ python scripts/run_gfortran_roundtrip.py --suite gfortran-dg --max-tests 25
 # Stream live top failure categories (default every 5s):
 python scripts/run_gfortran_roundtrip.py --suite lfortran --lfortran-root ../lfortran
 ```
+
+Use `--report` to choose the JSONL path and `--frontend-probe` to pin the
+helper executable when the build tree has multiple candidates.
 
 **Key options**:
 - `--max-tests`: limit number of tests for fast debugging.
