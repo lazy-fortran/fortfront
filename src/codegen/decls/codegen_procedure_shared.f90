@@ -516,10 +516,13 @@ contains
             return
         end if
 
-        call get_type_standardization(standardize)
-        if (standardize) then
-            lowered = to_lower(trim(param_type))
-            if (lowered == 'real') param_type = 'real(dp)'
+        if (.not. (allocated(param_node%type_name) .and. &
+            len_trim(param_node%type_name) > 0)) then
+            call get_type_standardization(standardize)
+            if (standardize) then
+                lowered = to_lower(trim(param_type))
+                if (lowered == 'real') param_type = 'real(dp)'
+            end if
         end if
     end function get_param_type_from_param_decl
 
