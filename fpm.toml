@@ -8,20 +8,7 @@ license = "MIT"
 stdlib = "*"
 
 [build]
-# Lock executables to explicit list to prevent accidental test binaries in app/
-auto-executables = false
-auto-tests = true
-auto-examples = true
-
-[[executable]]
-name = "fortfront"
-source-dir = "app"
-main = "fortfront.f90"
-
-[[executable]]
-name = "frontend_probe"
-source-dir = "app"
-main = "frontend_probe.f90"
+auto-examples = false
 
 [fortran]
 implicit-external = false
