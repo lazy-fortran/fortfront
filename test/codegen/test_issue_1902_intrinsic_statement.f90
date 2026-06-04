@@ -23,7 +23,8 @@ program test_issue_1902_intrinsic_statement
 
     if (success) then
         if (index(output, 'intrinsic :: sin, cos') == 0) success = .false.
-        if (index(output, 'sin(0.0)') == 0) success = .false.
+        if (index(output, 'sin(0.0)') == 0 .and. &
+            index(output, 'sin(0.0_8)') == 0) success = .false.
         if (index(output, 'cos(x)') == 0) success = .false.
     end if
 

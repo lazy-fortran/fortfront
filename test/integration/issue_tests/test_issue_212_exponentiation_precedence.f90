@@ -44,14 +44,15 @@ contains
 
         has_correct_precedence = .false.
 
-        ! Accept both 3.14 and 3.14d0
         if (contains_without_spaces(output, '3.14d0*r**2') .or. &
+            contains_without_spaces(output, '3.14_8*r**2') .or. &
             contains_without_spaces(output, '3.14*r**2')) then
             has_correct_precedence = .true.
             print *, '  OK: Found correct precedence'
         end if
 
         if (contains_without_spaces(output, '(3.14d0*r)**2') .or. &
+            contains_without_spaces(output, '(3.14_8*r)**2') .or. &
             contains_without_spaces(output, '(3.14*r)**2')) then
             print *, '  FAIL: Found incorrect grouping'
             test_exponentiation_precedence = .false.

@@ -51,7 +51,8 @@ contains
             passed = .false.
         end if
 
-        if (index(generated, 'cmplx(3.0, 4.0)') == 0) then
+        if (index(generated, 'cmplx(3.0, 4.0)') == 0 .and. &
+            index(generated, 'cmplx(3.0_8, 4.0_8)') == 0) then
             write (error_unit, '(A)') 'missing cmplx call in output'
             passed = .false.
         end if
