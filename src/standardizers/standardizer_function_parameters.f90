@@ -265,6 +265,9 @@ contains
         character(len=32) :: inferred_type
         logical :: has_kind_local
         integer :: kind_value_local
+        logical :: type_std_enabled
+
+        call get_standardizer_type_standardization(type_std_enabled)
 
         do i = 1, size(metadata%names)
             if (is_type_variable_str(metadata%type_name(i))) then
@@ -279,6 +282,11 @@ contains
                 if (metadata%rank(i) <= 0) metadata%rank(i) = 1
                 if (len_trim(metadata%type_name(i)) == 0) &
                     metadata%type_name(i) = "real"
+            end if
+            if (type_std_enabled .and. &
+                trim(metadata%type_name(i)) == "real" .and. &
+                .not. metadata%has_kind(i)) then
+                metadata%type_name(i) = "real(dp)"
             end if
         end do
     end subroutine finalize_param_types

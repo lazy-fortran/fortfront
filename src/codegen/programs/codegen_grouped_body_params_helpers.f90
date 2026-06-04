@@ -226,11 +226,13 @@ contains
         code = code // new_line('A')
     end subroutine process_single_decl_param
 
-    subroutine process_param_decl_node(arena, node, param_map, indent_str, code)
+    subroutine process_param_decl_node(arena, node, param_map, indent_str, &
+                                      standardize_types, code)
         type(ast_arena_t), intent(in) :: arena
         type(parameter_declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=*), intent(in) :: indent_str
+        logical, intent(in) :: standardize_types
         character(len=:), allocatable, intent(inout) :: code
         integer :: param_idx
         character(len=:), allocatable :: type_name
@@ -244,6 +246,8 @@ contains
         if (is_character_type_string(type_name)) then
             type_name = normalize_character_type_param(type_name, node%has_kind, &
                                                        node%kind_value)
+        else if (standardize_types .and. to_lower(trim(type_name)) == "real") then
+            if (.not. node%has_kind) type_name = "real(dp)"
         end if
         append_kind_param = node%has_kind .and. .not. &
                             is_character_type_string(type_name)
