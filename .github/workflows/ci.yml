@@ -303,7 +303,7 @@ jobs:
         # GFortran 16+ on MinGW generates larger stack frames for
         # select-type dispatch with many branches. -fno-stack-arrays
         # moves local arrays to the heap; 256 MiB stack covers the rest.
-        $env:FPM_FFLAGS = "-fno-stack-arrays"
+        $env:FPM_FFLAGS = "-fno-stack-arrays -finit-local-zero"
         $env:FPM_LDFLAGS = "-Wl,--stack,268435456"
         fpm build
         fpm test
