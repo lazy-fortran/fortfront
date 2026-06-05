@@ -57,19 +57,36 @@ module codegen_core
 
 contains
 
-    ! Main entry point for code generation from AST arena
+    ! Main entry point — delegates to category sub-dispatchers so that
+    ! no single stack frame carries all 60+ select-type branches.
     recursive function codegen_core_generate_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        logical :: handled
 
         code = ""
         if (.not. arena%has_node_at(node_index)) return
 
-        ! Dispatch to appropriate generator based on node type
-        select type (node => arena%entries(node_index)%node)
+        call dispatch_expressions(arena, node_index, code, handled)
+        if (.not. handled) call dispatch_statements(arena, node_index, code, handled)
+        if (.not. handled) call dispatch_control_flow(arena, node_index, code, handled)
+        if (.not. handled) call dispatch_declarations(arena, node_index, code, handled)
+        if (.not. handled) call dispatch_special(arena, node_index, code, handled)
 
-            ! Expression nodes
+        if (len(code) > 0) then
+            code = normalize_line_spacing(code)
+        end if
+    end function codegen_core_generate_arena
+
+    subroutine dispatch_expressions(arena, node_index, code, handled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(out) :: handled
+
+        handled = .true.
+        select type (node => arena%entries(node_index)%node)
         type is (literal_node)
             code = generate_code_literal(node)
         type is (identifier_node)
@@ -96,8 +113,20 @@ contains
             code = generate_code_range_subscript(arena, node, node_index)
         type is (array_operation_node)
             code = generate_code_array_operation(arena, node, node_index)
+        class default
+            code = ""
+            handled = .false.
+        end select
+    end subroutine dispatch_expressions
 
-            ! Statement nodes
+    subroutine dispatch_statements(arena, node_index, code, handled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(out) :: handled
+
+        handled = .true.
+        select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
             code = generate_code_assignment(arena, node, node_index)
         type is (pointer_assignment_node)
@@ -172,8 +201,20 @@ contains
             code = generate_code_allocate_statement(arena, node, node_index)
         type is (deallocate_statement_node)
             code = generate_code_deallocate_statement(arena, node, node_index)
+        class default
+            code = ""
+            handled = .false.
+        end select
+    end subroutine dispatch_statements
 
-            ! Control flow nodes
+    subroutine dispatch_control_flow(arena, node_index, code, handled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(out) :: handled
+
+        handled = .true.
+        select type (node => arena%entries(node_index)%node)
         type is (if_node)
             code = generate_code_if(arena, node, node_index)
         type is (do_loop_node)
@@ -194,8 +235,20 @@ contains
             code = generate_code_associate(arena, node, node_index)
         type is (block_construct_node)
             code = generate_code_block_construct(arena, node, node_index)
+        class default
+            code = ""
+            handled = .false.
+        end select
+    end subroutine dispatch_control_flow
 
-            ! Declaration and definition nodes
+    subroutine dispatch_declarations(arena, node_index, code, handled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(out) :: handled
+
+        handled = .true.
+        select type (node => arena%entries(node_index)%node)
         type is (declaration_node)
             code = generate_code_declaration(arena, node, node_index)
         type is (parameter_declaration_node)
@@ -231,24 +284,31 @@ contains
             code = generate_code_requirement_block(arena, node)
         type is (implements_block_node)
             code = generate_code_implements_block(arena, node)
+        class default
+            code = ""
+            handled = .false.
+        end select
+    end subroutine dispatch_declarations
 
-            ! Special nodes
+    subroutine dispatch_special(arena, node_index, code, handled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(out) :: handled
+
+        handled = .true.
+        select type (node => arena%entries(node_index)%node)
         type is (contains_node)
             code = "contains"
         type is (end_statement_node)
             code = "end"
         type is (error_node_t)
             code = "! ERROR: " // node%error_message
-
         class default
-            ! Unknown node type
             code = "! Unknown node type"
+            handled = .true.
         end select
-
-        if (len(code) > 0) then
-            code = normalize_line_spacing(code)
-        end if
-    end function codegen_core_generate_arena
+    end subroutine dispatch_special
 
     function normalize_line_spacing(text) result(clean)
         character(len=*), intent(in) :: text
