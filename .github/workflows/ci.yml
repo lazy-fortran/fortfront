@@ -300,12 +300,14 @@ jobs:
       run: |
         $env:PATH = "C:\tools\fpm;$env:PATH"
 
-        # Build with an explicit Windows stack size to avoid CI stack overflows.
-        # Some test executables can exceed 16 MiB stack on Windows runners.
-        fpm build --link-flag "-Wl,--stack,268435456"
+        # MinGW gfortran places local arrays on the stack by default.
+        # Combined with large select-type dispatch frames in the codegen
+        # and semantic layers, this exhausts the Windows stack even at
+        # 256 MiB.  -fno-stack-arrays moves local arrays to the heap.
+        fpm build --flag "-fno-stack-arrays" --link-flag "-Wl,--stack,268435456"
 
         # Run full test suite (same as Linux)
-        fpm test --link-flag "-Wl,--stack,268435456"
+        fpm test --flag "-fno-stack-arrays" --link-flag "-Wl,--stack,268435456"
 
   # Summary job for branch protection - org ruleset requires "test" to pass
   # This aggregates the matrix build-test results into a single required check
