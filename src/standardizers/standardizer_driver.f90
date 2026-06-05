@@ -45,6 +45,7 @@ contains
         do while (top > 0)
             call pop(current_index, tmp_inmod)
             if (.not. arena%has_node_at(current_index)) cycle
+            call ensure_visited_capacity(current_index)
             if (visited(current_index)) cycle
             visited(current_index) = .true.
 
@@ -145,6 +146,22 @@ contains
             call move_alloc(tmp_b, inmod_stack)
             cap = cap * 2
         end subroutine grow
+
+        ! Grow the visited array when standardization pushes new arena nodes
+        ! whose indices exceed the original allocation.
+        subroutine ensure_visited_capacity(idx)
+            integer, intent(in) :: idx
+            logical, allocatable :: tmp_v(:)
+            integer :: old_size, new_size
+
+            if (idx <= size(visited)) return
+            old_size = size(visited)
+            new_size = max(idx, old_size * 2)
+            allocate (tmp_v(new_size))
+            tmp_v = .false.
+            tmp_v(1:old_size) = visited(1:old_size)
+            call move_alloc(tmp_v, visited)
+        end subroutine ensure_visited_capacity
 
     end subroutine standardize_ast_iter
 
