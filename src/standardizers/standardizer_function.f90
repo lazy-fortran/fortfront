@@ -24,51 +24,65 @@ contains
         character(len=:), allocatable :: return_type_str
         logical :: standardizer_type_standardization_enabled
         logical :: skip_result_standardization
+        ! Local snapshot taken before any arena push that may reallocate entries.
+        ! When this routine is called from a select-type block whose selector
+        ! aliases arena%entries(func_index)%node, push_implicit_statement can
+        ! trigger move_alloc on the entries array.  move_entries_fast transfers
+        ! the polymorphic node allocation via move_alloc, leaving the original
+        ! storage unallocated.  Any subsequent read of func_def (which may be an
+        ! alias into that freed storage) is undefined behaviour.  Copying into a
+        ! plain local variable up front guarantees all fields remain valid.
+        type(function_def_node) :: local_def
+
+        local_def = func_def
 
         call get_standardizer_type_standardization( &
             standardizer_type_standardization_enabled)
         skip_result_standardization = function_in_interface_block(arena, &
                                                                   func_index)
         if (skip_result_standardization) then
-            arena%entries(func_index)%node = func_def
+            arena%entries(func_index)%node = local_def
             return
         end if
 
         ! Standardize return type
-        if (allocated(func_def%return_type)) then
-            if (func_def%return_type == "real") then
+        if (allocated(local_def%return_type)) then
+            if (local_def%return_type == "real") then
                 if (standardizer_type_standardization_enabled) then
-                    func_def%return_type = "real(dp)"
+                    local_def%return_type = "real(dp)"
                 else
-                    func_def%return_type = "real"
+                    local_def%return_type = "real"
                 end if
             end if
         end if
 
-        ! Add implicit none at the beginning of function body
-        if (allocated(func_def%body_indices)) then
+        ! Add implicit none at the beginning of function body.
+        ! push_implicit_statement may reallocate arena%entries; local_def is
+        ! already a safe copy so nothing here can corrupt it.
+        if (allocated(local_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
                                                           line=1, column=1, &
                                                           parent_index=func_index)
 
             ! Create new body with implicit none at the beginning
-            allocate (new_body_indices(size(func_def%body_indices) + 1))
+            allocate (new_body_indices(size(local_def%body_indices) + 1))
             new_body_indices(1) = implicit_none_index
-            do i = 1, size(func_def%body_indices)
-                new_body_indices(i + 1) = func_def%body_indices(i)
+            do i = 1, size(local_def%body_indices)
+                new_body_indices(i + 1) = local_def%body_indices(i)
             end do
-            func_def%body_indices = new_body_indices
+            local_def%body_indices = new_body_indices
         end if
 
         ! Standardize parameter declarations
-        call standardize_function_parameters(arena, func_def, func_index)
+        call standardize_function_parameters(arena, local_def, func_index)
 
         ! Ensure function result variable is standardized and declared
-        call standardize_function_result(arena, func_def, func_index)
+        call standardize_function_result(arena, local_def, func_index)
 
-        ! Update the arena entry
-        arena%entries(func_index)%node = func_def
+        ! Write back to arena and propagate to caller.
+        arena%entries(func_index)%node = local_def
+        func_def = local_def
 
     end subroutine standardize_function_def
 

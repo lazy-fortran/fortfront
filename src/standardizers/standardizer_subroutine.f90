@@ -24,28 +24,37 @@ contains
         integer, intent(in) :: sub_index
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index, i
+        ! Local snapshot: see standardize_function_def for the rationale.
+        ! push_implicit_statement may cause move_alloc on arena%entries, leaving
+        ! any select-type alias of arena%entries(sub_index)%node dangling.
+        type(subroutine_def_node) :: local_def
 
-        ! Add implicit none at the beginning of subroutine body
-        if (allocated(sub_def%body_indices)) then
+        local_def = sub_def
+
+        ! Add implicit none at the beginning of subroutine body.
+        ! push_implicit_statement may reallocate arena%entries; local_def is
+        ! already a safe copy so nothing here can corrupt it.
+        if (allocated(local_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
                                                           line=1, column=1, &
                                                           parent_index=sub_index)
 
             ! Create new body with implicit none at the beginning
-            allocate (new_body_indices(size(sub_def%body_indices) + 1))
+            allocate (new_body_indices(size(local_def%body_indices) + 1))
             new_body_indices(1) = implicit_none_index
-            do i = 1, size(sub_def%body_indices)
-                new_body_indices(i + 1) = sub_def%body_indices(i)
+            do i = 1, size(local_def%body_indices)
+                new_body_indices(i + 1) = local_def%body_indices(i)
             end do
-            sub_def%body_indices = new_body_indices
+            local_def%body_indices = new_body_indices
         end if
 
         ! Standardize parameter declarations
-        call standardize_subroutine_parameters(arena, sub_def, sub_index)
+        call standardize_subroutine_parameters(arena, local_def, sub_index)
 
-        ! Update the arena entry
-        arena%entries(sub_index)%node = sub_def
+        ! Write back to arena and propagate to caller.
+        arena%entries(sub_index)%node = local_def
+        sub_def = local_def
     end subroutine standardize_subroutine_def
 
     subroutine standardize_subroutine_parameters(arena, sub_def, sub_index)
