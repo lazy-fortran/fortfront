@@ -82,7 +82,7 @@
         select type (container => arena%entries(root_index)%node)
         type is (mixed_construct_container_node)
             call debug_log_mixed_container(arena, container)
-            call process_mixed_container(arena, root_index, container, signatures)
+            call process_mixed_container(arena, root_index, signatures)
         class default
             if (debug_logging_enabled()) then
                 write (error_unit, '(A)') &
@@ -155,6 +155,7 @@
         integer :: i, child_idx
         logical :: handled
         integer, allocatable :: local_indices(:)
+        character(len=:), allocatable :: proc_name
 
         ! CRITICAL: Copy indices before loop - root_prog is a POINTER parameter!
         ! process_specializable_procedure modifies arena via create_procedure_variants,
@@ -174,8 +175,9 @@
                         child_idx, &
                         trim(node%name)
                 end if
+                proc_name = node%name
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                                                     node%name, .true., handled, &
+                                                     proc_name, .true., handled, &
                                                      module_indices, &
                                                      module_count, &
                                                      module_names)
@@ -199,8 +201,9 @@
                     write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=subroutine', &
                         child_idx, trim(node%name)
                 end if
+                proc_name = node%name
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                                                     node%name, .false., handled, &
+                                                     proc_name, .false., handled, &
                                                      module_indices, &
                                                      module_count, &
                                                      module_names)
@@ -454,14 +457,14 @@
         allocate (program_indices(max(1, explicit_count)))
     end subroutine initialize_mixed_container_arrays
 
-    subroutine process_implicit_declarations(arena, signatures, container, &
+    subroutine process_implicit_declarations(arena, signatures, implicit_indices, &
                                              implicit_preserved, &
                                              implicit_preserved_count, &
                                              module_indices, module_count, &
                                              module_names)
         type(ast_arena_t), intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
-        type(mixed_construct_container_node), intent(inout) :: container
+        integer, intent(in) :: implicit_indices(:)
         integer, allocatable, intent(inout) :: implicit_preserved(:)
         integer, intent(inout) :: implicit_preserved_count
         integer, allocatable, intent(inout) :: module_indices(:)
@@ -469,19 +472,20 @@
         character(len=*), allocatable, intent(inout) :: module_names(:)
         integer :: i, child_idx, implicit_count
         logical :: handled
-        integer, allocatable :: new_implicit(:)
+        character(len=:), allocatable :: proc_name
 
-        implicit_count = size(container%implicit_declaration_indices)
+        implicit_count = size(implicit_indices)
 
         do i = 1, implicit_count
-            child_idx = container%implicit_declaration_indices(i)
+            child_idx = implicit_indices(i)
             if (child_idx < 1 .or. child_idx > arena%size) cycle
             if (.not. allocated(arena%entries(child_idx)%node)) cycle
 
             select type (node => arena%entries(child_idx)%node)
             type is (function_def_node)
+                proc_name = node%name
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                                                     node%name, .true., handled, &
+                                                     proc_name, .true., handled, &
                                                      module_indices, &
                                                      module_count, &
                                                      module_names)
@@ -490,8 +494,9 @@
                                                    implicit_preserved_count, child_idx)
                 end if
             type is (subroutine_def_node)
+                proc_name = node%name
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                                                     node%name, .false., handled, &
+                                                     proc_name, .false., handled, &
                                                      module_indices, &
                                                      module_count, &
                                                      module_names)
@@ -518,16 +523,6 @@
                                                implicit_preserved_count, child_idx)
             end select
         end do
-
-        if (implicit_preserved_count > 0) then
-            allocate (new_implicit(implicit_preserved_count))
-            new_implicit = implicit_preserved(1:implicit_preserved_count)
-            container%implicit_declaration_indices = new_implicit
-        else
-            if (allocated(container%implicit_declaration_indices)) then
-                deallocate (container%implicit_declaration_indices)
-            end if
-        end if
     end subroutine process_implicit_declarations
 
     subroutine add_to_implicit_preserved(implicit_preserved, &
@@ -544,14 +539,14 @@
         implicit_preserved(implicit_preserved_count) = child_idx
     end subroutine add_to_implicit_preserved
 
-    subroutine process_explicit_programs(arena, signatures, container, &
+    subroutine process_explicit_programs(arena, signatures, explicit_indices, &
                                          explicit_count, module_indices, &
                                          module_count, module_names, &
                                          preserved_indices, preserved_count, &
                                          program_indices, program_count)
         type(ast_arena_t), intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
-        type(mixed_construct_container_node), intent(inout) :: container
+        integer, intent(inout) :: explicit_indices(:)
         integer, intent(in) :: explicit_count
         integer, allocatable, intent(inout) :: module_indices(:)
         integer, intent(inout) :: module_count
@@ -561,31 +556,34 @@
         integer, allocatable, intent(inout) :: program_indices(:)
         integer, intent(inout) :: program_count
         integer :: i, child_idx
+        integer :: updated_idx
 
         do i = 1, explicit_count
-            child_idx = container%explicit_program_indices(i)
+            child_idx = explicit_indices(i)
             call process_container_entry(arena, signatures, child_idx, &
                                          module_indices, module_count, module_names, &
                                          preserved_indices, &
                                          preserved_count, program_indices, &
                                          program_count, &
-                                         container%explicit_program_indices(i))
+                                         updated_idx)
+            explicit_indices(i) = updated_idx
         end do
     end subroutine process_explicit_programs
 
-    subroutine finalize_no_modules(container, preserved_indices, preserved_count, &
-                                   explicit_count)
-        type(mixed_construct_container_node), intent(inout) :: container
+    subroutine finalize_no_modules(arena, root_index, preserved_indices, &
+                                   preserved_count, implicit_preserved, &
+                                   implicit_preserved_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: preserved_indices(:)
-        integer, intent(in) :: preserved_count, explicit_count
-        integer, allocatable :: new_explicit(:)
+        integer, intent(in) :: preserved_count
+        integer, allocatable, intent(in) :: implicit_preserved(:)
+        integer, intent(in) :: implicit_preserved_count
 
-        if (preserved_count /= explicit_count) then
-            allocate (new_explicit(preserved_count))
-            if (preserved_count > 0) new_explicit = &
-                preserved_indices(1:preserved_count)
-            container%explicit_program_indices = new_explicit
-        end if
+        call set_container_explicit_indices(arena, root_index, preserved_indices, &
+                                            preserved_count)
+        call set_container_implicit_indices(arena, root_index, implicit_preserved, &
+                                            implicit_preserved_count)
     end subroutine finalize_no_modules
 
     subroutine find_program_nodes(arena, preserved_indices, preserved_count, &
@@ -626,8 +624,7 @@
                                                   implicit_preserved_count, &
                                                   preserved_indices, &
                                                   preserved_count, &
-                                                  program_indices, program_count, &
-                                                  container)
+                                                  program_indices, program_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: module_indices(:)
@@ -639,7 +636,6 @@
         integer, intent(inout) :: preserved_count
         integer, allocatable, intent(inout) :: program_indices(:)
         integer, intent(inout) :: program_count
-        type(mixed_construct_container_node), intent(inout) :: container
         integer, allocatable :: program_body(:)
         integer :: total_body, idx, prog_idx
 
@@ -663,9 +659,7 @@
 
         preserved_count = 1
         preserved_indices(1) = prog_idx
-        if (allocated(container%implicit_declaration_indices)) then
-            deallocate (container%implicit_declaration_indices)
-        end if
+        call clear_container_implicit_indices(arena, root_index)
     end subroutine create_main_program_from_preserved
 
     subroutine build_main_program_body(arena, module_indices, module_count, &
@@ -740,14 +734,13 @@
         end do
     end subroutine promote_double_literals_for_programs
 
-    subroutine finalize_container_indices(arena, root_index, container, &
+    subroutine finalize_container_indices(arena, root_index, &
                                           module_indices, module_count, &
                                           preserved_indices, preserved_count, &
                                           module_names, program_indices, &
                                           program_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
-        type(mixed_construct_container_node), intent(inout) :: container
         integer, allocatable, intent(in) :: module_indices(:)
         integer, intent(in) :: module_count
         integer, allocatable, intent(in) :: preserved_indices(:)
@@ -770,11 +763,10 @@
                 new_explicit(module_count + 1:) = &
                     preserved_indices(1:preserved_count)
             end if
-            container%explicit_program_indices = new_explicit
+            call set_container_explicit_indices(arena, root_index, new_explicit, &
+                                                size(new_explicit))
         else
-            if (allocated(container%explicit_program_indices)) then
-                deallocate (container%explicit_program_indices)
-            end if
+            call clear_container_explicit_indices(arena, root_index)
         end if
 
         do i = 1, program_count
@@ -784,11 +776,12 @@
         end do
     end subroutine finalize_container_indices
 
-    subroutine process_mixed_container(arena, root_index, container, signatures)
+    subroutine process_mixed_container(arena, root_index, signatures)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
-        type(mixed_construct_container_node), intent(inout) :: container
         type(signatures_map_t), intent(in) :: signatures
+        type(mixed_construct_container_node), pointer :: container
+        integer, allocatable :: explicit_indices(:), implicit_indices(:)
         integer :: explicit_count, implicit_count
         integer, allocatable :: preserved_indices(:), implicit_preserved(:)
         integer :: preserved_count, implicit_preserved_count
@@ -796,14 +789,25 @@
         integer :: module_count, program_count
         character(len=128), allocatable :: module_names(:)
 
+        call get_mixed_container_node(arena, root_index, container)
+        if (.not. associated(container)) return
+
         explicit_count = 0
         if (allocated(container%explicit_program_indices)) then
             explicit_count = size(container%explicit_program_indices)
+            allocate (explicit_indices(explicit_count))
+            explicit_indices = container%explicit_program_indices
+        else
+            allocate (explicit_indices(0))
         end if
 
         implicit_count = 0
         if (allocated(container%implicit_declaration_indices)) then
             implicit_count = size(container%implicit_declaration_indices)
+            allocate (implicit_indices(implicit_count))
+            implicit_indices = container%implicit_declaration_indices
+        else
+            allocate (implicit_indices(0))
         end if
 
         if (explicit_count == 0 .and. implicit_count == 0) return
@@ -819,22 +823,23 @@
         program_count = 0
 
         if (implicit_count > 0) then
-            call process_implicit_declarations(arena, signatures, container, &
+            call process_implicit_declarations(arena, signatures, implicit_indices, &
                                                implicit_preserved, &
                                                implicit_preserved_count, &
                                                module_indices, module_count, &
                                                module_names)
         end if
 
-        call process_explicit_programs(arena, signatures, container, &
+        call process_explicit_programs(arena, signatures, explicit_indices, &
                                        explicit_count, module_indices, &
                                        module_count, module_names, &
                                        preserved_indices, preserved_count, &
                                        program_indices, program_count)
 
         if (module_count == 0) then
-            call finalize_no_modules(container, preserved_indices, preserved_count, &
-                                     explicit_count)
+            call finalize_no_modules(arena, root_index, preserved_indices, &
+                                     preserved_count, implicit_preserved, &
+                                     implicit_preserved_count)
             return
         end if
 
@@ -849,8 +854,7 @@
                                                     implicit_preserved_count, &
                                                     preserved_indices, &
                                                     preserved_count, &
-                                                    program_indices, program_count, &
-                                                    container)
+                                                    program_indices, program_count)
         end if
 
         if (program_count > 0) then
@@ -858,7 +862,7 @@
                                                       program_count)
         end if
 
-        call finalize_container_indices(arena, root_index, container, &
+        call finalize_container_indices(arena, root_index, &
                                         module_indices, module_count, &
                                         preserved_indices, preserved_count, &
                                         module_names, program_indices, &

@@ -37,6 +37,7 @@
         integer, allocatable :: dim_indices(:)
         integer, allocatable :: temp_indices(:)
         character(len=:), allocatable :: decl_type
+        integer, allocatable :: original_body_indices(:)
 
         if (len_trim(return_type) > 0) then
             lowered_return = to_lower(return_type)
@@ -46,9 +47,11 @@
 
         has_result_decl = .false.
         if (allocated(orig_func%body_indices)) then
-            allocate (body_indices_copy(size(orig_func%body_indices)))
-            do i = 1, size(orig_func%body_indices)
-                body_indices_copy(i) = orig_func%body_indices(i)
+            allocate (original_body_indices(size(orig_func%body_indices)))
+            original_body_indices = orig_func%body_indices
+            allocate (body_indices_copy(size(original_body_indices)))
+            do i = 1, size(original_body_indices)
+                body_indices_copy(i) = original_body_indices(i)
                 if (body_indices_copy(i) < 1) cycle
                 if (body_indices_copy(i) > arena%size) cycle
                 if (.not. allocated(arena%entries(body_indices_copy(i))%node)) cycle
@@ -749,6 +752,21 @@
         end select
     end subroutine get_program_node
 
+    subroutine get_mixed_container_node(arena, idx, node_ptr)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx
+        type(mixed_construct_container_node), pointer, intent(out) :: node_ptr
+
+        nullify (node_ptr)
+        if (idx < 1 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (n => arena%entries(idx)%node)
+        type is (mixed_construct_container_node)
+            node_ptr => n
+        end select
+    end subroutine get_mixed_container_node
+
     subroutine get_function_node(arena, idx, node_ptr)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: idx
@@ -808,6 +826,72 @@
             node_ptr => n
         end select
     end subroutine get_parameter_node
+
+    subroutine set_container_explicit_indices(arena, root_index, indices, count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        integer, intent(in) :: indices(:)
+        integer, intent(in) :: count
+        type(mixed_construct_container_node), pointer :: container
+        integer, allocatable :: new_indices(:)
+
+        call get_mixed_container_node(arena, root_index, container)
+        if (.not. associated(container)) return
+        if (count <= 0) then
+            call clear_container_explicit_indices(arena, root_index)
+            return
+        end if
+        if (count > size(indices)) return
+
+        allocate (new_indices(count))
+        new_indices = indices(1:count)
+        container%explicit_program_indices = new_indices
+    end subroutine set_container_explicit_indices
+
+    subroutine set_container_implicit_indices(arena, root_index, indices, count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        integer, intent(in) :: indices(:)
+        integer, intent(in) :: count
+        type(mixed_construct_container_node), pointer :: container
+        integer, allocatable :: new_indices(:)
+
+        call get_mixed_container_node(arena, root_index, container)
+        if (.not. associated(container)) return
+        if (count <= 0) then
+            call clear_container_implicit_indices(arena, root_index)
+            return
+        end if
+        if (count > size(indices)) return
+
+        allocate (new_indices(count))
+        new_indices = indices(1:count)
+        container%implicit_declaration_indices = new_indices
+    end subroutine set_container_implicit_indices
+
+    subroutine clear_container_explicit_indices(arena, root_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        type(mixed_construct_container_node), pointer :: container
+
+        call get_mixed_container_node(arena, root_index, container)
+        if (.not. associated(container)) return
+        if (allocated(container%explicit_program_indices)) then
+            deallocate (container%explicit_program_indices)
+        end if
+    end subroutine clear_container_explicit_indices
+
+    subroutine clear_container_implicit_indices(arena, root_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        type(mixed_construct_container_node), pointer :: container
+
+        call get_mixed_container_node(arena, root_index, container)
+        if (.not. associated(container)) return
+        if (allocated(container%implicit_declaration_indices)) then
+            deallocate (container%implicit_declaration_indices)
+        end if
+    end subroutine clear_container_implicit_indices
 
     function is_function_node(arena, idx) result(is_func)
         type(ast_arena_t), intent(inout) :: arena

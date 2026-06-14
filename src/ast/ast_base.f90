@@ -21,7 +21,7 @@ module ast_base
     type, abstract, public :: ast_node
         integer :: line = 1
         integer :: column = 1
-        type(mono_type_t) :: inferred_type  ! Type information
+        type(mono_type_t) :: inferred_type ! Type information
         ! from semantic analysis
 
         ! Unique identifier for CST/AST bidirectional linking
@@ -31,11 +31,11 @@ module ast_base
         character(len=:), allocatable :: stmt_label
 
         ! Constant folding information
-        logical :: is_constant = .false.  ! True if this node is a compile-time constant
-        logical :: constant_logical = .false.  ! For logical constants
-        integer :: constant_integer = 0  ! For integer constants
-        real(dp) :: constant_real = 0.0_dp  ! For real constants
-        integer :: constant_type = 0  ! Type of constant (LITERAL_* constants)
+        logical :: is_constant = .false. ! True if this node is a compile-time constant
+        logical :: constant_logical = .false. ! For logical constants
+        integer :: constant_integer = 0 ! For integer constants
+        real(dp) :: constant_real = 0.0_dp ! For real constants
+        integer :: constant_type = 0 ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
     end type ast_node
@@ -43,7 +43,7 @@ module ast_base
     ! Wrapper type for polymorphic arrays - BUT NOW BACKED BY STACK
     type, public :: ast_node_wrapper
         class(ast_node), allocatable :: node
-        integer :: stack_index = 0  ! NEW: Index in AST stack for O(depth) access
+        integer :: stack_index = 0 ! NEW: Index in AST stack for O(depth) access
     contains
         procedure :: assign => ast_node_wrapper_assign
         generic :: assignment(=) => assign
@@ -80,19 +80,24 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%stmt_label)) then
+            lhs%stmt_label = rhs%stmt_label
+        else if (allocated(lhs%stmt_label)) then
+            deallocate (lhs%stmt_label)
+        end if
     end subroutine copy_ast_node_base
 
     subroutine ast_node_wrapper_assign(lhs, rhs)
         class(ast_node_wrapper), intent(inout) :: lhs
         class(ast_node_wrapper), intent(in) :: rhs
 
-        ! Deep copy the node if allocated
         if (allocated(rhs%node)) then
             if (allocated(lhs%node)) deallocate (lhs%node)
             allocate (lhs%node, source=rhs%node)
+        else if (allocated(lhs%node)) then
+            deallocate (lhs%node)
         end if
 
-        ! Copy the stack index
         lhs%stack_index = rhs%stack_index
     end subroutine ast_node_wrapper_assign
 

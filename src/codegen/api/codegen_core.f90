@@ -79,7 +79,7 @@ contains
         end if
     end function codegen_core_generate_arena
 
-    subroutine dispatch_expressions(arena, node_index, code, handled)
+    recursive subroutine dispatch_expressions(arena, node_index, code, handled)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -119,7 +119,7 @@ contains
         end select
     end subroutine dispatch_expressions
 
-    subroutine dispatch_statements(arena, node_index, code, handled)
+    recursive subroutine dispatch_statements(arena, node_index, code, handled)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -207,7 +207,7 @@ contains
         end select
     end subroutine dispatch_statements
 
-    subroutine dispatch_control_flow(arena, node_index, code, handled)
+    recursive subroutine dispatch_control_flow(arena, node_index, code, handled)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -241,7 +241,7 @@ contains
         end select
     end subroutine dispatch_control_flow
 
-    subroutine dispatch_declarations(arena, node_index, code, handled)
+    recursive subroutine dispatch_declarations(arena, node_index, code, handled)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -290,7 +290,7 @@ contains
         end select
     end subroutine dispatch_declarations
 
-    subroutine dispatch_special(arena, node_index, code, handled)
+    recursive subroutine dispatch_special(arena, node_index, code, handled)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code

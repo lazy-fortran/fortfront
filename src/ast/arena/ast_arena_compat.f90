@@ -17,6 +17,7 @@ module ast_arena_compat
         ! Compatibility layer for old arena API (public for compatibility)
         type(ast_entry_t), allocatable :: entries(:)  ! Compatibility entry access
         integer :: compat_size = 0  ! Compatibility: current size
+        integer :: current_index = 0  ! Compatibility: last stored node
         integer :: max_depth = 0  ! Compatibility: maximum tree depth
     contains
         ! Compatibility methods for old arena API

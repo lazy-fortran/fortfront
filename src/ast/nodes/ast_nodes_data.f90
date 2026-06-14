@@ -26,53 +26,53 @@ module ast_nodes_data
 
     ! Declaration node
     type, extends(ast_node), public :: declaration_node
-        character(len=:), allocatable :: type_name  ! real, integer, etc.
-        character(len=:), allocatable :: var_name  ! Variable name
+        character(len=:), allocatable :: type_name ! real, integer, etc.
+        character(len=:), allocatable :: var_name ! Variable name
         ! (for single declarations)
-        character(len=:), allocatable :: var_names(:)  ! Variable names
+        character(len=:), allocatable :: var_names(:) ! Variable names
         ! (for multi declarations)
-        logical :: is_multi_declaration = .false.  ! Whether this
+        logical :: is_multi_declaration = .false. ! Whether this
         ! declares multiple variables
-        integer :: kind_value = 0  ! Kind parameter (default none)
+        integer :: kind_value = 0 ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind = .false.  ! Whether kind was specified
+        logical :: has_kind = .false. ! Whether kind was specified
         character(len=:), allocatable :: character_length_expr
         ! Character length expression
         logical :: has_character_length = .false.
         ! Whether character length was specified
-        character(len=:), allocatable :: intent  ! in, out, inout (for parameters)
-        logical :: has_intent = .false.  ! Whether intent was specified
-        logical :: is_optional = .false.  ! Whether optional attribute is present
-        integer :: initializer_index = 0  ! Initializer index (stack-based)
-        logical :: has_initializer = .false.  ! Whether initializer is present
+        character(len=:), allocatable :: intent ! in, out, inout (for parameters)
+        logical :: has_intent = .false. ! Whether intent was specified
+        logical :: is_optional = .false. ! Whether optional attribute is present
+        integer :: initializer_index = 0 ! Initializer index (stack-based)
+        logical :: has_initializer = .false. ! Whether initializer is present
         ! Array dimension support
-        logical :: is_array = .false.  ! Whether this is
+        logical :: is_array = .false. ! Whether this is
         ! an array declaration
-        integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
-        logical :: is_allocatable = .false.  ! Whether allocatable
+        integer, allocatable :: dimension_indices(:) ! Dimension indices (stack-based)
+        logical :: is_allocatable = .false. ! Whether allocatable
         ! attribute is present
-        logical :: is_pointer = .false.  ! Whether pointer
+        logical :: is_pointer = .false. ! Whether pointer
         ! attribute is present
-        logical :: is_target = .false.  ! Whether target
+        logical :: is_target = .false. ! Whether target
         ! attribute is present
-        logical :: is_external = .false.  ! Whether external
+        logical :: is_external = .false. ! Whether external
         ! attribute is present
-        logical :: is_unsigned = .false.  ! Whether unsigned
+        logical :: is_unsigned = .false. ! Whether unsigned
         ! attribute is present (nonstandard extension)
-        logical :: is_parameter = .false.  ! Whether parameter
+        logical :: is_parameter = .false. ! Whether parameter
         ! attribute is present (for constants)
-        logical :: is_save = .false.  ! Whether save
+        logical :: is_save = .false. ! Whether save
         ! attribute is present
-        logical :: is_volatile = .false.  ! Whether volatile
+        logical :: is_volatile = .false. ! Whether volatile
         ! attribute is present
-        logical :: is_protected = .false.  ! Whether protected
+        logical :: is_protected = .false. ! Whether protected
         ! attribute is present
-        logical :: is_asynchronous = .false.  ! Whether asynchronous
+        logical :: is_asynchronous = .false. ! Whether asynchronous
         ! attribute is present
-        logical :: is_contiguous = .false.  ! Whether contiguous
+        logical :: is_contiguous = .false. ! Whether contiguous
         ! attribute is present
-        logical :: disable_grouping = .false.  ! Skip declaration grouping
-        character(len=:), allocatable :: accessibility  ! 'public'/'private'
+        logical :: disable_grouping = .false. ! Skip declaration grouping
+        character(len=:), allocatable :: accessibility ! 'public'/'private'
     contains
         procedure :: accept => declaration_accept
         procedure :: assign => declaration_assign
@@ -81,23 +81,23 @@ module ast_nodes_data
 
     ! Parameter declaration node (for function/subroutine parameters)
     type, extends(ast_node), public :: parameter_declaration_node
-        character(len=:), allocatable :: name  ! Parameter name
-        character(len=:), allocatable :: type_name  ! real, integer, etc.
-        integer :: kind_value = 0  ! Kind parameter (default none)
+        character(len=:), allocatable :: name ! Parameter name
+        character(len=:), allocatable :: type_name ! real, integer, etc.
+        integer :: kind_value = 0 ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind = .false.  ! Whether kind was specified
+        logical :: has_kind = .false. ! Whether kind was specified
         character(len=:), allocatable :: character_length_expr
         ! Character length expression
         logical :: has_character_length = .false.
         ! Whether character length was specified
-        integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
-        logical :: is_optional = .false.  ! Whether parameter is optional
-        logical :: is_target = .false.  ! Whether target attribute is present
-        logical :: is_unsigned = .false.  ! Whether unsigned attribute is present
+        integer :: intent_type = INTENT_NONE ! INTENT_IN/OUT/INOUT
+        logical :: is_optional = .false. ! Whether parameter is optional
+        logical :: is_target = .false. ! Whether target attribute is present
+        logical :: is_unsigned = .false. ! Whether unsigned attribute is present
         ! Array dimension support
-        logical :: is_array = .false.  ! Whether this is
+        logical :: is_array = .false. ! Whether this is
         ! an array parameter
-        integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
+        integer, allocatable :: dimension_indices(:) ! Dimension indices (stack-based)
     contains
         procedure :: accept => parameter_declaration_accept
         procedure :: assign => parameter_declaration_assign
@@ -106,12 +106,12 @@ module ast_nodes_data
 
     ! Module node
     type, extends(ast_node), public :: module_node
-        character(len=:), allocatable :: name  ! Module name
-        integer, allocatable :: declaration_indices(:)  ! Module declaration
+        character(len=:), allocatable :: name ! Module name
+        integer, allocatable :: declaration_indices(:) ! Module declaration
         ! arena indices
-        integer, allocatable :: procedure_indices(:)  ! Module procedure
+        integer, allocatable :: procedure_indices(:) ! Module procedure
         ! arena indices (after contains)
-        logical :: has_contains = .false.  ! Whether module has
+        logical :: has_contains = .false. ! Whether module has
         ! a contains section
     contains
         procedure :: accept => module_accept
@@ -121,14 +121,14 @@ module ast_nodes_data
 
     ! Submodule node (Fortran 2008, ISO/IEC 1539-1:2008 Section 11.2)
     type, extends(ast_node), public :: submodule_node
-        character(len=:), allocatable :: name  ! Submodule name
-        character(len=:), allocatable :: parent_identifier  ! Parent reference
+        character(len=:), allocatable :: name ! Submodule name
+        character(len=:), allocatable :: parent_identifier ! Parent reference
         ! Format: parent_mod or parent_mod:parent_sub:...
-        integer, allocatable :: declaration_indices(:)  ! Submodule declaration
+        integer, allocatable :: declaration_indices(:) ! Submodule declaration
         ! arena indices
-        integer, allocatable :: procedure_indices(:)  ! Submodule procedure
+        integer, allocatable :: procedure_indices(:) ! Submodule procedure
         ! arena indices (after contains)
-        logical :: has_contains = .false.  ! Whether submodule has
+        logical :: has_contains = .false. ! Whether submodule has
         ! a contains section
     contains
         procedure :: accept => submodule_accept
@@ -138,10 +138,10 @@ module ast_nodes_data
 
     ! BLOCK DATA node
     type, extends(ast_node), public :: block_data_node
-        character(len=:), allocatable :: name  ! BLOCK DATA name (optional)
-        character(len=:), allocatable :: header_label  ! Optional statement label
-        character(len=:), allocatable :: end_label  ! Optional END label
-        integer, allocatable :: statement_indices(:)  ! Statement indices
+        character(len=:), allocatable :: name ! BLOCK DATA name (optional)
+        character(len=:), allocatable :: header_label ! Optional statement label
+        character(len=:), allocatable :: end_label ! Optional END label
+        integer, allocatable :: statement_indices(:) ! Statement indices
     contains
         procedure :: accept => block_data_accept
         procedure :: assign => block_data_assign
@@ -150,16 +150,16 @@ module ast_nodes_data
 
     ! Type-bound procedure binding node (F2003)
     type, extends(ast_node), public :: type_binding_node
-        character(len=:), allocatable :: binding_name  ! Name of binding
-        character(len=:), allocatable :: implementation  ! Procedure name (single)
-        type(string_t), allocatable :: generic_list(:)  ! List for generic bindings
-        character(len=:), allocatable :: interface_name  ! Interface reference
-        logical :: is_generic = .false.  ! Generic binding
-        logical :: is_final = .false.  ! FINAL procedure
-        logical :: is_deferred = .false.  ! DEFERRED (for abstract)
-        logical :: pass_arg = .true.  ! PASS vs NOPASS
-        character(len=:), allocatable :: pass_name  ! PASS(name) dummy, if named
-        character(len=:), allocatable :: accessibility  ! PUBLIC/PRIVATE
+        character(len=:), allocatable :: binding_name ! Name of binding
+        character(len=:), allocatable :: implementation ! Procedure name (single)
+        type(string_t), allocatable :: generic_list(:) ! List for generic bindings
+        character(len=:), allocatable :: interface_name ! Interface reference
+        logical :: is_generic = .false. ! Generic binding
+        logical :: is_final = .false. ! FINAL procedure
+        logical :: is_deferred = .false. ! DEFERRED (for abstract)
+        logical :: pass_arg = .true. ! PASS vs NOPASS
+        character(len=:), allocatable :: pass_name ! PASS(name) dummy, if named
+        character(len=:), allocatable :: accessibility ! PUBLIC/PRIVATE
     contains
         procedure :: accept => type_binding_accept
         procedure :: assign => type_binding_assign
@@ -168,15 +168,15 @@ module ast_nodes_data
 
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
-        character(len=:), allocatable :: name  ! Type name
-        character(len=:), allocatable :: extends_parent  ! Parent type name (F2003)
-        character(len=:), allocatable :: attribute_clause  ! Header attributes
-        logical :: has_attributes = .false.  ! Whether header has attributes
-        integer, allocatable :: component_indices(:)  ! Component indices (stack-based)
-        logical :: has_parameters = .false.  ! Whether it has parameters
-        integer, allocatable :: param_indices(:)  ! Parameter indices (stack-based)
-        logical :: has_contains = .false.  ! Whether type has CONTAINS section
-        integer, allocatable :: binding_indices(:)  ! Type-bound procedure indices
+        character(len=:), allocatable :: name ! Type name
+        character(len=:), allocatable :: extends_parent ! Parent type name (F2003)
+        character(len=:), allocatable :: attribute_clause ! Header attributes
+        logical :: has_attributes = .false. ! Whether header has attributes
+        integer, allocatable :: component_indices(:) ! Component indices (stack-based)
+        logical :: has_parameters = .false. ! Whether it has parameters
+        integer, allocatable :: param_indices(:) ! Parameter indices (stack-based)
+        logical :: has_contains = .false. ! Whether type has CONTAINS section
+        integer, allocatable :: binding_indices(:) ! Type-bound procedure indices
     contains
         procedure :: accept => derived_type_accept
         procedure :: assign => derived_type_assign
@@ -185,10 +185,10 @@ module ast_nodes_data
 
     ! Mixed construct container node (for Issue #511 mixed construct support)
     type, extends(ast_node), public :: mixed_construct_container_node
-        character(len=:), allocatable :: module_name  ! Generated module name
+        character(len=:), allocatable :: module_name ! Generated module name
         integer, allocatable :: implicit_declaration_indices(:)
         ! Declarations for module
-        integer, allocatable :: explicit_program_indices(:)  ! Explicit program units
+        integer, allocatable :: explicit_program_indices(:) ! Explicit program units
     contains
         procedure :: accept => mixed_construct_container_accept
         procedure :: assign => mixed_construct_container_assign
@@ -218,17 +218,35 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
-        if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
-        if (allocated(rhs%var_names)) lhs%var_names = rhs%var_names
+        if (allocated(rhs%type_name)) then
+            lhs%type_name = rhs%type_name
+        else if (allocated(lhs%type_name)) then
+            deallocate (lhs%type_name)
+        end if
+        if (allocated(rhs%var_name)) then
+            lhs%var_name = rhs%var_name
+        else if (allocated(lhs%var_name)) then
+            deallocate (lhs%var_name)
+        end if
+        if (allocated(rhs%var_names)) then
+            lhs%var_names = rhs%var_names
+        else if (allocated(lhs%var_names)) then
+            deallocate (lhs%var_names)
+        end if
         lhs%is_multi_declaration = rhs%is_multi_declaration
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
         if (allocated(rhs%character_length_expr)) then
             lhs%character_length_expr = rhs%character_length_expr
+        else if (allocated(lhs%character_length_expr)) then
+            deallocate (lhs%character_length_expr)
         end if
         lhs%has_character_length = rhs%has_character_length
-        if (allocated(rhs%intent)) lhs%intent = rhs%intent
+        if (allocated(rhs%intent)) then
+            lhs%intent = rhs%intent
+        else if (allocated(lhs%intent)) then
+            deallocate (lhs%intent)
+        end if
         lhs%has_intent = rhs%has_intent
         lhs%is_optional = rhs%is_optional
         lhs%initializer_index = rhs%initializer_index
@@ -246,9 +264,15 @@ contains
         lhs%is_asynchronous = rhs%is_asynchronous
         lhs%is_contiguous = rhs%is_contiguous
         lhs%disable_grouping = rhs%disable_grouping
-        if (allocated(rhs%accessibility)) lhs%accessibility = rhs%accessibility
+        if (allocated(rhs%accessibility)) then
+            lhs%accessibility = rhs%accessibility
+        else if (allocated(lhs%accessibility)) then
+            deallocate (lhs%accessibility)
+        end if
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
+        else if (allocated(lhs%dimension_indices)) then
+            deallocate (lhs%dimension_indices)
         end if
     end subroutine declaration_assign
 
@@ -273,12 +297,22 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        if (allocated(rhs%name)) lhs%name = rhs%name
-        if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+        if (allocated(rhs%type_name)) then
+            lhs%type_name = rhs%type_name
+        else if (allocated(lhs%type_name)) then
+            deallocate (lhs%type_name)
+        end if
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
         if (allocated(rhs%character_length_expr)) then
             lhs%character_length_expr = rhs%character_length_expr
+        else if (allocated(lhs%character_length_expr)) then
+            deallocate (lhs%character_length_expr)
         end if
         lhs%has_character_length = rhs%has_character_length
         lhs%intent_type = rhs%intent_type
@@ -288,6 +322,8 @@ contains
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
+        else if (allocated(lhs%dimension_indices)) then
+            deallocate (lhs%dimension_indices)
         end if
     end subroutine parameter_declaration_assign
 
@@ -738,12 +774,20 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
+        if (allocated(rhs%module_name)) then
+            lhs%module_name = rhs%module_name
+        else if (allocated(lhs%module_name)) then
+            deallocate (lhs%module_name)
+        end if
         if (allocated(rhs%implicit_declaration_indices)) then
             lhs%implicit_declaration_indices = rhs%implicit_declaration_indices
+        else if (allocated(lhs%implicit_declaration_indices)) then
+            deallocate (lhs%implicit_declaration_indices)
         end if
         if (allocated(rhs%explicit_program_indices)) then
             lhs%explicit_program_indices = rhs%explicit_program_indices
+        else if (allocated(lhs%explicit_program_indices)) then
+            deallocate (lhs%explicit_program_indices)
         end if
     end subroutine mixed_construct_container_assign
 

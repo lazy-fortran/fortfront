@@ -19,8 +19,8 @@ module ast_nodes_io
 
     ! Print statement node
     type, extends(ast_node), public :: print_statement_node
-        integer, allocatable :: expression_indices(:)  ! Indices to expressions to print
-        character(len=:), allocatable :: format_spec  ! Optional format specifier
+        integer, allocatable :: expression_indices(:) ! Indices to expressions to print
+        character(len=:), allocatable :: format_spec ! Optional format specifier
     contains
         procedure :: accept => print_statement_accept
         procedure :: assign => print_statement_assign
@@ -43,18 +43,18 @@ module ast_nodes_io
 
     ! Write statement node
     type, extends(ast_node), public :: write_statement_node
-        character(len=:), allocatable :: unit_spec  ! Unit specifier
+        character(len=:), allocatable :: unit_spec ! Unit specifier
         ! (e.g., "10", "*")
-        character(len=:), allocatable :: format_spec  ! Optional format
-        character(len=:), allocatable :: namelist_group  ! Optional namelist group
-        character(len=:), allocatable :: io_control_list  ! All I/O control specifiers
-        integer, allocatable :: arg_indices(:)  ! Arguments to write
-        integer :: iostat_var_index = 0  ! Optional iostat variable index
-        integer :: err_label_index = 0  ! Optional err label index
-        integer :: end_label_index = 0  ! Optional end label index
-        integer :: format_expr_index = 0  ! Optional runtime
+        character(len=:), allocatable :: format_spec ! Optional format
+        character(len=:), allocatable :: namelist_group ! Optional namelist group
+        character(len=:), allocatable :: io_control_list ! All I/O control specifiers
+        integer, allocatable :: arg_indices(:) ! Arguments to write
+        integer :: iostat_var_index = 0 ! Optional iostat variable index
+        integer :: err_label_index = 0 ! Optional err label index
+        integer :: end_label_index = 0 ! Optional end label index
+        integer :: format_expr_index = 0 ! Optional runtime
         ! format expression
-        logical :: is_formatted = .false.  ! True if formatted I/O
+        logical :: is_formatted = .false. ! True if formatted I/O
     contains
         procedure :: accept => write_statement_accept
         procedure :: assign => write_statement_assign
@@ -63,18 +63,18 @@ module ast_nodes_io
 
     ! Read statement node
     type, extends(ast_node), public :: read_statement_node
-        character(len=:), allocatable :: unit_spec  ! Unit specifier
+        character(len=:), allocatable :: unit_spec ! Unit specifier
         ! (e.g., "10", "*")
-        character(len=:), allocatable :: format_spec  ! Optional format
-        character(len=:), allocatable :: namelist_group  ! Optional namelist group
-        character(len=:), allocatable :: io_control_list  ! All I/O control specifiers
-        integer, allocatable :: var_indices(:)  ! Variables to read into
-        integer :: iostat_var_index = 0  ! Optional iostat variable index
-        integer :: err_label_index = 0  ! Optional err label index
-        integer :: end_label_index = 0  ! Optional end label index
-        integer :: format_expr_index = 0  ! Optional runtime
+        character(len=:), allocatable :: format_spec ! Optional format
+        character(len=:), allocatable :: namelist_group ! Optional namelist group
+        character(len=:), allocatable :: io_control_list ! All I/O control specifiers
+        integer, allocatable :: var_indices(:) ! Variables to read into
+        integer :: iostat_var_index = 0 ! Optional iostat variable index
+        integer :: err_label_index = 0 ! Optional err label index
+        integer :: end_label_index = 0 ! Optional end label index
+        integer :: format_expr_index = 0 ! Optional runtime
         ! format expression
-        logical :: is_formatted = .false.  ! True if formatted I/O
+        logical :: is_formatted = .false. ! True if formatted I/O
     contains
         procedure :: accept => read_statement_accept
         procedure :: assign => read_statement_assign
@@ -83,13 +83,13 @@ module ast_nodes_io
 
     ! Format descriptor node for parsed format specifications
     type, extends(ast_node), public :: format_descriptor_node
-        character(len=:), allocatable :: descriptor_type  ! I, F, E, A, X, etc.
-        integer :: width = 0  ! Field width
-        integer :: decimal_places = 0  ! Decimal places (for F, E)
-        integer :: exponent_width = 0  ! Exponent width (for E)
-        integer :: repeat_count = 1  ! Repetition count
-        logical :: is_literal = .false.  ! True for literal strings
-        character(len=:), allocatable :: literal_text  ! For literal format strings
+        character(len=:), allocatable :: descriptor_type ! I, F, E, A, X, etc.
+        integer :: width = 0 ! Field width
+        integer :: decimal_places = 0 ! Decimal places (for F, E)
+        integer :: exponent_width = 0 ! Exponent width (for E)
+        integer :: repeat_count = 1 ! Repetition count
+        logical :: is_literal = .false. ! True for literal strings
+        character(len=:), allocatable :: literal_text ! For literal format strings
     contains
         procedure :: accept => format_descriptor_accept
         procedure :: assign => format_descriptor_assign
@@ -209,8 +209,14 @@ contains
             if (allocated(lhs%expression_indices)) deallocate (lhs%expression_indices)
             allocate (lhs%expression_indices(size(rhs%expression_indices)))
             lhs%expression_indices = rhs%expression_indices
+        else if (allocated(lhs%expression_indices)) then
+            deallocate (lhs%expression_indices)
         end if
-        if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%format_spec)) then
+            lhs%format_spec = rhs%format_spec
+        else if (allocated(lhs%format_spec)) then
+            deallocate (lhs%format_spec)
+        end if
     end subroutine print_statement_assign
 
     ! Stub implementations for io_implied_do_node

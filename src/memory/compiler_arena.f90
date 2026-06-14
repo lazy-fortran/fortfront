@@ -6,7 +6,7 @@ module compiler_arena
     use type_system_arena
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, &
                                 destroy_ast_arena
-    use, intrinsic :: iso_fortran_env, only: int64, dp => real64
+    use, intrinsic :: iso_fortran_env, only: int64, dp => real64, error_unit
     implicit none
     private
 
@@ -243,8 +243,17 @@ contains
     subroutine compiler_arena_next_phase(this, phase_name)
         class(compiler_arena_t), intent(inout) :: this
         character(len=*), intent(in) :: phase_name
+        character(len=8) :: trace_phases
+        integer :: trace_status
 
         if (.not. this%is_initialized) return
+
+        call get_environment_variable('FORTFRONT_TRACE_PHASES', trace_phases, &
+                                      status=trace_status)
+        if (trace_status == 0 .and. len_trim(trace_phases) > 0) then
+            write (error_unit, '(A,A)') 'PHASE ', trim(phase_name)
+            flush (error_unit)
+        end if
 
         this%generation = this%generation + 1
         call compiler_arena_update_total_memory(this)

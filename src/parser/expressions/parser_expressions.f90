@@ -78,7 +78,7 @@ module parser_expressions_module
 
 contains
 
-    function try_parse_complex_literal(parser, arena, view) result(expr_index)
+    recursive function try_parse_complex_literal(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
