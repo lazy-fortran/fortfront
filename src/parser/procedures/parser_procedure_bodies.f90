@@ -244,7 +244,7 @@ contains
         type(token_t) :: token
         character(len=:), allocatable :: function_name, return_type_str
         character(len=:), allocatable :: result_variable_name
-        integer :: line, column
+        integer :: line, column, stmt_index_local
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
         logical :: has_recursive_keyword

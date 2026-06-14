@@ -19,7 +19,7 @@ module ast_nodes_core
     ! Program node
     type, extends(ast_node), public :: program_node
         character(len=:), allocatable :: name
-        integer, allocatable :: body_indices(:)  ! Indices to body nodes in stack
+        integer, allocatable :: body_indices(:) ! Indices to body nodes in stack
     contains
         procedure :: accept => program_accept
         procedure :: assign => program_assign
@@ -28,14 +28,14 @@ module ast_nodes_core
 
     ! Assignment node
     type, extends(ast_node), public :: assignment_node
-        integer :: target_index  ! Index to target node in stack
-        integer :: value_index  ! Index to value node in stack
+        integer :: target_index ! Index to target node in stack
+        integer :: value_index ! Index to value node in stack
         character(len=:), allocatable :: operator
         ! Type inference support (dialect-agnostic)
-        logical :: type_was_inferred = .false.  ! true if type was inferred
+        logical :: type_was_inferred = .false. ! true if type was inferred
         character(len=:), allocatable :: inferred_type_name
         logical :: suppress_codegen = .false.
-        logical :: is_keyword_argument = .false.  ! keyword argument in a call
+        logical :: is_keyword_argument = .false. ! keyword argument in a call
     contains
         procedure :: accept => assignment_accept
         procedure :: assign => assignment_assign
@@ -44,8 +44,8 @@ module ast_nodes_core
 
     ! Pointer assignment node (ptr => target)
     type, extends(ast_node), public :: pointer_assignment_node
-        integer :: pointer_index  ! Index to pointer node in stack
-        integer :: target_index  ! Index to target node in stack
+        integer :: pointer_index ! Index to pointer node in stack
+        integer :: target_index ! Index to target node in stack
     contains
         procedure :: accept => pointer_assignment_accept
         procedure :: assign => pointer_assignment_assign
@@ -64,9 +64,9 @@ module ast_nodes_core
     ! Literal node
     type, extends(ast_node), public :: literal_node
         character(len=:), allocatable :: value
-        character(len=:), allocatable :: literal_type  ! "integer", "real",
+        character(len=:), allocatable :: literal_type ! "integer", "real",
         ! "character", etc.
-        integer :: literal_kind = 0  ! INTEGER_LITERAL, REAL_LITERAL, etc.
+        integer :: literal_kind = 0 ! INTEGER_LITERAL, REAL_LITERAL, etc.
     contains
         procedure :: accept => literal_accept
         procedure :: assign => literal_assign
@@ -75,8 +75,8 @@ module ast_nodes_core
 
     ! Binary operation node
     type, extends(ast_node), public :: binary_op_node
-        integer :: left_index  ! Index to left operand in stack
-        integer :: right_index  ! Index to right operand in stack
+        integer :: left_index ! Index to left operand in stack
+        integer :: right_index ! Index to right operand in stack
         character(len=:), allocatable :: operator
     contains
         procedure :: accept => binary_op_accept
@@ -93,7 +93,7 @@ module ast_nodes_core
         logical :: is_intrinsic = .false.
         character(len=:), allocatable :: intrinsic_signature
         ! Disambiguation flag (set during semantic analysis)
-        logical :: is_array_access = .false.  ! true if array indexing,
+        logical :: is_array_access = .false. ! true if array indexing,
         ! false if function call
     contains
         procedure :: accept => call_or_subscript_accept
@@ -103,10 +103,10 @@ module ast_nodes_core
 
     ! Array literal node
     type, extends(ast_node), public :: array_literal_node
-        integer, allocatable :: element_indices(:)  ! Indices to array elements
-        character(len=:), allocatable :: element_type  ! Type of array elements
-        character(len=:), allocatable :: type_spec  ! Optional explicit type-spec
-        character(len=:), allocatable :: syntax_style  ! modern [...] or legacy (/ /)
+        integer, allocatable :: element_indices(:) ! Indices to array elements
+        character(len=:), allocatable :: element_type ! Type of array elements
+        character(len=:), allocatable :: type_spec ! Optional explicit type-spec
+        character(len=:), allocatable :: syntax_style ! modern [...] or legacy (/ /)
     contains
         procedure :: accept => array_literal_accept
         procedure :: assign => array_literal_assign
@@ -115,8 +115,8 @@ module ast_nodes_core
 
     ! Component access node for % operator
     type, extends(ast_node), public :: component_access_node
-        integer :: base_expr_index  ! The structure/derived type expression
-        character(len=:), allocatable :: component_name  ! Name of the component
+        integer :: base_expr_index ! The structure/derived type expression
+        character(len=:), allocatable :: component_name ! Name of the component
         ! For chained access (a%b%c), base_expr can be another component_access_node
     contains
         procedure :: accept => component_access_accept
@@ -129,12 +129,12 @@ module ast_nodes_core
     ! - Character substring (for character variables)
     ! This ambiguity is resolved during semantic analysis
     type, extends(ast_node), public :: range_subscript_node
-        integer :: base_expr_index  ! The expression being subscripted
-        integer :: start_index = -1  ! Start position expression
+        integer :: base_expr_index ! The expression being subscripted
+        integer :: start_index = -1 ! Start position expression
         ! (-1 if not specified)
-        integer :: end_index = -1  ! End position expression (-1 if not specified)
+        integer :: end_index = -1 ! End position expression (-1 if not specified)
         ! Resolution flag (set during semantic analysis)
-        logical :: is_character_substring = .false.  ! true if substring
+        logical :: is_character_substring = .false. ! true if substring
     contains
         procedure :: accept => range_subscript_accept
         procedure :: assign => range_subscript_assign
@@ -157,9 +157,13 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
         end if
         if (allocated(rhs%body_indices)) then
             lhs%body_indices = rhs%body_indices
+        else if (allocated(lhs%body_indices)) then
+            deallocate (lhs%body_indices)
         end if
     end subroutine program_assign
 
@@ -179,10 +183,14 @@ contains
         lhs%value_index = rhs%value_index
         if (allocated(rhs%operator)) then
             lhs%operator = rhs%operator
+        else if (allocated(lhs%operator)) then
+            deallocate (lhs%operator)
         end if
         lhs%type_was_inferred = rhs%type_was_inferred
         if (allocated(rhs%inferred_type_name)) then
             lhs%inferred_type_name = rhs%inferred_type_name
+        else if (allocated(lhs%inferred_type_name)) then
+            deallocate (lhs%inferred_type_name)
         end if
         lhs%suppress_codegen = rhs%suppress_codegen
         lhs%is_keyword_argument = rhs%is_keyword_argument
@@ -220,6 +228,8 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
         end if
     end subroutine identifier_assign
 
@@ -239,9 +249,13 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%value)) then
             lhs%value = rhs%value
+        else if (allocated(lhs%value)) then
+            deallocate (lhs%value)
         end if
         if (allocated(rhs%literal_type)) then
             lhs%literal_type = rhs%literal_type
+        else if (allocated(lhs%literal_type)) then
+            deallocate (lhs%literal_type)
         end if
         lhs%literal_kind = rhs%literal_kind
     end subroutine literal_assign
@@ -260,7 +274,11 @@ contains
         ! Copy derived class fields
         lhs%left_index = rhs%left_index
         lhs%right_index = rhs%right_index
-        if (allocated(rhs%operator)) lhs%operator = rhs%operator
+        if (allocated(rhs%operator)) then
+            lhs%operator = rhs%operator
+        else if (allocated(lhs%operator)) then
+            deallocate (lhs%operator)
+        end if
     end subroutine binary_op_assign
 
     ! Stub implementations for call_or_subscript_node
@@ -275,12 +293,22 @@ contains
         class(call_or_subscript_node), intent(in) :: rhs
         call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
-        if (allocated(rhs%name)) lhs%name = rhs%name
-        if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+        if (allocated(rhs%arg_indices)) then
+            lhs%arg_indices = rhs%arg_indices
+        else if (allocated(lhs%arg_indices)) then
+            deallocate (lhs%arg_indices)
+        end if
         lhs%is_intrinsic = rhs%is_intrinsic
         lhs%is_array_access = rhs%is_array_access
         if (allocated(rhs%intrinsic_signature)) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
+        else if (allocated(lhs%intrinsic_signature)) then
+            deallocate (lhs%intrinsic_signature)
         end if
     end subroutine call_or_subscript_assign
 
@@ -296,10 +324,26 @@ contains
         class(array_literal_node), intent(in) :: rhs
         call copy_ast_node_base(lhs, rhs)
         ! Copy derived class fields
-        if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
-        if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
-        if (allocated(rhs%type_spec)) lhs%type_spec = rhs%type_spec
-        if (allocated(rhs%syntax_style)) lhs%syntax_style = rhs%syntax_style
+        if (allocated(rhs%element_indices)) then
+            lhs%element_indices = rhs%element_indices
+        else if (allocated(lhs%element_indices)) then
+            deallocate (lhs%element_indices)
+        end if
+        if (allocated(rhs%element_type)) then
+            lhs%element_type = rhs%element_type
+        else if (allocated(lhs%element_type)) then
+            deallocate (lhs%element_type)
+        end if
+        if (allocated(rhs%type_spec)) then
+            lhs%type_spec = rhs%type_spec
+        else if (allocated(lhs%type_spec)) then
+            deallocate (lhs%type_spec)
+        end if
+        if (allocated(rhs%syntax_style)) then
+            lhs%syntax_style = rhs%syntax_style
+        else if (allocated(lhs%syntax_style)) then
+            deallocate (lhs%syntax_style)
+        end if
     end subroutine array_literal_assign
 
     ! Factory functions
@@ -331,7 +375,7 @@ contains
         if (present(syntax_style)) then
             node%syntax_style = syntax_style
         else
-            node%syntax_style = "modern"  ! default to modern syntax
+            node%syntax_style = "modern" ! default to modern syntax
         end if
         if (present(type_spec)) then
             if (len_trim(type_spec) > 0) node%type_spec = trim(type_spec)
@@ -415,7 +459,7 @@ contains
         end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
-        node%is_character_substring = .false.  ! Default to array slice
+        node%is_character_substring = .false. ! Default to array slice
     end function create_range_subscript
 
     ! New constructors migrated from ast_core

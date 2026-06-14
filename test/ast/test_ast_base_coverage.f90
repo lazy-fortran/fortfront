@@ -167,6 +167,11 @@ contains
             return
         end if
 
+        if (allocated(lhs%node)) then
+            call test_fail("LHS node should be cleared by unallocated RHS")
+            return
+        end if
+
         call test_pass()
     end subroutine test_ast_node_wrapper_assign_unallocated
 
@@ -267,6 +272,7 @@ contains
         src%constant_integer = 99
         src%constant_real = 3.14_dp
         src%constant_type = LITERAL_INTEGER
+        src%stmt_label = "10"
 
         ! Set derived field
         src%name = "test_name"
@@ -325,9 +331,26 @@ contains
             return
         end if
 
+        if (.not. allocated(dst%stmt_label)) then
+            call test_fail("stmt_label should survive copy assignment")
+            return
+        end if
+
+        if (dst%stmt_label /= "10") then
+            call test_fail("stmt_label value should survive copy assignment")
+            return
+        end if
+
         ! Verify derived field survived
         if (dst%name /= "test_name") then
             call test_fail("derived field name should survive copy assignment")
+            return
+        end if
+
+        deallocate (src%stmt_label)
+        dst = src
+        if (allocated(dst%stmt_label)) then
+            call test_fail("stmt_label should be cleared when absent on source")
             return
         end if
 
@@ -337,7 +360,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         total_tests = total_tests + 1
-        write (*, '(A)', advance='no') "Testing " // test_name // "... "
+        write (*, '(A)', advance='no') "Testing "//test_name//"... "
     end subroutine test_start
 
     subroutine test_pass()
@@ -347,7 +370,7 @@ contains
 
     subroutine test_fail(message)
         character(len=*), intent(in) :: message
-        print *, "FAIL: " // message
+        print *, "FAIL: "//message
     end subroutine test_fail
 
     subroutine print_results()

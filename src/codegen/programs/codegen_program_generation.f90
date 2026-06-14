@@ -17,7 +17,7 @@ module codegen_program_generation
 
 contains
 
-    function generate_code_program(arena, node, node_index) result(code)
+    recursive function generate_code_program(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -223,7 +223,7 @@ contains
         end do
     end subroutine append_module_wrapper
 
-    function generate_multi_unit_program(arena, node) result(code)
+    recursive function generate_multi_unit_program(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable :: code

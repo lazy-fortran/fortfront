@@ -21,7 +21,6 @@ module ast_api
         identifier_node, &
         literal_node, &
         binary_op_node, &
-        unary_op_node, &
         call_or_subscript_node, &
         array_literal_node, &
         component_access_node, &
@@ -29,25 +28,23 @@ module ast_api
     use ast_nodes_procedure, only: &
         function_def_node, &
         subroutine_def_node, &
-        function_call_node, &
         subroutine_call_node
     use ast_nodes_control, only: &
         if_node, &
         do_loop_node, &
-        do_while_loop_node, &
+        do_while_node, &
         select_case_node, &
-        case_node, &
+        case_block_node, &
         exit_node, &
         cycle_node
     use ast_nodes_data, only: &
         module_node, &
-        interface_node, &
-        type_def_node, &
-        variable_decl_node
+        derived_type_node, &
+        declaration_node
+    use ast_nodes_misc, only: interface_block_node
     use ast_visitor, only: ast_visitor_t
     use ast_traversal_utils, only: &
         traverse_ast, &
-        count_nodes, &
         find_nodes_by_type
 
     implicit none
@@ -78,7 +75,6 @@ module ast_api
     public :: identifier_node
     public :: literal_node
     public :: binary_op_node
-    public :: unary_op_node
     public :: call_or_subscript_node
     public :: array_literal_node
     public :: component_access_node
@@ -87,30 +83,28 @@ module ast_api
     ! Procedure node types
     public :: function_def_node
     public :: subroutine_def_node
-    public :: function_call_node
     public :: subroutine_call_node
 
     ! Control flow node types
     public :: if_node
     public :: do_loop_node
-    public :: do_while_loop_node
+    public :: do_while_node
     public :: select_case_node
-    public :: case_node
+    public :: case_block_node
     public :: exit_node
     public :: cycle_node
 
     ! Data structure node types
     public :: module_node
-    public :: interface_node
-    public :: type_def_node
-    public :: variable_decl_node
+    public :: interface_block_node
+    public :: derived_type_node
+    public :: declaration_node
 
     ! Visitor support
     public :: ast_visitor_t
 
     ! Traversal utilities
     public :: traverse_ast
-    public :: count_nodes
     public :: find_nodes_by_type
 
 end module ast_api

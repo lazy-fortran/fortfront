@@ -16,6 +16,7 @@
         integer, intent(out) :: updated_idx
         logical :: handled
         integer :: prog_idx
+        character(len=:), allocatable :: proc_name
 
         updated_idx = child_idx
         if (child_idx < 1 .or. child_idx > arena%size) return
@@ -23,8 +24,9 @@
 
         select type (node => arena%entries(child_idx)%node)
         type is (function_def_node)
+            proc_name = node%name
             call process_specializable_procedure(arena, signatures, child_idx, &
-                                                 node%name, .true., handled, &
+                                                 proc_name, .true., handled, &
                                                  module_indices, &
                                                  module_count, &
                                                  module_names)
@@ -36,8 +38,9 @@
                 preserved_indices(preserved_count) = child_idx
             end if
         type is (subroutine_def_node)
+            proc_name = node%name
             call process_specializable_procedure(arena, signatures, child_idx, &
-                                                 node%name, .false., handled, &
+                                                 proc_name, .false., handled, &
                                                  module_indices, &
                                                  module_count, &
                                                  module_names)
@@ -766,6 +769,8 @@
         integer, allocatable :: body_indices_copy(:)
         character(len=:), allocatable :: mangled_name, return_type
         character(len=:), allocatable :: result_name
+        integer :: original_line, original_column
+        type(mono_type_t) :: original_inferred_type
 
         call get_function_node(arena, func_idx, orig_func)
         if (.not. associated(orig_func)) then
@@ -782,9 +787,17 @@
                                                  signature%param_kinds)
         end if
         return_type = determine_return_type_string(arena, signature, orig_func)
+        result_name = determine_result_name(orig_func, mangled_name)
+        original_line = orig_func%line
+        original_column = orig_func%column
+        original_inferred_type = orig_func%inferred_type
 
         new_param_indices = clone_function_parameters(arena, orig_func, signature)
-        result_name = determine_result_name(orig_func, mangled_name)
+        call get_function_node(arena, func_idx, orig_func)
+        if (.not. associated(orig_func)) then
+            new_idx = 0
+            return
+        end if
         body_indices_copy = clone_function_body_with_updated_result( &
                             arena, orig_func, result_name, return_type)
 
@@ -793,10 +806,10 @@
                    param_indices=new_param_indices, &
                    return_type=return_type, &
                    body_indices=body_indices_copy, &
-                   line=orig_func%line, &
-                   column=orig_func%column, &
+                   line=original_line, &
+                   column=original_column, &
                    result_variable=result_name)
-        new_func%inferred_type = orig_func%inferred_type
+        new_func%inferred_type = original_inferred_type
 
         call arena%push(new_func)
         new_idx = arena%size
@@ -867,6 +880,11 @@
         integer, allocatable :: new_param_indices(:)
         integer, allocatable :: body_indices_copy(:)
         character(len=:), allocatable :: mangled_name
+        character(len=16), allocatable :: prefix_keywords_copy(:)
+        character(len=:), allocatable :: bind_c_clause_copy
+        integer :: original_line, original_column
+        logical :: original_is_recursive
+        type(mono_type_t) :: original_inferred_type
 
         call get_subroutine_node(arena, sub_idx, orig_subr)
         if (.not. associated(orig_subr)) then
@@ -883,28 +901,46 @@
                                                  signature%param_kinds)
         end if
 
-        new_param_indices = clone_parameter_list(arena, orig_subr%param_indices, &
-                                                 signature)
-
         if (allocated(orig_subr%body_indices)) then
             allocate (body_indices_copy(size(orig_subr%body_indices)))
             body_indices_copy = orig_subr%body_indices
         else
             allocate (body_indices_copy(0))
         end if
-
-        new_subr = create_subroutine_def( &
-                   name=mangled_name, &
-                   param_indices=new_param_indices, &
-                   body_indices=body_indices_copy, &
-                   line=orig_subr%line, &
-                   column=orig_subr%column, &
-                   prefix_keywords=orig_subr%prefix_keywords, &
-                   is_recursive=orig_subr%is_recursive)
-        new_subr%inferred_type = orig_subr%inferred_type
-        if (allocated(orig_subr%bind_c_clause)) then
-            new_subr%bind_c_clause = orig_subr%bind_c_clause
+        if (allocated(orig_subr%prefix_keywords)) then
+            prefix_keywords_copy = orig_subr%prefix_keywords
         end if
+        if (allocated(orig_subr%bind_c_clause)) then
+            bind_c_clause_copy = orig_subr%bind_c_clause
+        end if
+        original_line = orig_subr%line
+        original_column = orig_subr%column
+        original_is_recursive = orig_subr%is_recursive
+        original_inferred_type = orig_subr%inferred_type
+
+        new_param_indices = clone_parameter_list(arena, orig_subr%param_indices, &
+                                                 signature)
+
+        if (allocated(prefix_keywords_copy)) then
+            new_subr = create_subroutine_def( &
+                       name=mangled_name, &
+                       param_indices=new_param_indices, &
+                       body_indices=body_indices_copy, &
+                       line=original_line, &
+                       column=original_column, &
+                       prefix_keywords=prefix_keywords_copy, &
+                       is_recursive=original_is_recursive)
+        else
+            new_subr = create_subroutine_def( &
+                       name=mangled_name, &
+                       param_indices=new_param_indices, &
+                       body_indices=body_indices_copy, &
+                       line=original_line, &
+                       column=original_column, &
+                       is_recursive=original_is_recursive)
+        end if
+        new_subr%inferred_type = original_inferred_type
+        if (allocated(bind_c_clause_copy)) new_subr%bind_c_clause = bind_c_clause_copy
 
         call arena%push(new_subr)
         new_idx = arena%size

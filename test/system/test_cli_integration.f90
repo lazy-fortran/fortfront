@@ -23,36 +23,31 @@ program test_cli_integration
         stop 0
     end if
 
-    ! Pre-build fortfront to ensure it exists before testing
-    print *, "Building fortfront executable..."
+    print *, "Locating fortfront executable..."
     block
+        character(len=:), allocatable :: executable_path
         character(len=:), allocatable :: build_command
-        integer :: clean_status
+        integer :: build_status
 
-        ! Ensure we do not reuse a cached executable without the stack flag.
-        ! Only remove previously built CLI binaries so test artifacts remain intact
-        if (is_windows) then
-            call execute_command_line( &
-                'cmd /C if exist build (for /d %d in (build\gfortran_*) do '// &
-                'if exist "%d\app" rmdir /S /Q "%d\app")', exitstat=clean_status)
-        else
-            call execute_command_line( &
-                'sh -lc ''if [ -d build ]; then find build -maxdepth 2 -type d -name app -exec rm -rf {} +; fi''', &
-                exitstat=clean_status)
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            print *, "Building fortfront executable..."
+            build_command = timeout_wrapper('60') // 'fpm build'
+            call execute_command_line(build_command, exitstat=build_status)
+            if (build_status /= 0) then
+                print *, "SKIPPING: Failed to build fortfront executable (exit code:", &
+                    & build_status, ")"
+                print *, "This may indicate CI environment issues or missing build dependencies"
+                stop 0
+            end if
+            executable_path = find_fortfront_executable()
         end if
 
-        build_command = timeout_wrapper('60') // 'fpm build'
-        if (is_windows) build_command = build_command // ' --flag "-Wl,--stack,16777216"'
-        call execute_command_line(build_command, exitstat=test_count)
+        if (len(executable_path) == 0) then
+            print *, "SKIPPING: Could not locate fortfront executable"
+            stop 0
+        end if
     end block
-    if (test_count /= 0) then
-        print *, "SKIPPING: Failed to build fortfront executable (exit code:", &
-            & test_count, ")"
-        print *, "This may indicate CI environment issues or missing build dependencies"
-        stop 0
-    end if
-
-    test_count = 0  ! Reset test counter
 
     ! Test 0: --help prints to stdout, empty stderr, exit 0
     call test_help_no_stderr()

@@ -71,17 +71,48 @@ contains
         class(function_def_node), intent(inout) :: lhs
         class(function_def_node), intent(in) :: rhs
         call copy_ast_node_base(lhs, rhs)
-        ! Copy derived class fields
-        lhs%name = rhs%name
-        lhs%return_type = rhs%return_type
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+        if (allocated(rhs%return_type)) then
+            lhs%return_type = rhs%return_type
+        else if (allocated(lhs%return_type)) then
+            deallocate (lhs%return_type)
+        end if
         lhs%has_return_type_in_header = rhs%has_return_type_in_header
         lhs%is_recursive = rhs%is_recursive
-        if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
-        if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
-        if (allocated(rhs%param_intents)) lhs%param_intents = rhs%param_intents
-        if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
-        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
-        if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause
+        if (allocated(rhs%result_variable)) then
+            lhs%result_variable = rhs%result_variable
+        else if (allocated(lhs%result_variable)) then
+            deallocate (lhs%result_variable)
+        end if
+        if (allocated(rhs%prefix_keywords)) then
+            lhs%prefix_keywords = rhs%prefix_keywords
+        else if (allocated(lhs%prefix_keywords)) then
+            deallocate (lhs%prefix_keywords)
+        end if
+        if (allocated(rhs%param_intents)) then
+            lhs%param_intents = rhs%param_intents
+        else if (allocated(lhs%param_intents)) then
+            deallocate (lhs%param_intents)
+        end if
+        if (allocated(rhs%param_indices)) then
+            lhs%param_indices = rhs%param_indices
+        else if (allocated(lhs%param_indices)) then
+            deallocate (lhs%param_indices)
+        end if
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        else if (allocated(lhs%body_indices)) then
+            deallocate (lhs%body_indices)
+        end if
+        if (allocated(rhs%bind_c_clause)) then
+            lhs%bind_c_clause = rhs%bind_c_clause
+        else if (allocated(lhs%bind_c_clause)) then
+            deallocate (lhs%bind_c_clause)
+        end if
     end subroutine function_def_assign
 
     ! Implementation for subroutine_def_node
@@ -95,14 +126,37 @@ contains
         class(subroutine_def_node), intent(inout) :: lhs
         class(subroutine_def_node), intent(in) :: rhs
         call copy_ast_node_base(lhs, rhs)
-        ! Copy derived class fields
-        lhs%name = rhs%name
-        if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
-        if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
-        if (allocated(rhs%param_intents)) lhs%param_intents = rhs%param_intents
-        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+        if (allocated(rhs%param_indices)) then
+            lhs%param_indices = rhs%param_indices
+        else if (allocated(lhs%param_indices)) then
+            deallocate (lhs%param_indices)
+        end if
+        if (allocated(rhs%prefix_keywords)) then
+            lhs%prefix_keywords = rhs%prefix_keywords
+        else if (allocated(lhs%prefix_keywords)) then
+            deallocate (lhs%prefix_keywords)
+        end if
+        if (allocated(rhs%param_intents)) then
+            lhs%param_intents = rhs%param_intents
+        else if (allocated(lhs%param_intents)) then
+            deallocate (lhs%param_intents)
+        end if
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        else if (allocated(lhs%body_indices)) then
+            deallocate (lhs%body_indices)
+        end if
         lhs%is_recursive = rhs%is_recursive
-        if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause
+        if (allocated(rhs%bind_c_clause)) then
+            lhs%bind_c_clause = rhs%bind_c_clause
+        else if (allocated(lhs%bind_c_clause)) then
+            deallocate (lhs%bind_c_clause)
+        end if
     end subroutine subroutine_def_assign
 
     ! Implementation for subroutine_call_node
@@ -116,9 +170,16 @@ contains
         class(subroutine_call_node), intent(inout) :: lhs
         class(subroutine_call_node), intent(in) :: rhs
         call copy_ast_node_base(lhs, rhs)
-        ! Copy derived class fields
-        lhs%name = rhs%name
-        if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+        if (allocated(rhs%arg_indices)) then
+            lhs%arg_indices = rhs%arg_indices
+        else if (allocated(lhs%arg_indices)) then
+            deallocate (lhs%arg_indices)
+        end if
     end subroutine subroutine_call_assign
 
     ! Factory functions

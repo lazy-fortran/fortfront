@@ -37,8 +37,7 @@ contains
 
         membership(node_index) = .true.
 
-        if (.not. allocated(arena%entries(node_index)%child_indices)) return
-        child_count = size(arena%entries(node_index)%child_indices)
+        child_count = valid_child_count(arena, node_index)
         if (child_count == 0) return
         do child_idx = 1, child_count
             member_idx = arena%entries(node_index)%child_indices(child_idx)
@@ -334,15 +333,33 @@ contains
         end select
     end subroutine collect_procedure_assignment_names
 
-    recursive subroutine collect_assignment_from_node(arena, node_index, names, &
-                                                      skip_procedures)
+    subroutine collect_assignment_from_node(arena, node_index, names, &
+                                            skip_procedures)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
         logical, intent(in) :: skip_procedures
+        logical, allocatable :: visited(:)
+
+        call allocate_visit_mask(arena, visited)
+        call collect_assignment_from_node_impl(arena, node_index, names, &
+                                               skip_procedures, visited)
+    end subroutine collect_assignment_from_node
+
+    recursive subroutine collect_assignment_from_node_impl(arena, node_index, names, &
+                                                           skip_procedures, visited)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=64), allocatable, intent(inout) :: names(:)
+        logical, intent(in) :: skip_procedures
+        logical, intent(inout) :: visited(:)
         integer :: child_i, child_target
+        integer :: child_count
 
         if (.not. arena%has_node_at(node_index)) return
+        if (node_index <= 0 .or. node_index > size(visited)) return
+        if (visited(node_index)) return
+        visited(node_index) = .true.
 
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
@@ -356,41 +373,85 @@ contains
             if (.not. allocated(node%body_indices)) return
             do child_i = 1, size(node%body_indices)
                 child_target = node%body_indices(child_i)
-                call collect_assignment_from_node(arena, child_target, names, &
-                                                  skip_procedures)
+                call collect_assignment_from_node_impl(arena, child_target, names, &
+                                                       skip_procedures, visited)
             end do
             return
         end select
 
-        if (allocated(arena%entries(node_index)%child_indices)) then
-            do child_i = 1, size(arena%entries(node_index)%child_indices)
+        child_count = valid_child_count(arena, node_index)
+        if (child_count > 0) then
+            do child_i = 1, child_count
                 child_target = arena%entries(node_index)%child_indices(child_i)
-                call collect_assignment_from_node(arena, child_target, names, &
-                                                  skip_procedures)
+                call collect_assignment_from_node_impl(arena, child_target, names, &
+                                                       skip_procedures, visited)
             end do
         end if
-    end subroutine collect_assignment_from_node
+    end subroutine collect_assignment_from_node_impl
 
-    recursive subroutine record_identifier_name(arena, node_index, names)
+    subroutine record_identifier_name(arena, node_index, names)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
+        logical, allocatable :: visited(:)
+
+        call allocate_visit_mask(arena, visited)
+        call record_identifier_name_impl(arena, node_index, names, visited)
+    end subroutine record_identifier_name
+
+    recursive subroutine record_identifier_name_impl(arena, node_index, names, &
+                                                     visited)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=64), allocatable, intent(inout) :: names(:)
+        logical, intent(inout) :: visited(:)
 
         if (.not. arena%has_node_at(node_index)) return
+        if (node_index <= 0 .or. node_index > size(visited)) return
+        if (visited(node_index)) return
+        visited(node_index) = .true.
 
         select type (id => arena%entries(node_index)%node)
         type is (identifier_node)
             call append_unique_name(names, trim(to_lower(id%name)))
         type is (call_or_subscript_node)
             if (id%base_expr_index > 0) then
-                call record_identifier_name(arena, id%base_expr_index, names)
+                call record_identifier_name_impl(arena, id%base_expr_index, names, &
+                                                 visited)
             end if
         type is (component_access_node)
             if (id%base_expr_index > 0) then
-                call record_identifier_name(arena, id%base_expr_index, names)
+                call record_identifier_name_impl(arena, id%base_expr_index, names, &
+                                                 visited)
             end if
         end select
-    end subroutine record_identifier_name
+    end subroutine record_identifier_name_impl
+
+    subroutine allocate_visit_mask(arena, visited)
+        type(ast_arena_t), intent(in) :: arena
+        logical, allocatable, intent(out) :: visited(:)
+        integer :: count
+
+        count = max(0, arena%size)
+        allocate (visited(count))
+        visited = .false.
+    end subroutine allocate_visit_mask
+
+    integer function valid_child_count(arena, node_index) result(count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        count = 0
+        if (.not. arena%has_node_at(node_index)) return
+        if (.not. allocated(arena%entries(node_index)%child_indices)) return
+
+        count = arena%entries(node_index)%child_count
+        if (count <= 0) then
+            count = 0
+            return
+        end if
+        count = min(count, size(arena%entries(node_index)%child_indices))
+    end function valid_child_count
 
     subroutine append_unique_name(names, candidate)
         character(len=64), allocatable, intent(inout) :: names(:)
