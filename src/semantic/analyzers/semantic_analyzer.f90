@@ -56,7 +56,8 @@ module semantic_analyzer
                                  cycle_node, exit_node, stop_node, return_node, &
                                  entry_node, continue_node, elsewhere_clause_t, &
                                  pause_node, nullify_node
-    use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
+    use ast_nodes_data, only: intent_type_to_string, declaration_node, &
+                              module_node, derived_type_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 array_bounds_node, range_expression_node, &
                                 get_array_slice_node

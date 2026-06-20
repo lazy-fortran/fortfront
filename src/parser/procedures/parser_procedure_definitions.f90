@@ -207,7 +207,7 @@ contains
         character(len=16), intent(in), optional :: prefix_list(:)
         integer :: sub_index
 
-        character(len=:), allocatable :: subroutine_name
+        character(len=:), allocatable :: subroutine_name, bind_c_clause
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
@@ -222,6 +222,7 @@ contains
                                             has_recursive_keyword=has_recursive_keyword)
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
+        call parse_bind_c_clause(parser, bind_c_clause)
         call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
                                   body_indices, infer_recursive_from_body, &
                                   parse_function_proc=parse_function_definition, &
@@ -235,7 +236,8 @@ contains
         sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
                                         body_indices, line, column, &
                                         is_recursive=has_recursive_keyword, &
-                                        prefix_keywords=prefix_keywords)
+                                        prefix_keywords=prefix_keywords, &
+                                        bind_c_clause=bind_c_clause)
     end function parse_subroutine_definition
 
 end module parser_procedure_definitions_module
