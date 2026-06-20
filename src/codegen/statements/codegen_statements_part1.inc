@@ -204,6 +204,9 @@
         if (allocated(node%namelist_group)) then
             ! Namelist write
             format_code = "nml=" // node%namelist_group
+        else if (node%format_expr_index > 0 .and. &
+                 node%format_expr_index <= arena%size) then
+            format_code = generate_code_from_arena(arena, node%format_expr_index)
         else if (allocated(node%format_spec)) then
             format_code = node%format_spec
         else
@@ -258,6 +261,9 @@
         ! Generate format or namelist specifier
         if (allocated(node%namelist_group)) then
             format_code = "nml=" // node%namelist_group
+        else if (node%format_expr_index > 0 .and. &
+                 node%format_expr_index <= arena%size) then
+            format_code = generate_code_from_arena(arena, node%format_expr_index)
         else if (allocated(node%format_spec)) then
             format_code = node%format_spec
         else
