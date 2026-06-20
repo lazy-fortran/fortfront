@@ -186,6 +186,14 @@
                     type is (module_procedure_node)
                         if (.not. allocated(iface_item%procedure_names)) cycle
                         call record_module_procedure_names(state, iface_item)
+                    type is (subroutine_def_node)
+                        if (.not. allocated(iface_item%name)) cycle
+                        call record_use_associated_name(state, &
+                                                        trim(iface_item%name))
+                    type is (function_def_node)
+                        if (.not. allocated(iface_item%name)) cycle
+                        call record_use_associated_name(state, &
+                                                        trim(iface_item%name))
                     end select
                 end do
             end if
@@ -277,6 +285,9 @@
                                                   trim(decl%enumerator_names(j)%s))
                     end do
                 end if
+            type is (interface_block_node)
+                if (contains_seen) cycle
+                call extract_declaration_names(arena, idx, state)
             end select
         end do
     end subroutine collect_declared_symbols
