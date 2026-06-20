@@ -22,7 +22,10 @@ module fortfront_utils
                                      select_type_node, type_guard_block_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
-    use fortfront_types, only: source_range_t, diagnostic_t
+    use fortfront_types, only: source_range_t, diagnostic_t, &
+                               DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, &
+                               DIAGNOSTIC_INFO
+    use error_handling, only: ERROR_WARNING, ERROR_ERROR, ERROR_CRITICAL
     use fortfront_node_constants
     use string_utils_mod, only: int_to_string
 
@@ -303,14 +306,45 @@ contains
         end if
     end subroutine get_type_for_node
 
-    ! Collect diagnostics (placeholder for future implementation)
+    ! Collect diagnostics from the semantic context error collection.
+    ! Each accumulated semantic result_t is mapped to a diagnostic_t, with the
+    ! internal error severity scale translated to the public diagnostic scale.
     function get_diagnostics(ctx) result(diagnostics)
         type(semantic_context_t), intent(in) :: ctx
         type(diagnostic_t), allocatable :: diagnostics(:)
 
-        ! Placeholder - return empty array
-        allocate (diagnostics(0))
+        integer :: count, i
+
+        count = ctx%errors%count
+        allocate (diagnostics(count))
+        do i = 1, count
+            diagnostics(i)%severity = error_severity_to_diagnostic( &
+                                      ctx%errors%errors(i)%severity)
+            if (allocated(ctx%errors%errors(i)%error_message)) then
+                diagnostics(i)%message = ctx%errors%errors(i)%error_message
+            else
+                diagnostics(i)%message = ""
+            end if
+            if (allocated(ctx%errors%errors(i)%component)) then
+                diagnostics(i)%category = ctx%errors%errors(i)%component
+            end if
+        end do
     end function get_diagnostics
+
+    ! Map internal error_handling severity to public diagnostic severity
+    pure function error_severity_to_diagnostic(severity) result(diag_severity)
+        integer, intent(in) :: severity
+        integer :: diag_severity
+
+        select case (severity)
+        case (ERROR_ERROR, ERROR_CRITICAL)
+            diag_severity = DIAGNOSTIC_ERROR
+        case (ERROR_WARNING)
+            diag_severity = DIAGNOSTIC_WARNING
+        case default
+            diag_severity = DIAGNOSTIC_INFO
+        end select
+    end function error_severity_to_diagnostic
 
     ! AST to JSON serialization
     subroutine ast_to_json(arena, root_index, json_string)
@@ -346,14 +380,14 @@ contains
         do i = 1, entry_limit
             if (.not. allocated(arena%entries(i)%node)) cycle
             fragment = build_node_json(arena, i)
-            if (emitted > 0) nodes_json = nodes_json // ","
-            nodes_json = nodes_json // fragment
+            if (emitted > 0) nodes_json = nodes_json//","
+            nodes_json = nodes_json//fragment
             emitted = emitted + 1
         end do
 
-        json_string = '{"root":' // trim(int_to_string(root_index)) // &
-                      ',"node_count":' // trim(int_to_string(node_count)) // &
-                      ',"nodes":[' // nodes_json // ']}'
+        json_string = '{"root":'//trim(int_to_string(root_index))// &
+                      ',"node_count":'//trim(int_to_string(node_count))// &
+                      ',"nodes":['//nodes_json//']}'
     end subroutine ast_to_json
 
     pure function build_node_json(arena, node_index) result(json)
@@ -374,93 +408,93 @@ contains
             node_type = "unknown"
         end if
 
-        json = '{"index":' // trim(int_to_string(node_index)) // &
-               ',"type":"' // escape_json(node_type) // '"'
+        json = '{"index":'//trim(int_to_string(node_index))// &
+               ',"type":"'//escape_json(node_type)//'"'
 
-        json = json // ',"line":' // &
+        json = json//',"line":'// &
                trim(int_to_string(arena%entries(node_index)%node%line))
-        json = json // ',"column":' // &
+        json = json//',"column":'// &
                trim(int_to_string(arena%entries(node_index)%node%column))
 
         parent_index = arena%entries(node_index)%parent_index
-        json = json // ',"parent":' // trim(int_to_string(parent_index))
+        json = json//',"parent":'//trim(int_to_string(parent_index))
 
         child_count = arena%entries(node_index)%child_count
         child_list = "["
         if (child_count > 0) then
             if (allocated(arena%entries(node_index)%child_indices)) then
                 do j = 1, child_count
-                    if (j > 1) child_list = child_list // ","
+                    if (j > 1) child_list = child_list//","
                     child_value = trim(int_to_string( &
                                        arena%entries(node_index)%child_indices(j)))
-                    child_list = child_list // child_value
+                    child_list = child_list//child_value
                 end do
             end if
         end if
-        child_list = child_list // "]"
-        json = json // ',"children":' // child_list
+        child_list = child_list//"]"
+        json = json//',"children":'//child_list
 
         select type (node => arena%entries(node_index)%node)
         type is (program_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
-                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                    json = json//',"name":"'//escape_json(node%name)//'"'
                 end if
             end if
         type is (assignment_node)
-            json = json // ',"kind":"assignment"'
-            json = json // ',"target_index":' // &
+            json = json//',"kind":"assignment"'
+            json = json//',"target_index":'// &
                    trim(int_to_string(node%target_index))
-            json = json // ',"value_index":' // &
+            json = json//',"value_index":'// &
                    trim(int_to_string(node%value_index))
             if (allocated(node%operator)) then
                 if (len_trim(node%operator) > 0) then
-                    json = json // ',"operator":"' // &
-                           escape_json(node%operator) // '"'
+                    json = json//',"operator":"'// &
+                           escape_json(node%operator)//'"'
                 end if
             end if
         type is (identifier_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
-                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                    json = json//',"name":"'//escape_json(node%name)//'"'
                 end if
             end if
         type is (literal_node)
             if (allocated(node%value)) then
                 if (len_trim(node%value) > 0) then
-                    json = json // ',"value":"' // escape_json(node%value) // '"'
+                    json = json//',"value":"'//escape_json(node%value)//'"'
                 end if
             end if
             if (allocated(node%literal_type)) then
                 if (len_trim(node%literal_type) > 0) then
-                    json = json // ',"literal_type":"' // &
-                           escape_json(node%literal_type) // '"'
+                    json = json//',"literal_type":"'// &
+                           escape_json(node%literal_type)//'"'
                 end if
             end if
         type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
-                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                    json = json//',"name":"'//escape_json(node%name)//'"'
                 end if
             end if
             if (node%is_intrinsic) then
-                json = json // ',"is_intrinsic":true'
+                json = json//',"is_intrinsic":true'
                 if (allocated(node%intrinsic_signature)) then
                     if (len_trim(node%intrinsic_signature) > 0) then
-                        json = json // ',"intrinsic_signature":"' // &
-                               escape_json(node%intrinsic_signature) // '"'
+                        json = json//',"intrinsic_signature":"'// &
+                               escape_json(node%intrinsic_signature)//'"'
                     end if
                 end if
             else
-                json = json // ',"is_intrinsic":false'
+                json = json//',"is_intrinsic":false'
             end if
             if (node%is_array_access) then
-                json = json // ',"is_array_access":true'
+                json = json//',"is_array_access":true'
             end if
         class default
         end select
 
-        json = json // "}"
+        json = json//"}"
     end function build_node_json
 
     pure function escape_json(text) result(escaped)
@@ -584,10 +618,10 @@ contains
         character(len=:), allocatable, intent(out) :: json_string
 
         ! Build proper JSON from semantic context
-        json_string = '{"semantic_context": {' // &
-                      '"type_registry": {"initialized": true}, ' // &
-                      '"has_errors": ' // merge('true ', 'false', ctx%has_errors()) &
-                      // ', ' // &
+        json_string = '{"semantic_context": {'// &
+                      '"type_registry": {"initialized": true}, '// &
+                      '"has_errors": '//merge('true ', 'false', ctx%has_errors()) &
+                      //', '// &
                       '"phase": "complete"}}'
     end subroutine semantic_info_to_json
 
@@ -606,7 +640,7 @@ contains
         integer, intent(in) :: node_index
         integer :: max_depth
 
-        max_depth = compute_depth(arena, node_index, 1)  ! Start at depth 1 for root
+        max_depth = compute_depth(arena, node_index, 1) ! Start at depth 1 for root
     end function get_max_depth
 
     ! Recursively compute depth
