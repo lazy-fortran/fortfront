@@ -24,6 +24,7 @@ module parser_module_structures_module
                                                  take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_instantiate_statement_module, only: parse_instantiate_statement
+    use parser_enum_statement_module, only: parse_enum_construct
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -163,7 +164,9 @@ contains
                                                             prefix_buffer)
         case ("instantiate")
             stmt_index = parse_instantiate_statement(parser, arena)
-        case ("enum", "enumerator")
+        case ("enum")
+            stmt_index = parse_enum_construct(parser, arena)
+        case ("enumerator")
             stmt_index = handle_enum_construct(parser, arena, to_lower(token%text))
         end select
     end function parse_module_declaration_statement

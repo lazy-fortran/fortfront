@@ -29,7 +29,7 @@ program test_issue_1576_common_subroutine
     end if
 
     if (index(output, 'common/mydata/x,y') == 0 .and. &
-        index(output, 'common /mydata/ x, y') == 0) then
+        index(output, 'common /mydata/x, y') == 0) then
         write (error_unit, '(A)') &
             'FAIL: COMMON block /mydata/ not preserved correctly'
         write (error_unit, '(A)') trim(output)

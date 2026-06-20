@@ -5,6 +5,9 @@ module parser_block_data_module
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_block_data, push_literal
+    use parser_declarations, only: parse_declaration
+    use parser_common_statement_module, only: parse_common_statement
+    use parser_statement_data_module, only: parse_data_statement
     implicit none
     private
 
@@ -18,7 +21,7 @@ contains
         integer :: block_data_index
         type(token_t) :: token
         type(token_t) :: next_token
-        character(len=:), allocatable :: block_name, statement_text
+        character(len=:), allocatable :: block_name
         character(len=:), allocatable :: header_label, end_label
         character(len=:), allocatable :: pending_end_label
         integer :: line, column, stmt_start_pos
@@ -202,25 +205,17 @@ contains
             end if
 
             stmt_start_pos = parser%current_token
-            statement_text = ""
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
-                    exit
-                end if
-                if (len(statement_text) > 0) statement_text = statement_text // " "
-                statement_text = statement_text // token%text
-                token = parser%consume()
-            end do
-
-            if (len(statement_text) > 0) then
-                stmt_index = push_literal(arena, trim(statement_text), &
-                                          LITERAL_STRING, &
-                                          line=parser%tokens(stmt_start_pos)%line, &
-                                          column=parser%tokens(stmt_start_pos)%column)
-                if (stmt_index > 0) then
-                    statement_indices = [statement_indices, stmt_index]
-                end if
+            stmt_index = parse_body_statement(parser, arena)
+            if (stmt_index > 0) then
+                statement_indices = [statement_indices, stmt_index]
+            end if
+            ! Guard against a parser that did not advance: drain the line.
+            if (parser%current_token <= stmt_start_pos) then
+                do while (.not. parser%is_at_end())
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) exit
+                    token = parser%consume()
+                end do
             end if
         end do
 
@@ -228,5 +223,57 @@ contains
                                            line, column, header_label=header_label, &
                                            end_label=end_label)
     end function parse_block_data
+
+    ! Parse a single BLOCK DATA body statement into a structured node, routing on
+    ! the leading keyword. Type declarations, COMMON, and DATA become proper AST
+    ! nodes; anything else falls back to a text literal preserving the line.
+    integer function parse_body_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t) :: token
+        character(len=:), allocatable :: keyword
+
+        stmt_index = 0
+        token = parser%peek()
+        keyword = to_lower(trim(token%text))
+
+        select case (keyword)
+        case ("integer", "real", "logical", "character", "complex", &
+              "double", "type", "class", "dimension")
+            stmt_index = parse_declaration(parser, arena)
+        case ("common")
+            stmt_index = parse_common_statement(parser, arena)
+        case ("data")
+            stmt_index = parse_data_statement(parser, arena)
+        case default
+            stmt_index = parse_body_text_literal(parser, arena)
+        end select
+    end function parse_body_statement
+
+    integer function parse_body_text_literal(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t) :: token
+        character(len=:), allocatable :: statement_text
+        integer :: stmt_start_pos
+
+        stmt_index = 0
+        stmt_start_pos = parser%current_token
+        statement_text = ""
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) exit
+            if (len(statement_text) > 0) statement_text = statement_text // " "
+            statement_text = statement_text // token%text
+            token = parser%consume()
+        end do
+
+        if (len(statement_text) > 0) then
+            stmt_index = push_literal(arena, trim(statement_text), &
+                                      LITERAL_STRING, &
+                                      line=parser%tokens(stmt_start_pos)%line, &
+                                      column=parser%tokens(stmt_start_pos)%column)
+        end if
+    end function parse_body_text_literal
 
 end module parser_block_data_module

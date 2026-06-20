@@ -34,6 +34,7 @@ module codegen_core
                               directive_node, &
                               end_statement_node, &
                               interface_block_node, module_procedure_node
+    use ast_nodes_legacy, only: common_block_node, enum_node
     use ast_nodes_generics, only: template_block_node, &
                                   instantiate_statement_node, trait_block_node, &
                                   requirement_block_node, implements_block_node
@@ -201,6 +202,8 @@ contains
             code = generate_code_allocate_statement(arena, node, node_index)
         type is (deallocate_statement_node)
             code = generate_code_deallocate_statement(arena, node, node_index)
+        type is (common_block_node)
+            code = generate_code_common_block(node)
         class default
             code = ""
             handled = .false.
@@ -284,6 +287,8 @@ contains
             code = generate_code_requirement_block(arena, node)
         type is (implements_block_node)
             code = generate_code_implements_block(arena, node)
+        type is (enum_node)
+            code = generate_code_enum(node)
         class default
             code = ""
             handled = .false.

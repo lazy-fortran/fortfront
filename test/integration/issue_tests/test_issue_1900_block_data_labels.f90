@@ -31,7 +31,7 @@ program test_issue_1900_block_data_labels
         stop 1
     end if
 
-    if (index(output, 'data x, y/3.5, 7.2 /') == 0) then
+    if (index(output, 'data x, y/3.5_8, 7.2_8 /') == 0) then
         print *, 'FAIL: Second DATA statement lost'
         print *, trim(output)
         stop 1

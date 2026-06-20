@@ -687,9 +687,13 @@
                     stmt_index = 0
                 case ("namelist")
                     stmt_index = parse_namelist_statement(parser_ref, arena_ref)
-                case ("equivalence", "common")
+                case ("equivalence")
                     stmt_index = parse_legacy_statement(lowered, parser_ref, arena_ref)
-                case ("enum", "enumerator")
+                case ("common")
+                    stmt_index = parse_common_statement(parser_ref, arena_ref)
+                case ("enum")
+                    stmt_index = parse_enum_construct(parser_ref, arena_ref)
+                case ("enumerator")
                     stmt_index = parse_unsupported_stmt(lowered, parser_ref, arena_ref)
                 case default
                     block

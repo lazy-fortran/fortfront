@@ -62,6 +62,8 @@ module parser_execution_statements_module
     use parser_statement_utilities_module, only: parse_comment_or_directive
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_legacy_statements_module, only: parse_legacy_statement
+    use parser_common_statement_module, only: parse_common_statement
+    use parser_enum_statement_module, only: parse_enum_construct
     implicit none
     private
 

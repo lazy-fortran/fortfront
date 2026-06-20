@@ -643,6 +643,69 @@
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_namelist_statement
 
+    function generate_code_common_block(node) result(code)
+        type(common_block_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: block_code
+        integer :: b, m
+        logical :: first_member
+
+        code = "common"
+        if (.not. allocated(node%block_names)) return
+
+        do b = 1, size(node%block_names)
+            block_code = ""
+            if (allocated(node%block_names(b)%s)) then
+                if (len_trim(node%block_names(b)%s) > 0) then
+                    block_code = "/" // trim(node%block_names(b)%s) // "/ "
+                end if
+            end if
+
+            first_member = .true.
+            if (allocated(node%member_names)) then
+                do m = 1, size(node%member_names)
+                    if (node%member_block(m) /= b) cycle
+                    if (.not. first_member) block_code = block_code // ", "
+                    block_code = block_code // trim(node%member_names(m)%s)
+                    first_member = .false.
+                end do
+            end if
+
+            if (b == 1) then
+                code = code // " " // block_code
+            else
+                code = code // ", " // block_code
+            end if
+        end do
+    end function generate_code_common_block
+
+    function generate_code_enum(node) result(code)
+        type(enum_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: list
+        integer :: i
+
+        if (node%is_bind_c) then
+            code = "enum, bind(c)" // new_line('A')
+        else
+            code = "enum" // new_line('A')
+        end if
+
+        if (allocated(node%enumerator_names)) then
+            list = ""
+            do i = 1, size(node%enumerator_names)
+                if (i > 1) list = list // ", "
+                list = list // trim(node%enumerator_names(i)%s) // " = " // &
+                       trim(int_to_string(node%enumerator_values(i)))
+            end do
+            if (len_trim(list) > 0) then
+                code = code // "    enumerator :: " // list // new_line('A')
+            end if
+        end if
+
+        code = code // "end enum"
+    end function generate_code_enum
+
     function generate_code_data_statement(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(data_statement_node), intent(in) :: node

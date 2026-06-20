@@ -12,6 +12,7 @@ module ast_factory_statements
                                  error_stop_node, cycle_node, exit_node, &
                                  continue_node, pause_node, nullify_node
     use ast_nodes_io, only: io_implied_do_node
+    use ast_nodes_legacy, only: common_block_node, enum_node
     implicit none
     private
 
@@ -26,6 +27,7 @@ module ast_factory_statements
     public :: push_cycle, push_exit, push_pause, push_nullify
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
+    public :: push_common_block, push_enum
 
 contains
 
@@ -187,6 +189,46 @@ contains
         call arena%push(node, "data_statement", parent_index)
         data_index = arena%size
     end function push_data_statement
+
+    function push_common_block(arena, block_names, member_names, member_block, &
+                               line, column, parent_index) result(common_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(string_t), intent(in) :: block_names(:)
+        type(string_t), intent(in) :: member_names(:)
+        integer, intent(in) :: member_block(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: common_index
+        type(common_block_node) :: node
+
+        node%uid = generate_uid()
+        node%block_names = block_names
+        node%member_names = member_names
+        node%member_block = member_block
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+        call arena%push(node, "common_block", parent_index)
+        common_index = arena%size
+    end function push_common_block
+
+    function push_enum(arena, enumerator_names, enumerator_values, is_bind_c, &
+                       line, column, parent_index) result(enum_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(string_t), intent(in) :: enumerator_names(:)
+        integer, intent(in) :: enumerator_values(:)
+        logical, intent(in) :: is_bind_c
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: enum_index
+        type(enum_node) :: node
+
+        node%uid = generate_uid()
+        node%enumerator_names = enumerator_names
+        node%enumerator_values = enumerator_values
+        node%is_bind_c = is_bind_c
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+        call arena%push(node, "enum", parent_index)
+        enum_index = arena%size
+    end function push_enum
 
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &

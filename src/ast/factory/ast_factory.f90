@@ -63,7 +63,8 @@ module ast_factory
         push_include_statement, push_import_statement, push_end_statement, &
         push_stop, push_return, push_entry, push_continue, push_goto, &
         push_error_stop, push_cycle, push_exit, push_allocate, push_deallocate, &
-        push_io_implied_do, push_pause, push_nullify
+        push_io_implied_do, push_pause, push_nullify, &
+        push_common_block, push_enum
 
     ! Error nodes
     use ast_factory_errors, only: push_error_node
@@ -129,6 +130,7 @@ module ast_factory
     public :: push_end_statement, push_stop, push_return, push_entry, push_continue, &
               push_goto, push_error_stop, push_pause, push_nullify
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
+    public :: push_common_block, push_enum
 
     ! Error nodes
     public :: push_error_node
