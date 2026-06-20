@@ -13,6 +13,7 @@ module codegen_program_decl_utils
     public :: initialize_program_decl_state
     public :: program_decl_state_t, program_decl_max_vars
     public :: record_declared_name, record_namelist_group
+    public :: record_derived_type_name
     public :: record_use_associated_name, record_use_module_name
     public :: seed_namelist_groups_from_text
 
@@ -30,6 +31,7 @@ module codegen_program_decl_utils
         character(len=64) :: use_associated_names(program_decl_max_vars)
         character(len=64) :: use_module_names(program_decl_max_vars)
         character(len=64) :: namelist_group_names(program_decl_max_vars)
+        character(len=64) :: derived_type_names(program_decl_max_vars)
         integer :: declared_count
         integer :: var_count
         integer :: func_count
@@ -38,6 +40,7 @@ module codegen_program_decl_utils
         integer :: use_associated_count
         integer :: use_module_count
         integer :: namelist_group_count
+        integer :: derived_type_count
     end type program_decl_state_t
 
 contains
@@ -56,6 +59,7 @@ contains
         state%use_associated_names = ""
         state%use_module_names = ""
         state%namelist_group_names = ""
+        state%derived_type_names = ""
         state%declared_count = 0
         state%var_count = 0
         state%func_count = 0
@@ -64,7 +68,22 @@ contains
         state%use_associated_count = 0
         state%use_module_count = 0
         state%namelist_group_count = 0
+        state%derived_type_count = 0
     end subroutine initialize_program_decl_state
+
+    ! Record a derived type name so its structure constructor calls are not
+    ! mistaken for external functions (Issue #2827).
+    subroutine record_derived_type_name(state, name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+
+        if (len_trim(name) == 0) return
+        if (state%derived_type_count >= program_decl_max_vars) return
+        if (exists_in_list(state%derived_type_names, &
+                           state%derived_type_count, name)) return
+        state%derived_type_count = state%derived_type_count + 1
+        state%derived_type_names(state%derived_type_count) = trim(to_lower(name))
+    end subroutine record_derived_type_name
 
     pure function normalize_declared_identifier(raw_name) result(normalized)
         character(len=*), intent(in) :: raw_name
