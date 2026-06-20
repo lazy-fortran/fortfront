@@ -23,3 +23,4 @@ f90/issue_2252_data_value_implied_do.f90
 f90/issue_2497_include_line_standalone.f90
 f90/issue_2737_lfortran_template_instantiate.f90
 f90/issue_2738_lfortran_traits_requirements_implements.f90
+f90/issue_2817_inline_instantiate_caret.f90
