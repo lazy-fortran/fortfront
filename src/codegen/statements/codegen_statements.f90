@@ -6,10 +6,12 @@ module codegen_statements
     use ast_nodes_misc
     use ast_nodes_procedure
     use ast_nodes_control
+    use ast_nodes_legacy, only: common_block_node, enum_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
     use codegen_arena_interface, only: generate_code_from_arena
+    use string_utils_mod, only: int_to_string
     use lexer_core, only: to_lower
     implicit none
     private
@@ -51,6 +53,8 @@ module codegen_statements
     public :: generate_code_endfile_statement
     public :: generate_code_pause_statement
     public :: generate_code_nullify_statement
+    public :: generate_code_common_block
+    public :: generate_code_enum
 
 contains
 

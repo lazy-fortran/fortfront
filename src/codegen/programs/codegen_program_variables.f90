@@ -10,6 +10,7 @@ module codegen_program_variables
                               comment_node, directive_node, blank_line_node, &
                               namelist_statement_node
     use ast_nodes_data, only: declaration_node, module_node, derived_type_node
+    use ast_nodes_legacy, only: enum_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use ast_nodes_control, only: associate_node, if_node, do_loop_node, &

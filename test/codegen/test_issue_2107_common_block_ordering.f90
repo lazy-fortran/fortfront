@@ -29,7 +29,7 @@ program test_issue_2107_common_block_ordering
         error stop 1
     end if
 
-    common_pos = index(output, 'common/myblock/a,b')
+    common_pos = index(output, 'common /myblock/a, b')
     if (common_pos == 0) then
         write (error_unit, '(A)') 'FAIL: missing COMMON statement in output'
         write (error_unit, '(A)') trim(output)

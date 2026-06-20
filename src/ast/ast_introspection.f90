@@ -14,6 +14,7 @@ module ast_introspection
     use ast_nodes_misc
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
                                 range_expression_node, array_operation_node
+    use ast_nodes_legacy, only: common_block_node, enum_node
     use type_system_unified, only: mono_type_t
     implicit none
     private
@@ -248,6 +249,10 @@ contains
             type_id = 81  ! NODE_IMPORT_STATEMENT
         type is (statement_function_node)
             type_id = 82  ! NODE_STATEMENT_FUNCTION
+        type is (common_block_node)
+            type_id = 83  ! NODE_COMMON_BLOCK
+        type is (enum_node)
+            type_id = 84  ! NODE_ENUM
         class default
             type_id = 99  ! NODE_UNKNOWN
         end select

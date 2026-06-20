@@ -15,6 +15,7 @@ module parser_procedure_bodies_module
     use parser_statement_data_module, only: parse_data_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     use parser_legacy_statements_module, only: parse_legacy_statement
+    use parser_common_statement_module, only: parse_common_statement
     use parser_prefix_buffer_module, only: append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
@@ -429,10 +430,12 @@ contains
             case ("do")
                 ! Handle DO loops
                 stmt_index = parse_do_loop(parser, arena)
-            case ("equivalence", "common")
+            case ("equivalence")
                 ! Handle legacy statements
                 stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
                                                     parser, arena)
+            case ("common")
+                stmt_index = parse_common_statement(parser, arena)
             case ("entry")
                 ! Handle ENTRY statements
                 stmt_index = parse_entry_statement(parser, arena)
