@@ -47,6 +47,7 @@ module codegen_program_variables
 contains
 
     include 'codegen_program_variables_collect.inc'
+    ! Variable collection excludes SELECT TYPE guard type-names (issue #2821)
     include 'codegen_program_variables_analysis.inc'
     include 'codegen_program_variables_emit.inc'
 
