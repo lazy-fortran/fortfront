@@ -159,14 +159,25 @@ contains
         class(error_collection_t), intent(in) :: self
         character(len=:), allocatable :: formatted
         character(len=:), allocatable :: fragments(:)
+        character(len=:), allocatable :: single
         integer :: i
+        integer :: max_len
 
         if (self%count == 0) then
             formatted = ""
             return
         end if
 
-        allocate (character(len=1000) :: fragments(self%count))
+        ! Size the fragment array to the longest formatted message so no
+        ! diagnostic is truncated.
+        max_len = 0
+        do i = 1, self%count
+            single = format_error_message(self%errors(i))
+            max_len = max(max_len, len(single))
+        end do
+        max_len = max(max_len, 1)
+
+        allocate (character(len=max_len) :: fragments(self%count))
         do i = 1, self%count
             fragments(i) = format_error_message(self%errors(i))
         end do

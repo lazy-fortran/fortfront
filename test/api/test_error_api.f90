@@ -23,6 +23,7 @@ program test_error_api
     if (.not. test_error_formatting()) all_passed = .false.
     if (.not. test_error_collection_add_with_context()) all_passed = .false.
     if (.not. test_error_collection_format_and_clear()) all_passed = .false.
+    if (.not. test_error_collection_format_long_message()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -284,5 +285,41 @@ contains
 
         print *, '  PASS: Error collection formatting and clear'
     end function test_error_collection_format_and_clear
+
+    ! Regression for #2831: a formatted message longer than the former
+    ! fixed 1000-char fragment buffer must round-trip without truncation.
+    logical function test_error_collection_format_long_message()
+        type(error_collection_t) :: errors
+        character(len=:), allocatable :: formatted
+        character(len=2000) :: long_message
+
+        test_error_collection_format_long_message = .true.
+        print *, 'Testing error collection long-message formatting...'
+
+        long_message = repeat('A', 1500) // 'TAIL'
+        call errors%add_error(trim(long_message))
+
+        formatted = errors%format_messages()
+
+        if (.not. allocated(formatted)) then
+            print *, '  FAIL: format_messages did not return result'
+            test_error_collection_format_long_message = .false.
+            return
+        end if
+
+        if (index(formatted, 'TAIL') == 0) then
+            print *, '  FAIL: long message truncated, tail lost'
+            test_error_collection_format_long_message = .false.
+            return
+        end if
+
+        if (len(formatted) < 1500) then
+            print *, '  FAIL: formatted message shorter than input'
+            test_error_collection_format_long_message = .false.
+            return
+        end if
+
+        print *, '  PASS: Error collection long-message formatting'
+    end function test_error_collection_format_long_message
 
 end program test_error_api
