@@ -87,10 +87,10 @@ contains
             case (LITERAL_STRING)
                 expr_type = create_mono_type(TCHAR)
                 if (allocated(node%value)) then
-                    ! CRITICAL FIX (issue #2493): Use len_trim to handle
-                    ! trailing spaces in stored literals.
-                    if (len_trim(node%value) >= 2) then
-                        expr_type%size = len_trim(node%value) - 2
+                    ! Value retains its surrounding quotes; subtract the two
+                    ! delimiters to get the character length.
+                    if (len(node%value) >= 2) then
+                        expr_type%size = len(node%value) - 2
                     else
                         expr_type%size = 0
                     end if

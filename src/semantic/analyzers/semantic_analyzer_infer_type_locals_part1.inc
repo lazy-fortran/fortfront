@@ -166,12 +166,10 @@
             type is (data_statement_node)
                 call finalize_data_statement_node(node_index, expr)
             type is (array_literal_node)
-                call set_semantic_context_for_lookup(this)
                 node_type = infer_array_literal_type(arena, expr, &
                                                      module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)
             type is (array_slice_node)
-                call set_semantic_context_for_lookup(this)
                 node_type = infer_array_slice_type(arena, expr, &
                                                    module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)

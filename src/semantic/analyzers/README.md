@@ -85,7 +85,6 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_type_operations.f90 | Type system operations (unify, substitute, generalize) |
 | semantic_analyzer_type_ops_impl.f90 | Type operation implementations |
 | semantic_type_context.f90 | Type context management |
-| semantic_type_lookup_wrapper.f90 | Type lookup utilities |
 
 ### Scope and Validation
 
