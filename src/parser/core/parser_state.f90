@@ -1,22 +1,16 @@
 module parser_state_module
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF
     use error_reporting, only: error_collection_t
-    use arena_memory, only: arena_t, arena_handle_t, arena_stats_t, &
-                            create_arena, destroy_arena, null_handle
     implicit none
     private
 
-    ! Parser state type for tracking position in token stream
-    ! Supports both traditional allocatable storage and arena-based storage
+    ! Parser state type for tracking position in token stream.
+    ! Tokens are held as a pointer: either a view into a caller-owned buffer
+    ! (create_parser_state) or an owned allocation; owns_tokens distinguishes
+    ! the two for cleanup and assignment.
     type, public :: parser_state_t
         ! Token storage - either view into external buffer or owned allocation
         type(token_t), pointer :: tokens(:) => null()
-
-        ! Arena integration for memory-efficient token storage
-        type(arena_t) :: token_arena
-        type(arena_handle_t) :: tokens_handle  ! Single handle for entire token array
-        logical :: use_arena = .false.
         logical :: owns_tokens = .false.
 
         ! Parser position and error tracking
@@ -33,9 +27,6 @@ module parser_state_module
         procedure :: has_errors => parser_has_errors
         procedure :: get_error_messages => parser_get_error_messages
 
-        ! Arena-specific methods
-        procedure :: uses_arena_storage => parser_uses_arena_storage
-        procedure :: get_memory_stats => parser_get_memory_stats
         procedure :: cleanup => parser_cleanup
         procedure :: get_token_at_index => parser_get_token_at_index
         procedure :: get_token_count => parser_get_token_count
@@ -47,84 +38,23 @@ module parser_state_module
 
     ! Public constructors
     public :: create_parser_state
-    public :: create_parser_state_with_arena
 
 contains
 
-    ! Create parser state from tokens (traditional allocatable storage)
+    ! Create parser state from tokens (view into caller-owned buffer)
     function create_parser_state(tokens) result(state)
         type(token_t), target, intent(in) :: tokens(:)
         type(parser_state_t) :: state
 
-        ! Simple allocatable array storage
         if (size(tokens) > 0) then
             state%tokens => tokens
         else
             nullify (state%tokens)
         end if
         state%current_token = 1
-        state%use_arena = .false.
         state%owns_tokens = .false.
         state%generation = 1
-        state%tokens_handle = null_handle()  ! Initialize to null handle
     end function create_parser_state
-
-    ! Create parser state with arena-based token storage
-    function create_parser_state_with_arena(tokens, arena) result(state)
-        type(token_t), intent(in) :: tokens(:)
-        type(arena_t), intent(in), optional :: arena
-        type(parser_state_t) :: state
-        integer :: total_size
-        integer(1), allocatable :: token_buffer(:)
-        logical :: status
-
-        if (present(arena)) then
-            ! Use provided arena for token storage
-            state%token_arena = arena
-            state%use_arena = .true.
-        else
-            ! Create new arena for token storage
-            ! Use chunk size optimized for typical token arrays
-            state%token_arena = create_arena(chunk_size=65536)
-            state%use_arena = .true.
-        end if
-
-        ! Store entire token array in arena as a single allocation
-        if (size(tokens) > 0) then
-            ! Calculate total size for entire token array
-            total_size = size(tokens) * (storage_size(tokens(1)) / 8)
-
-            ! Allocate single arena handle for entire token array
-            state%tokens_handle = state%token_arena%allocate(total_size)
-
-            ! Store token array data in arena
-            allocate (token_buffer(total_size))
-            token_buffer = transfer(tokens, token_buffer)
-            call state%token_arena%set_data(state%tokens_handle, &
-                                            token_buffer, status)
-            deallocate (token_buffer)
-
-            ! Also keep a copy in allocatable array for now
-            ! (transitional approach for compatibility)
-            if (associated(state%tokens)) then
-                if (state%owns_tokens) then
-                    deallocate (state%tokens)
-                else
-                    nullify (state%tokens)
-                end if
-            end if
-            allocate (state%tokens(size(tokens)))
-            state%tokens = tokens
-            state%owns_tokens = .true.
-        else
-            state%tokens_handle = null_handle()
-            nullify (state%tokens)
-            state%owns_tokens = .false.
-        end if
-
-        state%current_token = 1
-        state%generation = 1
-    end function create_parser_state_with_arena
 
     ! Peek at current token without consuming it
     function parser_peek(this) result(current_token)
@@ -225,47 +155,12 @@ contains
         messages = this%errors%format_messages()
     end function parser_get_error_messages
 
-    ! Check if parser state uses arena storage
-    logical function parser_uses_arena_storage(this)
-        class(parser_state_t), intent(in) :: this
-        parser_uses_arena_storage = this%use_arena
-    end function parser_uses_arena_storage
-
-    ! Get memory statistics from parser state
-    function parser_get_memory_stats(this) result(stats)
-        class(parser_state_t), intent(in) :: this
-        type(arena_stats_t) :: stats
-
-        if (this%use_arena) then
-            stats = this%token_arena%get_stats()
-        else
-            ! Traditional allocatable storage stats
-            stats%total_allocated = 0
-            stats%total_capacity = 0
-            if (associated(this%tokens)) then
-                stats%total_allocated = size(this%tokens) * &
-                                        (storage_size(this%tokens(1)) / 8)
-                stats%total_capacity = stats%total_allocated
-            end if
-            stats%chunk_count = 0
-            stats%current_generation = this%generation
-            stats%utilization = 1.0
-        end if
-    end function parser_get_memory_stats
-
     ! Clean up parser state and advance generation
     subroutine parser_cleanup(this)
         class(parser_state_t), intent(inout) :: this
 
         ! Advance generation to invalidate references
         this%generation = this%generation + 1
-
-        if (this%use_arena) then
-            ! Reset arena to reclaim all memory
-            call this%token_arena%reset()
-            ! Invalidate the handle
-            this%tokens_handle = null_handle()
-        end if
 
         ! Clear tokens
         if (associated(this%tokens)) then
@@ -311,7 +206,8 @@ contains
         end if
     end function parser_get_token_count
 
-    ! Assignment operator for parser_state_t (deep copy)
+    ! Assignment operator for parser_state_t.
+    ! lhs is intent(out), so its pointer component starts disassociated.
     subroutine parser_state_assign(lhs, rhs)
         class(parser_state_t), intent(out) :: lhs
         type(parser_state_t), intent(in) :: rhs
@@ -319,35 +215,18 @@ contains
         ! Copy scalar fields
         lhs%current_token = rhs%current_token
         lhs%generation = rhs%generation
-        lhs%use_arena = rhs%use_arena
         lhs%errors = rhs%errors
 
-        ! Copy arena if used
-        lhs%token_arena = rhs%token_arena
-        if (rhs%use_arena) then
-            lhs%tokens_handle = rhs%tokens_handle
-        else
-            lhs%tokens_handle = null_handle()
-        end if
-
-        ! Copy tokens array (avoid deep copy when possible)
-        if (associated(lhs%tokens)) then
-            if (lhs%owns_tokens) then
-                deallocate (lhs%tokens)
-            else
-                nullify (lhs%tokens)
-            end if
-        end if
-
         if (associated(rhs%tokens)) then
-            if (rhs%use_arena .or. .not. rhs%owns_tokens) then
-                ! Safe to alias: arena-managed or view into caller-owned tokens
-                lhs%tokens => rhs%tokens
-                lhs%owns_tokens = .false.
-            else
+            if (rhs%owns_tokens) then
+                ! Deep copy: rhs owns its allocation, lhs must own its own
                 allocate (lhs%tokens(size(rhs%tokens)))
                 lhs%tokens = rhs%tokens
                 lhs%owns_tokens = .true.
+            else
+                ! Safe to alias: view into caller-owned tokens
+                lhs%tokens => rhs%tokens
+                lhs%owns_tokens = .false.
             end if
         else
             nullify (lhs%tokens)
