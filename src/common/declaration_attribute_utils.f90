@@ -23,6 +23,7 @@ module declaration_attribute_utils
         logical :: is_protected = .false.
         logical :: is_asynchronous = .false.
         logical :: is_contiguous = .false.
+        logical :: is_value = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
@@ -47,6 +48,7 @@ contains
         attr%is_protected = .false.
         attr%is_asynchronous = .false.
         attr%is_contiguous = .false.
+        attr%is_value = .false.
         attr%has_intent = .false.
         if (allocated(attr%intent)) deallocate (attr%intent)
         if (allocated(attr%accessibility)) deallocate (attr%accessibility)
@@ -179,6 +181,13 @@ contains
         if (attr%is_contiguous) then
             if (index(lowered, 'contiguous') == 0) then
                 code = trim(code) // ", contiguous"
+                lowered = to_lower(trim(code))
+            end if
+        end if
+
+        if (attr%is_value) then
+            if (index(lowered, 'value') == 0) then
+                code = trim(code) // ", value"
             end if
         end if
     end subroutine append_declaration_attributes

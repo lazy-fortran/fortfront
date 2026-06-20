@@ -511,6 +511,10 @@ contains
             can_group = .false.
             return
         end if
+        if (node%is_value) then
+            can_group = .false.
+            return
+        end if
         if (node%is_external) then
             can_group = .false.
             return

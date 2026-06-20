@@ -245,6 +245,7 @@ contains
         attr_info%is_protected = node%is_protected
         attr_info%is_asynchronous = node%is_asynchronous
         attr_info%is_contiguous = node%is_contiguous
+        attr_info%is_value = node%is_value
         if (node%is_array .and. allocated(node%dimension_indices) .and. &
             .not. node%is_multi_declaration .and. .not. node%is_allocatable .and. &
             node%has_intent) then

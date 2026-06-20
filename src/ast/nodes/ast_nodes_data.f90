@@ -71,6 +71,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_contiguous = .false. ! Whether contiguous
         ! attribute is present
+        logical :: is_value = .false. ! Whether value
+        ! attribute is present (F2003 C interop)
         logical :: disable_grouping = .false. ! Skip declaration grouping
         character(len=:), allocatable :: accessibility ! 'public'/'private'
     contains
@@ -263,6 +265,7 @@ contains
         lhs%is_protected = rhs%is_protected
         lhs%is_asynchronous = rhs%is_asynchronous
         lhs%is_contiguous = rhs%is_contiguous
+        lhs%is_value = rhs%is_value
         lhs%disable_grouping = rhs%disable_grouping
         if (allocated(rhs%accessibility)) then
             lhs%accessibility = rhs%accessibility
