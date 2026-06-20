@@ -181,7 +181,10 @@ contains
             return
         end if
 
-        token%text = view%text(idx)
+        ! view%text is a fixed-width slot, right-padded to the longest token;
+        ! trim the padding so callers see the original token text (matching the
+        ! trimming already done by view_lower_token).
+        token%text = trim(view%text(idx))
         token%kind = view%kind(idx)
         token%line = view%line(idx)
         token%column = view%column(idx)
@@ -238,7 +241,7 @@ contains
             return
         end if
 
-        token%text = view%text(idx)
+        token%text = trim(view%text(idx))
         token%kind = view%kind(idx)
         token%line = view%line(idx)
         token%column = view%column(idx)
