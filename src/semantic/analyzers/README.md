@@ -73,6 +73,7 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_undefined_variable_checker.f90 | Detect usage of undefined variables |
 | semantic_walrus_checker.f90 | Detect same-scope redeclaration via walrus `:=` |
 | semantic_pure_validation.f90 | Enforce PURE/ELEMENTAL body restrictions (no I/O, STOP, PAUSE) |
+| semantic_elemental_validation.f90 | Enforce ELEMENTAL scalar-dummy restriction (no array dummies) |
 | semantic_declaration_utils.f90 | Declaration processing utilities |
 
 ### Type Operations
