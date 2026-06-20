@@ -1,0 +1,5 @@
+type :: point_t
+  real :: x, y
+end type
+p = point_t(1.0d0, 2.0d0)
+print *, p%x
