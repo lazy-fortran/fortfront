@@ -10,6 +10,14 @@
         is_constructor = .false.
         normalized_call = trim(to_lower(call_name))
 
+        ! A call to a defined derived type name is its structure constructor,
+        ! not an external function (Issue #2827).
+        if (exists_in_list(state%derived_type_names, &
+                           state%derived_type_count, normalized_call)) then
+            is_constructor = .true.
+            return
+        end if
+
         ! Check if call_name matches any variables type
         do i = 1, state%var_count
             normalized_type = trim(adjustl(to_lower(state%var_types(i))))

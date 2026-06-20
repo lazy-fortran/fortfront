@@ -26,6 +26,7 @@ module codegen_program_variables
                                           program_decl_max_vars, &
                                           record_declared_name, &
                                           record_namelist_group, &
+                                          record_derived_type_name, &
                                           record_use_associated_name, &
                                           record_use_module_name, &
                                           seed_namelist_groups_from_text

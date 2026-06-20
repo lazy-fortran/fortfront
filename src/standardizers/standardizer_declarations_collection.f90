@@ -3,7 +3,7 @@ module standardizer_declarations_collection
     use ast_nodes_core, only: assignment_node, pointer_assignment_node, &
                               binary_op_node, &
                               call_or_subscript_node, identifier_node, literal_node
-    use ast_nodes_data, only: declaration_node
+    use ast_nodes_data, only: declaration_node, derived_type_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
                                  case_default_node
@@ -634,6 +634,11 @@ contains
             return
         end if
 
+        ! Derived-type structure constructor: RHS call name matches a defined
+        ! derived type, so the target is type(<name>) (Issue #2827).
+        var_type = derived_constructor_var_type(arena, value_index)
+        if (len_trim(var_type) > 0) return
+
         if (is_array_expression(arena, value_index)) then
             var_type = get_array_var_type(arena, value_index)
             return
@@ -673,6 +678,47 @@ contains
 
         var_type = "real"
     end function infer_assignment_type
+
+    function derived_constructor_var_type(arena, value_index) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: value_index
+        character(len=64) :: var_type
+        character(len=:), allocatable :: call_name
+
+        var_type = ""
+        if (value_index <= 0 .or. value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+
+        select type (v => arena%entries(value_index)%node)
+        type is (call_or_subscript_node)
+            if (.not. allocated(v%name)) return
+            call_name = v%name
+        class default
+            return
+        end select
+
+        if (derived_type_is_defined(arena, call_name)) &
+            var_type = "type(" // trim(call_name) // ")"
+    end function derived_constructor_var_type
+
+    logical function derived_type_is_defined(arena, name) result(is_defined)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        is_defined = .false.
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (n => arena%entries(i)%node)
+            type is (derived_type_node)
+                if (.not. allocated(n%name)) cycle
+                if (to_lower(trim(n%name)) == to_lower(trim(name))) then
+                    is_defined = .true.
+                    return
+                end if
+            end select
+        end do
+    end function derived_type_is_defined
 
     subroutine update_existing_variable_type(existing_idx, var_type, var_types)
         integer, intent(in) :: existing_idx
