@@ -25,6 +25,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                           validate_bind_c_procedure
     use semantic_elemental_validation, only: validate_elemental_procedure
     use semantic_abstract_validation, only: validate_abstract_extension
+    use semantic_implied_do_validation, only: validate_implied_do_array
     use string_utils_mod, only: int_to_string
     implicit none
 
