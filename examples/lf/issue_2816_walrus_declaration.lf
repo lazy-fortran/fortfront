@@ -1,0 +1,6 @@
+x := 42
+y := 3.14d0
+flag := .true.
+s := "hello"
+nums := [1, 2, 3]
+print *, x, y, flag, s, size(nums)
