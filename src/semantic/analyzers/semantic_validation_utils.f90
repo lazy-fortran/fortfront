@@ -7,7 +7,8 @@ module semantic_validation_utils
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node
     use ast_nodes_data, only: declaration_node
-    use ast_nodes_bounds, only: array_slice_node
+    use ast_nodes_bounds, only: array_slice_node, array_bounds_node
+    use semantic_constant_values, only: get_constant_integer_value
     use string_utils_mod, only: int_to_string
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
@@ -27,14 +28,73 @@ contains
         int_to_str = int_to_string(n)
     end function int_to_str
 
-    ! Helper functions for validate_array_bounds
+    ! Validate the compile-time-constant bounds of an array slice.
+    !
+    ! Scope: only dimensions whose lower/upper/stride bound expressions are
+    ! integer literals are checked statically. A dimension is rejected when its
+    ! stride is the literal 0, or when a non-empty literal range runs backwards
+    ! relative to its stride sign (lower > upper with positive stride, or
+    ! lower < upper with negative stride). Dimensions whose bounds are runtime
+    ! expressions cannot be decided here and are treated as valid; runtime
+    ! checking is out of scope for this static pass. result is .false. only when
+    ! a constant dimension is provably out of range.
     subroutine validate_array_bounds(arena, slice_node, result)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         logical, intent(out) :: result
 
-        result = .true.  ! Always valid for now
+        integer :: i, bounds_idx
+
+        result = .true.
+        do i = 1, slice_node%num_dimensions
+            bounds_idx = slice_node%bounds_indices(i)
+            if (bounds_idx <= 0 .or. bounds_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(bounds_idx)%node)) cycle
+            select type (bounds => arena%entries(bounds_idx)%node)
+            type is (array_bounds_node)
+                if (.not. constant_bounds_valid(arena, bounds)) then
+                    result = .false.
+                    return
+                end if
+            end select
+        end do
     end subroutine validate_array_bounds
+
+    ! Decide validity for a single dimension using only literal-constant bounds.
+    logical function constant_bounds_valid(arena, bounds) result(valid)
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_bounds_node), intent(in) :: bounds
+        integer :: stride, lower, upper
+        logical :: has_stride, has_lower, has_upper
+
+        valid = .true.
+
+        stride = 1
+        has_stride = .false.
+        if (bounds%stride_index > 0) then
+            has_stride = get_constant_integer_value(arena, bounds%stride_index, &
+                                                    stride)
+            if (has_stride .and. stride == 0) then
+                valid = .false.
+                return
+            end if
+        end if
+        if (.not. has_stride) stride = 1
+
+        has_lower = get_constant_integer_value(arena, bounds%lower_bound_index, &
+                                               lower)
+        has_upper = get_constant_integer_value(arena, bounds%upper_bound_index, &
+                                               upper)
+
+        ! Only a fully constant lower:upper pair can be decided statically.
+        if (.not. (has_lower .and. has_upper)) return
+
+        if (stride > 0) then
+            valid = lower <= upper
+        else
+            valid = lower >= upper
+        end if
+    end function constant_bounds_valid
 
     subroutine check_shape_conformance(lhs_shape, rhs_shape, result)
         integer, intent(in) :: lhs_shape(:), rhs_shape(:)
@@ -147,7 +207,7 @@ contains
 
         ! Follow parent chain up to the function
         current_idx = node_idx
-        max_depth = 100  ! Prevent infinite loops
+        max_depth = 100 ! Prevent infinite loops
         do while (max_depth > 0)
             max_depth = max_depth - 1
             if (.not. arena%has_node_at(current_idx)) exit
