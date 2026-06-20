@@ -24,7 +24,7 @@ contains
         integer :: arg_index
 
         allocate (arg_indices(0))
-        token = parser%consume()  ! consume left parenthesis
+        token = parser%consume() ! consume left parenthesis
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -91,7 +91,7 @@ contains
         do while (.not. parser%is_at_end())
             call consume_inline_instantiation(parser, instantiation_text)
             if (.not. allocated(instantiation_text)) exit
-            subroutine_name = subroutine_name // instantiation_text
+            subroutine_name = subroutine_name//instantiation_text
             deallocate (instantiation_text)
         end do
 
@@ -102,21 +102,22 @@ contains
                 token = parser%consume()
                 token = parser%peek()
                 if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
-                    subroutine_name = subroutine_name // "%" // token%text
+                    subroutine_name = subroutine_name//"%"//token%text
                     token = parser%consume()
                     do while (.not. parser%is_at_end())
                         call consume_inline_instantiation(parser, instantiation_text)
                         if (.not. allocated(instantiation_text)) exit
-                        subroutine_name = subroutine_name // instantiation_text
+                        subroutine_name = subroutine_name//instantiation_text
                         deallocate (instantiation_text)
                     end do
                 else
                     exit
                 end if
-            else if (token%kind == TK_OPERATOR .and. token%text == "{") then
+            else if (token%kind == TK_OPERATOR .and. &
+                     (token%text == "{" .or. token%text == "^")) then
                 call consume_inline_instantiation(parser, instantiation_text)
                 if (allocated(instantiation_text)) then
-                    subroutine_name = subroutine_name // instantiation_text
+                    subroutine_name = subroutine_name//instantiation_text
                     deallocate (instantiation_text)
                 end if
             else if (token%kind == TK_OPERATOR .and. token%text == "(") then
@@ -142,17 +143,17 @@ contains
                             end if
                         end if
                         if (paren_depth > 0) then
-                            index_text = index_text // trim(token%text)
+                            index_text = index_text//trim(token%text)
                         end if
                         token = parser%consume()
                     end do
-                    index_text = index_text // ")"
+                    index_text = index_text//")"
 
                     ! Check if followed by %
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == "%") then
                         ! This was array indexing, include in name
-                        subroutine_name = subroutine_name // index_text
+                        subroutine_name = subroutine_name//index_text
                     else
                         ! This is the final argument list, restore position
                         parser%current_token = saved_pos

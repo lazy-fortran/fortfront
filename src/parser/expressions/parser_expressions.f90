@@ -293,7 +293,7 @@ contains
         character(len=*), intent(in) :: second_text
         character(len=:), allocatable :: literal
 
-        literal = trim(first_text) // trim(second_text)
+        literal = trim(first_text)//trim(second_text)
     end function combine_boz_literal_text
 
     subroutine handle_closing_paren(parser, arena, view, operators, operands, &
@@ -395,7 +395,7 @@ contains
     end function peek_is_power_op
 
     recursive function fold_power_after_sign(parser, arena, view, base_index) &
-            result(result_index)
+        result(result_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
@@ -936,7 +936,8 @@ contains
                 expr_index = parse_component_access_postfix(parser, arena, &
                                                             expr_index, op_token)
                 if (expr_index <= 0) exit
-            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "{") then
+            else if (op_token%kind == TK_OPERATOR .and. &
+                     (op_token%text == "{" .or. op_token%text == "^")) then
                 call consume_inline_instantiation(parser, instantiation_text, view)
                 if (allocated(instantiation_text)) then
                     call append_inline_instantiation_to_name(arena, expr_index, &
@@ -968,11 +969,11 @@ contains
         select type (node => arena%entries(expr_index)%node)
         type is (identifier_node)
             if (allocated(node%name)) then
-                node%name = node%name // inst_text
+                node%name = node%name//inst_text
             end if
         type is (component_access_node)
             if (allocated(node%component_name)) then
-                node%component_name = node%component_name // inst_text
+                node%component_name = node%component_name//inst_text
             end if
         class default
         end select
