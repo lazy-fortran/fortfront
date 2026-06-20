@@ -119,6 +119,7 @@ contains
         end if
         if (node%is_allocatable) code = code // ", allocatable"
         if (node%is_pointer) code = code // ", pointer"
+        if (node%is_value) code = code // ", value"
     end subroutine add_intent_optional_target
 
     subroutine process_nonparam_vars(arena, node, is_param, indent_str, &
@@ -219,6 +220,7 @@ contains
         end if
         if (node%is_allocatable) code = code // ", allocatable"
         if (node%is_pointer) code = code // ", pointer"
+        if (node%is_value) code = code // ", value"
         dimension_suffix = build_inline_dimension_suffix(arena, node)
         has_dimensions = len(dimension_suffix) > 0
         code = code // " :: " // trim(node%var_name)
