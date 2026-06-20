@@ -9,6 +9,8 @@ This directory implements the type system for semantic analysis: type representa
 | File | Description |
 |------|-------------|
 | type_system_unified.f90 | Unified type system: mono types, poly types, type variables |
+| type_system_unified_part1.inc | Type construction and inference core (create_*, occurs_check, free_type_vars) |
+| type_system_unified_part2.inc | Assignment, helper, and compatibility-wrapper procedures |
 | type_system_arena.f90 | Arena-based type allocation for efficient memory management |
 | type_checker.f90 | Type compatibility checking and validation |
 | type_constants.f90 | Constants for built-in types (integer, real, character, logical) |
