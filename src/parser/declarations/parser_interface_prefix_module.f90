@@ -8,6 +8,7 @@ module parser_interface_prefix_module
     private
     public :: is_procedure_prefix
     public :: is_interface_return_type_keyword
+    public :: is_interface_return_type_with_parens
     public :: collect_interface_return_type
     public :: append_interface_prefix
 contains
@@ -34,6 +35,23 @@ contains
                   trim(lowered_text) == "complex" .or. &
                   trim(lowered_text) == "double"
     end function is_interface_return_type_keyword
+
+    ! type(...) and class(...) are function return-type prefixes inside an
+    ! interface body, but a bare "type ::" / "type," begins a derived-type
+    ! definition. Distinguish by requiring an opening parenthesis to follow.
+    logical function is_interface_return_type_with_parens(parser, lowered_text) &
+        result(is_type)
+        type(parser_state_t), intent(in) :: parser
+        character(len=*), intent(in) :: lowered_text
+
+        type(token_t) :: next_token
+
+        is_type = .false.
+        if (trim(lowered_text) /= "type" .and. trim(lowered_text) /= "class") return
+
+        next_token = parser%get_token_at_index(parser%current_token + 1)
+        if (trim(next_token%text) == "(") is_type = .true.
+    end function is_interface_return_type_with_parens
 
     subroutine collect_interface_return_type(parser, prefix_buffer, lowered_text)
         type(parser_state_t), intent(inout) :: parser
