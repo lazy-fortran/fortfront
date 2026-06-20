@@ -91,6 +91,7 @@
                 call handle_declaration(expr, node_index)
             type is (derived_type_node)
                 call validate_bind_c_derived_type(arena, expr, this%errors)
+                call validate_abstract_extension(arena, expr, this%errors)
                 call schedule_default_post(current)
             type is (if_node)
                 call schedule_if_node(current, expr)
