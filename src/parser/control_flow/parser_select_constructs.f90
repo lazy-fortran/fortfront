@@ -434,6 +434,62 @@ contains
         end if
     end function parse_select_type_selector
 
+    ! Consume an optional kind selector following a guard type name, e.g. the
+    ! "(8)" in "type is (real(8))". Returns the parenthesized text (including
+    ! the parentheses) so the caller can fold it into the type name; returns an
+    ! empty string when no kind selector is present. Leaves the parser position
+    ! unchanged in that case.
+    subroutine consume_guard_kind_suffix(parser, kind_suffix)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: kind_suffix
+
+        type(token_t) :: tok
+        integer :: depth, saved_pos
+
+        kind_suffix = ""
+        saved_pos = parser%current_token
+
+        tok = parser%peek()
+        do while (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT .or. &
+                  tok%kind == TK_NEWLINE)
+            tok = parser%consume()
+            if (parser%is_at_end()) then
+                parser%current_token = saved_pos
+                return
+            end if
+            tok = parser%peek()
+        end do
+
+        if (tok%kind /= TK_OPERATOR .or. tok%text /= "(") then
+            parser%current_token = saved_pos
+            return
+        end if
+
+        depth = 0
+        do while (.not. parser%is_at_end())
+            tok = parser%consume()
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                ! drop layout inside the selector
+            case default
+                if (tok%kind == TK_OPERATOR .and. tok%text == "(") then
+                    depth = depth + 1
+                    kind_suffix = kind_suffix // "("
+                else if (tok%kind == TK_OPERATOR .and. tok%text == ")") then
+                    depth = depth - 1
+                    kind_suffix = kind_suffix // ")"
+                    if (depth == 0) return
+                else
+                    kind_suffix = kind_suffix // tok%text
+                end if
+            end select
+        end do
+
+        ! Unbalanced parentheses: restore and report no suffix
+        parser%current_token = saved_pos
+        kind_suffix = ""
+    end subroutine consume_guard_kind_suffix
+
     recursive function parse_select_type(parser, arena) result(select_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -445,7 +501,7 @@ contains
         integer, allocatable :: guard_indices(:)
         integer :: line, column
         character(len=:), allocatable :: guard_keyword
-        character(len=20), dimension(3) :: end_keywords
+        character(len=20), dimension(4) :: end_keywords
         type(statement_callbacks_t) :: callbacks
 
         ! Consume select
@@ -488,6 +544,11 @@ contains
         end_keywords(1) = "type"
         end_keywords(2) = "class"
         end_keywords(3) = "contains"
+        ! "end select" specifically (matched as end followed by select) terminates
+        ! a guard body so a trailing statement after end select is a sibling of
+        ! the select node, not absorbed into the last arm. A bare end or
+        ! end if/end do inside an arm is not matched.
+        end_keywords(4) = "end select"
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_case => parse_select_case
@@ -652,11 +713,26 @@ contains
 
                             name_line = type_name_token%line
                             name_column = type_name_token%column
-                            type_name_index = push_identifier(arena, &
-                                                              type_name_token%text, &
-                                                              line=name_line, &
-                                                              column=name_column)
-                            type_name_token = parser%consume()
+                            block
+                                character(len=:), allocatable :: full_type_name
+                                character(len=:), allocatable :: kind_suffix
+
+                                full_type_name = type_name_token%text
+                                type_name_token = parser%consume()
+
+                                ! Capture an optional kind selector, e.g. real(8)
+                                ! or real(kind=8), so real and real(8) become
+                                ! distinct guards instead of colliding.
+                                call consume_guard_kind_suffix(parser, kind_suffix)
+                                if (len(kind_suffix) > 0) then
+                                    full_type_name = full_type_name // kind_suffix
+                                end if
+
+                                type_name_index = push_identifier(arena, &
+                                                                  full_type_name, &
+                                                                  line=name_line, &
+                                                                  column=name_column)
+                            end block
 
                             ! Expect )
                             next_token = parser%peek()
@@ -818,10 +894,12 @@ contains
         default_index = 0
 
         end_keywords(1) = "rank"
-        ! Note: end is NOT included because parse_statement_body would stop at
-        ! ANY end keyword (end if, end do, etc.), not just end select.
-        ! We handle end select detection in the main loop below.
-        end_keywords(2) = ""
+        ! "end select" specifically (matched as end followed by select) terminates
+        ! a rank body so a trailing statement after end select is a sibling of
+        ! the select node, not absorbed into the last arm. A bare end or
+        ! end if/end do inside an arm is not matched (check_end_keyword_match
+        ! requires the select suffix), which is why a plain "end" stays excluded.
+        end_keywords(2) = "end select"
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_rank => parse_select_rank
