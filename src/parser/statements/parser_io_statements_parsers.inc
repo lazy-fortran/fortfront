@@ -43,6 +43,9 @@
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
         character(len=:), allocatable :: io_control_list
         logical :: has_keyworded_format
+        integer :: format_expr_index
+
+        format_expr_index = 0
 
         ! Check if were at write keyword
         token = parser%peek()
@@ -106,13 +109,11 @@
                 has_keyworded_format = parse_keyworded_format_clause(parser, &
                                                                      format_spec)
                 if (.not. has_keyworded_format) then
-                    ! Parse positional format specifier
-                    call parse_format_specifier(parser, format_spec, &
-                                                is_control_specifier= &
-                                                is_write_io_control_specifier)
-                    if (allocated(format_spec)) then
-                        if (len(format_spec) == 0) deallocate (format_spec)
-                    end if
+                    ! Parse positional format specifier (literal or expression)
+                    call parse_positional_format(parser, arena, format_spec, &
+                                                 format_expr_index, &
+                                                 is_control_specifier= &
+                                                 is_write_io_control_specifier)
                 end if
             end if
         end if
@@ -140,6 +141,11 @@
                                                namelist_group=namelist_group, &
                                                io_control_list=io_control_list, &
                                                line=line, column=column)
+        else if (format_expr_index > 0) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               format_expr_index=format_expr_index, &
+                                               io_control_list=io_control_list, &
+                                               line=line, column=column)
         else if (allocated(format_spec)) then
             write_index = push_write_statement(arena, unit_spec, arg_indices, &
                                                format_spec=format_spec, &
@@ -163,6 +169,9 @@
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
         character(len=:), allocatable :: io_control_list
         type(parser_state_t) :: checkpoint
+        integer :: format_expr_index
+
+        format_expr_index = 0
 
         ! Consume read keyword
         token = parser%consume()
@@ -230,9 +239,10 @@
                 end if
 
                 if (.not. allocated(namelist_group)) then
-                    call parse_format_specifier(parser, format_spec, &
-                                                is_control_specifier= &
-                                                is_read_io_control_specifier)
+                    call parse_positional_format(parser, arena, format_spec, &
+                                                 format_expr_index, &
+                                                 is_control_specifier= &
+                                                 is_read_io_control_specifier)
                 end if
             end if
 
@@ -272,6 +282,11 @@
             read_index = push_read_statement(arena, unit_spec, var_indices, &
                                              format_spec=format_spec, &
                                              namelist_group=namelist_group, &
+                                             io_control_list=io_control_list, &
+                                             line=line, column=column)
+        else if (format_expr_index > 0) then
+            read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                             format_expr_index=format_expr_index, &
                                              io_control_list=io_control_list, &
                                              line=line, column=column)
         else if (allocated(format_spec)) then

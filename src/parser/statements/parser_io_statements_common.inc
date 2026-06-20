@@ -33,6 +33,53 @@
         end if
     end subroutine parse_format_specifier
 
+    ! Parse a positional format that may be a character expression.
+    ! When the format is a single literal/identifier/label, returns it as
+    ! format_spec text. When it continues with a binary operator (an
+    ! expression such as "(" // fmt // ")"), parses the whole format as an
+    ! expression and returns its arena index in format_expr_index.
+    subroutine parse_positional_format(parser, arena, format_spec, &
+                                       format_expr_index, is_control_specifier)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out) :: format_spec
+        integer, intent(out) :: format_expr_index
+        procedure(io_control_specifier_predicate), optional :: &
+            is_control_specifier
+        type(token_t) :: token
+        integer :: saved_pos
+
+        format_expr_index = 0
+        saved_pos = parser%current_token
+
+        call parse_format_specifier(parser, format_spec, is_control_specifier)
+        if (allocated(format_spec)) then
+            if (len(format_spec) == 0) deallocate (format_spec)
+        end if
+
+        if (.not. allocated(format_spec)) return
+
+        ! If the simple format spec is followed by a binary operator, the
+        ! format is actually an expression; reparse it as a whole.
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR) then
+            select case (token%text)
+            case ("//", "+", "-", "*", "/")
+                deallocate (format_spec)
+                parser%current_token = saved_pos
+                format_expr_index = parse_comparison(parser, arena)
+                if (format_expr_index <= 0) then
+                    parser%current_token = saved_pos
+                    call parse_format_specifier(parser, format_spec, &
+                                                is_control_specifier)
+                    if (allocated(format_spec)) then
+                        if (len(format_spec) == 0) deallocate (format_spec)
+                    end if
+                end if
+            end select
+        end if
+    end subroutine parse_positional_format
+
     subroutine skip_io_trivia(parser)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
@@ -94,6 +141,21 @@
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable :: unit_spec
         type(token_t) :: token
+        type(parser_state_t) :: checkpoint
+
+        ! Accept optional keyword form: unit=<value>
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+            if (to_lower(trim(token%text)) == "unit") then
+                checkpoint = parser
+                token = checkpoint%consume()  ! tentatively consume "unit"
+                token = checkpoint%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = checkpoint%consume()  ! consume "="
+                    parser = checkpoint
+                end if
+            end if
+        end if
 
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "*") then

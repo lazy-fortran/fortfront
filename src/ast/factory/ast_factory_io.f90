@@ -52,7 +52,8 @@ contains
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, &
-                                  namelist_group, io_control_list, line, column, &
+                                  namelist_group, io_control_list, &
+                                  format_expr_index, line, column, &
                                   parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
@@ -60,6 +61,7 @@ contains
         character(len=*), intent(in), optional :: format_spec
         character(len=*), intent(in), optional :: namelist_group
         character(len=*), intent(in), optional :: io_control_list
+        integer, intent(in), optional :: format_expr_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: write_index
         type(write_statement_node) :: write_stmt
@@ -72,6 +74,9 @@ contains
         end if
         if (present(format_spec)) then
             if (len(format_spec) > 0) write_stmt%format_spec = format_spec
+        end if
+        if (present(format_expr_index)) then
+            if (format_expr_index > 0) write_stmt%format_expr_index = format_expr_index
         end if
         if (present(namelist_group)) then
             if (len(namelist_group) > 0) write_stmt%namelist_group = namelist_group
@@ -86,6 +91,10 @@ contains
         write_index = arena%size
 
         ! Link children to this parent for AST traversal
+        if (write_stmt%format_expr_index > 0) then
+            call link_children_to_parent(arena, write_index, &
+                                         [write_stmt%format_expr_index])
+        end if
         if (present(arg_indices)) then
             if (size(arg_indices) > 0) then
                 call link_children_to_parent(arena, write_index, arg_indices)
@@ -94,7 +103,8 @@ contains
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, &
-                                 namelist_group, io_control_list, line, column, &
+                                 namelist_group, io_control_list, &
+                                 format_expr_index, line, column, &
                                  parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
@@ -102,6 +112,7 @@ contains
         character(len=*), intent(in), optional :: format_spec
         character(len=*), intent(in), optional :: namelist_group
         character(len=*), intent(in), optional :: io_control_list
+        integer, intent(in), optional :: format_expr_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: read_index
         type(read_statement_node) :: read_stmt
@@ -114,6 +125,9 @@ contains
         end if
         if (present(format_spec)) then
             if (len(format_spec) > 0) read_stmt%format_spec = format_spec
+        end if
+        if (present(format_expr_index)) then
+            if (format_expr_index > 0) read_stmt%format_expr_index = format_expr_index
         end if
         if (present(namelist_group)) then
             if (len(namelist_group) > 0) read_stmt%namelist_group = namelist_group
@@ -128,6 +142,10 @@ contains
         read_index = arena%size
 
         ! Link children to this parent for AST traversal
+        if (read_stmt%format_expr_index > 0) then
+            call link_children_to_parent(arena, read_index, &
+                                         [read_stmt%format_expr_index])
+        end if
         if (present(var_indices)) then
             if (size(var_indices) > 0) then
                 call link_children_to_parent(arena, read_index, var_indices)

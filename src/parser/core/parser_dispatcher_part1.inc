@@ -71,6 +71,20 @@
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: keyword
         integer, intent(out) :: stmt_index
+        type(token_t) :: first_token
+
+        ! An I/O keyword used as an ordinary variable (e.g. "read = x") is
+        ! not reserved in Fortran; let expression parsing handle it.
+        select case (keyword)
+        case ("print", "write", "read", "open", "close", "inquire", &
+              "backspace", "rewind", "endfile")
+            first_token = parser%peek()
+            if (keyword_should_parse_as_identifier(first_token, parser)) then
+                handled = .false.
+                stmt_index = 0
+                return
+            end if
+        end select
 
         handled = .true.
         select case (keyword)
