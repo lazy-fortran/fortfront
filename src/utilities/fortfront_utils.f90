@@ -11,8 +11,7 @@ module fortfront_utils
     use ast_nodes_core, only: program_node, assignment_node, identifier_node, &
                               literal_node, call_or_subscript_node, &
                               pointer_assignment_node
-    use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
-                                   subroutine_def_node
+    use ast_nodes_procedure, only: subroutine_call_node, function_def_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
                               parameter_declaration_node
     use ast_nodes_core, only: array_literal_node
@@ -41,8 +40,7 @@ module fortfront_utils
               get_node_range, get_arena_stats, analyze_program, &
               get_type_for_node, get_diagnostics, ast_to_json, &
               semantic_info_to_json, find_nodes_by_type, get_max_depth, &
-              get_node_as_program, get_node_as_assignment, get_node_as_function_def, &
-              get_node_as_subroutine_def
+              get_node_as_program, get_node_as_assignment, get_node_as_function_def
 
 contains
 
@@ -826,21 +824,5 @@ contains
             end if
         end if
     end function get_node_as_function_def
-
-    function get_node_as_subroutine_def(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: index
-        type(subroutine_def_node), pointer :: node
-
-        nullify (node)
-        if (index > 0 .and. index <= arena%size) then
-            if (allocated(arena%entries(index)%node)) then
-                select type (p => arena%entries(index)%node)
-                type is (subroutine_def_node)
-                    node => p
-                end select
-            end if
-        end if
-    end function get_node_as_subroutine_def
 
 end module fortfront_utils
