@@ -11,6 +11,7 @@ module parser_expression_tokens_module
     public :: is_prefix_operator_token
     public :: is_immediate_prefix_token
     public :: is_not_operator_token
+    public :: is_defined_operator_token
     public :: token_is_terminator
     public :: is_legacy_array_literal_start
 
@@ -75,6 +76,41 @@ contains
         lowered = to_lower(token%text)
         is_not_operator_token = (lowered == ".not.")
     end function is_not_operator_token
+
+    ! Check if token is a user-defined operator (.name.) that is not an intrinsic
+    ! dotted operator. Used to detect a unary defined operator in prefix position
+    ! (e.g. .negation. x) so it is emitted with a resolvable single operand
+    ! rather than a binary node carrying a dangling left index.
+    logical function is_defined_operator_token(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+        integer :: last_char, idx
+
+        is_defined_operator_token = .false.
+        if (token%kind /= TK_OPERATOR) return
+
+        lowered = to_lower(token%text)
+        last_char = len_trim(lowered)
+        if (last_char < 3) return
+        if (lowered(1:1) /= '.' .or. lowered(last_char:last_char) /= '.') return
+
+        do idx = 2, last_char - 1
+            select case (lowered(idx:idx))
+            case ('a':'z', '0':'9', '_')
+            case default
+                return
+            end select
+        end do
+
+        select case (lowered)
+        case (".and.", ".or.", ".not.", ".eqv.", ".neqv.", &
+              ".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.", &
+              ".true.", ".false.")
+            return
+        end select
+
+        is_defined_operator_token = .true.
+    end function is_defined_operator_token
 
     logical function token_is_terminator(token, terminators)
         type(token_t), intent(in) :: token
