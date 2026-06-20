@@ -11,6 +11,8 @@ module frontend_compiler_api
                                  analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use semantic_operating_mode, only: OPERATING_MODE_INFER
+    use standardizer, only: standardize_ast, standardize_multi_unit_children, &
+                            set_standardizer_input_mode
     implicit none
     private
 
@@ -18,6 +20,10 @@ module frontend_compiler_api
         logical :: run_semantics = .true.
         integer :: input_mode = INPUT_MODE_LAZY
         integer :: operating_mode = OPERATING_MODE_INFER
+        ! Synthesize inferred declarations and wrap fragments in a program.
+        ! Backends that lower from declared AST set this; off preserves the
+        ! raw analyzed arena for tooling that walks inferred-type nodes.
+        logical :: standardize = .false.
     end type compiler_frontend_options_t
 
     type :: compiler_frontend_result_t
@@ -92,6 +98,12 @@ contains
             end if
         else
             result%semantic_ok = .true.
+        end if
+
+        if (opts%standardize .and. result%semantic_ok) then
+            call set_standardizer_input_mode(opts%input_mode)
+            call standardize_multi_unit_children(result%arena, result%root_index)
+            call standardize_ast(result%arena, result%root_index)
         end if
     end subroutine compile_frontend_from_string
 
