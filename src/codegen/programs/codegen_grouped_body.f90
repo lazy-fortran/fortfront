@@ -32,7 +32,6 @@ module codegen_grouped_body
     private
 
     public :: generate_grouped_body
-    public :: generate_grouped_body_context
 
 contains
 
@@ -258,19 +257,6 @@ contains
                                     in_contains_section, code)
         end do
     end function generate_grouped_body
-
-    function generate_grouped_body_context(arena, body_indices, indent, &
-                                           has_exec_before_contains) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_indices(:)
-        integer, intent(in) :: indent
-        logical, intent(in) :: has_exec_before_contains
-        character(len=:), allocatable :: code
-        logical :: unused_flag
-
-        unused_flag = has_exec_before_contains
-        code = generate_grouped_body(arena, body_indices, indent)
-    end function generate_grouped_body_context
 
     subroutine reorder_use_before_implicit(arena, body_indices)
         type(ast_arena_t), intent(in) :: arena

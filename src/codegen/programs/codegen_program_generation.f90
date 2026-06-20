@@ -24,11 +24,7 @@ contains
         character(len=:), allocatable :: code
         integer, allocatable :: non_use_indices(:)
         integer :: non_use_count
-        logical :: context_has_executable_before_contains
         character(len=:), allocatable :: extra_decl_code
-
-        context_has_executable_before_contains = &
-            has_executable_before_contains(arena, node)
 
         if (node%name == "__MULTI_UNIT__") then
             code = generate_multi_unit_program(arena, node)
@@ -46,8 +42,7 @@ contains
                                      non_use_count, extra_decl_code)
 
         call append_program_body(arena, node, code, non_use_indices, &
-                                 non_use_count, extra_decl_code, &
-                                 context_has_executable_before_contains)
+                                 non_use_count, extra_decl_code)
 
         if (allocated(non_use_indices)) then
             deallocate (non_use_indices)
@@ -55,36 +50,6 @@ contains
 
         code = code // "end program " // node%name
     end function generate_code_program
-
-    logical function has_executable_before_contains(arena, node) result(has_exec)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: node
-        logical :: has_non_trivial_body
-        logical :: found_contains
-        integer :: i
-
-        has_non_trivial_body = .false.
-        found_contains = .false.
-        has_exec = .false.
-
-        if (.not. allocated(node%body_indices)) return
-
-        do i = 1, size(node%body_indices)
-            if (.not. arena%has_node_at(node%body_indices(i))) cycle
-            select type (body_node => arena%entries(node%body_indices(i))%node)
-            type is (contains_node)
-                found_contains = .true.
-                exit
-            type is (comment_node)
-            type is (directive_node)
-            type is (blank_line_node)
-            class default
-                has_non_trivial_body = .true.
-            end select
-        end do
-
-        has_exec = has_non_trivial_body .and. found_contains
-    end function has_executable_before_contains
 
     logical function program_contains_only_interfaces(arena, prog_index) &
         result(has_only_interfaces)
