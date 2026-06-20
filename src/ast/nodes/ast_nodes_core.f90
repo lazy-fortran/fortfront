@@ -36,6 +36,9 @@ module ast_nodes_core
         character(len=:), allocatable :: inferred_type_name
         logical :: suppress_codegen = .false.
         logical :: is_keyword_argument = .false. ! keyword argument in a call
+        ! Walrus declaration-with-inference (name := expr, LFortran extension):
+        ! declares the target and forbids same-scope redeclaration.
+        logical :: is_walrus = .false.
     contains
         procedure :: accept => assignment_accept
         procedure :: assign => assignment_assign
@@ -194,6 +197,7 @@ contains
         end if
         lhs%suppress_codegen = rhs%suppress_codegen
         lhs%is_keyword_argument = rhs%is_keyword_argument
+        lhs%is_walrus = rhs%is_walrus
     end subroutine assignment_assign
 
     ! Stub implementations for pointer_assignment_node

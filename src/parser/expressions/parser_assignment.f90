@@ -59,6 +59,20 @@ contains
                                                      value_index, &
                                                      id_token%line, id_token%column)
                     end if
+                case (":=")
+                    ! Walrus declaration-with-inference (LFortran extension):
+                    ! name := expr declares name and infers its type from expr.
+                    op_token = parser%consume()
+                    target_index = push_identifier(arena, id_token%text, &
+                                                   id_token%line, &
+                                                   id_token%column)
+                    value_index = parse_logical_eqv(parser, arena)
+                    if (value_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, &
+                                                     value_index, &
+                                                     id_token%line, id_token%column, &
+                                                     is_walrus=.true.)
+                    end if
                 case ("=>")
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, &

@@ -138,13 +138,15 @@ contains
 
     ! Create assignment node and add to stack
     function push_assignment(arena, target_index, value_index, line, column, &
-                             parent_index, operator_text, suppress_codegen) &
+                             parent_index, operator_text, suppress_codegen, &
+                             is_walrus) &
         result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: operator_text
         logical, intent(in), optional :: suppress_codegen
+        logical, intent(in), optional :: is_walrus
         integer :: assign_index
         type(assignment_node) :: assign
 
@@ -158,6 +160,9 @@ contains
         end if
         if (present(suppress_codegen)) then
             assign%suppress_codegen = suppress_codegen
+        end if
+        if (present(is_walrus)) then
+            assign%is_walrus = is_walrus
         end if
         if (present(line)) assign%line = line
         if (present(column)) assign%column = column

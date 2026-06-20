@@ -71,6 +71,7 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_assignment_inference.f90 | Assignment statement type inference |
 | semantic_identifier_context.f90 | Identifier usage context tracking |
 | semantic_undefined_variable_checker.f90 | Detect usage of undefined variables |
+| semantic_walrus_checker.f90 | Detect same-scope redeclaration via walrus `:=` |
 | semantic_declaration_utils.f90 | Declaration processing utilities |
 
 ### Type Operations

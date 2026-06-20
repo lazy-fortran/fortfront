@@ -252,7 +252,7 @@ contains
             else
                 ! Unclosed string - add a closing quote to keep output valid
                 ! Extract content until current position and append the terminator
-                tokens(token_count)%text = source(start_pos:pos - 1) // quote_char
+                tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
@@ -376,7 +376,7 @@ contains
             pos = pos + 1
             col_num = col_num + 1
             if (pos <= len(source)) then
-                if (source(pos:pos) == ':') then
+                if (source(pos:pos) == ':' .or. source(pos:pos) == '=') then
                     pos = pos + 1
                     col_num = col_num + 1
                 end if

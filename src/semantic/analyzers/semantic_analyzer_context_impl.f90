@@ -11,6 +11,7 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use semantic_inference_helpers, only: check_implicit_none, &
                                           process_declaration_variables
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
+    use semantic_walrus_checker, only: check_walrus_redeclaration
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: create_error_collection
     use type_hierarchy, only: create_type_hierarchy
@@ -172,6 +173,10 @@ contains
             if (ctx%errors%has_errors()) return
         end if
 
+        call check_walrus_redeclaration(ctx%errors, ctx%input_mode, arena, &
+                                        prog_index)
+        if (ctx%errors%has_errors()) return
+
         ! Enable constant folding for lazy Fortran to support constant propagation
         ! (e.g., n=3; reshape([...], [n,n]) needs to know n=3)
         ! MUST happen BEFORE type inference so reshape can see constant values
@@ -226,7 +231,7 @@ contains
 
         typ = ctx%apply_subst_to_type(arena%entries(index)%node%inferred_type)
         if (typ%kind == TVAR) then
-            if (len_trim(typ%var%name) == 0) typ%var%name = "v" // &
+            if (len_trim(typ%var%name) == 0) typ%var%name = "v"// &
                                                             int_to_str(typ%var%id)
         end if
         arena%entries(index)%node%inferred_type = typ
