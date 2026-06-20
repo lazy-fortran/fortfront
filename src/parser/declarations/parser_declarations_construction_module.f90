@@ -88,6 +88,7 @@ contains
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
@@ -109,7 +110,8 @@ contains
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous)
+                         is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -130,6 +132,7 @@ contains
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value, &
                          character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
@@ -150,7 +153,8 @@ contains
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous)
+                         is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value)
         end if
     end function create_dimensional_declaration
 
@@ -183,6 +187,7 @@ contains
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
@@ -203,7 +208,8 @@ contains
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous)
+                         is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -223,6 +229,7 @@ contains
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
                          is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value, &
                          character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
@@ -242,7 +249,8 @@ contains
                          is_protected=attr_info%is_protected, &
                          is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous)
+                         is_contiguous=attr_info%is_contiguous, &
+                         is_value=attr_info%is_value)
         end if
     end function create_scalar_declaration
 
@@ -337,7 +345,8 @@ contains
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous)
+                             is_contiguous=attr_info%is_contiguous, &
+                             is_value=attr_info%is_value)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
@@ -355,7 +364,8 @@ contains
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous)
+                             is_contiguous=attr_info%is_contiguous, &
+                             is_value=attr_info%is_value)
             end if
         else
             if (attr_info%has_global_dimensions) then
@@ -375,7 +385,8 @@ contains
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous)
+                             is_contiguous=attr_info%is_contiguous, &
+                             is_value=attr_info%is_value)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
@@ -392,7 +403,8 @@ contains
                              is_protected=attr_info%is_protected, &
                              is_asynchronous=attr_info%is_asynchronous, &
                          accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous)
+                             is_contiguous=attr_info%is_contiguous, &
+                             is_value=attr_info%is_value)
             end if
         end if
 
