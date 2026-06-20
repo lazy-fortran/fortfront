@@ -20,6 +20,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                             clear_semantic_context_for_lookup, &
                                             get_type_with_stored_context
     use semantic_where_validation, only: validate_where_construct
+    use semantic_pure_validation, only: validate_pure_procedure
     use string_utils_mod, only: int_to_string
     implicit none
 
