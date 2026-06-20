@@ -165,26 +165,26 @@ contains
             c = src(pos:pos)
 
             select case (c)
-            case (' ', char(9))  ! Space, tab
+            case (' ', char(9)) ! Space, tab
                 call skip_whitespace(src, pos, line_num, col_num)
 
-            case (char(10), char(13))  ! Newline
+            case (char(10), char(13)) ! Newline
                 call handle_newline(src, pos, line_num, col_num, &
                                     tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('!', '#')  ! Comment or preprocessor directive
+            case ('!', '#') ! Comment or preprocessor directive
                 call scan_comment(src, pos, line_num, col_num, &
                                   tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('''', '"')  ! String
+            case ('''', '"') ! String
                 call scan_string(src, pos, line_num, col_num, &
                                  tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('0':'9')  ! Number
+            case ('0':'9') ! Number
                 call scan_number(src, pos, line_num, col_num, &
                                  tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('a':'z', 'A':'Z', '_')  ! Identifier
+            case ('a':'z', 'A':'Z', '_') ! Identifier
                 call scan_identifier(src, pos, line_num, col_num, &
                                      tokenize_res%tokens, &
                                      tokenize_res%token_count)
@@ -195,7 +195,7 @@ contains
                                     tokenize_res%tokens, &
                                     tokenize_res%token_count)
 
-            case default  ! Operator or unknown
+            case default ! Operator or unknown
                 if (is_operator_char(c)) then
                     call scan_operator(src, pos, line_num, col_num, &
                                        tokenize_res%tokens, &
@@ -278,41 +278,41 @@ contains
         c = source_text(pos:pos)
 
         select case (c)
-        case (' ', char(9))  ! Space, tab
+        case (' ', char(9)) ! Space, tab
             call collect_whitespace_trivia(source_text, pos, &
                                            line_num, col_num, &
                                            pending_trivia)
-        case (char(10), char(13))  ! Newline
+        case (char(10), char(13)) ! Newline
             call collect_newline_trivia(source_text, pos, line_num, col_num, &
                                         pending_trivia)
-        case ('!', '#')  ! Comment or preprocessor directive
+        case ('!', '#') ! Comment or preprocessor directive
             call collect_comment_trivia(source_text, pos, line_num, col_num, &
                                         pending_trivia)
-        case ('''', '"')  ! String
+        case ('''', '"') ! String
             previous_count = token_count
             call scan_string(source_text, pos, line_num, col_num, tokens, &
                              token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
                                        pending_trivia)
-        case ('0':'9')  ! Number
+        case ('0':'9') ! Number
             previous_count = token_count
             call scan_number(source_text, pos, line_num, col_num, tokens, &
                              token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
                                        pending_trivia)
-        case ('a':'z', 'A':'Z', '_')  ! Identifier
+        case ('a':'z', 'A':'Z', '_') ! Identifier
             previous_count = token_count
             call scan_identifier(source_text, pos, line_num, col_num, tokens, &
                                  token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
                                        pending_trivia)
-        case ('.')  ! Logical token, decimal number, assumed-rank, or separator
+        case ('.') ! Logical token, decimal number, assumed-rank, or separator
             previous_count = token_count
             call scan_dot_token(source_text, pos, line_num, col_num, tokens, &
                                 token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
                                        pending_trivia)
-        case default  ! Operator or unknown
+        case default ! Operator or unknown
             if (is_operator_char(c)) then
                 previous_count = token_count
                 call scan_operator(source_text, pos, line_num, &
@@ -634,7 +634,7 @@ contains
 
         select case (c)
         case ('+', '-', '*', '/', '=', '<', '>', '(', ')', '[', ']', &
-              '{', '}', ',', ';', ':', '%', '&')
+              '{', '}', ',', ';', ':', '%', '&', '^')
             is_op = .true.
         case default
             is_op = .false.
