@@ -4,6 +4,7 @@ module standardizer_function_parameters
     use ast_nodes_data, only: INTENT_IN, INTENT_INOUT, INTENT_OUT
     use ast_nodes_procedure, only: function_def_node
     use type_system_unified, only: TINT
+    use type_string_utils, only: mono_type_cached_string => mono_type_to_string
     use standardizer_function_param_scanner, only: analyze_parameter_usage
     use standardizer_function_parameter_builders, only: &
         add_missing_parameter_declarations_ext, &
@@ -144,7 +145,11 @@ contains
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
-            inferred_text = param%inferred_type%to_string()
+            ! Use cached-field formatter: the type-bound to_string dereferences
+            ! the type arena, which may be stale after reset_type_system, yielding
+            ! garbage. The cached kind/size/is_unsigned survive on the AST node.
+            inferred_text = mono_type_cached_string(param%inferred_type, &
+                                                    fallback="")
         end if
         call apply_function_type(metadata, slot, .false., "", .false., 0, &
                                  param%inferred_type%kind > 0, inferred_text, &
@@ -175,7 +180,8 @@ contains
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
-            inferred_text = param%inferred_type%to_string()
+            inferred_text = mono_type_cached_string(param%inferred_type, &
+                                                    fallback="")
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
                                  explicit_type, &
@@ -208,7 +214,8 @@ contains
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
-            inferred_text = param%inferred_type%to_string()
+            inferred_text = mono_type_cached_string(param%inferred_type, &
+                                                    fallback="")
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
                                  explicit_type, &
