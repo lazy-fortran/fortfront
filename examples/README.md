@@ -84,6 +84,9 @@ gfortran output.f90 -o test
 - `legacy_*.f90` - Legacy Fortran features
 - `issue_*.f90` - Issue-specific standard Fortran examples
 - Argument type validation (strict mode): `issue_2593_call_argument_type_mismatch.f90`
+- Implied-DO index locality: `issue_2819_implied_do_index_locality_valid.f90` (valid),
+  `issue_2819_implied_do_index_out_of_scope.f90` and
+  `issue_2819_implied_do_index_shadow.f90` (rejected)
 - Strict arg checker scope resolution: `issue_2644_strict_arg_checker_scope_lookup.f90`
 - Regression coverage includes `duplicate_var_decl_regression.f90` for preventing
   auto-generated duplicate local declarations
