@@ -23,10 +23,11 @@ module intrinsic_registry
     type(intrinsic_signature_t), allocatable :: intrinsic_functions(:)
     logical :: registry_initialized = .false.
     integer, parameter :: MAX_INTRINSIC_SUBROUTINE_NAME_LEN = 32
-    integer, parameter :: NUM_INTRINSIC_SUBROUTINES = 41
+    integer, parameter :: NUM_INTRINSIC_SUBROUTINES = 43
     character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN), parameter :: &
         intrinsic_subroutine_names(NUM_INTRINSIC_SUBROUTINES) = &
         [character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN) :: &
+         "c_f_pointer", "c_f_procpointer", &
          "cpu_time", "date_and_time", &
          "execute_command_line", "get_command", &
          "get_command_argument", &
@@ -71,8 +72,8 @@ contains
         do i = 1, size(intrinsic_functions)
             if (intrinsic_functions(i)%name == lowered_name) then
                 is_intrinsic = .true.
-                signature = intrinsic_functions(i)%return_type // "(" // &
-                            intrinsic_functions(i)%arg_types // ")"
+                signature = intrinsic_functions(i)%return_type//"("// &
+                            intrinsic_functions(i)%arg_types//")"
                 return
             end if
         end do
@@ -149,7 +150,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 58
+        integer, parameter :: NUM_INTRINSICS = 61
         integer :: i
 
         if (registry_initialized) return
@@ -163,6 +164,7 @@ contains
         call register_string_intrinsics(i)
         call register_variadic_intrinsics(i)
         call register_inquiry_intrinsics(i)
+        call register_c_interop_intrinsics(i)
 
         if (i /= NUM_INTRINSICS) then
             write (error_unit, '(A)') &
@@ -536,6 +538,26 @@ contains
                                  "allocatable")
     end subroutine register_inquiry_intrinsics
 
-    ! Helper function to convert string to lowercase
+    subroutine register_c_interop_intrinsics(i)
+        integer, intent(inout) :: i
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="c_loc", return_type="c_ptr", &
+                                 arg_types="any", &
+                                 description="C address of a target argument")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="c_funloc", return_type="c_funptr", &
+                                 arg_types="any", &
+                                 description="C address of a procedure argument")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="c_associated", return_type="logical", &
+                                 arg_types="c_ptr", &
+                                 description="C pointer association status")
+    end subroutine register_c_interop_intrinsics
 
 end module intrinsic_registry
