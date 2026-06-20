@@ -10,6 +10,7 @@ This directory contains the CLI (command-line interface) application for fortfro
 |------|-------------|
 | fortfront.f90 | Main CLI application: argument parsing, file I/O, transformation orchestration |
 | debug_ast.f90 | Debug utilities for printing AST structure (development tool) |
+| frontend_probe.f90 | Frontend conformance probe: exercises the frontend API from a Fortran program |
 
 ## Key Concepts
 

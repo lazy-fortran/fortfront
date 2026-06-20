@@ -310,28 +310,14 @@ end program
 
 **Issue #1975 - Test Deduplication Migration**
 
-**Current Status** (as of 2025-10-28):
-- Total end-to-end violations: 41 tests with >15 inline lines
-- Total warnings: 69 tests with 6-15 inline lines (review needed)
-- Migrated: 1 test (test_close_in_control_flow.f90 - 51 lines → 5 example files)
+**Status: complete.** The end-to-end test deduplication is done: `make check-duplication` reports 0 violations and 0 warnings. End-to-end tests reference `examples/`; unit tests keep small inline inputs as described above.
 
 **CI Enforcement** (ACTIVE):
-- ✅ Check script: `scripts/check_test_duplication.py`
-- ✅ Make target: `make check-duplication`
-- ✅ CI workflow: Non-blocking check in `.github/workflows/ci.yml`
-- Status: WARNING mode (provides visibility, does not block PRs during migration)
+- Check script: `scripts/check_test_duplication.py`
+- Make target: `make check-duplication`
+- CI workflow: `.github/workflows/ci.yml`
 
-**Enforcement Plan**:
-1. ✅ CI check warns on new inline code (prevents regression awareness)
-2. 🔄 Gradual migration: Top violators first (41 end-to-end tests remaining)
-3. 📋 Review warnings: 69 integration tests need case-by-case evaluation
-4. 🎯 Future: Switch CI check to blocking mode once violations < 10
-
-**Migration Priority**:
-- P0: ✅ CI enforcement (completed - provides visibility)
-- P1: 🔄 Top 20 end-to-end tests (addresses ~50% of problem)
-- P2: 📋 Review 69 integration test warnings
-- P3: ⬜ All remaining files (complete zero-duplication compliance)
+Keep it at zero: new end-to-end tests must use `read_example()` rather than inline full programs.
 
 **How to Check Status**:
 ```bash
