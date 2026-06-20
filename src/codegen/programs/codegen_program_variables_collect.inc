@@ -16,6 +16,7 @@
         call collect_local_module_exports(arena, prog, state)
         call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
+        call collect_derived_type_names(arena, prog, state)
         call collect_associate_names(arena, prog, state)
         call collect_namelist_groups(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
@@ -34,6 +35,25 @@
                                               state%defined_func_types, &
                                               state%defined_func_count)
     end subroutine populate_defined_function_table
+
+    ! Record derived type names defined in the program so structure
+    ! constructor calls are not emitted as external functions (Issue #2827).
+    subroutine collect_derived_type_names(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (.not. arena%has_node_at(idx)) cycle
+            select type (dtype => arena%entries(idx)%node)
+            type is (derived_type_node)
+                if (allocated(dtype%name)) &
+                    call record_derived_type_name(state, trim(dtype%name))
+            end select
+        end do
+    end subroutine collect_derived_type_names
 
     subroutine collect_use_associated_symbols(arena, prog, state)
         type(ast_arena_t), intent(in) :: arena
