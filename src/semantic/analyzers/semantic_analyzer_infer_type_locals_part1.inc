@@ -381,6 +381,14 @@
             type(infer_frame_t) :: post_frame
             integer :: i
 
+            ! Validate implied-DO index locality. The validator recurses into
+            ! nested implied-DOs itself, so only outermost array literals are
+            ! checked here; a literal nested in an implied-DO body is reached
+            ! from its enclosing loop.
+            if (.not. array_literal_in_implied_do(current%node_index)) then
+                call validate_implied_do_array(arena, expr, this%errors)
+            end if
+
             call init_post_frame(current, post_frame)
             call push_frame_local(post_frame)
             if (allocated(expr%element_indices)) then
@@ -389,6 +397,24 @@
                 end do
             end if
         end subroutine schedule_array_literal_node
+
+        ! Whether the array literal at node_index is the body of an implied-DO,
+        ! i.e. its parent in the arena is a do_loop_node.
+        function array_literal_in_implied_do(node_index) result(nested)
+            integer, intent(in) :: node_index
+            logical :: nested
+            integer :: parent_index
+
+            nested = .false.
+            if (node_index <= 0 .or. node_index > arena%size) return
+            parent_index = arena%entries(node_index)%parent_index
+            if (parent_index <= 0 .or. parent_index > arena%size) return
+            if (.not. allocated(arena%entries(parent_index)%node)) return
+            select type (parent_node => arena%entries(parent_index)%node)
+            type is (do_loop_node)
+                nested = .true.
+            end select
+        end function array_literal_in_implied_do
 
         subroutine prepare_do_loop_node(current, expr)
             type(infer_frame_t), intent(in) :: current
