@@ -161,12 +161,13 @@ contains
             end if
         end do
 
-        ! Decision logic: if only functions/subroutines and use statements,
-        ! it's likely a module
-        ! For now, keep it simple - presence of multiple procedures suggests module
-        should_be_module = (has_functions .or. has_subroutines) .and. &
-                           (count([has_functions, has_subroutines]) > 1 .or. &
-                            has_use_statements)
+        ! A wrapped program that contains any procedure needs a `contains`
+        ! separator before the first procedure. This flag drives that early
+        ! insertion; the result is still emitted as a program, not a module
+        ! (the name "should_be_module" is historical). Any procedure present is
+        ! the precise condition, so guessing module-ness from procedure counts
+        ! or use statements is neither needed nor accurate.
+        should_be_module = has_functions .or. has_subroutines
 
     end subroutine analyze_program_content
 

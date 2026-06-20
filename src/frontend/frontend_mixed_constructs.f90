@@ -45,8 +45,13 @@ contains
         allocate (implicit_indices(0))
         allocate (explicit_indices(0))
 
-        ! Generate module name (for now, use "implicit_module")
-        module_name = "implicit_module"
+        ! Derive a stable, content-based module name so distinct sources do not
+        ! collide if several mixed-construct containers ever share one arena.
+        ! The same input always yields the same name (deterministic hash over
+        ! the token texts). Codegen currently emits the container as
+        ! "program main" and does not print this name, but it is kept stable and
+        ! unique for any future consumer that does read it.
+        module_name = derive_module_name(tokens)
 
         ! Parse implicit declarations
         do i = 1, mixed_result%num_implicit_ranges
@@ -213,6 +218,29 @@ contains
         call arena%push(container_node, "mixed_construct_container", 0)
         container_index = arena%size
     end function create_mixed_construct_container_arena
+
+    ! Deterministic, collision-resistant module name derived from the token
+    ! texts (FNV-1a over the concatenated non-empty token text). The same source
+    ! always yields the same name; distinct sources almost never collide.
+    function derive_module_name(tokens) result(name)
+        use, intrinsic :: iso_fortran_env, only: int64
+        type(token_t), intent(in) :: tokens(:)
+        character(len=:), allocatable :: name
+        integer(int64) :: acc
+        integer :: i, j
+        character(len=16) :: hex
+
+        acc = 1469598103934665603_int64
+        do i = 1, size(tokens)
+            if (.not. allocated(tokens(i)%text)) cycle
+            do j = 1, len(tokens(i)%text)
+                acc = ieor(acc, int(iachar(tokens(i)%text(j:j)), int64))
+                acc = acc * 1099511628211_int64
+            end do
+        end do
+        write (hex, '(Z16.16)') acc
+        name = "implicit_module_"//trim(adjustl(hex))
+    end function derive_module_name
 
     subroutine mark_token_range(used_tokens, start_idx, end_idx)
         logical, intent(inout) :: used_tokens(:)
