@@ -48,11 +48,12 @@ contains
             if (callee_symbol > 0) cycle
 
             caller_symbol = find_symbol_by_full_name(builder, caller_name)
-            if (caller_symbol > 0) then
-                parent_symbol = builder%symbol_table(caller_symbol)%parent_symbol
-                if (parent_symbol == 0) parent_symbol = caller_symbol
-            else
-                parent_symbol = 0
+            parent_symbol = 0
+            if (caller_symbol > 0 .and. allocated(builder%symbol_table)) then
+                if (caller_symbol <= size(builder%symbol_table)) then
+                    parent_symbol = builder%symbol_table(caller_symbol)%parent_symbol
+                    if (parent_symbol == 0) parent_symbol = caller_symbol
+                end if
             end if
 
             inferred_full_name = compute_full_name(builder, parent_symbol, &

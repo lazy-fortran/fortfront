@@ -1,7 +1,7 @@
 program test_call_graph_queries
     use fortfront, only: ast_arena_t, build_call_graph, call_graph_t, &
-                         create_ast_arena, get_call_count, get_callees, &
-                         get_callers, is_procedure_used, lex_source, &
+                         create_ast_arena, get_all_procedures, get_call_count, &
+                         get_callees, get_callers, is_procedure_used, lex_source, &
                          parse_tokens, token_t
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
@@ -13,6 +13,7 @@ program test_call_graph_queries
     call test_mutual_recursion_edges()
     call test_unused_procedure_query()
     call test_caller_callee_queries()
+    call test_empty_graph_queries()
 
     if (all_passed) then
         print '(a)', "All call graph query tests passed"
@@ -70,6 +71,37 @@ contains
             call report_failure('expected at least 2 calls in mutual recursion')
         end if
     end subroutine test_caller_callee_queries
+
+    ! Regression for #2831: queries on a default-initialized graph (calls and
+    ! procedures arrays unallocated, counts zero) must not touch unallocated
+    ! arrays.
+    subroutine test_empty_graph_queries()
+        type(call_graph_t) :: graph
+        character(len=:), allocatable :: names(:)
+
+        names = get_callers(graph, 'anything')
+        if (size(names) /= 0) then
+            call report_failure('empty graph reported callers')
+        end if
+
+        names = get_callees(graph, 'anything')
+        if (size(names) /= 0) then
+            call report_failure('empty graph reported callees')
+        end if
+
+        names = get_all_procedures(graph)
+        if (size(names) /= 0) then
+            call report_failure('empty graph reported procedures')
+        end if
+
+        if (is_procedure_used(graph, 'anything')) then
+            call report_failure('empty graph reported a used procedure')
+        end if
+
+        if (get_call_count(graph) /= 0) then
+            call report_failure('empty graph reported nonzero call count')
+        end if
+    end subroutine test_empty_graph_queries
 
     logical function names_contains(names, target)
         character(len=*), intent(in) :: names(:)

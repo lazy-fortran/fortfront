@@ -112,10 +112,11 @@ contains
         character(len=:), allocatable :: callee_name
         integer :: call_index
 
-        if (resolved_symbol > 0) then
-            callee_name = builder%symbol_table(resolved_symbol)%full_name
-        else
-            callee_name = trim(callee_simple)
+        callee_name = trim(callee_simple)
+        if (resolved_symbol > 0 .and. allocated(builder%symbol_table)) then
+            if (resolved_symbol <= size(builder%symbol_table)) then
+                callee_name = builder%symbol_table(resolved_symbol)%full_name
+            end if
         end if
 
         call builder%graph%add_call_edge(trim(caller_name), trim(callee_name), &

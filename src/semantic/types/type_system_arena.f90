@@ -153,10 +153,12 @@ contains
         type(type_arena_t), intent(inout) :: arena
         type(arena_mono_type_t), intent(in) :: mono_type
         type(mono_handle_t) :: handle
+        logical :: status
 
         handle = arena%allocate_mono()
         if (is_valid_mono_handle(handle)) then
-            call arena%set_mono(handle, mono_type)
+            call arena%set_mono(handle, mono_type, status)
+            if (.not. status) handle = null_mono_handle()
         end if
     end function store_mono_type
 
@@ -165,10 +167,12 @@ contains
         type(type_arena_t), intent(inout) :: arena
         type(arena_poly_type_t), intent(in) :: poly_type
         type(poly_handle_t) :: handle
+        logical :: status
 
         handle = arena%allocate_poly()
         if (is_valid_poly_handle(handle)) then
-            call arena%set_poly(handle, poly_type)
+            call arena%set_poly(handle, poly_type, status)
+            if (.not. status) handle = null_poly_handle()
         end if
     end function store_poly_type
 
@@ -177,10 +181,12 @@ contains
         type(type_arena_t), intent(inout) :: arena
         type(mono_handle_t), intent(in) :: args(:)
         type(args_handle_t) :: handle
+        logical :: status
 
         handle = arena%allocate_args(size(args))
         if (is_valid_args_handle(handle)) then
-            call arena%set_args(handle, args)
+            call arena%set_args(handle, args, status)
+            if (.not. status) handle = null_args_handle()
         end if
     end function store_type_args
 
@@ -326,42 +332,51 @@ contains
     end subroutine type_arena_get_args
 
     ! Set monomorphic type in arena
-    subroutine type_arena_set_mono(this, handle, mono_type)
+    subroutine type_arena_set_mono(this, handle, mono_type, status)
         class(type_arena_t), intent(inout) :: this
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t), intent(in) :: mono_type
+        logical, intent(out), optional :: status
         integer(1) :: buffer(storage_size(arena_mono_type_t()) / 8)
-        logical :: status
+        logical :: write_ok
 
         buffer = transfer(mono_type, buffer)
-        call this%arena%set_data(handle%handle, buffer, status)
+        call this%arena%set_data(handle%handle, buffer, write_ok)
+        if (present(status)) status = write_ok
     end subroutine type_arena_set_mono
 
     ! Set polymorphic type in arena
-    subroutine type_arena_set_poly(this, handle, poly_type)
+    subroutine type_arena_set_poly(this, handle, poly_type, status)
         class(type_arena_t), intent(inout) :: this
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t), intent(in) :: poly_type
+        logical, intent(out), optional :: status
         integer(1) :: buffer(storage_size(arena_poly_type_t()) / 8)
-        logical :: status
+        logical :: write_ok
 
         buffer = transfer(poly_type, buffer)
-        call this%arena%set_data(handle%handle, buffer, status)
+        call this%arena%set_data(handle%handle, buffer, write_ok)
+        if (present(status)) status = write_ok
     end subroutine type_arena_set_poly
 
     ! Set type argument array in arena
-    subroutine type_arena_set_args(this, handle, args)
+    subroutine type_arena_set_args(this, handle, args, status)
         class(type_arena_t), intent(inout) :: this
         type(args_handle_t), intent(in) :: handle
         type(mono_handle_t), intent(in) :: args(:)
+        logical, intent(out), optional :: status
         integer(1), allocatable :: buffer(:)
-        logical :: status
+        logical :: write_ok
 
-        if (handle%count /= size(args)) return
+        if (handle%count /= size(args)) then
+            if (present(status)) status = .false.
+            return
+        end if
 
         allocate (buffer(size(args) * (storage_size(mono_handle_t()) / 8)))
         buffer = transfer(args, buffer)
-        call this%arena%set_data(handle%handle, buffer, status)
+        call this%arena%set_data(handle%handle, buffer, write_ok)
+        if (present(status)) status = write_ok
     end subroutine type_arena_set_args
 
     ! Validate monomorphic type handle
@@ -488,26 +503,30 @@ contains
         type(mono_handle_t) :: mono_h
         type(poly_handle_t) :: poly_h
         type(args_handle_t) :: args_h
+        logical :: status
 
         ! Determine type and store accordingly
         select type (item)
         type is (arena_mono_type_t)
             mono_h = this%allocate_mono()
             if (is_valid_mono_handle(mono_h)) then
-                call this%set_mono(mono_h, item)
+                call this%set_mono(mono_h, item, status)
+                if (.not. status) mono_h = null_mono_handle()
             end if
             handle = mono_h%handle
         type is (arena_poly_type_t)
             poly_h = this%allocate_poly()
             if (is_valid_poly_handle(poly_h)) then
-                call this%set_poly(poly_h, item)
+                call this%set_poly(poly_h, item, status)
+                if (.not. status) poly_h = null_poly_handle()
             end if
             handle = poly_h%handle
         type is (mono_handle_t)
             ! Store single mono handle as args array of size 1
             args_h = this%allocate_args(1)
             if (is_valid_args_handle(args_h)) then
-                call this%set_args(args_h, [item])
+                call this%set_args(args_h, [item], status)
+                if (.not. status) args_h = null_args_handle()
             end if
             handle = args_h%handle
         class default

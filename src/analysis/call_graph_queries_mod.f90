@@ -29,6 +29,11 @@ contains
         integer :: i, count
         character(len=max_proc_name_len) :: simple_callee
 
+        if (.not. allocated(graph%calls)) then
+            allocate (character(len=1) :: caller_names(0))
+            return
+        end if
+
         allocate (temp_names(graph%call_count))
         count = 0
 
@@ -68,6 +73,11 @@ contains
         integer :: i, count
         character(len=max_proc_name_len) :: simple_caller
 
+        if (.not. allocated(graph%calls)) then
+            allocate (character(len=1) :: callee_names(0))
+            return
+        end if
+
         allocate (temp_names(graph%call_count))
         count = 0
 
@@ -106,16 +116,22 @@ contains
         integer :: i
         character(len=max_proc_name_len) :: simple_name, simple_callee
 
-        do i = 1, graph%proc_count
-            simple_name = simple_name_of(graph%procedures(i)%name)
+        is_used = .false.
 
-            if ((graph%procedures(i)%name == procedure_name .or. &
-                 trim(simple_name) == procedure_name) .and. &
-                graph%procedures(i)%is_main_program) then
-                is_used = .true.
-                return
-            end if
-        end do
+        if (allocated(graph%procedures)) then
+            do i = 1, graph%proc_count
+                simple_name = simple_name_of(graph%procedures(i)%name)
+
+                if ((graph%procedures(i)%name == procedure_name .or. &
+                     trim(simple_name) == procedure_name) .and. &
+                    graph%procedures(i)%is_main_program) then
+                    is_used = .true.
+                    return
+                end if
+            end do
+        end if
+
+        if (.not. allocated(graph%calls)) return
 
         do i = 1, graph%call_count
             simple_callee = simple_name_of(graph%calls(i)%callee)
@@ -126,8 +142,6 @@ contains
                 return
             end if
         end do
-
-        is_used = .false.
     end function is_procedure_used
 
     function get_all_procedures(graph) result(proc_names)
@@ -136,7 +150,7 @@ contains
         integer :: i, max_len
         character(len=max_proc_name_len) :: simple_name
 
-        if (graph%proc_count > 0) then
+        if (graph%proc_count > 0 .and. allocated(graph%procedures)) then
             max_len = 0
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then

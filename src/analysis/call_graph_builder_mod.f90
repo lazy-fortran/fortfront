@@ -253,13 +253,16 @@ contains
 
         select type (node => arena%entries(node_idx)%node)
         type is (subroutine_call_node)
-            if (scope_sym > 0) then
-                caller_name = builder%symbol_table(scope_sym)%full_name
-                resolved_symbol = resolve_procedure_symbol(builder, node%name, &
-                                                           scope_sym)
-                call add_call_with_resolution(builder, scope_sym, trim(caller_name), &
-                                              node%name, resolved_symbol, node_idx, &
-                                              node%line, node%column)
+            if (scope_sym > 0 .and. allocated(builder%symbol_table)) then
+                if (scope_sym <= size(builder%symbol_table)) then
+                    caller_name = builder%symbol_table(scope_sym)%full_name
+                    resolved_symbol = resolve_procedure_symbol(builder, node%name, &
+                                                               scope_sym)
+                    call add_call_with_resolution(builder, scope_sym, &
+                                                  trim(caller_name), node%name, &
+                                                  resolved_symbol, node_idx, &
+                                                  node%line, node%column)
+                end if
             end if
         end select
     end subroutine handle_call_node
@@ -274,13 +277,17 @@ contains
 
         select type (node => arena%entries(node_idx)%node)
         type is (call_or_subscript_node)
-            if (scope_sym > 0 .and. .not. node%is_array_access) then
-                caller_name = builder%symbol_table(scope_sym)%full_name
-                resolved_symbol = resolve_procedure_symbol(builder, node%name, &
-                                                           scope_sym)
-                call add_call_with_resolution(builder, scope_sym, trim(caller_name), &
-                                              node%name, resolved_symbol, node_idx, &
-                                              node%line, node%column)
+            if (scope_sym > 0 .and. .not. node%is_array_access &
+                .and. allocated(builder%symbol_table)) then
+                if (scope_sym <= size(builder%symbol_table)) then
+                    caller_name = builder%symbol_table(scope_sym)%full_name
+                    resolved_symbol = resolve_procedure_symbol(builder, node%name, &
+                                                               scope_sym)
+                    call add_call_with_resolution(builder, scope_sym, &
+                                                  trim(caller_name), node%name, &
+                                                  resolved_symbol, node_idx, &
+                                                  node%line, node%column)
+                end if
             end if
         end select
     end subroutine handle_call_or_subscript_node
