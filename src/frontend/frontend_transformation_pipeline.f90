@@ -118,16 +118,11 @@ contains
         logical, intent(in), optional :: preserve_format_config
 
         ! Local variables for 4-phase pipeline
-        type(token_t), allocatable, target :: tokens(:)
-        type(compiler_arena_t) :: arena
-        integer :: prog_index
         character(len=:), allocatable :: source
         logical :: apply_ast_wrapping
         logical :: apply_default_format
         integer :: local_operating_mode
-        integer :: saved_size, saved_line_length
-        character(len=1) :: saved_char
-        logical :: saved_standardize_types, saved_standardizer_types
+        logical :: pipeline_ok
 
         allocate (character(len=0) :: output)
         output = ""
@@ -135,16 +130,11 @@ contains
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
-        apply_ast_wrapping = .false.
-        if (present(enable_ast_wrapping)) then
-            apply_ast_wrapping = enable_ast_wrapping
-        end if
-        local_operating_mode = OPERATING_MODE_INFER
-        if (present(operating_mode)) local_operating_mode = operating_mode
-        apply_default_format = .not. present(enable_ast_wrapping)
-        if (present(preserve_format_config)) then
-            if (preserve_format_config) apply_default_format = .false.
-        end if
+        call resolve_transformation_options(enable_ast_wrapping, operating_mode, &
+                                            preserve_format_config, &
+                                            apply_ast_wrapping, &
+                                            local_operating_mode, &
+                                            apply_default_format)
 
         call trace_init()
 
@@ -160,109 +150,17 @@ contains
         ! multiple transformations in sequence (e.g., during test suite execution)
         call reset_type_system()
 
-        ! Handle empty or whitespace-only input
-        if (is_empty_or_whitespace_only(source)) then
-            if (present(enable_ast_wrapping)) then
-                ! Standard Fortran mode (context-aware call): do not fabricate
-                ! a trivial program wrapper for empty input. This keeps
-                ! standard Fortran round-trip semantics strict.
-                output = ""
-            else
-                ! Lazy Fortran / library API: preserve legacy behaviour and
-                ! generate a minimal program for empty input.
-                call create_minimal_program(output)
-            end if
+        ! Handle empty/whitespace-only or binary input before allocating the arena
+        if (handle_preparse_early_exit(source, present(enable_ast_wrapping), &
+                                       output, error_msg)) then
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
-        if (contains_binary_data(source)) then
-            block
-                type(diagnostic_t) :: diag
-                diag = make_diagnostic(DIAG_BINARY_DATA, DIAGNOSTIC_ERROR, &
-                                       "Input appears to be binary data"// &
-                                       new_line('A')// &
-                                       "  Source: <binary data omitted>"// &
-                                       new_line('A')// &
-                                       "  Suggestion: Provide plain-text "// &
-                                       "Fortran source")
-                error_msg = format_diagnostic(diag)
-            end block
-            call create_minimal_program(output)
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        call arena%init()
-
-        ! Phase 1: Lexical Analysis
-        call trace_enter('phase:lexer')
-        call run_lexical_analysis(source, tokens, arena, error_msg)
-        call trace_leave('phase:lexer')
-        if (error_msg /= "") then
-            call handle_lexical_error(source, error_msg, output, arena)
-            call arena%destroy()
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        ! Phase 1.5: Enhanced syntax validation with detailed reporting (Issue #256)
-        call trace_enter('phase:syntax')
-        call validate_syntax_with_reporting(source, tokens, error_msg, output, &
-            & arena)
-        call trace_leave('phase:syntax')
-        if (error_msg /= "") then
-            call arena%destroy()
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        ! Check for meaningful content
-        if (not_meaningful_for_parsing(tokens)) then
-            if (present(enable_ast_wrapping)) then
-                ! Standard Fortran mode: inputs that tokenize to comments,
-                ! whitespace or EOF should not gain a program wrapper.
-                output = ""
-            else
-                call create_minimal_program(output)
-            end if
-            call arena%destroy()
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        ! Phase 2: Parsing
-        call trace_enter('phase:parser')
-        call run_parsing_phase(tokens, arena, prog_index, error_msg, output)
-        call trace_leave('phase:parser')
-        if (error_msg /= "") then
-            call arena%destroy()
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        ! Optional: Validate AST locations after parsing
-        call validate_locations_if_enabled(arena%ast, 'post-parse')
-
-        ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
-        call trace_enter('phase:final')
-        if (apply_default_format) then
-            call save_current_configuration(saved_size, saved_char, &
-                                            saved_line_length, &
-                                            saved_standardize_types, &
-                                            saved_standardizer_types)
-            call apply_format_options(format_options_t())
-        end if
-        call run_final_phases(arena, prog_index, output, error_msg, &
-                              apply_ast_wrapping, local_operating_mode)
-        if (apply_default_format) then
-            call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                       saved_standardize_types, &
-                                       saved_standardizer_types)
-        end if
-        call trace_leave('phase:final')
-        if (error_msg /= "") then
-            call arena%destroy()
+        call run_arena_pipeline(source, present(enable_ast_wrapping), &
+                                apply_ast_wrapping, local_operating_mode, &
+                                apply_default_format, output, error_msg, pipeline_ok)
+        if (.not. pipeline_ok) then
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -271,22 +169,7 @@ contains
         error_msg = ""
 
         ! Preserve a contiguous leading block of comment lines from the input
-        if (has_leading_comment(source)) then
-            block
-                character(len=:), allocatable :: lead
-                lead = extract_leading_comment_block(source)
-                if (allocated(lead)) then
-                    if (len_trim(lead) > 0) then
-                        if (len_trim(output) > 0) then
-                            output = trim(lead) // new_line('A') // trim(output)
-                        else
-                            output = trim(lead)
-                        end if
-                    end if
-                end if
-            end block
-        end if
-        call arena%destroy()
+        call prepend_leading_comment_block(source, output)
         call trace_leave('transform_lazy_fortran_string')
     end subroutine transform_lazy_fortran_string
 
@@ -948,5 +831,7 @@ contains
                 violations, ' violations detected'
         end if
     end subroutine validate_locations_if_enabled
+
+    include 'frontend_transformation_pipeline_helpers.inc'
 
 end module frontend_transformation_pipeline
