@@ -22,6 +22,7 @@ This directory provides general-purpose utility functions used throughout the fo
 | input_validation_part2.inc | Input validation part 2: semantic validation |
 | path_validation.f90 | File path validation and normalization |
 | intrinsic_registry.f90 | Registry of Fortran intrinsic functions |
+| ieee_intrinsic_module.f90 | F2003 IEEE_ARITHMETIC/IEEE_EXCEPTIONS/IEEE_FEATURES module and procedure recognition |
 | procedure_classification.f90 | Classify procedures (function vs subroutine, pure, etc.) |
 | process_exit.f90 | Process exit handling |
 | stdout_sanitizer.f90 | Sanitize stdout output (remove control characters) |

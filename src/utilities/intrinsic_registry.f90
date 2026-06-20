@@ -1,6 +1,8 @@
 module intrinsic_registry
     use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
+    use ieee_intrinsic_module, only: is_ieee_function, is_ieee_subroutine, &
+                                     ieee_function_return_type
     implicit none
     private
 
@@ -64,15 +66,22 @@ contains
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate (signature)
-        if (.not. allocated(intrinsic_functions)) return
         if (len_trim(name) == 0) return
         lowered_name = to_lower(trim(name))
+
+        if (is_ieee_function(lowered_name)) then
+            is_intrinsic = .true.
+            signature = ieee_function_return_type(lowered_name)//"(real)"
+            return
+        end if
+
+        if (.not. allocated(intrinsic_functions)) return
 
         do i = 1, size(intrinsic_functions)
             if (intrinsic_functions(i)%name == lowered_name) then
                 is_intrinsic = .true.
-                signature = intrinsic_functions(i)%return_type // "(" // &
-                            intrinsic_functions(i)%arg_types // ")"
+                signature = intrinsic_functions(i)%return_type//"("// &
+                            intrinsic_functions(i)%arg_types//")"
                 return
             end if
         end do
@@ -94,6 +103,12 @@ contains
 
         is_intrinsic = .false.
         if (len_trim(name) == 0) return
+
+        if (is_ieee_subroutine(name)) then
+            is_intrinsic = .true.
+            return
+        end if
+
         if (len_trim(name) > MAX_INTRINSIC_SUBROUTINE_NAME_LEN) return
 
         do i = 1, size(intrinsic_subroutine_names)
