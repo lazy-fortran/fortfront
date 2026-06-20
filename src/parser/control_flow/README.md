@@ -13,7 +13,11 @@ This directory handles parsing of control flow constructs: if/elseif/else blocks
 | parser_control_statements.f90 | Control transfer statements: exit, cycle, return |
 | parser_if_constructs.f90 | Block if parsing: if/elseif/else/endif |
 | parser_if_statements.f90 | Statement if parsing: `if (cond) statement` |
-| parser_select_constructs.f90 | Select case/type parsing |
+| parser_select_constructs.f90 | Select case/type/rank facade (includes four parts below) |
+| parser_select_constructs_helpers.inc | Shared header, layout, end-select, and selector helpers |
+| parser_select_constructs_case.inc | SELECT CASE arm and construct parsing |
+| parser_select_constructs_type.inc | SELECT TYPE guard and construct parsing |
+| parser_select_constructs_rank.inc | SELECT RANK arm and construct parsing |
 | parser_do_constructs.f90 | Do loop facade (includes two parts below) |
 | parser_do_constructs_part1.inc | Do loop parsing part 1: counted loops, do while |
 | parser_do_constructs_part2.inc | Do loop parsing part 2: loop labeling, nesting |
