@@ -138,6 +138,9 @@ contains
             case (TK_OPERATOR)
                 if (trim(token%text) == ",") then
                     token = parser%consume()
+                else if (trim(token%text) == ";") then
+                    ! Statement separator ends the list; leave it for the caller.
+                    exit
                 else
                     call parser%error("Unexpected operator '"// &
                                       trim(token%text)// &

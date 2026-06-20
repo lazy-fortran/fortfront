@@ -10,6 +10,7 @@ module parser_interface_blocks_module
                                                      handle_interface_end
     use parser_interface_prefix_module, only: is_procedure_prefix, &
                                               is_interface_return_type_keyword, &
+                                              is_interface_return_type_with_parens, &
                                               collect_interface_return_type, &
                                               append_interface_prefix
     use parser_interface_module_procedures_module, only: &
@@ -114,6 +115,10 @@ contains
             call collect_interface_return_type(parser, prefix_buffer, lowered_text)
             handled = .true.
             return
+        else if (is_interface_return_type_with_parens(parser, lowered_text)) then
+            call collect_interface_return_type(parser, prefix_buffer, lowered_text)
+            handled = .true.
+            return
         end if
 
         if (token%kind /= TK_KEYWORD) return
@@ -202,6 +207,10 @@ contains
                 call collect_interface_return_type(parser, prefix_buffer, lowered_text)
                 handled = .true.
                 return
+            else if (is_interface_return_type_with_parens(parser, lowered_text)) then
+                call collect_interface_return_type(parser, prefix_buffer, lowered_text)
+                handled = .true.
+                return
             end if
         end if
 
@@ -217,6 +226,13 @@ contains
                 handled = .true.
                 return
             end if
+        end if
+
+        ! A semicolon separates statements on one line; skip it like a newline.
+        if (token%kind == TK_OPERATOR .and. trim(token%text) == ";") then
+            consumed_token = parser%consume()
+            handled = .true.
+            return
         end if
 
         select case (token%kind)
