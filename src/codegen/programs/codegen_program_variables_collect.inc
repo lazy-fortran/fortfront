@@ -268,6 +268,15 @@
                 if (allocated(decl%group_name)) then
                     call record_namelist_group(state, decl%group_name)
                 end if
+            type is (enum_node)
+                if (contains_seen) cycle
+                if (allocated(decl%enumerator_names)) then
+                    do j = 1, size(decl%enumerator_names)
+                        if (.not. allocated(decl%enumerator_names(j)%s)) cycle
+                        call record_declared_name(state, &
+                                                  trim(decl%enumerator_names(j)%s))
+                    end do
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
