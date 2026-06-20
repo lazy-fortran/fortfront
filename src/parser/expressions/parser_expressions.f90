@@ -40,6 +40,7 @@ module parser_expressions_module
                                                is_prefix_operator_token, &
                                                is_immediate_prefix_token, &
                                                is_not_operator_token, &
+                                               is_defined_operator_token, &
                                                token_is_terminator, &
                                                is_legacy_array_literal_start
     use parser_expression_operator_utils_module, only: PREC_ASSIGNMENT, PREC_RANGE, &
@@ -553,6 +554,26 @@ contains
                         call reduce_operators_for_incoming(operators, operands, arena, &
                                                            not_entry)
                         call operator_stack_push(operators, not_entry)
+                    end block
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                ! Handle a user-defined operator in prefix position (unary defined
+                ! operator, e.g. .negation. x). Emit a binary op with a virtual 0
+                ! left operand and the operand on the right, exactly like .not., so
+                ! the single operand is a resolvable arena node (issue #2838).
+                if (is_defined_operator_token(token)) then
+                    call operand_stack_push(operands, 0)
+                    block
+                        type(operator_entry_t) :: defined_entry
+                        defined_entry%symbol = token%text
+                        defined_entry%precedence = PREC_UNARY
+                        defined_entry%right_associative = .true.
+                        defined_entry%token = view_consume_token(view, parser)
+                        call reduce_operators_for_incoming(operators, operands, arena, &
+                                                           defined_entry)
+                        call operator_stack_push(operators, defined_entry)
                     end block
                     expect_operand = .true.
                     cycle
