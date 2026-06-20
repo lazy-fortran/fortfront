@@ -12,6 +12,8 @@ program test_issue_2820_coverage_backfill
     call check_timing_intrinsics()
     call check_c_interop_pointers()
     call check_infer_first_assignment()
+    call check_dp_injection()
+    call check_dp_collision()
 
     print *, ""
     print *, "Issue 2820 coverage backfill tests completed."
@@ -78,13 +80,18 @@ contains
 
     subroutine check_c_interop_pointers()
         character(:), allocatable :: out
+        logical :: base_intrinsics, shape_and_two_arg
 
         call transform_example( &
             'examples/f90/issue_2820_c_interop_pointers.f90', out)
-        call require(index(out, 'c_loc') > 0 .and. &
-                     index(out, 'c_f_pointer') > 0 .and. &
-                     index(out, 'c_associated') > 0 .and. &
-                     index(out, 'iso_c_binding') > 0, &
+        base_intrinsics = index(out, 'c_loc') > 0 .and. &
+                          index(out, 'c_f_pointer') > 0 .and. &
+                          index(out, 'c_associated') > 0 .and. &
+                          index(out, 'iso_c_binding') > 0
+        ! SHAPE-bearing C_F_POINTER and two-argument C_ASSOCIATED forms.
+        shape_and_two_arg = index(out, 'c_f_pointer(cp2, parr, [4])') > 0 .and. &
+                            index(out, 'c_associated(cp2, cp2)') > 0
+        call require(base_intrinsics .and. shape_and_two_arg, &
                      'ISO_C_BINDING pointer intrinsics preserved', out)
     end subroutine check_c_interop_pointers
 
@@ -101,5 +108,28 @@ contains
                      'INFER declares x integer and y real8 from first assignment', &
                      out)
     end subroutine check_infer_first_assignment
+
+    subroutine check_dp_injection()
+        character(:), allocatable :: out
+
+        ! INFER mode injects the dp kind parameter when dp is referenced
+        ! but never defined by the user.
+        call transform_example('examples/lf/issue_2820_dp_injection.lf', out)
+        call require(index(out, 'dp => real64') > 0 .and. &
+                     index(out, '1.0_dp') > 0, &
+                     'dp predefined symbol injected when undefined', out)
+    end subroutine check_dp_injection
+
+    subroutine check_dp_collision()
+        character(:), allocatable :: out
+
+        ! A user-defined dp must be preserved; the injected literal kind is
+        ! renamed (lf_dp_kind) so the user symbol is not shadowed.
+        call transform_example('examples/lf/issue_2820_dp_collision.lf', out)
+        call require(index(out, 'integer, parameter :: dp = kind(1.0d0)') > 0 &
+                     .and. index(out, 'lf_dp_kind => real64') > 0 &
+                     .and. index(out, '1.0_lf_dp_kind') > 0, &
+                     'dp injection avoids collision with user-defined dp', out)
+    end subroutine check_dp_collision
 
 end program test_issue_2820_coverage_backfill
