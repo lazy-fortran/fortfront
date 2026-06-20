@@ -24,6 +24,14 @@ void fortfront_cleanup(void);
 int fortfront_parse_source(const char* source_code, int length);
 
 /*
+ * Retrieve the transformed (standardized) output of the most recent
+ * successful fortfront_parse_source call. Returns a null-terminated string,
+ * or NULL when no output is available. The returned pointer is owned by the
+ * library and remains valid until the next parse or cleanup call.
+ */
+const char* fortfront_get_output(void);
+
+/*
  * Error handling
  */
 const char* fortfront_get_last_error(void);

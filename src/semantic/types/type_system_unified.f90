@@ -18,16 +18,16 @@ module type_system_unified
     public :: create_type_arena, destroy_type_arena
 
     ! Type kind constants (compatible with legacy system)
-    integer, parameter, public :: TVAR = 1  ! Type variable
-    integer, parameter, public :: TINT = 2  ! Integer type
-    integer, parameter, public :: TREAL = 3  ! Real type
-    integer, parameter, public :: TCHAR = 4  ! Character type
-    integer, parameter, public :: TLOGICAL = 5  ! Logical type
-    integer, parameter, public :: TFUN = 6  ! Function type
-    integer, parameter, public :: TARRAY = 7  ! Array type
-    integer, parameter, public :: TCOMPLEX = 8  ! Complex type
-    integer, parameter, public :: TDOUBLE = 9  ! Double precision type
-    integer, parameter, public :: TDERIVED = 10  ! Derived/user-defined type
+    integer, parameter, public :: TVAR = 1 ! Type variable
+    integer, parameter, public :: TINT = 2 ! Integer type
+    integer, parameter, public :: TREAL = 3 ! Real type
+    integer, parameter, public :: TCHAR = 4 ! Character type
+    integer, parameter, public :: TLOGICAL = 5 ! Logical type
+    integer, parameter, public :: TFUN = 6 ! Function type
+    integer, parameter, public :: TARRAY = 7 ! Array type
+    integer, parameter, public :: TCOMPLEX = 8 ! Complex type
+    integer, parameter, public :: TDOUBLE = 9 ! Double precision type
+    integer, parameter, public :: TDERIVED = 10 ! Derived/user-defined type
 
     ! Compatibility layer types (lightweight wrappers around arena handles)
     public :: type_var_t, mono_type_t, poly_type_t, type_env_t, substitution_t
@@ -35,7 +35,7 @@ module type_system_unified
 
     type :: type_var_t
         integer :: id = 0
-        character(len=64) :: name = ""  ! Fixed size to avoid allocatable issues
+        character(len=64) :: name = "" ! Fixed size to avoid allocatable issues
     contains
         procedure :: assign => type_var_assign
         generic :: assignment(=) => assign
@@ -53,7 +53,7 @@ module type_system_unified
     ! Arena-backed types providing legacy API
     type :: mono_type_t
         type(mono_handle_t) :: handle
-        type(type_arena_t), pointer :: arena => null()  ! Reference to parent arena
+        type(type_arena_t), pointer :: arena => null() ! Reference to parent arena
         ! Cached values for compatibility (updated lazily)
         integer :: kind = 0
         type(type_var_t) :: var
@@ -128,6 +128,7 @@ module type_system_unified
 
     ! Public API functions (compatibility with legacy system)
     public :: create_type_var, create_mono_type, create_poly_type, create_fun_type
+    public :: get_poly_forall_vars
     public :: compose_substitutions, occurs_check, free_type_vars
     public :: reset_type_system
 
@@ -239,13 +240,20 @@ contains
         type(mono_handle_t), allocatable :: var_handles(:)
         integer :: i
 
+        type(mono_type_t) :: var_type
+
         call ensure_arena_initialized()
 
         arena_poly = arena_poly_type_t()
 
-        ! Convert type vars to handles (simplified - we'll store as empty for now)
-        allocate (var_handles(0))
-        ! Empty for now - full implementation would convert forall_vars
+        ! Convert each quantified type variable to a TVAR mono handle so the
+        ! forall set is preserved in the arena and recoverable via
+        ! get_poly_forall_vars.
+        allocate (var_handles(size(forall_vars)))
+        do i = 1, size(forall_vars)
+            var_type = create_mono_type(TVAR, var=forall_vars(i))
+            var_handles(i) = var_type%handle
+        end do
         vars_handle = store_type_args(global_arena, var_handles)
 
         arena_poly%forall_vars = vars_handle
@@ -262,6 +270,38 @@ contains
         pt%mono_is_unsigned = mono%is_unsigned
         pt%mono_synced = .true.
     end function create_poly_type
+
+    ! Recover the quantified type variables stored in a poly type. Returns a
+    ! zero-length array when the scheme quantifies no variables.
+    function get_poly_forall_vars(pt) result(vars)
+        type(poly_type_t), intent(in) :: pt
+        type(type_var_t), allocatable :: vars(:)
+
+        type(arena_poly_type_t) :: arena_poly
+        type(arena_mono_type_t) :: arena_mono
+        type(mono_handle_t), allocatable :: var_handles(:)
+        integer :: i
+
+        if (.not. is_valid_poly_handle(pt%handle) .or. .not. associated(pt%arena)) &
+            then
+            allocate (vars(0))
+            return
+        end if
+
+        arena_poly = get_poly_type(pt%arena, pt%handle)
+        call get_type_args(pt%arena, arena_poly%forall_vars, var_handles)
+        if (.not. allocated(var_handles)) then
+            allocate (vars(0))
+            return
+        end if
+
+        allocate (vars(size(var_handles)))
+        do i = 1, size(var_handles)
+            arena_mono = get_mono_type(pt%arena, var_handles(i))
+            vars(i)%id = arena_mono%var_id
+            vars(i)%name = arena_mono%var_name
+        end do
+    end function get_poly_forall_vars
 
     ! Create function type (compatibility function)
     function create_fun_type(arg_type, result_type) result(fun_type)
@@ -583,9 +623,9 @@ contains
         case (TCOMPLEX)
             str = "complex"
         case (TFUN)
-            str = "function"  ! Simplified
+            str = "function" ! Simplified
         case (TARRAY)
-            str = "array"  ! Simplified
+            str = "array" ! Simplified
         case default
             str = "unknown"
         end select
