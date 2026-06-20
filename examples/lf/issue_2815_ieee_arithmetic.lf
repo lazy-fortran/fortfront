@@ -1,0 +1,5 @@
+use, intrinsic :: ieee_arithmetic
+x = 1.5
+is_bad = ieee_is_nan(x)
+finite = ieee_is_finite(x)
+y = ieee_copy_sign(x, x)
