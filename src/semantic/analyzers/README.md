@@ -17,7 +17,6 @@ For complete semantic analysis concepts including type inference, scope manageme
 | base_analyzer.f90 | Abstract base for all analyzers |
 | analyzer_results.f90 | Result types for analyzer operations |
 | semantic_analyzer_context_impl.f90 | Semantic context implementation |
-| semantic_analyzer_with_checks.f90 | Analyzer with validation checks |
 
 ### Type Inference Implementation
 

@@ -12,6 +12,9 @@ module fortfront_c_interface
 
     ! Global state for error handling
     character(len=:, kind=c_char), allocatable, save, target :: last_error_message
+    ! Transformed output of the most recent successful parse call, exposed to C
+    ! callers via fortfront_get_output. Null-terminated for C string use.
+    character(len=:, kind=c_char), allocatable, save, target :: last_output
     logical, save :: library_initialized = .false.
 
     ! Library version information
@@ -21,6 +24,7 @@ module fortfront_c_interface
     ! Public C interface functions
     public :: fortfront_initialize_c, fortfront_cleanup_c, fortfront_parse_source_c
     public :: fortfront_get_last_error_c, fortfront_clear_error_c
+    public :: fortfront_get_output_c
     public :: fortfront_get_version_c, fortfront_get_build_info_c
 
 contains
@@ -35,13 +39,16 @@ contains
 
         ! Simple initialization - no special setup needed currently
         library_initialized = .true.
-        status = 0  ! Success
+        status = 0 ! Success
     end function fortfront_initialize_c
 
     ! Clean up library resources
     subroutine fortfront_cleanup_c() bind(C, name="fortfront_cleanup")
         ! Clear error state
         call clear_last_error()
+
+        ! Release any stored transformed output
+        if (allocated(last_output)) deallocate (last_output)
 
         ! Mark as uninitialized
         library_initialized = .false.
@@ -112,11 +119,25 @@ contains
             return
         end if
 
-        ! Success - output available but not returned through C interface
-        ! For now, we just validate that parsing works
+        ! Store the transformed output so C callers can retrieve it via
+        ! fortfront_get_output().
+        call set_last_output(output)
         status = 0
 
     end function fortfront_parse_source_c
+
+    ! Get the transformed output of the most recent successful parse call.
+    ! Returns a null pointer when no output is available.
+    function fortfront_get_output_c() result(output_ptr) bind(C, &
+                                                            name="fortfront_get_output")
+        type(c_ptr) :: output_ptr
+
+        if (allocated(last_output)) then
+            output_ptr = c_loc(last_output)
+        else
+            output_ptr = c_null_ptr
+        end if
+    end function fortfront_get_output_c
 
     ! Get last error message
     function fortfront_get_last_error_c() result(error_ptr) bind(C, &
@@ -142,7 +163,7 @@ contains
         character(len=len(FORTFRONT_VERSION) + 1, kind=c_char), target, save &
             :: version_c
 
-        version_c = FORTFRONT_VERSION // c_null_char
+        version_c = FORTFRONT_VERSION//c_null_char
         version_ptr = c_loc(version_c)
     end function fortfront_get_version_c
 
@@ -152,7 +173,7 @@ contains
         type(c_ptr) :: build_ptr
         character(len=len(BUILD_INFO) + 1, kind=c_char), target, save :: build_c
 
-        build_c = BUILD_INFO // c_null_char
+        build_c = BUILD_INFO//c_null_char
         build_ptr = c_loc(build_c)
     end function fortfront_get_build_info_c
 
@@ -167,8 +188,20 @@ contains
         end if
 
         allocate (character(len=len(message) + 1, kind=c_char) :: last_error_message)
-        last_error_message = message // c_null_char
+        last_error_message = message//c_null_char
     end subroutine set_last_error
+
+    ! Store the transformed output as a null-terminated C string
+    subroutine set_last_output(text)
+        character(len=*), intent(in) :: text
+
+        if (allocated(last_output)) then
+            deallocate (last_output)
+        end if
+
+        allocate (character(len=len(text) + 1, kind=c_char) :: last_output)
+        last_output = text//c_null_char
+    end subroutine set_last_output
 
     ! Clear the last error message
     subroutine clear_last_error()
