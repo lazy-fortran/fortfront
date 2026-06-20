@@ -15,6 +15,7 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: create_error_collection
     use type_hierarchy, only: create_type_hierarchy
+    use semantic_type_hierarchy_validation, only: populate_type_hierarchy
     use call_graph_signatures_mod, only: create_signatures_map
     use semantic_validation_utils, only: int_to_str
     use ast_nodes_data, only: declaration_node
@@ -82,6 +83,10 @@ contains
         integer, intent(in) :: root_index
 
         if (.not. arena%has_node_at(root_index)) return
+
+        ! Register derived types and their EXTENDS parents so polymorphic
+        ! resolution can consult the (now populated) inheritance hierarchy.
+        call populate_type_hierarchy(arena, ctx%type_hierarchy, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
