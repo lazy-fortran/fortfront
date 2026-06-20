@@ -75,6 +75,7 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_pure_validation.f90 | Enforce PURE/ELEMENTAL body restrictions (no I/O, STOP, PAUSE) |
 | semantic_bind_c_validation.f90 | Enforce BIND(C) interoperability constraints on derived-type components and procedure dummies (F2003 15.3.2) |
 | semantic_elemental_validation.f90 | Enforce ELEMENTAL scalar-dummy restriction (no array dummies) |
+| semantic_type_hierarchy_validation.f90 | Register derived types and EXTENDS parents into the inheritance hierarchy; report unknown-parent EXTENDS |
 | semantic_declaration_utils.f90 | Declaration processing utilities |
 
 ### Type Operations
