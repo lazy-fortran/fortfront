@@ -2,7 +2,7 @@ module codegen_program_body
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use codegen_loop_vars_mod, only: add_loop_variable_decls
-    use codegen_grouped_body, only: generate_grouped_body_context
+    use codegen_grouped_body, only: generate_grouped_body
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -14,22 +14,19 @@ module codegen_program_body
 contains
 
     subroutine append_program_body(arena, node, code, non_use_indices, &
-                                   non_use_count, extra_decl_code, &
-                                   context_has_executable_before_contains)
+                                   non_use_count, extra_decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: code
         integer, intent(in) :: non_use_indices(:)
         integer, intent(in) :: non_use_count
         character(len=*), intent(in) :: extra_decl_code
-        logical, intent(in) :: context_has_executable_before_contains
         character(len=:), allocatable :: body_code
 
         if (non_use_count <= 0) return
 
-        body_code = generate_grouped_body_with_context( &
-                    arena, non_use_indices(1:non_use_count), 1, &
-                    context_has_executable_before_contains)
+        body_code = generate_grouped_body( &
+                    arena, non_use_indices(1:non_use_count), 1)
 
         if (index(body_code, 'output_unit') > 0) then
             call ensure_iso_clause(code, 'output_unit')
@@ -599,17 +596,5 @@ contains
                    (code >= iachar('0') .and. code <= iachar('9')) .or. &
                    ch == '_'
     end function is_identifier_char
-
-    function generate_grouped_body_with_context(arena, body_indices, indent, &
-                                                has_exec_before_contains) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_indices(:)
-        integer, intent(in) :: indent
-        logical, intent(in) :: has_exec_before_contains
-        character(len=:), allocatable :: code
-
-        code = generate_grouped_body_context(arena, body_indices, indent, &
-                                             has_exec_before_contains)
-    end function generate_grouped_body_with_context
 
 end module codegen_program_body

@@ -72,10 +72,8 @@ specialized semantic query helpers are still a roadmap item.
 ### API Modules
 
 - `fortfront_lexer` - Tokenization and lexical analysis
-- `fortfront_parser` - Token parsing and AST construction
 - `fortfront_ast` - AST node types and traversal utilities
 - `fortfront_semantic` - Type inference and semantic validation
-- `fortfront_codegen` - Standard Fortran code generation
 - `fortfront_transform` - High-level transformation pipeline
 - `fortfront_tooling` - Convenience functions for tool developers
 - `fortfront_compiler` - Compiler-facing parse and semantic result API
