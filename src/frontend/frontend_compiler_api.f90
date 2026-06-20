@@ -13,6 +13,7 @@ module frontend_compiler_api
     use semantic_operating_mode, only: OPERATING_MODE_INFER
     use standardizer, only: standardize_ast, standardize_multi_unit_children, &
                             set_standardizer_input_mode
+    use ast_monomorphization, only: transform_monomorphization
     implicit none
     private
 
@@ -102,6 +103,10 @@ contains
 
         if (opts%standardize .and. result%semantic_ok) then
             call set_standardizer_input_mode(opts%input_mode)
+            ! Mirror the CLI pipeline: monomorphize type-polymorphic calls
+            ! before standardization so backends see specialized procedures.
+            call transform_monomorphization(result%arena, result%root_index, &
+                                            result%semantic_ctx%signatures)
             call standardize_multi_unit_children(result%arena, result%root_index)
             call standardize_ast(result%arena, result%root_index)
         end if
