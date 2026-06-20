@@ -31,10 +31,9 @@ contains
             typ = infer_real_literal_kind(lit)
         case (LITERAL_STRING)
             if (allocated(lit%value) .and. len(lit%value) >= 2) then
-                ! CRITICAL FIX (issue #2493): Use len_trim to handle trailing
-                ! spaces in stored literals. Some parsing paths store literals
-                ! with padding which would incorrectly inflate the char_size.
-                typ = create_mono_type(TCHAR, char_size=len_trim(lit%value) - 2)
+                ! Stored value retains its surrounding quotes; the character
+                ! length is the interior, so subtract the two delimiters.
+                typ = create_mono_type(TCHAR, char_size=len(lit%value) - 2)
             else
                 typ = create_mono_type(TCHAR, char_size=0)
             end if

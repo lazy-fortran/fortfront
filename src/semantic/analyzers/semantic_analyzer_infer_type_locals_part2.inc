@@ -574,10 +574,6 @@
             type(call_or_subscript_node), intent(inout) :: expr
             type(mono_type_t) :: node_type
 
-            ! Set the semantic context for the wrapper function
-            call set_semantic_context_for_lookup(this)
-
-            ! Use the wrapper function instead of the internal procedure
             node_type = infer_function_call_type(arena, expr, this%scopes, &
                                                  module_get_node_type_wrapper)
             call collect_call_signature(this%signatures, arena, expr, node_type, &
@@ -592,7 +588,6 @@
                     arena, this%errors, expr, node_index)
             end if
             call finalize_node(node_index, node_type)
-            call clear_semantic_context_for_lookup()
         end subroutine finalize_call_or_subscript
 
         subroutine validate_unsigned_integer_intrinsic_argument_mixing(expr)

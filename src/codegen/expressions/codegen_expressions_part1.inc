@@ -695,7 +695,7 @@
                 select type (elem => entry%node)
                 type is (literal_node)
                     if (allocated(elem%value) .and. len(elem%value) >= 2) then
-                        str_len_val = len_trim(elem%value) - 2
+                        str_len_val = len(elem%value) - 2
                         max_actual_len = max(max_actual_len, str_len_val)
                     else
                         all_char = .false.
