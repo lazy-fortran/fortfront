@@ -14,6 +14,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | frontend_compiler_queries.f90 | Safe compiler-facing AST queries for backend consumers |
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
+| frontend_transformation_pipeline_helpers.inc | Private pipeline helpers (option resolution, pre-parse early exit, arena pipeline, leading-comment prepend) included by frontend_transformation_pipeline.f90 |
 | frontend_pass_manager.f90 | Configurable pass manager for transformation phases |
 | frontend_final_passes.f90 | Pass implementations for semantic, standardization, monomorphization, codegen |
 | frontend_transformation_structure.f90 | Include wrapper for program structure transformation |
