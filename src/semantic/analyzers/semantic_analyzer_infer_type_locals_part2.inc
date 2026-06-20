@@ -16,6 +16,10 @@
             call create_function_scope(arena, expr, node_index, return_type, &
                                        this%scopes)
 
+            ! Enforce PURE/ELEMENTAL body restrictions (F2008 C1283)
+            call validate_pure_procedure(arena, expr%body_indices, &
+                                         expr%prefix_keywords, this%errors)
+
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
             post_frame%has_cached_type = .true.
@@ -43,6 +47,10 @@
             call analyze_subroutine_parameters(arena, expr, param_types, param_names, &
                                                this%scopes, this%next_var_id)
             call create_subroutine_scope(arena, expr, node_index, this%scopes)
+
+            ! Enforce PURE/ELEMENTAL body restrictions (F2008 C1283)
+            call validate_pure_procedure(arena, expr%body_indices, &
+                                         expr%prefix_keywords, this%errors)
 
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
