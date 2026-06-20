@@ -20,6 +20,11 @@
             call validate_pure_procedure(arena, expr%body_indices, &
                                          expr%prefix_keywords, this%errors)
 
+            ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
+            call validate_bind_c_procedure(arena, expr%param_indices, &
+                                           expr%body_indices, expr%bind_c_clause, &
+                                           expr%name, this%errors)
+
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
             post_frame%has_cached_type = .true.
@@ -51,6 +56,11 @@
             ! Enforce PURE/ELEMENTAL body restrictions (F2008 C1283)
             call validate_pure_procedure(arena, expr%body_indices, &
                                          expr%prefix_keywords, this%errors)
+
+            ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
+            call validate_bind_c_procedure(arena, expr%param_indices, &
+                                           expr%body_indices, expr%bind_c_clause, &
+                                           expr%name, this%errors)
 
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
@@ -319,10 +329,10 @@
                             type(result_t) :: error_result
                             character(len=:), allocatable :: message
 
-                            message = "DATA statement has " // &
+                            message = "DATA statement has "// &
                                       trim(value_count_str)
-                            message = message // &
-                                      " values for scalar object " // &
+                            message = message// &
+                                      " values for scalar object "// &
                                       trim(target_name)
                             error_result = create_error_result( &
                                            trim(message), ERROR_SEMANTIC, &
