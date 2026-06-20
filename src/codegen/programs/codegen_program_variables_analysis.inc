@@ -45,10 +45,12 @@
         type(program_decl_state_t), intent(inout) :: state
         integer :: i, idx
         logical :: standardize_types_enabled
+        integer, allocatable :: guard_type_indices(:)
 
         if (.not. allocated(prog%body_indices)) return
 
         call get_type_standardization(standardize_types_enabled)
+        call collect_guard_type_name_indices(arena, guard_type_indices)
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
@@ -87,17 +89,42 @@
                 cycle
             class default
                 call collect_identifiers_for_node(arena, idx, state, &
-                                                  standardize_types_enabled)
+                                                  standardize_types_enabled, &
+                                                  guard_type_indices)
             end select
         end do
     end subroutine collect_executable_identifier_symbols
 
+    ! Issue #2821: SELECT TYPE / SELECT RANK guard type-names (the type spec in
+    ! "type is (...)"/"class is (...)") are stored as identifier nodes referenced
+    ! by type_guard_block_node%type_name_index. They are not program variables,
+    ! so collect their indices and exclude them from variable harvesting.
+    subroutine collect_guard_type_name_indices(arena, indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(out) :: indices(:)
+        integer :: i
+
+        allocate (indices(0))
+        if (.not. allocated(arena%entries)) return
+
+        do i = 1, min(arena%size, size(arena%entries))
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (guard => arena%entries(i)%node)
+            type is (type_guard_block_node)
+                if (guard%type_name_index <= 0) cycle
+                indices = [indices, guard%type_name_index]
+            end select
+        end do
+    end subroutine collect_guard_type_name_indices
+
     subroutine collect_identifiers_for_node(arena, node_index, state, &
-                                            standardize_types_enabled)
+                                            standardize_types_enabled, &
+                                            guard_type_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(program_decl_state_t), intent(inout) :: state
         logical, intent(in) :: standardize_types_enabled
+        integer, intent(in) :: guard_type_indices(:)
         type(variable_usage_info_t) :: usage
         integer :: i, ident_index
 
@@ -111,6 +138,7 @@
         do i = 1, size(usage%variable_names)
             ident_index = usage%node_indices(i)
             if (.not. arena%has_node_at(ident_index)) cycle
+            if (any(guard_type_indices == ident_index)) cycle
             select type (id => arena%entries(ident_index)%node)
             type is (identifier_node)
                 call register_identifier_reference(state, trim(id%name), &
@@ -198,7 +226,7 @@
                 if (needs_alloc .and. index(to_lower(trim(type_buf)), &
                                             'allocatable') == 0) then
                     ! Add allocatable to deferred-shape array
-                    type_buf = trim(type_buf) // ', allocatable'
+                    type_buf = trim(type_buf)//', allocatable'
                 end if
             end block
 
@@ -446,18 +474,18 @@
         if (rank > 0) then
             dimension_spec = ':'
             do dim_index = 2, rank
-                dimension_spec = trim(dimension_spec) // ',:'
+                dimension_spec = trim(dimension_spec)//',:'
             end do
             lowered = to_lower(type_buf)
             if (index(lowered, 'dimension(') == 0) then
-                type_buf = trim(type_buf) // ', dimension(' // &
-                    trim(dimension_spec) // ')'
+                type_buf = trim(type_buf)//', dimension('// &
+                    trim(dimension_spec)//')'
             end if
         end if
 
         lowered = to_lower(type_buf)
         if (index(lowered, 'allocatable') == 0) then
-            type_buf = trim(type_buf) // ', allocatable'
+            type_buf = trim(type_buf)//', allocatable'
         end if
 
         call try_add_variable(state, trim(name), trim(type_buf))
@@ -483,7 +511,7 @@
         lowered = to_lower(adjusted_type)
         if (index(lowered, 'character') == 1 .and. index(lowered, 'len=:') > 0) then
             if (index(lowered, 'allocatable') == 0) then
-                adjusted_type = trim(adjusted_type) // ', allocatable'
+                adjusted_type = trim(adjusted_type)//', allocatable'
             end if
         end if
 
