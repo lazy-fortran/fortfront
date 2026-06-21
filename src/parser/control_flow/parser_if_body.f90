@@ -6,7 +6,7 @@ module parser_if_body_module
     ! individual statements within the body.
     !
     ! ISO/IEC 1539-1:2018 Section 11.1.8.1 specifies IF construct syntax.
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_statement_core_module, only: statement_callbacks_t, &

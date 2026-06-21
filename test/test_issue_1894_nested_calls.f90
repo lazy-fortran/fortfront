@@ -1,7 +1,6 @@
 program test_issue_1894_nested_calls
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+                                                                              iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -46,9 +45,7 @@ program test_issue_1894_nested_calls
 
     print *, "PASS: nested call inference keeps double parameter integer"
 
-
 contains
-
 
     include 'common/read_example.inc'
 end program test_issue_1894_nested_calls

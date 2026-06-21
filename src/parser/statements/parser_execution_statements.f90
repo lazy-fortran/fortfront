@@ -6,7 +6,6 @@ module parser_execution_statements_module
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, &
                                  TK_STRING, TK_NEWLINE, TK_KEYWORD
     use parser_state_module, only: parser_state_t
-    use parser_expressions_module, only: parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
                                    parse_derived_type_def, parser_is_at_type_definition
     use parser_definition_statements_module, only: parse_function_definition, &
@@ -60,7 +59,6 @@ module parser_execution_statements_module
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
     use parser_statement_utilities_module, only: parse_comment_or_directive
-    use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_common_statement_module, only: parse_common_statement
     use parser_enum_statement_module, only: parse_enum_construct

@@ -3,7 +3,6 @@ module semantic_binary_operations
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, &
                                    TLOGICAL
-    use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
                               identifier_node, literal_node

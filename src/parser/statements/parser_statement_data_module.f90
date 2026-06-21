@@ -1,15 +1,14 @@
 module parser_statement_data_module
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, &
                           TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until, parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node, &
+    use ast_nodes_core, only: binary_op_node, literal_node, &
                               identifier_node
-    use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
+    use ast_factory, only: push_assignment, push_array_literal, &
                            push_namelist_statement, push_data_statement, &
                            push_io_implied_do
-    use type_system_unified, only: create_mono_type, TARRAY
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
     implicit none
@@ -141,7 +140,7 @@ contains
             if (token%kind /= TK_OPERATOR .or. token%text /= "(") return
             line = token%line
             column = token%column
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
 
             objects_ok = parse_implied_do_object_list(object_exprs)
             if (.not. objects_ok) then

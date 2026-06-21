@@ -2,7 +2,7 @@ module parser_submodule_helpers_module
     ! Helper procedures for submodule parsing
     ! Handles statement-level parsing within submodule bodies
     ! ISO/IEC 1539-1:2008 Section 11.2
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
@@ -230,7 +230,7 @@ contains
                 select case (trim(lookahead_lower))
                 case ("precision", "complex")
                     token = parser%peek()
-                    type_with_kind = trim(token%text) // " " // &
+                    type_with_kind = trim(token%text)//" "// &
                         trim(lookahead%text)
                     token = parser%consume()
                     token = parser%consume()
@@ -370,7 +370,7 @@ contains
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
             proc_index = push_error_node(arena, "Expected procedure name after " &
-                                         // "module procedure", &
+                                         //"module procedure", &
                                          line=line, column=column)
             return
         end if

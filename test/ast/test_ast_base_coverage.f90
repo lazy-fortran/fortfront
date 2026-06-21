@@ -2,7 +2,7 @@ program test_ast_base_coverage
     use ast_base, only: copy_ast_node_base, LITERAL_INTEGER, LITERAL_REAL, &
                         LITERAL_STRING, LITERAL_LOGICAL, LITERAL_ARRAY, &
                         LITERAL_COMPLEX, ast_node_wrapper
-    use ast_nodes_core, only: identifier_node, literal_node, binary_op_node, &
+    use ast_nodes_core, only: identifier_node, literal_node, &
                               assignment_node
     use type_system_unified, only: create_mono_type
     use type_constants, only: TINT

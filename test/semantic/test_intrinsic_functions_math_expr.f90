@@ -1,10 +1,6 @@
 program test_intrinsic_functions_math_expr
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+    use transformation_api, only: transform_lazy_fortran_string
+ use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -57,9 +53,7 @@ program test_intrinsic_functions_math_expr
 
     print *, "All intrinsic function tests passed!"
 
-
 contains
-
 
     include '../common/read_example.inc'
 end program test_intrinsic_functions_math_expr

@@ -17,7 +17,7 @@ module standardizer_function_parameters
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: synchronize_parameter_declarations
     use standardizer_parameter, only: get_standardizer_input_mode
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_input_mode, only: INPUT_MODE_LAZY
     implicit none
     private
     public :: standardize_function_parameters
@@ -62,9 +62,9 @@ contains
         if (requires_intent_in_flag) then
             default_intent = "in"
         else if (is_lazy_fortran) then
-            default_intent = "in"  ! Lazy Fortran: add intent for inference
+            default_intent = "in" ! Lazy Fortran: add intent for inference
         else
-            default_intent = ""    ! Standard Fortran: no default intent
+            default_intent = "" ! Standard Fortran: no default intent
         end if
 
         if (allocated(func_def%body_indices)) then

@@ -1,6 +1,6 @@
 module ast_nodes_data
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_visitor_base_t
     use string_types, only: string_t
     implicit none

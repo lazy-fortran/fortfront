@@ -1,9 +1,5 @@
 program test_double_free_complex_code
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -30,9 +26,7 @@ program test_double_free_complex_code
 
     print *, "All tests passed!"
 
-
 contains
-
 
     include '../common/read_example.inc'
 end program test_double_free_complex_code

@@ -13,7 +13,7 @@ module parser_procedure_definitions_module
     use parser_interface_blocks_module, only: parse_interface_block, &
                                               set_interface_procedure_parser
     use string_utils_mod, only: to_lower
-    use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, TK_WHITESPACE
+    use lexer_core, only: token_t, TK_KEYWORD
     implicit none
     private
 

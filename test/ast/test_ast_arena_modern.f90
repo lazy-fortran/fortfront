@@ -8,7 +8,6 @@ program test_ast_arena_modern
                                 store_ast_node, get_ast_node, is_valid_ast_handle, &
                                 null_ast_handle
     use ast_nodes_core, only: program_node
-    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     integer :: test_count, pass_count
@@ -192,7 +191,7 @@ contains
 
         if (stats_before%node_count > 0 .and. &
             stats_after%node_count == 0 .and. &
-            .not. arena%validate(handle)) then  ! Old handle should be invalid
+            .not. arena%validate(handle)) then ! Old handle should be invalid
             call test_pass()
         else
             call test_fail("Arena reset not working correctly")
@@ -315,7 +314,7 @@ contains
 
         call test_start("Bulk allocation performance")
 
-        arena = create_ast_arena(262144)  ! 256KB for bulk test
+        arena = create_ast_arena(262144) ! 256KB for bulk test
         allocate (handles(1000))
 
         ! Allocate 1000 nodes
@@ -348,7 +347,7 @@ contains
 
         call test_start("Memory efficiency and utilization")
 
-        arena = create_ast_arena(65536)  ! 64KB chunks
+        arena = create_ast_arena(65536) ! 64KB chunks
         stats = arena%get_stats()
 
         if (stats%total_memory >= 0 .and. &

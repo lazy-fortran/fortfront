@@ -1,6 +1,5 @@
 program test_issue_653_semicolon_parsing
     ! Test for Issue #653: CRITICAL if/else parsing completely broken with false error messages
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
@@ -36,7 +35,7 @@ program test_issue_653_semicolon_parsing
         else
             call emit_fortran(arena, prog_index, code)
             ! Check that both then and else clauses are present
-            if (index(code, 'print *, "pos"') > 0 .and. index(code, 'print *, "neg"') > 0 .and. &
+   if (index(code, 'print *, "pos"') > 0 .and. index(code, 'print *, "neg"') > 0 .and. &
                 index(code, 'else') > 0) then
                 print *, "✅ PASS: Both then and else clauses correctly generated"
             else
@@ -97,7 +96,7 @@ program test_issue_653_semicolon_parsing
             test_passed = .false.
         else
             call emit_fortran(arena, prog_index, code)
-            if (index(code, 'print *, "both"') > 0 .and. index(code, 'print *, "not a"') > 0) then
+  if (index(code, 'print *, "both"') > 0 .and. index(code, 'print *, "not a"') > 0) then
                 print *, "✅ PASS: Nested if statements correctly parsed"
             else
                 print *, "❌ FAIL: Generated code missing nested statements:"

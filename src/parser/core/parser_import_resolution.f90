@@ -1,7 +1,7 @@
 module parser_import_resolution_module
     use string_utils_mod, only: to_lower
     ! Import resolution module for use, include statements
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
     use parser_state_module, only: parser_state_t
@@ -44,10 +44,10 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
+                token = parser%consume() ! consume ','
                 call parse_single_identifier_with_rename(parser)
             else
-                exit  ! Not a comma, end of list
+                exit ! Not a comma, end of list
             end if
         end do
 
@@ -147,7 +147,7 @@ contains
 
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "=>") then
-                    token = parser%consume()  ! consume '=>'
+                    token = parser%consume() ! consume '=>'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER) then
                         token = parser%consume()
@@ -207,7 +207,7 @@ contains
 
         ! Handle optional comma with module nature or double colon
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume()  ! consume ','
+            token = parser%consume() ! consume ','
             token = parser%peek()
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) then
                 block
@@ -280,19 +280,19 @@ contains
         ! Check for optional only clause or rename list
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume()  ! consume ','
+            token = parser%consume() ! consume ','
 
             ! Check for 'only' keyword
             token = parser%peek()
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
                 trim(to_lower(token%text)) == "only") then
-                token = parser%consume()  ! consume 'only'
+                token = parser%consume() ! consume 'only'
                 has_only = .true.
 
                 ! Expect ':'
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ":") then
-                    token = parser%consume()  ! consume ':'
+                    token = parser%consume() ! consume ':'
                     ! Parse only list - collect identifiers
                     call parse_identifier_list(parser, only_list, rename_list)
                 else

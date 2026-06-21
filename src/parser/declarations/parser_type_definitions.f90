@@ -1,9 +1,9 @@
 module parser_type_definitions_module
     ! Parser module for derived type definitions and type parameters
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
-    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_derived_type
     use ast_factory
@@ -41,7 +41,7 @@ contains
             ! Check for comma
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
+                token = parser%consume() ! consume ','
             else
                 exit
             end if
@@ -72,7 +72,7 @@ contains
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             has_parameters = .true.
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
             call parse_derived_type_parameters(parser, arena, param_indices)
 
             ! Consume ')'
@@ -172,7 +172,7 @@ contains
         ! Check for comma indicating attributes
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume()  ! consume ','
+            token = parser%consume() ! consume ','
             ! Parse attributes until ::
             call parse_type_attributes(parser, extends_parent)
         end if
@@ -180,7 +180,7 @@ contains
         ! Check for ::
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "::") then
-            token = parser%consume()  ! consume '::'
+            token = parser%consume() ! consume '::'
         end if
 
         ! Get type name and parameters

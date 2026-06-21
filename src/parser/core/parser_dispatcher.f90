@@ -1,7 +1,7 @@
 module parser_dispatcher_module
     ! Statement dispatcher that delegates to appropriate parsing modules
     ! This implements the SRP by separating the switch logic from the implementations
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
@@ -55,12 +55,9 @@ module parser_dispatcher_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node, directive_node
     use uid_generator, only: generate_uid
-    use ast_types, only: LITERAL_STRING
-    use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
-    use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     use parser_assignment_module, only: parse_assignment_statement
-    use parser_expressions_module, only: parse_expression, parse_range
+    use parser_expressions_module, only: parse_expression
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     implicit none
     private

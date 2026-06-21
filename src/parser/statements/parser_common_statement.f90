@@ -4,7 +4,7 @@ module parser_common_statement_module
     !   common /a/ x, y, /b/ z      ! two named blocks
     !   common w, v                 ! blank common
     !   common // p, /a/ q          ! explicit blank then named
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t

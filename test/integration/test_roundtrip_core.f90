@@ -1,10 +1,9 @@
 module test_roundtrip_core
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
-    use test_filesystem_helpers, only: create_temp_directory, cleanup_file, &
+    use test_filesystem_helpers, only: create_temp_directory, &
                                        cleanup_temp_directory
     use test_shell_commands, only: build_compile_command
     implicit none
@@ -54,14 +53,14 @@ contains
         call lex_source(source, tokens1, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             result%lex_error = .true.
-            result%error_message = 'lex error: ' // trim(error_msg)
+            result%error_message = 'lex error: '//trim(error_msg)
             return
         end if
 
         call parse_tokens(tokens1, arena1, root1, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             result%parse_error = .true.
-            result%error_message = 'parse error: ' // trim(error_msg)
+            result%error_message = 'parse error: '//trim(error_msg)
             return
         end if
 
@@ -71,14 +70,14 @@ contains
         call lex_source(result%first_output, tokens2, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             result%relex_error = .true.
-            result%error_message = 'relex error: ' // trim(error_msg)
+            result%error_message = 'relex error: '//trim(error_msg)
             return
         end if
 
         call parse_tokens(tokens2, arena2, root2, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             result%reparse_error = .true.
-            result%error_message = 'reparse error: ' // trim(error_msg)
+            result%error_message = 'reparse error: '//trim(error_msg)
             return
         end if
 
@@ -115,9 +114,9 @@ contains
         if (len_trim(temp_dir) == 0) return
 
         if (is_windows) then
-            temp_filename = trim(temp_dir) // '\roundtrip_test.f90'
+            temp_filename = trim(temp_dir)//'\roundtrip_test.f90'
         else
-            temp_filename = trim(temp_dir) // '/roundtrip_test.f90'
+            temp_filename = trim(temp_dir)//'/roundtrip_test.f90'
         end if
 
         open (newunit=unit_num, file=trim(temp_filename), status='replace', &

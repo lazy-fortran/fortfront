@@ -2,7 +2,6 @@ program test_issue_2164_derived_type_field_lost
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_transformation, only: INPUT_MODE_STANDARD
-    use string_utils_mod, only: to_lower
     use transformation_api, only: transform_with_context, transform_context_t
     implicit none
 
@@ -68,7 +67,7 @@ program test_issue_2164_derived_type_field_lost
     end if
 
     if (.not. found_correct_assignment) then
-        write (error_unit, '(A)') 'FAIL: correct assignment obj%data not found (BUG #2164)'
+     write (error_unit, '(A)') 'FAIL: correct assignment obj%data not found (BUG #2164)'
         write (error_unit, '(A)') 'Output:'
         write (error_unit, '(A)') output_code
         error stop 1
@@ -76,9 +75,7 @@ program test_issue_2164_derived_type_field_lost
 
     print *, 'PASS: Issue #2164 test passed'
 
-
 contains
-
 
     include 'common/read_example.inc'
 end program test_issue_2164_derived_type_field_lost

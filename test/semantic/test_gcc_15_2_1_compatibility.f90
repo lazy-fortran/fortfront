@@ -5,7 +5,6 @@ program test_gcc_15_2_1_compatibility
 
     use type_system_unified
     use identifier_table, only: identifier_table_t, identifier_table_init
-    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     logical :: all_tests_passed = .true.

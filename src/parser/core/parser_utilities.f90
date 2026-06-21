@@ -2,7 +2,7 @@ module parser_utilities
     ! Utility parsing functions for common parsing operations
     ! Contains helper functions for identifier lists, letter ranges, and type specs
 
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
     use parser_state_module, only: parser_state_t
@@ -26,7 +26,7 @@ contains
         integer :: count, capacity
 
         count = 0
-        capacity = 4  ! Initial capacity
+        capacity = 4 ! Initial capacity
         allocate (character(len=64) :: temp_list(capacity))
 
         ! Parse first identifier
@@ -40,7 +40,7 @@ contains
             do while (.not. parser%is_at_end())
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
+                    token = parser%consume() ! consume ','
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER) then
                         token = parser%consume()
@@ -66,10 +66,10 @@ contains
                         count = count + 1
                         temp_list(count) = token%text
                     else
-                        exit  ! Not an identifier after comma
+                        exit ! Not an identifier after comma
                     end if
                 else
-                    exit  ! Not a comma, end of list
+                    exit ! Not a comma, end of list
                 end if
             end do
         end if
@@ -107,23 +107,23 @@ contains
                 ! Check for range (a-z)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
-                    token = parser%consume()  ! consume '-'
+                    token = parser%consume() ! consume '-'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. &
                         len_trim(token%text) == 1) then
-                        token = parser%consume()  ! consume second letter
+                        token = parser%consume() ! consume second letter
                     end if
                 end if
 
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
+                    token = parser%consume() ! consume ','
                 else
-                    exit  ! No comma, end of list
+                    exit ! No comma, end of list
                 end if
             else
-                exit  ! Not a single letter
+                exit ! Not a single letter
             end if
         end do
 
@@ -158,12 +158,12 @@ contains
                 ! Check for range (a-z)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
-                    token = parser%consume()  ! consume '-'
+                    token = parser%consume() ! consume '-'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. &
                         len_trim(token%text) == 1) then
-                        token = parser%consume()  ! consume second letter
-                        letter_ranges(i) = trim(letter_ranges(i)) // "-" // &
+                        token = parser%consume() ! consume second letter
+                        letter_ranges(i) = trim(letter_ranges(i))//"-"// &
                                            trim(token%text)
                     end if
                 end if
@@ -171,12 +171,12 @@ contains
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
+                    token = parser%consume() ! consume ','
                 else
-                    exit  ! No comma, end of list
+                    exit ! No comma, end of list
                 end if
             else
-                exit  ! Not a single letter
+                exit ! Not a single letter
             end if
         end do
     end subroutine parse_letter_ranges
@@ -192,15 +192,15 @@ contains
         token = parser%peek()
 
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
             token = parser%peek()
 
             if (token%kind == TK_IDENTIFIER .and. trim(token%text) == "len") then
-                token = parser%consume()  ! consume 'len'
+                token = parser%consume() ! consume 'len'
                 token = parser%peek()
 
                 if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                    token = parser%consume()  ! consume '='
+                    token = parser%consume() ! consume '='
                     token = parser%peek()
 
                     if (token%kind == TK_NUMBER) then
@@ -213,12 +213,12 @@ contains
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()  ! consume ')'
+                token = parser%consume() ! consume ')'
             end if
         end if
 
         if (.not. has_length) then
-            length_value = "1"  ! Default character length
+            length_value = "1" ! Default character length
         end if
     end subroutine parse_character_type_spec
 
@@ -234,7 +234,7 @@ contains
 
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
             token = parser%peek()
 
             if (token%kind == TK_IDENTIFIER .or. token%kind == TK_NUMBER) then
@@ -245,7 +245,7 @@ contains
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()  ! consume ')'
+                token = parser%consume() ! consume ')'
             end if
         end if
     end subroutine parse_kind_specification
@@ -269,7 +269,7 @@ contains
 
                 ! Handle "double precision"
                 if (trim(token%text) == "double") then
-                    token = parser%consume()  ! consume 'double'
+                    token = parser%consume() ! consume 'double'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. trim(token%text) == &
                         "precision") then
@@ -297,7 +297,7 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%kind == TK_NEWLINE) then
-                token = parser%consume()  ! consume newline
+                token = parser%consume() ! consume newline
                 exit
             end if
             token = parser%consume()

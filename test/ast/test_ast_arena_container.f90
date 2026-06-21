@@ -4,7 +4,6 @@ module test_ast_arena_container
 
     use ast_arena_modern
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
-    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
 
@@ -588,7 +587,7 @@ contains
 
         ! Test edge case with zero offset (invalid)
         invalid_handle%generation = arena3%generation
-        invalid_handle%offset = 0  ! Zero offset should be invalid
+        invalid_handle%offset = 0 ! Zero offset should be invalid
 
         if (.not. arena3%valid(invalid_handle)) then
             tests_passed = tests_passed + 1
@@ -600,7 +599,7 @@ contains
 
         ! Test edge case with negative offset (invalid)
         invalid_handle%generation = arena3%generation
-        invalid_handle%offset = -1  ! Negative offset should be invalid
+        invalid_handle%offset = -1 ! Negative offset should be invalid
 
         if (.not. arena3%valid(invalid_handle)) then
             tests_passed = tests_passed + 1
@@ -612,7 +611,7 @@ contains
 
         ! Test with handle that has large offset (edge case for bounds check)
         invalid_handle%generation = arena1%generation
-        invalid_handle%offset = 99999  ! Large offset that exceeds any arena size
+        invalid_handle%offset = 99999 ! Large offset that exceeds any arena size
 
         if (.not. arena1%valid(invalid_handle) .and. &
             .not. arena2%valid(invalid_handle) .and. &

@@ -17,7 +17,7 @@ module parser_arithmetic_if_module
     !   ELSE
     !       GO TO label3
     !   END IF
-    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_EOF, &
+    use lexer_core, only: token_t, TK_OPERATOR, TK_NEWLINE, TK_EOF, &
                           TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t

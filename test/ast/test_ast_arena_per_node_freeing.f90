@@ -3,7 +3,6 @@ program test_ast_arena_per_node_freeing
     ! Tests selective memory management, checkpoint/rollback, and performance requirements
 
     use ast_arena_modern
-    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     integer :: test_count, pass_count
@@ -212,7 +211,7 @@ contains
 
         ! Free every other node (5 nodes)
         freed_count = 0
-        do i = 1, 10, 2  ! Free nodes 1, 3, 5, 7, 9
+        do i = 1, 10, 2 ! Free nodes 1, 3, 5, 7, 9
             free_results(i) = free_ast_node(arena, handles(i))
             if (free_results(i)%success) freed_count = freed_count + 1
         end do

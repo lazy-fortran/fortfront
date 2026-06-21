@@ -1,6 +1,6 @@
 module semantic_expression_context
     use fortfront_constants, only: MAX_EXPR_RECURSION_DEPTH
-    use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
+    use type_system_unified, only: mono_type_t, create_mono_type, &
                                    create_type_var, TVAR, TINT, TREAL, TCHAR, &
                                    TLOGICAL, TARRAY, TDOUBLE
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL

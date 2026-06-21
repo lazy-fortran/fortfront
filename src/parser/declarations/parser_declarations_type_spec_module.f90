@@ -1,10 +1,9 @@
 module parser_declarations_type_spec_module
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
                           TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, &
                           TK_STRING, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use parser_expressions_module, only: parse_comparison
     use string_utils_mod, only: int_to_string
     use parser_declarations_type_spec_support_module, only: type_specifier_t, &
         & append_token, &
@@ -134,10 +133,10 @@ contains
                     type_spec%derived_type_name = trim(adjustl(derived_text))
                 end if
             end if
-            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                derived_text // ")"
+            type_spec%type_name = trim(type_spec%base_keyword)//"("// &
+                derived_text//")"
         else
-            type_spec%type_name = trim(type_spec%base_keyword) // "()"
+            type_spec%type_name = trim(type_spec%base_keyword)//"()"
         end if
     end subroutine parse_parenthesized_derived
 
@@ -212,8 +211,8 @@ contains
                         call move_alloc(cleaned_tokens, temp)
                     end block
                     if (len_trim(param_text) > 0) then
-                        if (.not. first_param) collected_text = collected_text // ", "
-                        collected_text = collected_text // param_text
+                        if (.not. first_param) collected_text = collected_text//", "
+                        collected_text = collected_text//param_text
                         first_param = .false.
                     end if
                 end if
@@ -223,8 +222,8 @@ contains
         end do
 
         if (len_trim(collected_text) > 0) then
-            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                trim(collected_text) // ")"
+            type_spec%type_name = trim(type_spec%base_keyword)//"("// &
+                trim(collected_text)//")"
         else
             type_spec%type_name = trim(type_spec%base_keyword)
         end if
@@ -407,11 +406,11 @@ contains
 
         lowered_len = to_lower(trim(length_expr))
         if (index(lowered_len, "len=") == 1) then
-            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                trim(length_expr) // ")"
+            type_spec%type_name = trim(type_spec%base_keyword)//"("// &
+                trim(length_expr)//")"
         else
-            type_spec%type_name = trim(type_spec%base_keyword) // "(len=" // &
-                trim(length_expr) // ")"
+            type_spec%type_name = trim(type_spec%base_keyword)//"(len="// &
+                trim(length_expr)//")"
         end if
     end subroutine finalize_character_type_spec
 
@@ -473,14 +472,14 @@ contains
 
         if (allocated(collected_tokens)) then
             collected_text = tokens_to_text(collected_tokens)
-            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                trim(adjustl(collected_text)) // ")"
+            type_spec%type_name = trim(type_spec%base_keyword)//"("// &
+                trim(adjustl(collected_text))//")"
             block
                 type(token_t), allocatable :: temp(:)
                 call move_alloc(collected_tokens, temp)
             end block
         else
-            type_spec%type_name = trim(type_spec%base_keyword) // "()"
+            type_spec%type_name = trim(type_spec%base_keyword)//"()"
         end if
     end subroutine capture_parenthesized_content
 

@@ -1,5 +1,5 @@
 module frontend_statement_token_parsing
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, &

@@ -1,11 +1,11 @@
 module parser_module_structures_module
     ! Module structure parsing for module definitions and bodies
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_module_structured, push_implicit_statement, &
+    use ast_factory, only: push_module_structured, &
                            push_assignment, push_identifier, push_literal, &
                            push_visibility_statement, push_namelist_statement, &
                            push_error_node
@@ -219,7 +219,7 @@ contains
                     lookahead_lower = to_lower(trim(lookahead%text))
                     select case (trim(lookahead_lower))
                     case ("precision", "complex")
-                        type_with_kind = trim(token%text) // " " // trim(lookahead%text)
+                        type_with_kind = trim(token%text)//" "//trim(lookahead%text)
                         token = parser%consume()
                         token = parser%consume()
                         call consume_optional_kind_spec(parser, type_with_kind)
@@ -496,7 +496,7 @@ contains
         line = token%line
         column = token%column
 
-        error_msg = "Unsupported Fortran feature: " // normalized_keyword // &
+        error_msg = "Unsupported Fortran feature: "//normalized_keyword// &
                     " constructs are not supported"
 
         if (normalized_keyword == "enum") then
@@ -691,7 +691,7 @@ contains
         type(token_t) :: token
         integer :: nesting_level
 
-        nesting_level = 1  ! Already inside a procedure
+        nesting_level = 1 ! Already inside a procedure
 
         ! Consume the procedure keyword
         token = parser%consume()

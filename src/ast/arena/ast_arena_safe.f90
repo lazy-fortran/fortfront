@@ -8,8 +8,8 @@ module ast_arena_safe
                                    subroutine_call_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               module_node
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-                                 select_case_node, case_block_node
+    use ast_nodes_control, only: &
+        select_case_node, case_block_node
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     private

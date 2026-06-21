@@ -4,9 +4,7 @@ module parser_parameter_statements_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: declaration_node, module_node
-    use ast_nodes_core, only: program_node
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_data, only: declaration_node
     use ast_factory, only: push_declaration
     implicit none
     private

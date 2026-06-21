@@ -1,5 +1,4 @@
 module cli_env
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront_constants, only: MAX_TRACE_FILE_PATH_LEN
     use string_utils_mod, only: to_lower
     implicit none

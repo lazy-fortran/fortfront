@@ -1,6 +1,6 @@
 program test_issue_1574_intrinsic_external
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, input_unit, iostat_end, iostat_eor
+ use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     logical :: passed
 
@@ -18,7 +18,6 @@ program test_issue_1574_intrinsic_external
 contains
 
     include '../common/read_example.inc'
-
 
     function run_intrinsic_external_case() result(passed)
         logical :: passed

@@ -1,9 +1,5 @@
 program test_issue_509_mixed_constructs_single_program
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -15,7 +11,7 @@ program test_issue_509_mixed_constructs_single_program
     call read_example('examples/lf/issue_509_mixed_constructs_input.lf', test_code)
 
     ! Expected output from Issue #509
-    call read_example('examples/f90/issue_509_mixed_constructs_expected.f90', expected_code)
+call read_example('examples/f90/issue_509_mixed_constructs_expected.f90', expected_code)
 
     print *, "Test Issue #509: subroutine and function indentation should be consistent"
     print *, "================================================================"
@@ -80,6 +76,5 @@ contains
             write (*, '(I3,A,A)') line_num, ': ', line
         end if
     end subroutine print_with_line_numbers
-
 
 end program test_issue_509_mixed_constructs_single_program

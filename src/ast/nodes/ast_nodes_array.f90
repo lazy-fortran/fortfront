@@ -1,6 +1,6 @@
 module ast_nodes_array
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -12,7 +12,7 @@ module ast_nodes_array
 
     ! Type for ELSEWHERE clause information
     type :: elsewhere_clause_t
-        integer :: mask_index = 0  ! 0 for final ELSEWHERE without mask
+        integer :: mask_index = 0 ! 0 for final ELSEWHERE without mask
         integer, allocatable :: body_indices(:)
     end type elsewhere_clause_t
 
@@ -26,8 +26,8 @@ module ast_nodes_array
         type(elsewhere_clause_t), allocatable :: elsewhere_clauses(:)
 
         ! Optimization hints
-        logical :: mask_is_simple = .false.  ! True if mask is simple comparison
-        logical :: can_vectorize = .false.  ! True if all assignments vectorizable
+        logical :: mask_is_simple = .false. ! True if mask is simple comparison
+        logical :: can_vectorize = .false. ! True if all assignments vectorizable
     contains
         procedure :: accept => where_accept
         procedure :: assign => where_assign

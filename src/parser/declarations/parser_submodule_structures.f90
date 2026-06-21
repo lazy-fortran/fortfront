@@ -1,7 +1,7 @@
 module parser_submodule_structures_module
     ! Submodule structure parsing for Fortran 2008 submodule definitions
     ! ISO/IEC 1539-1:2008 Section 11.2
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
@@ -41,13 +41,13 @@ contains
 
             if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
                 if (len(parent_id) > 0) then
-                    parent_id = parent_id // token%text
+                    parent_id = parent_id//token%text
                 else
                     parent_id = token%text
                 end if
                 token = parser%consume()
             else if (token%kind == TK_OPERATOR .and. token%text == ":") then
-                parent_id = parent_id // ":"
+                parent_id = parent_id//":"
                 token = parser%consume()
             else
                 token = parser%consume()

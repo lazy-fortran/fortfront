@@ -1,17 +1,17 @@
 module semantic_literal_identifier
     ! Literal and identifier type inference
-    use type_system_unified, only: type_env_t, type_var_t, mono_type_t, &
+    use type_system_unified, only: type_var_t, mono_type_t, &
                                    poly_type_t, create_mono_type, create_type_var, &
                                    create_poly_type, TVAR, TINT, TREAL, TCHAR, &
                                    TLOGICAL
     use scope_manager, only: scope_stack_t
-    use error_handling, only: error_collection_t, result_t, create_error_result, &
+    use error_handling, only: error_collection_t, result_t, &
                               ERROR_SEMANTIC
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node
     use semantic_function_analysis, only: infer_type_from_usage_context
     use semantic_literal_type_helpers, only: infer_real_literal_kind
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_input_mode, only: INPUT_MODE_LAZY
     implicit none
     private
 

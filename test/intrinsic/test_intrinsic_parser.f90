@@ -1,9 +1,5 @@
 program test_intrinsic_parser
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use transformation_api, only: transform_lazy_fortran_string
     use lexer_core
     implicit none
 
@@ -15,10 +11,10 @@ contains
 
     subroutine test_intrinsic_function_in_pipeline()
         character(len=*), parameter :: source_code = &
-                                       "program test" // new_line('a') // &
-                                       "  real :: x, y" // new_line('a') // &
-                                       "  x = sin(y)" // new_line('a') // &
-                                       "  y = sqrt(x)" // new_line('a') // &
+                                       "program test"//new_line('a')// &
+                                       "  real :: x, y"//new_line('a')// &
+                                       "  x = sin(y)"//new_line('a')// &
+                                       "  y = sqrt(x)"//new_line('a')// &
                                        "end program"
 
         character(len=:), allocatable :: output, error_msg

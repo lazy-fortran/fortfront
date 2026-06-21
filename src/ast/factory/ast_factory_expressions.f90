@@ -4,7 +4,6 @@ module ast_factory_expressions
     use ast_nodes_bounds, only: range_expression_node
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING
-    use ast_factory_core, only: validate_arena, validate_node_index
     use uid_generator, only: generate_uid
     implicit none
     private
@@ -79,8 +78,8 @@ contains
     ! Create call or subscript with array slice detection
     function push_call_or_subscript_with_slice_detection(arena, name, &
                                                          arg_indices, line, column, &
-                                                             parent_index, &
-                                                             base_expr_index) &
+                                                         parent_index, &
+                                                         base_expr_index) &
         result(node_index)
         use ast_factory_arrays, only: push_array_slice
         use ast_factory_core, only: push_identifier
@@ -129,8 +128,8 @@ contains
     subroutine build_ast_from_nodes(arena, node_specs, indices)
         use ast_factory_core, only: push_identifier, push_literal
         type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: node_specs(:)  ! Array of "type:name" specs
-        integer, intent(out) :: indices(:)  ! Output indices
+        character(len=*), intent(in) :: node_specs(:) ! Array of "type:name" specs
+        integer, intent(out) :: indices(:) ! Output indices
         integer :: i
 
         do i = 1, size(node_specs)

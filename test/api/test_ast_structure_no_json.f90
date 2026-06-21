@@ -3,7 +3,6 @@ program test_ast_structure_no_json
     use parser_api, only: parse_tokens
     use lexer_token_types, only: token_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
     use ast_traversal, only: is_program_node
     implicit none
 
@@ -24,10 +23,10 @@ contains
     subroutine test_basic_ast(ok)
         logical, intent(inout) :: ok
         character(len=*), parameter :: src = &
-                                       'program test' // new_line('a') // &
-                                       '  integer :: x, y' // new_line('a') // &
-                                       '  x = 10' // new_line('a') // &
-                                       '  y = x + 5' // new_line('a') // &
+                                       'program test'//new_line('a')// &
+                                       '  integer :: x, y'//new_line('a')// &
+                                       '  x = 10'//new_line('a')// &
+                                       '  y = x + 5'//new_line('a')// &
                                        'end program test'
         type(ast_arena_t) :: arena
         type(token_t), allocatable :: tokens(:)

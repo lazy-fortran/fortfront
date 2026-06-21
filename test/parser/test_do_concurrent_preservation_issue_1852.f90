@@ -1,7 +1,6 @@
 program test_do_concurrent_preservation_issue_1852
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+                                                                              iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -52,9 +51,7 @@ program test_do_concurrent_preservation_issue_1852
     print *, 'PASS: DO CONCURRENT construct correctly preserved'
     stop 0
 
-
 contains
-
 
     include '../common/read_example.inc'
 end program test_do_concurrent_preservation_issue_1852

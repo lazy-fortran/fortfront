@@ -1,6 +1,5 @@
 ! @slow-path
 module variable_usage_control_handlers_module
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern
     use variable_usage_core_module
     implicit none
@@ -60,7 +59,7 @@ contains
     end subroutine push_node
 
     subroutine process_if_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: if_node, elseif_wrapper_t
+        use ast_nodes_control, only: if_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -233,7 +232,7 @@ contains
     end subroutine process_type_guard_block_node_children
 
     subroutine process_where_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: where_node, elsewhere_clause_t
+        use ast_nodes_control, only: where_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info

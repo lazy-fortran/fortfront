@@ -1,5 +1,4 @@
 module codegen_statements
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_io

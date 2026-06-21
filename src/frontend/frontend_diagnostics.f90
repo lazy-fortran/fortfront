@@ -1,16 +1,15 @@
 module frontend_diagnostics
     use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
-    use fortfront_types, only: diagnostic_t, source_range_t, source_location_t, &
-        DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use fortfront_types, only: diagnostic_t, source_range_t, &
+                  DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT
     implicit none
     private
 
     public :: make_diagnostic, format_diagnostic, &
-        DIAG_EMPTY_INPUT, DIAG_BINARY_DATA, DIAG_LEXICAL_ERROR, &
-        DIAG_SYNTAX_ERROR, DIAG_SEMANTIC_ERROR, DIAG_PARSE_ERROR, &
-        DIAG_NO_PROGRAM_UNIT, &
-        DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT
+              DIAG_EMPTY_INPUT, DIAG_BINARY_DATA, DIAG_LEXICAL_ERROR, &
+              DIAG_SYNTAX_ERROR, DIAG_SEMANTIC_ERROR, DIAG_PARSE_ERROR, &
+              DIAG_NO_PROGRAM_UNIT, &
+              DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT
 
     ! Diagnostic codes following GCC-style convention
     character(len=*), parameter :: DIAG_EMPTY_INPUT = "F001"
@@ -80,11 +79,11 @@ contains
             write (buffer, '(A,I0,A,I0,A)') &
                 " at line ", diag%location%start%line, &
                 ":", diag%location%start%column, ":"
-            formatted = "[" // trim(diag%code) // "] " // trim(severity_str) &
-                // trim(buffer) // " " // diag%message
+            formatted = "["//trim(diag%code)//"] "//trim(severity_str) &
+                        //trim(buffer)//" "//diag%message
         else
-            formatted = "[" // trim(diag%code) // "] " // trim(severity_str) &
-                // ": " // diag%message
+            formatted = "["//trim(diag%code)//"] "//trim(severity_str) &
+                        //": "//diag%message
         end if
     end function format_diagnostic
 

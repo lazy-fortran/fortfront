@@ -1,7 +1,6 @@
 module frontend_final_passes
     ! Pass implementations for the final transformation phases
     ! (semantic analysis, standardization, monomorphization, codegen)
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_pass_manager, only: pass_context_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
@@ -15,7 +14,6 @@ module frontend_final_passes
     use frontend_transformation_structure, only: normalize_multi_unit_container, &
                                                  run_code_generation_phase
     use ast_monomorphization, only: transform_monomorphization
-    use codegen_arena_interface, only: generate_code_from_arena
     use frontend_transformation_analysis, only: analyze_ast_content, &
                                                 promote_functions_to_internal_program, &
                                                 requires_lazy_internalization, &

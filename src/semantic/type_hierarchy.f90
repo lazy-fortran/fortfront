@@ -1,6 +1,5 @@
 module type_hierarchy
     ! Type hierarchy tracking for F2003 derived type inheritance
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -83,8 +82,8 @@ contains
     end subroutine hierarchy_ensure_capacity
 
     subroutine hierarchy_register_type(this, type_name, parent_name, &
-                                        is_abstract, deferred_proc_names, &
-                                        error_msg)
+                                       is_abstract, deferred_proc_names, &
+                                       error_msg)
         class(type_hierarchy_t), intent(inout) :: this
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in), optional :: parent_name
@@ -98,7 +97,7 @@ contains
         idx = this%find_entry(type_name)
         if (idx > 0) then
             if (present(error_msg)) then
-                error_msg = 'Type already registered: ' // trim(type_name)
+                error_msg = 'Type already registered: '//trim(type_name)
             end if
             return
         end if
@@ -107,7 +106,7 @@ contains
             parent_idx = this%find_entry(parent_name)
             if (parent_idx <= 0) then
                 if (present(error_msg)) then
-                    error_msg = 'Parent type not found: ' // trim(parent_name)
+                    error_msg = 'Parent type not found: '//trim(parent_name)
                 end if
                 return
             end if
@@ -263,8 +262,8 @@ contains
             if (to_lower_case(current_type) == to_lower_case(type_name)) then
                 is_valid = .false.
                 if (present(error_msg)) then
-                    error_msg = 'Circular inheritance detected for type: ' // &
-                        trim(type_name)
+                    error_msg = 'Circular inheritance detected for type: '// &
+                                trim(type_name)
                 end if
                 return
             end if
@@ -279,8 +278,8 @@ contains
         if (depth >= MAX_CHAIN_DEPTH) then
             is_valid = .false.
             if (present(error_msg)) then
-                error_msg = 'Inheritance chain too deep for type: ' // &
-                    trim(type_name)
+                error_msg = 'Inheritance chain too deep for type: '// &
+                            trim(type_name)
             end if
         end if
     end function hierarchy_validate_no_cycles

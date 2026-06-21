@@ -10,7 +10,6 @@ module codegen_expressions
     use ast_nodes_loops, only: do_loop_node
     use ast_nodes_io, only: io_implied_do_node
     use type_system_unified
-    use string_types, only: string_t
     use codegen_indent
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization

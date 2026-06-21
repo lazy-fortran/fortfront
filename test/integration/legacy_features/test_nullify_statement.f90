@@ -1,5 +1,5 @@
 program test_nullify_statement
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     implicit none
     logical :: all_tests_passed
@@ -71,6 +71,5 @@ contains
             print *, "Output:", trim(output)
         end if
     end subroutine test_nullify_in_if
-
 
 end program test_nullify_statement

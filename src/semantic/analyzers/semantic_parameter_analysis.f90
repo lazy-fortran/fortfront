@@ -186,7 +186,7 @@ contains
             call fetch_parameter_metadata(arena, func_node%param_indices(i), &
                                           source_name, source_type)
             final_name = trim(source_name)
-            if (len_trim(final_name) == 0) final_name = 'arg' // trim(int_to_str(i))
+            if (len_trim(final_name) == 0) final_name = 'arg'//trim(int_to_str(i))
             final_name = trim(final_name)
             if (source_type%kind == 0) then
                 source_type = infer_type_from_usage_context(final_name, next_var_id)
@@ -558,7 +558,7 @@ contains
 
     function infer_base_type_from_call_site(arena, func_node, param_position) &
         result(base_type)
-        use type_system_unified, only: TARRAY, type_args_allocated, &
+        use type_system_unified, only: TARRAY, &
                                        type_args_size, type_args_element
         use semantic_type_context, only: infer_expression_type_static
         type(ast_arena_t), intent(in) :: arena

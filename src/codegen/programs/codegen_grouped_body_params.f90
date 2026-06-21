@@ -1,7 +1,6 @@
 module codegen_grouped_body_params
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
-    use ast_nodes_misc, only: contains_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use codegen_arena_utils, only: check_result_is_simple_scalar
@@ -227,7 +226,7 @@ contains
                                     filtered_count)
 
         if (filtered_count > 0) then
-            code = code // generate_grouped_body( &
+            code = code//generate_grouped_body( &
                    arena, filtered_indices(1:filtered_count), indent)
         end if
 

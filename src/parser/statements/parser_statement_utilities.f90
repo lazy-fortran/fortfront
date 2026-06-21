@@ -1,6 +1,6 @@
 module parser_statement_utilities_module
     ! Parser utility functions for statement parsing within function/subroutine bodies
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
@@ -30,9 +30,8 @@ module parser_statement_utilities_module
     use parser_import_resolution_module, only: parse_use_statement
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_associate, push_goto, push_if, &
+    use ast_factory, only: push_associate, push_if, &
                            push_import_statement
-    use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t
     use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement
@@ -283,7 +282,7 @@ contains
             token = parser%consume()
         end do
 
-        stmt_index = 0  ! No valid statement created
+        stmt_index = 0 ! No valid statement created
     end function skip_unknown_statement
 
     ! Simple if statement parser for function/subroutine bodies
@@ -340,7 +339,7 @@ contains
                         then_count = then_count + 1
                         then_body_indices(then_count) = stmt_index
                     else
-                        token = parser%consume()  ! Skip unknown statement
+                        token = parser%consume() ! Skip unknown statement
                     end if
                 end block
             end do
@@ -387,7 +386,7 @@ contains
                             else_count = else_count + 1
                             else_body_indices(else_count) = stmt_index
                         else
-                            token = parser%consume()  ! Skip unknown statement
+                            token = parser%consume() ! Skip unknown statement
                         end if
                     end block
                 end do
@@ -544,7 +543,7 @@ contains
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 else
-                    token = parser%consume()  ! Skip unknown statement
+                    token = parser%consume() ! Skip unknown statement
                 end if
             end block
         end do

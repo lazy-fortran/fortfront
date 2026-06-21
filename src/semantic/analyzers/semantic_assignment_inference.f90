@@ -11,7 +11,6 @@ module semantic_assignment_inference
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
-    use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
     use scope_manager, only: scope_stack_t
     use semantic_unsigned_integer_mix_diagnostics, only: &
         emit_unsigned_integer_mix_error, extract_integer_signedness, &
@@ -406,7 +405,7 @@ contains
                         if (expr_typ%size < 0) then
                             expr_typ%alloc_info%is_allocatable = .true.
                             expr_typ%alloc_info%needs_allocatable_string = .true.
-                            expr_typ%size = 0  ! Deferred length
+                            expr_typ%size = 0 ! Deferred length
                         end if
 
                         ! Update all existing identifier nodes with this name
@@ -679,18 +678,18 @@ contains
 
         dims_string = ""
         do i = 1, size(dim_sizes)
-            if (i > 1) dims_string = dims_string // ","
+            if (i > 1) dims_string = dims_string//","
             if (dim_sizes(i) > 0) then
                 dim_component = int_to_string(dim_sizes(i))
-                dims_string = dims_string // trim(dim_component)
+                dims_string = dims_string//trim(dim_component)
             else
-                dims_string = dims_string // ":"
+                dims_string = dims_string//":"
             end if
         end do
 
         decl_string = trim(base_type)
         if (len_trim(dims_string) > 0) then
-            decl_string = decl_string // ', dimension(' // trim(dims_string) // ')'
+            decl_string = decl_string//', dimension('//trim(dims_string)//')'
         end if
     end function build_array_declaration_string
 

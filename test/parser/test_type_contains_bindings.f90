@@ -4,16 +4,15 @@ program test_type_contains_bindings
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_data, only: derived_type_node, type_binding_node
     use lexer_core, only: token_t
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     character(len=*), parameter :: source = &
-        "type :: atype" // new_line('A') // &
-        "   integer :: field" // new_line('A') // &
-        "contains" // new_line('A') // &
-        "   procedure :: method => impl_method" // new_line('A') // &
-        "   procedure :: another" // new_line('A') // &
-        "end type atype"
+                                   "type :: atype"//new_line('A')// &
+                                   "   integer :: field"//new_line('A')// &
+                                   "contains"//new_line('A')// &
+                              "   procedure :: method => impl_method"//new_line('A')// &
+                                   "   procedure :: another"//new_line('A')// &
+                                   "end type atype"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena

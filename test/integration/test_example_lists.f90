@@ -1,8 +1,8 @@
 module test_example_lists
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use test_filesystem_helpers, only: extract_example_basename, &
-                                       extract_relative_example_path, &
-                                       normalize_path_string
+    use test_filesystem_helpers, only: &
+        extract_relative_example_path, &
+        normalize_path_string
     implicit none
     private
     public :: load_example_list

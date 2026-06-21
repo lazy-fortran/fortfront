@@ -13,7 +13,7 @@ module semantic_undefined_variable_checker
     use scope_manager, only: scope_stack_t
     use error_handling, only: create_error_result, ERROR_SEMANTIC, result_t, &
                               error_collection_t
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
     implicit none
     private
 

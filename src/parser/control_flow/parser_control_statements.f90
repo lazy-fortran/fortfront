@@ -1,7 +1,7 @@
 module parser_control_statements_module
     ! Parser module for control flow statements such as stop, return,
     ! goto, cycle, exit, and error stop
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
@@ -116,7 +116,7 @@ contains
             i = parser%current_token
             do while (i <= size(parser%tokens))
                 token = parser%tokens(i)
-                params_text = params_text // trim(token%text)
+                params_text = params_text//trim(token%text)
                 if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
                     paren_depth = paren_depth + 1
                 else if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
@@ -135,7 +135,7 @@ contains
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER .and. &
             to_lower(trim(token%text)) == "result") then
-            params_text = params_text // " result"
+            params_text = params_text//" result"
             token = parser%consume()
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
@@ -143,7 +143,7 @@ contains
                 i = parser%current_token
                 do while (i <= size(parser%tokens))
                     token = parser%tokens(i)
-                    params_text = params_text // trim(token%text)
+                    params_text = params_text//trim(token%text)
                     if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
                         paren_depth = paren_depth + 1
                     else if (token%kind == TK_OPERATOR .and. &
@@ -238,7 +238,7 @@ contains
                     if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
                         label_item = trim(token%text)
                         if (len_trim(label_list) > 0) then
-                            label_list = label_list // ", " // label_item
+                            label_list = label_list//", "//label_item
                         else
                             label_list = label_item
                         end if
@@ -297,7 +297,7 @@ contains
                             token%kind == TK_IDENTIFIER) then
                             label_item = trim(token%text)
                             if (len_trim(label_list) > 0) then
-                                label_list = label_list // ", " // label_item
+                                label_list = label_list//", "//label_item
                             else
                                 label_list = label_item
                             end if

@@ -1,6 +1,6 @@
 module parser_type_specifications_module
     ! Type specification parsing module for implicit statements
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
     use parser_state_module, only: parser_state_t
@@ -44,17 +44,17 @@ contains
                 ! Check for range (a-h)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
-                    token = parser%consume()  ! consume '-'
+                    token = parser%consume() ! consume '-'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. len(token%text) == 1) then
-                        token = parser%consume()  ! consume end letter
+                        token = parser%consume() ! consume end letter
                     end if
                 end if
 
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
+                    token = parser%consume() ! consume ','
                 else
                     exit
                 end if
@@ -84,11 +84,11 @@ contains
                 ! Check for range (a-h)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
-                    token = parser%consume()  ! consume '-'
+                    token = parser%consume() ! consume '-'
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. len(token%text) == 1) then
-                        letter_ranges(i) = trim(letter_ranges(i)) // "-" // token%text
-                        token = parser%consume()  ! consume end letter
+                        letter_ranges(i) = trim(letter_ranges(i))//"-"//token%text
+                        token = parser%consume() ! consume end letter
                     end if
                 end if
 
@@ -97,7 +97,7 @@ contains
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
+                    token = parser%consume() ! consume ','
                 else
                     exit
                 end if
@@ -119,10 +119,10 @@ contains
 
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "len") then
-            token = parser%consume()  ! consume 'len'
+            token = parser%consume() ! consume 'len'
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                token = parser%consume()  ! consume '='
+                token = parser%consume() ! consume '='
                 token = parser%peek()
             end if
         end if
@@ -167,7 +167,7 @@ contains
         is_type_spec = .false.
         saved_pos = parser%current_token
 
-        token = parser%consume()  ! consume '('
+        token = parser%consume() ! consume '('
         token = parser%peek()
 
         if (type_name == "character") then
@@ -399,8 +399,8 @@ contains
                                                            has_length=spec%has_length, &
                                                      letter_ranges=spec%letter_ranges, &
                                                                  line=line, &
-                                                                     column=column, &
-                                                                     parent_index=0)
+                                                                 column=column, &
+                                                                 parent_index=0)
                 else
                     created_indices(i) = push_implicit_statement(arena, .false., &
                                                              type_name=spec%type_name, &
@@ -409,8 +409,8 @@ contains
                                                        length_value=spec%length_value, &
                                                            has_length=spec%has_length, &
                                                                  line=line, &
-                                                                     column=column, &
-                                                                     parent_index=0)
+                                                                 column=column, &
+                                                                 parent_index=0)
                 end if
             end associate
         end do

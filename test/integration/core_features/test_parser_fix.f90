@@ -1,10 +1,6 @@
 program test_parser_fix
     ! Test for parser fix to handle explicit program statements
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source, generated, error_msg
@@ -12,8 +8,8 @@ program test_parser_fix
     print *, "=== Testing parser fix for explicit program statements ==="
 
     ! Test 1: Explicit program with write statement
-    source = "program test" // char(10) // &
-             "    write(*,*) 'Hello'" // char(10) // &
+    source = "program test"//char(10)// &
+             "    write(*,*) 'Hello'"//char(10)// &
              "end program test"
 
     print *, "Test 1: Explicit program with write statement"

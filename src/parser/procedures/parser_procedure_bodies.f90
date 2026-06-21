@@ -1,7 +1,7 @@
 module parser_procedure_bodies_module
     ! Procedure body parsing for subroutines and functions in module contexts
     use string_utils_mod, only: to_lower
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
     use parser_state_module, only: parser_state_t
@@ -22,7 +22,6 @@ module parser_procedure_bodies_module
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
                                                parse_select_rank
-    use parser_utilities, only: skip_to_end_of_line
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement
     use parser_control_statements_module, only: parse_entry_statement
@@ -195,16 +194,16 @@ contains
                             TK_IDENTIFIER) then
                             if (to_lower(parser%tokens(parser%current_token + 2)%text) &
                                 == to_lower(subroutine_name)) then
-                                token = parser%consume()  ! consume end
-                                token = parser%consume()  ! consume subroutine
-                                token = parser%consume()  ! consume subroutine name
+                                token = parser%consume() ! consume end
+                                token = parser%consume() ! consume subroutine
+                                token = parser%consume() ! consume subroutine name
                                 exit
                             else
                                 ! Nested procedure end; keep tokens for nested parser
                             end if
                         else
-                            token = parser%consume()  ! consume end
-                            token = parser%consume()  ! consume subroutine
+                            token = parser%consume() ! consume end
+                            token = parser%consume() ! consume subroutine
                             exit
                         end if
                     end if
@@ -324,16 +323,16 @@ contains
                             TK_IDENTIFIER) then
                             if (to_lower(parser%tokens(parser%current_token + 2)%text) &
                                 == to_lower(function_name)) then
-                                token = parser%consume()  ! consume end
-                                token = parser%consume()  ! consume function
-                                token = parser%consume()  ! consume function name
+                                token = parser%consume() ! consume end
+                                token = parser%consume() ! consume function
+                                token = parser%consume() ! consume function name
                                 exit
                             else
                                 ! Nested procedure end; keep tokens for nested parser
                             end if
                         else
-                            token = parser%consume()  ! consume end
-                            token = parser%consume()  ! consume function
+                            token = parser%consume() ! consume end
+                            token = parser%consume() ! consume function
                             exit
                         end if
                     end if
@@ -418,8 +417,8 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("contains")
                 ! Handle contains section with nested procedures
-                token = parser%consume()  ! consume 'contains'
-                stmt_index = 0  ! contains itself is not a statement, just a marker
+                token = parser%consume() ! consume 'contains'
+                stmt_index = 0 ! contains itself is not a statement, just a marker
                 ! The nested procedures will be parsed in subsequent iterations
             case ("subroutine")
                 ! Handle nested subroutine definitions
@@ -555,7 +554,7 @@ contains
             ! Expect assignment operator
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                token = parser%consume()  ! consume '='
+                token = parser%consume() ! consume '='
 
                 ! Parse right-hand side (expression)
                 rhs_index = parse_simple_rhs_expression(parser, arena)
@@ -658,7 +657,7 @@ contains
                                          token%line, token%column)
             token = parser%consume()
         else
-            return  ! Invalid expression
+            return ! Invalid expression
         end if
 
         ! Check for binary operator
@@ -668,7 +667,7 @@ contains
              token%text == "*" .or. token%text == "/" .or. &
              token%text == "**")) then
             op_text = token%text
-            token = parser%consume()  ! consume operator
+            token = parser%consume() ! consume operator
 
             ! Parse second operand
             token = parser%peek()
@@ -685,7 +684,7 @@ contains
                                               token%line, token%column)
                 token = parser%consume()
             else
-                expr_index = left_index  ! Return just the left operand
+                expr_index = left_index ! Return just the left operand
                 return
             end if
 

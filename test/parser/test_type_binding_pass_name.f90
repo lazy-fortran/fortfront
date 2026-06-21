@@ -2,16 +2,16 @@ program test_type_binding_pass_name
     use lexer_api, only: lex_source
     use parser_api, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_data, only: derived_type_node, type_binding_node
+    use ast_nodes_data, only: type_binding_node
     use lexer_core, only: token_t
     implicit none
 
     character(len=*), parameter :: source = &
-        "type :: atype" // new_line('A') // &
-        "   integer :: field" // new_line('A') // &
-        "contains" // new_line('A') // &
-        "   procedure, pass(other) :: m => fn" // new_line('A') // &
-        "end type atype"
+                                   "type :: atype"//new_line('A')// &
+                                   "   integer :: field"//new_line('A')// &
+                                   "contains"//new_line('A')// &
+                               "   procedure, pass(other) :: m => fn"//new_line('A')// &
+                                   "end type atype"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena

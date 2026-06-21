@@ -6,7 +6,6 @@ program test_build_system_integration
     ! When: Build commands are executed with proper configuration
     ! Then: The build system reliably produces all required artifacts
     !
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use test_filesystem_helpers, only: cleanup_file
     implicit none
 
@@ -28,7 +27,7 @@ program test_build_system_integration
     call get_environment_variable('GITHUB_ACTIONS', github_env)
 
     ! Also skip when running under fpm test to prevent recursive builds
-    if (.false.) then  ! Disable complex tests that cause hanging
+    if (.false.) then ! Disable complex tests that cause hanging
         ! Test 2: Makefile target for static library
         call test_makefile_integration()
 
@@ -327,7 +326,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         test_count = test_count + 1
-        write (*, '(A)', advance='no') "Testing: " // test_name // "  ... "
+        write (*, '(A)', advance='no') "Testing: "//test_name//"  ... "
     end subroutine test_start
 
     subroutine test_result(passed)

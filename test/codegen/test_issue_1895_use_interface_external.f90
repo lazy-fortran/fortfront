@@ -1,6 +1,6 @@
 program test_issue_1895_use_interface_external
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     logical :: passed
 
@@ -50,6 +50,5 @@ contains
             passed = .false.
         end if
     end function run_use_interface_external_case
-
 
 end program test_issue_1895_use_interface_external

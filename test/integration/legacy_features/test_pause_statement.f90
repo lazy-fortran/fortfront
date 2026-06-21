@@ -1,5 +1,5 @@
 program test_pause_statement
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     implicit none
     logical :: all_tests_passed
@@ -92,6 +92,5 @@ contains
             print *, "Output:", trim(output)
         end if
     end subroutine test_pause_in_if_block
-
 
 end program test_pause_statement

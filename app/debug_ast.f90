@@ -1,5 +1,4 @@
 program debug_ast
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
                          ast_arena_t, token_t, ast_to_json
     implicit none
@@ -13,18 +12,18 @@ program debug_ast
     character(len=:), allocatable :: lazy_code
 
     lazy_code = ''
-    lazy_code = trim(lazy_code) // 'a = [-5, -3, -1, 1, 3, 5]' // new_line('A')
-    lazy_code = lazy_code // 'sum_neg = 0' // new_line('A')
-    lazy_code = lazy_code // 'sum_pos = 0' // new_line('A') // new_line('A')
-    lazy_code = lazy_code // 'do i = 1, 6' // new_line('A')
-    lazy_code = lazy_code // '    if (a(i) < 0) then' // new_line('A')
-    lazy_code = lazy_code // '        sum_neg = sum_neg + a(i)' // new_line('A')
-    lazy_code = lazy_code // '    else' // new_line('A')
-    lazy_code = lazy_code // '        sum_pos = sum_pos + a(i)' // new_line('A')
-    lazy_code = lazy_code // '    end if' // new_line('A')
-    lazy_code = lazy_code // 'end do' // new_line('A') // new_line('A')
-    lazy_code = lazy_code // 'print *, ''Sum negative:'', sum_neg' // new_line('A')
-    lazy_code = lazy_code // 'print *, ''Sum positive:'', sum_pos'
+    lazy_code = trim(lazy_code)//'a = [-5, -3, -1, 1, 3, 5]'//new_line('A')
+    lazy_code = lazy_code//'sum_neg = 0'//new_line('A')
+    lazy_code = lazy_code//'sum_pos = 0'//new_line('A')//new_line('A')
+    lazy_code = lazy_code//'do i = 1, 6'//new_line('A')
+    lazy_code = lazy_code//'    if (a(i) < 0) then'//new_line('A')
+    lazy_code = lazy_code//'        sum_neg = sum_neg + a(i)'//new_line('A')
+    lazy_code = lazy_code//'    else'//new_line('A')
+    lazy_code = lazy_code//'        sum_pos = sum_pos + a(i)'//new_line('A')
+    lazy_code = lazy_code//'    end if'//new_line('A')
+    lazy_code = lazy_code//'end do'//new_line('A')//new_line('A')
+    lazy_code = lazy_code//'print *, ''Sum negative:'', sum_neg'//new_line('A')
+    lazy_code = lazy_code//'print *, ''Sum positive:'', sum_pos'
 
     options = tooling_parse_options_t()
     options%run_semantics = .false.
@@ -34,7 +33,7 @@ program debug_ast
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
-            write (*, '(A)') 'Error: ' // trim(error_msg)
+            write (*, '(A)') 'Error: '//trim(error_msg)
         end if
     end if
 

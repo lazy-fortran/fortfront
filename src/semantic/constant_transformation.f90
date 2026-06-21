@@ -4,7 +4,7 @@ module constant_transformation
     use ast_base, only: ast_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
                               assignment_node, call_or_subscript_node
-    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL, LITERAL_STRING
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_core
@@ -409,7 +409,7 @@ contains
                             node%constant_real = entry%constant_real
                             node%constant_logical = entry%constant_logical
                             call trace_leave('fold_identifier_node')
-                            return  ! Found match, no need to continue
+                            return ! Found match, no need to continue
                         end if
                     end if
                 end if

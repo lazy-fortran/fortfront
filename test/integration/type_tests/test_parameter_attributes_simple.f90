@@ -1,13 +1,8 @@
 program test_parameter_attributes_simple
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
-    use ast_nodes_data, only: parameter_declaration_node, INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use transformation_api, only: transform_lazy_fortran_string
     use ast_visitor
     use ast_traversal
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+ use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed = .true.
@@ -27,7 +22,6 @@ program test_parameter_attributes_simple
 contains
 
     include '../../common/read_example.inc'
-
 
     function test_parameter_attributes_parsing() result(passed)
         logical :: passed

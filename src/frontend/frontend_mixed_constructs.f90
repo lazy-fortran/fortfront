@@ -3,7 +3,7 @@ module frontend_mixed_constructs
     ! Supports Issue #511 - mixed module/program constructs
 
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_UNKNOWN, TK_WHITESPACE
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -11,8 +11,8 @@ module frontend_mixed_constructs
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: mixed_construct_container_node, &
                               create_mixed_construct_container
-    use mixed_construct_detector, only: detect_mixed_constructs, &
-                                        mixed_construct_result_t
+    use mixed_construct_detector, only: &
+        mixed_construct_result_t
 
     implicit none
     private
@@ -105,7 +105,7 @@ contains
             used_tokens = .false.
 
             call get_environment_variable('FORTFRONT_DEBUG_MIXED', dump_flag, &
-                                           status=env_status)
+                                          status=env_status)
             if (env_status == 0 .and. len_trim(dump_flag) > 0) then
                 write (error_unit, '(A)') 'DEBUG mixed implicit ranges'
                 do i = 1, mixed_result%num_implicit_ranges

@@ -1,6 +1,6 @@
 module ast_nodes_associate
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -13,14 +13,14 @@ module ast_nodes_associate
 
     ! Association type for ASSOCIATE construct
     type :: association_t
-        character(len=:), allocatable :: name  ! Associate name
-        integer :: expr_index = 0  ! Expression index in arena
+        character(len=:), allocatable :: name ! Associate name
+        integer :: expr_index = 0 ! Expression index in arena
     end type association_t
 
     ! ASSOCIATE construct node
     type, extends(ast_node) :: associate_node
-        type(association_t), allocatable :: associations(:)  ! List of associations
-        integer, allocatable :: body_indices(:)  ! Body statement indices
+        type(association_t), allocatable :: associations(:) ! List of associations
+        integer, allocatable :: body_indices(:) ! Body statement indices
     contains
         procedure :: accept => associate_accept
         procedure :: assign => associate_assign
@@ -29,7 +29,7 @@ module ast_nodes_associate
 
     ! BLOCK construct node (F2008 scoped block)
     type, extends(ast_node) :: block_construct_node
-        integer, allocatable :: body_indices(:)  ! Body statement indices
+        integer, allocatable :: body_indices(:) ! Body statement indices
     contains
         procedure :: accept => block_construct_accept
         procedure :: assign => block_construct_assign

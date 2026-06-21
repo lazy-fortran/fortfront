@@ -1,7 +1,7 @@
 module frontend_transformation_structure
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node, assignment_node
+    use ast_nodes_core, only: program_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, module_node, &

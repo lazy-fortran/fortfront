@@ -5,42 +5,35 @@ module frontend_core
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront_constants, only: MAX_FRONTEND_ERROR_LEN
     use string_builder_mod, only: join_strings
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
+    use lexer_core, only: token_t, tokenize_core, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                           TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
                           to_lower
-    use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                        get_additional_indices, clear_additional_indices
-    use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
-                                          parse_select_case
+    use parser_dispatcher_module, only: &
+        get_additional_indices, clear_additional_indices
+    use parser_control_flow_module, only: &
+        parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, &
         & destroy_compiler_arena
-    use ast_nodes_misc, only: comment_node
-    use ast_base, only: LITERAL_STRING
-    use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use type_system_unified, only: reset_type_system
-    use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
+    use standardizer, only: standardize_ast, &
                             get_standardizer_type_standardization, &
                             standardize_multi_unit_children
     use codegen_arena_interface, only: generate_code_from_arena
-    use codegen_basic_utils, only: add_line_continuations
-    use codegen_type_utils, only: set_type_standardization, get_type_standardization
-    use codegen_core, only: generate_code_polymorphic, initialize_codegen
-    use codegen_indent, only: set_indent_config, get_indent_config, &
-                              set_line_length_config, get_line_length_config
-    use path_validation, only: validate_input_path, validate_output_path, &
+    use codegen_core, only: initialize_codegen
+    use codegen_indent, only: &
+        set_line_length_config, get_line_length_config
+    use path_validation, only: validate_input_path, &
         & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
                                 parse_result_with_index_t
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
-    use frontend_utilities, only: write_output_file, int_to_str
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use frontend_utilities, only: write_output_file
+    use semantic_input_mode, only: INPUT_MODE_LAZY
 
     implicit none
     private
@@ -84,7 +77,7 @@ contains
 
         ! Log compilation start with proper logging
         write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " &
-            & // input_file
+            & //input_file
 
         error_msg = ""
 
@@ -95,7 +88,7 @@ contains
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
         if (.not. validation_result%is_valid()) then
-            error_msg = "Input path validation failed: " // &
+            error_msg = "Input path validation failed: "// &
                 & validation_result%get_message()
             return
         end if
@@ -198,8 +191,8 @@ contains
     end subroutine analyze_semantics
 
     subroutine emit_fortran(arena, prog_index, fortran_code)
-        type(ast_arena_t), intent(in) :: arena  ! Made intent(in) to prevent corruption
-        integer, intent(in) :: prog_index  ! Made intent(in) to prevent modification
+        type(ast_arena_t), intent(in) :: arena ! Made intent(in) to prevent corruption
+        integer, intent(in) :: prog_index ! Made intent(in) to prevent modification
         character(len=:), allocatable, intent(out) :: fortran_code
 
         ! Initialize the codegen system
@@ -270,9 +263,9 @@ contains
             end if
 
             if (add_newline) then
-                buffer = buffer // trimmed_line // new_line('A')
+                buffer = buffer//trimmed_line//new_line('A')
             else
-                buffer = buffer // trimmed_line
+                buffer = buffer//trimmed_line
             end if
         end subroutine append_trimmed_line
     end subroutine normalize_emitted_code
@@ -288,7 +281,7 @@ contains
         ! Read source file
         open (newunit=unit, file=input_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
-            error_msg = "Cannot open input file: " // input_file
+            error_msg = "Cannot open input file: "//input_file
             return
         end if
 
@@ -666,7 +659,7 @@ contains
 
         len_line = len(line)
         if (len_trim(line) > 0) then
-            if (line(1:1) == "&") return  ! Already normalized to free form
+            if (line(1:1) == "&") return ! Already normalized to free form
         end if
         if (len_line < 6) return
         if (is_fixed_form_comment(line)) return
@@ -681,7 +674,7 @@ contains
         end if
 
         if (len(body) > 0) then
-            line = "& " // trim(body)
+            line = "& "//trim(body)
         else
             line = "&"
         end if

@@ -1,7 +1,6 @@
 program test_do_concurrent_issue_1828
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+                                                                              iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -99,9 +98,7 @@ program test_do_concurrent_issue_1828
     print *, 'PASS: DO CONCURRENT preserved correctly'
     stop 0
 
-
 contains
-
 
     include '../common/read_example.inc'
 end program test_do_concurrent_issue_1828

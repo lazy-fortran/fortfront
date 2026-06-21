@@ -2,19 +2,17 @@ module frontend_parsing
     ! fortfront - Parsing functions module (refactored for SRP compliance)
     ! Now serves as a compatibility layer over split modules
 
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_UNKNOWN, &
                           TK_WHITESPACE, to_lower
-    use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_transfer, only: entry_node
     use ast_factory, only: push_program
-    use frontend_utilities, only: int_to_str, is_type_start
+    use frontend_utilities, only: is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &
                                         mixed_construct_result_t, &
@@ -23,7 +21,7 @@ module frontend_parsing
     use parser_dispatcher_module, only: clear_parser_errors
 
     ! Import from split modules
-    use frontend_program_units, only: parse_program_unit, parse_module_unit, &
+    use frontend_program_units, only: parse_program_unit, &
                                       parse_function_unit, parse_subroutine_unit, &
                                       parse_type_unit, parse_explicit_program_unit, &
                                       parse_implicit_main_program, &
@@ -31,14 +29,14 @@ module frontend_parsing
                                       has_any_non_comment_content, &
                                       has_executable_statements, &
                                       is_function_start
-    use frontend_statement_processing, only: parse_all_statements, &
-                                             process_comment_statement, &
-                                             process_regular_statement, &
-                                             create_final_program_structure, &
-                                             handle_multiple_program_units, &
-                                             should_include_program_unit, &
-                                             is_empty_main_program, &
-                                             find_statement_boundary
+    use frontend_statement_processing, only: &
+        process_comment_statement, &
+        process_regular_statement, &
+        create_final_program_structure, &
+        handle_multiple_program_units, &
+        should_include_program_unit, &
+        is_empty_main_program, &
+        find_statement_boundary
     use frontend_mixed_constructs, only: parse_mixed_constructs, &
                                          create_mixed_construct_container_arena, &
                                          parse_declaration_range, parse_program_range

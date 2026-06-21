@@ -8,7 +8,7 @@ module parser_result_types
     ! Parser result type for single AST nodes
     type, public :: parse_result_t
         type(result_t) :: result
-        integer :: node_index = 0  ! AST node index if successful
+        integer :: node_index = 0 ! AST node index if successful
     contains
         procedure :: is_success => parse_result_is_success
         procedure :: is_failure => parse_result_is_failure
@@ -20,7 +20,7 @@ module parser_result_types
     ! Compilation result for top-level parsing
     type, public :: compile_result_t
         type(result_t) :: result
-        integer :: program_index = 0  ! Root AST node if successful
+        integer :: program_index = 0 ! Root AST node if successful
         type(error_collection_t) :: warnings
     contains
         procedure :: is_success => compile_result_is_success
@@ -193,7 +193,7 @@ contains
     ! Recover to statement boundary (newline, semicolon, or end keyword)
     function recover_to_statement_boundary(parser) result(recovery_res)
         use parser_state_module, only: parser_state_t
-        use lexer_core, only: TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, TK_EOF
+        use lexer_core, only: TK_KEYWORD, TK_NEWLINE, TK_OPERATOR
         type(parser_state_t), intent(inout) :: parser
         type(result_t) :: recovery_res
 
@@ -211,11 +211,11 @@ contains
 
                 ! Statement boundary tokens
                 if (token%kind == TK_NEWLINE) then
-                    exit  ! Found newline - good statement boundary
+                    exit ! Found newline - good statement boundary
                 end if
 
                 if (token%kind == TK_OPERATOR .and. token%text == ";") then
-                    exit  ! Found semicolon - statement separator
+                    exit ! Found semicolon - statement separator
                 end if
 
                 if (token%kind == TK_KEYWORD) then
@@ -223,7 +223,7 @@ contains
                     case ("end", "contains", "else", "elseif", "endif", &
                           "enddo", "endfunction", "endsubroutine", &
                           "endmodule", "endprogram", "endinterface")
-                        exit  ! Found end keyword - statement boundary
+                        exit ! Found end keyword - statement boundary
                     case ("integer", "real", "logical", "character", &
                           "complex", "type", "procedure", "function", &
                           "subroutine", &
@@ -232,7 +232,7 @@ contains
                           "if", "do", "select", &
                           "use", "include", "call", "print", "write", &
                           "read", "allocate", "deallocate")
-                        exit  ! Found statement-starting keyword
+                        exit ! Found statement-starting keyword
                     end select
                 end if
 
@@ -259,7 +259,7 @@ contains
     ! Recover to closing parenthesis, bracket, or brace
     function recover_to_closing_paren(parser, opening_char) result(recovery_res)
         use parser_state_module, only: parser_state_t
-        use lexer_core, only: TK_OPERATOR, TK_EOF
+        use lexer_core, only: TK_OPERATOR
         type(parser_state_t), intent(inout) :: parser
         character(len=1), intent(in) :: opening_char
         type(result_t) :: recovery_res
@@ -338,7 +338,6 @@ contains
     function recover_to_next_token(parser, target_kind, target_text) &
         result(recovery_res)
         use parser_state_module, only: parser_state_t
-        use lexer_core, only: TK_EOF
         type(parser_state_t), intent(inout) :: parser
         integer, intent(in) :: target_kind
         character(len=*), intent(in), optional :: target_text
@@ -358,10 +357,10 @@ contains
                 if (token%kind == target_kind) then
                     if (present(target_text)) then
                         if (token%text == target_text) then
-                            exit  ! Found target token with matching text
+                            exit ! Found target token with matching text
                         end if
                     else
-                        exit  ! Found target token kind
+                        exit ! Found target token kind
                     end if
                 end if
 
@@ -388,7 +387,7 @@ contains
     ! Skip to known synchronization points for robust error recovery
     function skip_to_synchronization_point(parser) result(recovery_res)
         use parser_state_module, only: parser_state_t
-        use lexer_core, only: TK_KEYWORD, TK_EOF
+        use lexer_core, only: TK_KEYWORD
         type(parser_state_t), intent(inout) :: parser
         type(result_t) :: recovery_res
 
@@ -410,9 +409,9 @@ contains
                           "interface", "type", "contains", &
                           "end", "endprogram", "endmodule", "endfunction", &
                           "endsubroutine", "endinterface", "endtype")
-                        exit  ! Found major structural boundary
+                        exit ! Found major structural boundary
                     case ("use", "include", "implicit")
-                        exit  ! Found declaration boundary
+                        exit ! Found declaration boundary
                     end select
                 end if
 

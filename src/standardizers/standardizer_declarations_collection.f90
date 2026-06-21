@@ -12,7 +12,6 @@ module standardizer_declarations_collection
     use ast_nodes_misc, only: allocate_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: goto_node
-    use ast_base, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_STRING
     use standardizer_declarations_state, only: get_standardizer_type_standardization
     use standardizer_declarations_inference, only: &
         handle_string_concatenation, &
@@ -306,7 +305,7 @@ contains
         if (decl%has_kind) then
             buffer = int_to_string(decl%kind_value)
             if (len_trim(buffer) > 0) then
-                type_str = trim(type_str) // "(" // trim(buffer) // ")"
+                type_str = trim(type_str)//"("//trim(buffer)//")"
             end if
         end if
 
@@ -329,36 +328,36 @@ contains
         if (decl%is_allocatable) then
             lowered = to_lower(result_str)
             if (index(lowered, 'allocatable') == 0) then
-                result_str = trim(result_str) // ", allocatable"
+                result_str = trim(result_str)//", allocatable"
             end if
         end if
 
         if (decl%is_pointer) then
             lowered = to_lower(result_str)
             if (index(lowered, 'pointer') == 0) then
-                result_str = trim(result_str) // ", pointer"
+                result_str = trim(result_str)//", pointer"
             end if
         end if
 
         if (decl%is_target) then
             lowered = to_lower(result_str)
             if (index(lowered, 'target') == 0) then
-                result_str = trim(result_str) // ", target"
+                result_str = trim(result_str)//", target"
             end if
         end if
 
         if (decl%is_parameter) then
             lowered = to_lower(result_str)
             if (index(lowered, 'parameter') == 0) then
-                result_str = trim(result_str) // ", parameter"
+                result_str = trim(result_str)//", parameter"
             end if
         end if
 
         if (decl%has_intent .and. allocated(decl%intent)) then
             lowered = to_lower(result_str)
             if (index(lowered, 'intent(') == 0) then
-                result_str = trim(result_str) // ", intent(" // &
-                             trim(decl%intent) // ")"
+                result_str = trim(result_str)//", intent("// &
+                             trim(decl%intent)//")"
             end if
         end if
     end function append_attributes_to_type
@@ -372,31 +371,31 @@ contains
         character(len=32) :: buffer
         integer :: dim_idx, i
 
-        result_str = trim(type_str) // ", dimension("
+        result_str = trim(type_str)//", dimension("
         do i = 1, size(dimension_indices)
-            if (i > 1) result_str = result_str // ","
+            if (i > 1) result_str = result_str//","
             dim_idx = dimension_indices(i)
             if (dim_idx == 0) then
-                result_str = result_str // ":"
+                result_str = result_str//":"
             else if (dim_idx > 0 .and. dim_idx <= arena%size) then
                 if (allocated(arena%entries(dim_idx)%node)) then
                     select type (dim_node => arena%entries(dim_idx)%node)
                     type is (literal_node)
-                        result_str = result_str // trim(dim_node%value)
+                        result_str = result_str//trim(dim_node%value)
                     class default
-                        result_str = result_str // ":"
+                        result_str = result_str//":"
                     end select
                 else
-                    result_str = result_str // ":"
+                    result_str = result_str//":"
                 end if
             else if (dim_idx > arena%size) then
                 buffer = int_to_string(dim_idx)
-                result_str = result_str // trim(buffer)
+                result_str = result_str//trim(buffer)
             else
-                result_str = result_str // ":"
+                result_str = result_str//":"
             end if
         end do
-        result_str = result_str // ")"
+        result_str = result_str//")"
     end function append_dimension_spec
 
     subroutine collect_allocate_vars(arena, alloc_index, var_names, &
@@ -457,13 +456,13 @@ contains
                         block
                             integer :: j
                             do j = 2, rank
-                                dimension_spec = trim(dimension_spec) // ",:"
+                                dimension_spec = trim(dimension_spec)//",:"
                             end do
                         end block
-                        var_type = trim(base_type) // ", dimension(" // &
-                                   trim(dimension_spec) // "), allocatable"
+                        var_type = trim(base_type)//", dimension("// &
+                                   trim(dimension_spec)//"), allocatable"
                     else
-                        var_type = trim(base_type) // ", allocatable"
+                        var_type = trim(base_type)//", allocatable"
                     end if
 
                     call add_or_update_alloc_var(var_name, var_type, var_names, &
@@ -698,7 +697,7 @@ contains
         end select
 
         if (derived_type_is_defined(arena, call_name)) &
-            var_type = "type(" // trim(call_name) // ")"
+            var_type = "type("//trim(call_name)//")"
     end function derived_constructor_var_type
 
     logical function derived_type_is_defined(arena, name) result(is_defined)
@@ -742,7 +741,7 @@ contains
             .and. index(var_types(existing_idx), 'len=:') > 0 &
             .and. index(var_types(existing_idx), 'allocatable') == 0) then
             var_types(existing_idx) = trim(var_types(existing_idx)) &
-                                      // ", allocatable"
+                                      //", allocatable"
         end if
     end subroutine update_existing_variable_type
 
@@ -779,10 +778,10 @@ contains
             if (rank <= 0) rank = 1
             decl_type = 'real, dimension('
             do idx = 1, rank
-                if (idx > 1) decl_type = trim(decl_type) // ','
-                decl_type = trim(decl_type) // ':'
+                if (idx > 1) decl_type = trim(decl_type)//','
+                decl_type = trim(decl_type)//':'
             end do
-            decl_type = trim(decl_type) // ')'
+            decl_type = trim(decl_type)//')'
         end if
 
         call add_variable(base_name, decl_type, var_names, var_types, &
@@ -896,7 +895,7 @@ contains
 
         lowered_type = to_lower(trim(type_str))
         if (index(lowered_type, 'pointer') == 0) then
-            result_str = trim(type_str) // ", pointer"
+            result_str = trim(type_str)//", pointer"
         else
             result_str = trim(type_str)
         end if

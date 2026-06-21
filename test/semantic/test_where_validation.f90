@@ -1,10 +1,7 @@
 program test_where_validation
     ! Tests that WHERE/ELSEWHERE body validation rejects invalid statements
     ! per F2018 Section 10.2.3.2
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_core, only: assignment_node
-    use ast_nodes_control, only: if_node, stop_node
     use ast_nodes_array, only: where_node, elsewhere_clause_t
     use ast_base, only: LITERAL_LOGICAL, LITERAL_INTEGER
     use ast_factory, only: push_where
@@ -189,7 +186,7 @@ contains
 
         ! Create ELSEWHERE clause with valid assignment
         allocate (elsewhere_clauses(1))
-        elsewhere_clauses(1)%mask_index = 0  ! Unmasked ELSEWHERE
+        elsewhere_clauses(1)%mask_index = 0 ! Unmasked ELSEWHERE
         allocate (elsewhere_clauses(1)%body_indices(1))
         elsewhere_clauses(1)%body_indices(1) = assign_idx
 

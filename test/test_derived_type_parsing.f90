@@ -1,7 +1,6 @@
 program test_derived_type_parsing
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
-    use transformation_api, only: transform_lazy_fortran_string
+                                                                              iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -217,7 +216,6 @@ contains
             print *, "✗ FAIL: Parsing failed"
             error stop 1
         end if
-end subroutine
-
+    end subroutine
 
 end program test_derived_type_parsing

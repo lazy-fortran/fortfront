@@ -1,5 +1,4 @@
 module frontend_analysis_helpers
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, identifier_node, &
                               call_or_subscript_node, assignment_node, &

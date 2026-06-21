@@ -1,5 +1,5 @@
 program test_frontend_lexer_edge_cases
-    use lexer_core, only: TK_EOF, TK_IDENTIFIER, TK_NEWLINE, TK_NUMBER, &
+    use lexer_core, only: TK_IDENTIFIER, TK_NEWLINE, TK_NUMBER, &
                           TK_OPERATOR, TK_STRING, TK_COMMENT, TK_WHITESPACE, &
                           TK_UNKNOWN, token_t, tokenize_core, &
                           tokenize_core_with_trivia, tokenize_result_t, &
@@ -31,7 +31,7 @@ contains
 
         test_continuation_and_positions = .true.
 
-        call tokenize_core("x=&" // new_line('a') // "y=2", tokens)
+        call tokenize_core("x=&"//new_line('a')//"y=2", tokens)
 
         if (.not. expect_token(tokens, 3, TK_OPERATOR, "&")) then
             test_continuation_and_positions = .false.

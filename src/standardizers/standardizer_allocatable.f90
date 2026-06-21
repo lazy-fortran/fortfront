@@ -10,7 +10,6 @@ module standardizer_allocatable
     use ast_nodes_control
     use ast_nodes_data
     use ast_nodes_procedure
-    use ast_nodes_bounds, only: range_expression_node
     use type_system_unified
     use standardizer_types
     implicit none
@@ -601,7 +600,7 @@ contains
             if (allocated(new_decl%var_names)) deallocate (new_decl%var_names)
         else
             new_decl%is_multi_declaration = .true.
-            new_decl%var_name = var_names(1)  ! First variable as primary
+            new_decl%var_name = var_names(1) ! First variable as primary
             if (allocated(new_decl%var_names)) deallocate (new_decl%var_names)
             allocate (character(len=64) :: new_decl%var_names(var_count))
             new_decl%var_names(1:var_count) = var_names(1:var_count)
@@ -617,7 +616,7 @@ contains
             if (.not. has_explicit_array_bounds(new_decl)) then
                 deallocate (new_decl%dimension_indices)
                 allocate (new_decl%dimension_indices(1))
-                new_decl%dimension_indices(1) = 0  ! Deferred shape
+                new_decl%dimension_indices(1) = 0 ! Deferred shape
             end if
         end if
     end subroutine create_split_declaration
@@ -915,7 +914,7 @@ contains
                 deallocate (decl%dimension_indices)
             end if
             allocate (decl%dimension_indices(1))
-            decl%dimension_indices(1) = 0  ! Deferred shape (:)
+            decl%dimension_indices(1) = 0 ! Deferred shape (:)
             apply_allocatable_attributes = .true.
         else if (is_character) then
             decl%is_allocatable = .true.

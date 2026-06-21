@@ -1,6 +1,6 @@
 module ast_nodes_transfer
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -15,7 +15,7 @@ module ast_nodes_transfer
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
-        character(len=:), allocatable :: label  ! Optional label to cycle to
+        character(len=:), allocatable :: label ! Optional label to cycle to
     contains
         procedure :: accept => cycle_accept
         procedure :: assign => cycle_assign
@@ -24,7 +24,7 @@ module ast_nodes_transfer
 
     ! Exit statement node
     type, extends(ast_node) :: exit_node
-        character(len=:), allocatable :: label  ! Optional label to exit from
+        character(len=:), allocatable :: label ! Optional label to exit from
     contains
         procedure :: accept => exit_accept
         procedure :: assign => exit_assign
@@ -33,9 +33,9 @@ module ast_nodes_transfer
 
     ! Stop statement node
     type, extends(ast_node) :: stop_node
-        integer :: stop_code_index = 0  ! Optional stop code &
+        integer :: stop_code_index = 0 ! Optional stop code &
         ! expression index
-        character(len=:), allocatable :: stop_message  ! Optional stop message string
+        character(len=:), allocatable :: stop_message ! Optional stop message string
     contains
         procedure :: accept => stop_accept
         procedure :: assign => stop_assign
@@ -72,9 +72,9 @@ module ast_nodes_transfer
 
     ! Goto statement node
     type, extends(ast_node) :: goto_node
-        character(len=:), allocatable :: label  ! Target label (simple goto)
-        character(len=:), allocatable :: label_list  ! Comma-separated labels
-        integer :: selector_index = 0  ! Expression index for computed goto selector
+        character(len=:), allocatable :: label ! Target label (simple goto)
+        character(len=:), allocatable :: label_list ! Comma-separated labels
+        integer :: selector_index = 0 ! Expression index for computed goto selector
     contains
         procedure :: accept => goto_accept
         procedure :: assign => goto_assign
@@ -83,8 +83,8 @@ module ast_nodes_transfer
 
     ! Error stop statement node
     type, extends(ast_node) :: error_stop_node
-        integer :: error_code_index = 0  ! Optional error code expression index
-        character(len=:), allocatable :: error_message  ! Optional error message string
+        integer :: error_code_index = 0 ! Optional error code expression index
+        character(len=:), allocatable :: error_message ! Optional error message string
     contains
         procedure :: accept => error_stop_accept
         procedure :: assign => error_stop_assign
@@ -93,8 +93,8 @@ module ast_nodes_transfer
 
     ! Pause statement node
     type, extends(ast_node) :: pause_node
-        integer :: pause_code_index = 0  ! Optional pause code expression index
-        character(len=:), allocatable :: pause_message  ! Optional pause message string
+        integer :: pause_code_index = 0 ! Optional pause code expression index
+        character(len=:), allocatable :: pause_message ! Optional pause message string
     contains
         procedure :: accept => pause_accept
         procedure :: assign => pause_assign
@@ -103,7 +103,7 @@ module ast_nodes_transfer
 
     ! Nullify statement node
     type, extends(ast_node) :: nullify_node
-        integer, allocatable :: pointer_indices(:)  ! Indices of pointers to nullify
+        integer, allocatable :: pointer_indices(:) ! Indices of pointers to nullify
     contains
         procedure :: accept => nullify_accept
         procedure :: assign => nullify_assign

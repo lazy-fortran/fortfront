@@ -1,6 +1,6 @@
 module ast_nodes_conditional
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -17,25 +17,25 @@ module ast_nodes_conditional
 
     ! Elseif wrapper (not an AST node itself)
     type :: elseif_wrapper_t
-        integer :: condition_index = 0  ! Elseif condition arena index
-        integer, allocatable :: body_indices(:)  ! Elseif body arena indices
+        integer :: condition_index = 0 ! Elseif condition arena index
+        integer, allocatable :: body_indices(:) ! Elseif body arena indices
     end type elseif_wrapper_t
 
     ! Case statement wrapper (temporary for parser compatibility)
     type :: case_wrapper_t
-        character(len=:), allocatable :: case_type  ! "case", "case_default"
-        class(ast_node), allocatable :: value  ! Case value (optional &
+        character(len=:), allocatable :: case_type ! "case", "case_default"
+        class(ast_node), allocatable :: value ! Case value (optional &
         ! for default)
-        type(ast_node_wrapper), allocatable :: body(:)  ! Case body
+        type(ast_node_wrapper), allocatable :: body(:) ! Case body
     end type case_wrapper_t
 
     ! If statement node
     type, extends(ast_node) :: if_node
-        integer :: condition_index = 0  ! If condition arena index
-        integer, allocatable :: then_body_indices(:)  ! Then body arena indices
+        integer :: condition_index = 0 ! If condition arena index
+        integer, allocatable :: then_body_indices(:) ! Then body arena indices
         type(elseif_wrapper_t), allocatable :: elseif_blocks(:)
         ! Elseif blocks (optional)
-        integer, allocatable :: else_body_indices(:)  ! Else body arena indices &
+        integer, allocatable :: else_body_indices(:) ! Else body arena indices &
         ! (optional)
     contains
         procedure :: accept => if_accept
@@ -45,9 +45,9 @@ module ast_nodes_conditional
 
     ! Select case construct node
     type, extends(ast_node) :: select_case_node
-        integer :: selector_index = 0  ! Selector expression arena index
-        integer, allocatable :: case_indices(:)  ! Case block arena indices
-        integer :: default_index = 0  ! Default case arena index &
+        integer :: selector_index = 0 ! Selector expression arena index
+        integer, allocatable :: case_indices(:) ! Case block arena indices
+        integer :: default_index = 0 ! Default case arena index &
         ! (optional)
     contains
         procedure :: accept => select_case_accept
@@ -57,8 +57,8 @@ module ast_nodes_conditional
 
     ! Case block node (case (values) body)
     type, extends(ast_node) :: case_block_node
-        integer, allocatable :: value_indices(:)  ! Case value arena indices
-        integer, allocatable :: body_indices(:)  ! Case body arena indices
+        integer, allocatable :: value_indices(:) ! Case value arena indices
+        integer, allocatable :: body_indices(:) ! Case body arena indices
     contains
         procedure :: accept => case_block_accept
         procedure :: assign => case_block_assign
@@ -67,8 +67,8 @@ module ast_nodes_conditional
 
     ! Case range node (for ranges like 1:5)
     type, extends(ast_node) :: case_range_node
-        integer :: start_value = 0  ! Start value
-        integer :: end_value = 0  ! End value
+        integer :: start_value = 0 ! Start value
+        integer :: end_value = 0 ! End value
     contains
         procedure :: accept => case_range_accept
         procedure :: assign => case_range_assign
@@ -77,7 +77,7 @@ module ast_nodes_conditional
 
     ! Case default node
     type, extends(ast_node) :: case_default_node
-        integer, allocatable :: body_indices(:)  ! Default case body arena indices
+        integer, allocatable :: body_indices(:) ! Default case body arena indices
     contains
         procedure :: accept => case_default_accept
         procedure :: assign => case_default_assign
@@ -86,9 +86,9 @@ module ast_nodes_conditional
 
     ! Select type construct node
     type, extends(ast_node) :: select_type_node
-        integer :: selector_index = 0  ! Selector expression arena index
-        integer, allocatable :: guard_indices(:)  ! Type guard block arena indices
-        integer :: default_index = 0  ! Default guard arena index (optional)
+        integer :: selector_index = 0 ! Selector expression arena index
+        integer, allocatable :: guard_indices(:) ! Type guard block arena indices
+        integer :: default_index = 0 ! Default guard arena index (optional)
     contains
         procedure :: accept => select_type_accept
         procedure :: assign => select_type_assign
@@ -97,9 +97,9 @@ module ast_nodes_conditional
 
     ! Type guard block node (type is/class is)
     type, extends(ast_node) :: type_guard_block_node
-        character(len=20) :: guard_type  ! "type_is" or "class_is"
-        integer :: type_name_index = 0  ! Type name identifier index
-        integer, allocatable :: body_indices(:)  ! Guard body arena indices
+        character(len=20) :: guard_type ! "type_is" or "class_is"
+        integer :: type_name_index = 0 ! Type name identifier index
+        integer, allocatable :: body_indices(:) ! Guard body arena indices
     contains
         procedure :: accept => type_guard_block_accept
         procedure :: assign => type_guard_block_assign
@@ -108,9 +108,9 @@ module ast_nodes_conditional
 
     ! Select rank construct node
     type, extends(ast_node) :: select_rank_node
-        integer :: selector_index = 0  ! Selector expression arena index
-        integer, allocatable :: rank_indices(:)  ! Rank block arena indices
-        integer :: default_index = 0  ! Default rank arena index (optional)
+        integer :: selector_index = 0 ! Selector expression arena index
+        integer, allocatable :: rank_indices(:) ! Rank block arena indices
+        integer :: default_index = 0 ! Default rank arena index (optional)
     contains
         procedure :: accept => select_rank_accept
         procedure :: assign => select_rank_assign
@@ -119,8 +119,8 @@ module ast_nodes_conditional
 
     ! Rank block node (rank (n))
     type, extends(ast_node) :: rank_block_node
-        integer :: rank_value = -1  ! Rank value (-1 for star/default)
-        integer, allocatable :: body_indices(:)  ! Rank body arena indices
+        integer :: rank_value = -1 ! Rank value (-1 for star/default)
+        integer, allocatable :: body_indices(:) ! Rank body arena indices
     contains
         procedure :: accept => rank_block_accept
         procedure :: assign => rank_block_assign

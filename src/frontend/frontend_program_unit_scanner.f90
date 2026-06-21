@@ -3,9 +3,6 @@ module frontend_program_unit_scanner
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_WHITESPACE, &
                           to_lower
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: module_node, block_data_node
-    use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use frontend_program_units, only: parse_program_unit

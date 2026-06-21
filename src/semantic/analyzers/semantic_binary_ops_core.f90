@@ -1,6 +1,6 @@
 module semantic_binary_ops_core
     ! Binary operation type inference
-    use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, TREAL, &
+    use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, &
                                    TARRAY, allocation_info_t
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t

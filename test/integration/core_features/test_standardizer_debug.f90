@@ -2,7 +2,7 @@ program test_standardizer_debug
     use lexer_api, only: lex_file
     use parser_api, only: parse_tokens
     use standardizer, only: standardize_ast
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t
     use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     use lexer_core, only: token_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
