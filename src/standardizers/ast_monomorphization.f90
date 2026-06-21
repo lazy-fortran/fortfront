@@ -10,6 +10,8 @@ module ast_monomorphization
                                    create_function_def, create_subroutine_def
     use ast_nodes_data, only: module_node, parameter_declaration_node, &
                               declaration_node, mixed_construct_container_node, &
+                              multi_unit_container_node, &
+                              create_multi_unit_container, &
                               create_module
     use ast_factory_declarations, only: push_declaration
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &

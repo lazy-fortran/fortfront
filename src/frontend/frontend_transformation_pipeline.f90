@@ -30,7 +30,8 @@ module frontend_transformation_pipeline
                               identifier_node, call_or_subscript_node, &
                               component_access_node
     use ast_nodes_data, only: module_node, &
-                              mixed_construct_container_node
+                              mixed_construct_container_node, &
+                              multi_unit_container_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
@@ -745,10 +746,8 @@ contains
         if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
             if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
                 select type (node => compiler_arena%ast%entries(prog_index)%node)
-                type is (program_node)
-                    if (node%name == "__MULTI_UNIT__") then
-                        skip_standardization = .true.
-                    end if
+                type is (multi_unit_container_node)
+                    skip_standardization = .true.
                 end select
             end if
         end if

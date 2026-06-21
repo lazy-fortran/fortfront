@@ -9,7 +9,8 @@ module codegen_declarations
                                          generate_code_block_data, &
                                          generate_code_interface_block, &
                                          generate_code_module_procedure
-    use codegen_program_generation, only: generate_code_program
+    use codegen_program_generation, only: generate_code_program, &
+                                          generate_multi_unit_program
     implicit none
     private
     public :: generate_code_function_def
@@ -23,4 +24,5 @@ module codegen_declarations
     public :: generate_code_module_procedure
     public :: generate_code_derived_type
     public :: generate_code_program
+    public :: generate_multi_unit_program
 end module codegen_declarations

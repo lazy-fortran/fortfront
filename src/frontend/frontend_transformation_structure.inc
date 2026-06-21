@@ -1,7 +1,7 @@
     subroutine collect_procedures_and_target(arena, root_prog, all_procedures, &
                                              target_prog_idx)
         type(ast_arena_t), intent(in) :: arena
-        class(program_node), intent(in) :: root_prog
+        class(multi_unit_container_node), intent(in) :: root_prog
         integer, allocatable, intent(out) :: all_procedures(:)
         integer, intent(out) :: target_prog_idx
         integer :: i
@@ -20,13 +20,11 @@
 
             select type (child => arena%entries(root_prog%body_indices(i))%node)
             type is (program_node)
-                if (trim(child%name) /= "__MULTI_UNIT__") then
-                    if (trim(child%name) /= "" .and. child%name /= "main" .and. &
-                        child%name /= "MAIN") then
-                        target_prog_idx = root_prog%body_indices(i)
-                    else if (first_main_idx == 0) then
-                        first_main_idx = root_prog%body_indices(i)
-                    end if
+                if (trim(child%name) /= "" .and. child%name /= "main" .and. &
+                    child%name /= "MAIN") then
+                    target_prog_idx = root_prog%body_indices(i)
+                else if (first_main_idx == 0) then
+                    first_main_idx = root_prog%body_indices(i)
                 end if
             type is (function_def_node)
                 all_procedures = [all_procedures, root_prog%body_indices(i)]
@@ -76,7 +74,7 @@
     end subroutine filter_out_entry_procedures
 
     subroutine remove_procedures_from_body(root_prog, procedures)
-        class(program_node), intent(inout) :: root_prog
+        class(multi_unit_container_node), intent(inout) :: root_prog
         integer, intent(in) :: procedures(:)
         integer, allocatable :: new_body(:)
         integer :: i
@@ -211,7 +209,7 @@
 
     subroutine merge_additional_main_programs(arena, root_prog, target_prog_idx)
         type(ast_arena_t), intent(inout) :: arena
-        class(program_node), intent(inout) :: root_prog
+        class(multi_unit_container_node), intent(inout) :: root_prog
         integer, intent(in) :: target_prog_idx
         integer, allocatable :: new_body(:)
         integer :: i, child_idx
@@ -341,14 +339,13 @@
         integer :: i, target_prog_idx, contains_pos
         integer, allocatable :: procedures(:), all_procedures(:)
         integer, allocatable :: embedded_procs(:), lifted_procs(:)
-        class(program_node), pointer :: root_prog => null()
+        class(multi_unit_container_node), pointer :: root_prog => null()
         integer :: first_main_idx
 
         if (.not. arena%has_node_at(root_index)) return
 
         select type (root => arena%entries(root_index)%node)
-        type is (program_node)
-            if (trim(root%name) /= "__MULTI_UNIT__") return
+        type is (multi_unit_container_node)
             root_prog => root
         class default
             return

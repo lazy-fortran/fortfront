@@ -6,7 +6,7 @@ module codegen_program_generation
                               implicit_statement_node, interface_block_node, &
                               statement_function_node
     use ast_nodes_procedure, only: subroutine_def_node, function_def_node
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, multi_unit_container_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_program_body, only: append_program_body
     use codegen_program_header, only: assemble_program_header
@@ -14,6 +14,7 @@ module codegen_program_generation
     implicit none
     private
     public :: generate_code_program
+    public :: generate_multi_unit_program
 
 contains
 
@@ -26,17 +27,12 @@ contains
         integer :: non_use_count
         character(len=:), allocatable :: extra_decl_code
 
-        if (node%name == "__MULTI_UNIT__") then
-            code = generate_multi_unit_program(arena, node)
-            return
-        end if
-
         if (program_is_trivial_wrapper(arena, node_index, node%name)) then
             code = collect_trivial_program_trivia(arena, node_index)
             return
         end if
 
-        code = "program " // node%name // new_line('A')
+        code = "program "//node%name//new_line('A')
 
         call assemble_program_header(arena, node, code, non_use_indices, &
                                      non_use_count, extra_decl_code)
@@ -48,7 +44,7 @@ contains
             deallocate (non_use_indices)
         end if
 
-        code = code // "end program " // node%name
+        code = code//"end program "//node%name
     end function generate_code_program
 
     logical function program_contains_only_interfaces(arena, prog_index) &
@@ -118,8 +114,8 @@ contains
                 end select
                 statement_code = generate_code_from_arena(arena, child_idx)
                 if (len(statement_code) == 0) cycle
-                if (len(snippet) > 0) snippet = snippet // new_line('A')
-                snippet = snippet // statement_code
+                if (len(snippet) > 0) snippet = snippet//new_line('A')
+                snippet = snippet//statement_code
             end do
         end select
     end function emit_interface_only_program
@@ -181,16 +177,16 @@ contains
             type is (module_node)
                 module_code = generate_code_from_arena(arena, child_idx)
                 if (len(module_code) == 0) cycle
-                if (len(code) > 0) code = code // new_line('A') // &
+                if (len(code) > 0) code = code//new_line('A')// &
                                           new_line('A')
-                code = code // module_code
+                code = code//module_code
             end select
         end do
     end subroutine append_module_wrapper
 
     recursive function generate_multi_unit_program(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: node
+        type(multi_unit_container_node), intent(in) :: node
         character(len=:), allocatable :: code
         integer :: i, child_index
         logical :: has_interface_child
@@ -215,9 +211,9 @@ contains
                 if (program_contains_only_interfaces(arena, child_index)) then
                     child_code = emit_interface_only_program(arena, child_index)
                     if (len(child_code) > 0) then
-                        if (len(code) > 0) code = code // new_line('A') // &
+                        if (len(code) > 0) code = code//new_line('A')// &
                                                   new_line('A')
-                        code = code // child_code
+                        code = code//child_code
                     end if
                     has_interface_child = .true.
                     cycle
@@ -235,13 +231,13 @@ contains
                 has_non_interface_child = .true.
             end select
 
-            if (len(code) > 0) code = code // new_line('A') // new_line('A')
-            code = code // generate_code_from_arena(arena, child_index)
+            if (len(code) > 0) code = code//new_line('A')//new_line('A')
+            code = code//generate_code_from_arena(arena, child_index)
         end do
 
         if (has_interface_child .and. .not. has_non_interface_child) then
-            if (len_trim(code) > 0) code = code // new_line('A')
-            code = code // "end"
+            if (len_trim(code) > 0) code = code//new_line('A')
+            code = code//"end"
         end if
     end function generate_multi_unit_program
 
@@ -259,8 +255,8 @@ contains
 
         snippet = collect_trivial_program_trivia(arena, program_index)
         if (len_trim(snippet) > 0) then
-            if (len(code) > 0) code = code // new_line('A') // new_line('A')
-            code = code // snippet
+            if (len(code) > 0) code = code//new_line('A')//new_line('A')
+            code = code//snippet
         end if
 
         append_trivial_program = .true.
@@ -270,7 +266,7 @@ contains
                                                      child_index, position) &
         result(skip)
         type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: node
+        type(multi_unit_container_node), intent(in) :: node
         type(subroutine_def_node), intent(in) :: child
         integer, intent(in) :: child_index
         integer, intent(in) :: position
@@ -306,7 +302,7 @@ contains
     logical function has_prior_subroutine_with_name(arena, node, name, position) &
         result(found)
         type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: node
+        type(multi_unit_container_node), intent(in) :: node
         character(len=*), intent(in) :: name
         integer, intent(in) :: position
         integer :: j, idx
@@ -330,7 +326,7 @@ contains
     logical function declared_in_prior_interface(arena, node, child_index, &
                                                  position) result(found)
         type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: node
+        type(multi_unit_container_node), intent(in) :: node
         integer, intent(in) :: child_index
         integer, intent(in) :: position
         integer :: j, idx
@@ -442,9 +438,9 @@ contains
                 end select
 
                 if (len(snippet) > 0) then
-                    if (len(trivia_code) > 0) trivia_code = trivia_code // &
+                    if (len(trivia_code) > 0) trivia_code = trivia_code// &
                                                             new_line('A')
-                    trivia_code = trivia_code // snippet
+                    trivia_code = trivia_code//snippet
                 end if
             end do
         end select

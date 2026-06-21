@@ -14,7 +14,8 @@ module call_graph_builder_mod
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
                               call_or_subscript_node
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, multi_unit_container_node, &
+                              MULTI_UNIT_NAME
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node
     implicit none
@@ -124,6 +125,9 @@ contains
         case ('program', 'program_node')
             call handle_program_node(builder, arena, node_idx, stack, top, &
                                      capacity, children)
+        case ('multi_unit_container')
+            call handle_multi_unit_node(builder, arena, node_idx, stack, top, &
+                                        capacity, children)
         case ('function_def', 'function', 'subroutine_def', 'subroutine')
             call handle_procedure_node(builder, arena, node_idx, scope_sym, &
                                        stack, top, &
@@ -208,6 +212,29 @@ contains
                                        stack, top, capacity, children)
         end select
     end subroutine handle_program_node
+
+    subroutine handle_multi_unit_node(builder, arena, node_idx, stack, top, &
+                                      capacity, children)
+        type(call_graph_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_idx
+        type(stack_item_t), allocatable, intent(inout) :: stack(:)
+        integer, intent(inout) :: top
+        integer, intent(inout) :: capacity
+        integer, allocatable, intent(inout) :: children(:)
+        integer :: symbol_id
+
+        select type (node => arena%entries(node_idx)%node)
+        type is (multi_unit_container_node)
+            call builder%graph%add_proc(MULTI_UNIT_NAME, node_idx, node%line, &
+                                        node%column, is_main=.true.)
+            call add_symbol_entry(builder, MULTI_UNIT_NAME, MULTI_UNIT_NAME, 0, &
+                                  node_idx, .true., symbol_id)
+            call push_body_or_children(arena, node_idx, symbol_id, &
+                                       node%body_indices, stack, top, capacity, &
+                                       children)
+        end select
+    end subroutine handle_multi_unit_node
 
     subroutine handle_procedure_node(builder, arena, node_idx, scope_sym, stack, top, &
                                      capacity, children)

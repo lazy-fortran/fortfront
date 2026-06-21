@@ -5,7 +5,8 @@ module frontend_analysis_helpers
                               component_access_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node
-    use ast_nodes_data, only: module_node, submodule_node
+    use ast_nodes_data, only: module_node, submodule_node, &
+                              multi_unit_container_node
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -98,9 +99,8 @@ contains
                 select type (root => arena%entries(root_index)%node)
                 type is (module_node)
                     return
-                type is (program_node)
-                    if (root%name == "__MULTI_UNIT__" .and. &
-                        allocated(root%body_indices)) then
+                type is (multi_unit_container_node)
+                    if (allocated(root%body_indices)) then
                         do j = 1, size(root%body_indices)
                             call analyze_single_unit(arena, root%body_indices(j), &
                                                      has_functions, has_subroutines, &
@@ -224,8 +224,7 @@ contains
         if (.not. arena%has_node_at(prog_index)) return
 
         select type (root => arena%entries(prog_index)%node)
-        type is (program_node)
-            if (trim(root%name) /= "__MULTI_UNIT__") return
+        type is (multi_unit_container_node)
             if (.not. allocated(root%body_indices)) return
 
             needs_wrapping = .true.
@@ -269,7 +268,7 @@ contains
 
     subroutine collect_host_assignment_names(arena, root_prog, host_names)
         type(ast_arena_t), intent(in) :: arena
-        class(program_node), intent(in) :: root_prog
+        class(multi_unit_container_node), intent(in) :: root_prog
         character(len=64), allocatable, intent(inout) :: host_names(:)
         integer :: i, child_idx
 

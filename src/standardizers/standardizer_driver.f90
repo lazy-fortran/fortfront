@@ -1,7 +1,7 @@
 module standardizer_driver
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, multi_unit_container_node
     use ast_nodes_transfer, only: entry_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_program, only: standardize_program
@@ -50,16 +50,14 @@ contains
             visited(current_index) = .true.
 
             select type (node => arena%entries(current_index)%node)
-            type is (program_node)
-                if (node%name == "__MULTI_UNIT__") then
-                    if (allocated(node%body_indices)) then
-                        call push_many(node%body_indices, .false.)
-                    end if
-                else
-                    original_index = current_index
-                    call standardize_program(arena, node, current_index)
-                    if (original_index == root_tracker) root_tracker = current_index
+            type is (multi_unit_container_node)
+                if (allocated(node%body_indices)) then
+                    call push_many(node%body_indices, .false.)
                 end if
+            type is (program_node)
+                original_index = current_index
+                call standardize_program(arena, node, current_index)
+                if (original_index == root_tracker) root_tracker = current_index
             type is (module_node)
                 call standardize_module(arena, node, current_index)
                 if (allocated(node%declaration_indices)) then

@@ -56,6 +56,7 @@ contains
 
     subroutine standardize_multi_unit_children(arena, root_index)
         use ast_nodes_core, only: program_node
+        use ast_nodes_data, only: multi_unit_container_node
         use ast_nodes_procedure, only: subroutine_def_node, function_def_node
         use standardizer_subprograms, only: standardize_subroutine_def, &
                                             standardize_function_def
@@ -67,8 +68,7 @@ contains
         if (.not. arena%has_node_at(root_index)) return
 
         select type (node => arena%entries(root_index)%node)
-        type is (program_node)
-            if (node%name /= "__MULTI_UNIT__") return
+        type is (multi_unit_container_node)
             if (.not. allocated(node%body_indices)) return
 
             ! CRITICAL: Copy indices before the loop to avoid a dangling selector if

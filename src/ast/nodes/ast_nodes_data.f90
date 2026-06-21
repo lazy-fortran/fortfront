@@ -15,7 +15,13 @@ module ast_nodes_data
 
     ! Public factory functions
     public :: create_declaration, create_derived_type, create_mixed_construct_container
+    public :: create_multi_unit_container
     public :: create_type_binding
+
+    ! Synthetic name for the multi-unit aggregate in program analysis output
+    ! (call graph). The AST carries a dedicated multi_unit_container_node; this
+    ! name labels the corresponding aggregate procedure.
+    character(len=*), parameter, public :: MULTI_UNIT_NAME = '__MULTI_UNIT__'
     ! Constructors migrated from ast_core
     public :: create_module, create_block_data, create_submodule
 
@@ -196,6 +202,17 @@ module ast_nodes_data
         procedure :: assign => mixed_construct_container_assign
         generic :: assignment(=) => assign
     end type mixed_construct_container_node
+
+    ! Multi-unit container node: aggregates several top-level program units
+    ! (modules, procedures, an implicit main) parsed from one source. Replaces
+    ! the former sentinel program_node named '__MULTI_UNIT__'.
+    type, extends(ast_node), public :: multi_unit_container_node
+        integer, allocatable :: body_indices(:) ! Contained top-level unit indices
+    contains
+        procedure :: accept => multi_unit_container_accept
+        procedure :: assign => multi_unit_container_assign
+        generic :: assignment(=) => assign
+    end type multi_unit_container_node
 
 contains
 
@@ -793,6 +810,45 @@ contains
             deallocate (lhs%explicit_program_indices)
         end if
     end subroutine mixed_construct_container_assign
+
+    subroutine multi_unit_container_accept(this, visitor)
+        class(multi_unit_container_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! Stub implementation; traversal uses body_indices directly
+    end subroutine multi_unit_container_accept
+
+    subroutine multi_unit_container_assign(lhs, rhs)
+        class(multi_unit_container_node), intent(inout) :: lhs
+        class(multi_unit_container_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy derived class fields
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        else if (allocated(lhs%body_indices)) then
+            deallocate (lhs%body_indices)
+        end if
+    end subroutine multi_unit_container_assign
+
+    ! Factory function for the multi-unit container
+    function create_multi_unit_container(body_indices, line, column) result(node)
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in), optional :: line, column
+        type(multi_unit_container_node) :: node
+
+        node%uid = generate_uid()
+        if (size(body_indices) > 0) node%body_indices = body_indices
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_multi_unit_container
 
     ! Factory function for mixed construct container
     function create_mixed_construct_container(module_name, implicit_indices, &

@@ -9,6 +9,7 @@ module codegen_core
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
+                              multi_unit_container_node, &
                               parameter_declaration_node, module_node, &
                               derived_type_node, block_data_node, submodule_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, &
@@ -277,6 +278,8 @@ contains
         type is (mixed_construct_container_node)
             code = generate_code_mixed_construct_container(arena, node, &
                                                            node_index)
+        type is (multi_unit_container_node)
+            code = generate_multi_unit_program(arena, node)
         type is (template_block_node)
             code = generate_code_template_block(arena, node)
         type is (instantiate_statement_node)
@@ -308,7 +311,7 @@ contains
         type is (end_statement_node)
             code = "end"
         type is (error_node_t)
-            code = "! ERROR: " // node%error_message
+            code = "! ERROR: "//node%error_message
         class default
             code = "! Unknown node type"
             handled = .true.
@@ -344,11 +347,11 @@ contains
             ch = text(i:i)
 
             if (in_string) then
-                buffer = buffer // ch
+                buffer = buffer//ch
                 if (ch == string_delim) then
                     if (i < len_text) then
                         if (text(i + 1:i + 1) == string_delim) then
-                            buffer = buffer // string_delim
+                            buffer = buffer//string_delim
                             i = i + 1
                         else
                             in_string = .false.
@@ -364,25 +367,25 @@ contains
                 end if
             else if (ch == ' ') then
                 if (leading) then
-                    buffer = buffer // ' '
+                    buffer = buffer//' '
                 else
                     space_run = space_run + 1
                 end if
             else if (ch == '''' .or. ch == '"') then
                 if (space_run > 0) then
-                    buffer = buffer // ' '
+                    buffer = buffer//' '
                     space_run = 0
                 end if
-                buffer = buffer // ch
+                buffer = buffer//ch
                 in_string = .true.
                 string_delim = ch
                 leading = .false.
             else
                 if (space_run > 0) then
-                    buffer = buffer // ' '
+                    buffer = buffer//' '
                     space_run = 0
                 end if
-                buffer = buffer // ch
+                buffer = buffer//ch
                 if (ch == new_line('A')) then
                     leading = .true.
                 else
@@ -393,7 +396,7 @@ contains
             i = i + 1
         end do
 
-        if (space_run > 0 .and. .not. leading) buffer = buffer // ' '
+        if (space_run > 0 .and. .not. leading) buffer = buffer//' '
         clean = buffer
         clean = replace_all(clean, ' * ', '*')
         clean = replace_all(clean, ' ** ', '**')
@@ -478,12 +481,12 @@ contains
         end if
 
         group = trim(adjustl(rest(1:slash2 - 1)))
-        remainder = rest(slash2 + 1:)  ! Keep original spacing, do not adjustl
+        remainder = rest(slash2 + 1:) ! Keep original spacing, do not adjustl
         ! Add space before first slash, and optionally before remainder if present
-        out = trim(prefix) // ' /' // group // '/'
+        out = trim(prefix)//' /'//group//'/'
         if (len_trim(remainder) > 0) then
             ! Preserve original spacing of remainder (may have leading space)
-            out = out // ' ' // trim(adjustl(remainder))
+            out = out//' '//trim(adjustl(remainder))
         end if
     end function adjust_namelist_spacing
 
@@ -508,12 +511,12 @@ contains
             pos = index(text(start:), pattern)
             if (pos == 0) exit
             pos = pos + start - 1
-            if (pos > start) buffer = buffer // text(start:pos - 1)
-            buffer = buffer // replacement
+            if (pos > start) buffer = buffer//text(start:pos - 1)
+            buffer = buffer//replacement
             start = pos + pat_len
         end do
 
-        if (start <= len(text)) buffer = buffer // text(start:)
+        if (start <= len(text)) buffer = buffer//text(start:)
         out = buffer
     end function replace_all
 
@@ -570,10 +573,10 @@ contains
                     node%explicit_program_indices(i) <= arena%size) then
 
                     if (i > 1) then
-                        code = code // new_line('A') // new_line('A')
+                        code = code//new_line('A')//new_line('A')
                     end if
 
-                    code = code // &
+                    code = code// &
                            codegen_core_generate_arena(arena, &
                                                        node%explicit_program_indices(i))
                 end if
@@ -587,10 +590,10 @@ contains
                     node%implicit_declaration_indices(i) <= arena%size) then
 
                     if (len(code) > 0) then
-                        code = code // new_line('A') // new_line('A')
+                        code = code//new_line('A')//new_line('A')
                     end if
 
-                    code = code // codegen_core_generate_arena( &
+                    code = code//codegen_core_generate_arena( &
                            arena, node%implicit_declaration_indices(i))
                 end if
             end do

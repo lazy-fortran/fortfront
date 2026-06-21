@@ -5,7 +5,8 @@ module frontend_transformation_structure
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, module_node, &
-                              mixed_construct_container_node
+                              mixed_construct_container_node, &
+                              multi_unit_container_node
     use procedure_classification, only: should_hoist_procedure, &
                                         procedure_has_entry_statement
     use frontend_transformation_common, only: transform_context_t, format_options_t
