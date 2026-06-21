@@ -168,7 +168,7 @@
         end do
     end subroutine promote_double_literal_assignments
 
-    subroutine finalize_monomorphized_root(arena, root_index, root_prog, &
+    subroutine finalize_monomorphized_root(arena, root_index, &
                                            is_multi_unit, preserved_indices, &
                                            preserved_count, &
                                            module_indices, &
@@ -177,7 +177,6 @@
                                            program_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
-        type(program_node), pointer, intent(inout) :: root_prog
         logical, intent(in) :: is_multi_unit
         integer, intent(in) :: preserved_indices(:)
         integer, intent(in) :: preserved_count
@@ -186,8 +185,9 @@
         character(len=*), intent(in) :: module_names(:)
         integer, intent(inout) :: program_indices(:)
         integer, intent(inout) :: program_count
-        integer, allocatable :: final_body(:)
-        integer :: original_root_index
+        integer, allocatable :: final_body(:), container_body(:)
+        type(program_node), pointer :: prog_ptr
+        integer :: original_root_index, prog_line, prog_column
         integer :: i, child_idx
 
         if (is_multi_unit) then
@@ -196,34 +196,38 @@
             if (preserved_count > 0) then
                 final_body(module_count + 1:) = preserved_indices(1:preserved_count)
             end if
-            root_prog%body_indices = final_body
+            call set_root_body(arena, root_index, final_body)
             do i = 1, module_count
                 call set_parent_if_valid(arena, module_indices(i), root_index)
             end do
         else
-            root_prog%body_indices = preserved_indices(1:preserved_count)
+            prog_line = 1
+            prog_column = 1
+            call get_program_node(arena, root_index, prog_ptr)
+            if (associated(prog_ptr)) then
+                prog_ptr%body_indices = preserved_indices(1:preserved_count)
+                prog_line = prog_ptr%line
+                prog_column = prog_ptr%column
+            end if
             original_root_index = root_index
             call create_multi_unit_root(arena, root_index, module_indices, &
                                         module_count, original_root_index, &
-                                        root_prog%line, &
-                                        root_prog%column)
-            call get_program_node(arena, root_index, root_prog)
+                                        prog_line, prog_column)
             program_count = 1
             program_indices(1) = original_root_index
         end if
 
         if (program_count == 0) then
             if (is_multi_unit) then
-                do i = 1, size(root_prog%body_indices)
-                    child_idx = root_prog%body_indices(i)
+                call get_root_body_indices(arena, root_index, container_body)
+                do i = 1, size(container_body)
+                    child_idx = container_body(i)
                     if (child_idx < 1 .or. child_idx > arena%size) cycle
                     if (.not. allocated(arena%entries(child_idx)%node)) cycle
                     select type (prog_node => arena%entries(child_idx)%node)
                     type is (program_node)
-                        if (trim(prog_node%name) /= "__MULTI_UNIT__") then
-                            program_count = program_count + 1
-                            program_indices(program_count) = child_idx
-                        end if
+                        program_count = program_count + 1
+                        program_indices(program_count) = child_idx
                     end select
                 end do
             else
@@ -242,6 +246,16 @@
         end do
     end subroutine finalize_monomorphized_root
 
+    subroutine get_root_body_indices(arena, root_index, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        logical :: is_multi_unit, found
+
+        call get_root_body(arena, root_index, body_indices, is_multi_unit, found)
+    end subroutine get_root_body_indices
+
     subroutine create_multi_unit_root(arena, root_index, module_indices, &
                                       module_count, original_prog_idx, line, column)
         type(ast_arena_t), intent(inout) :: arena
@@ -252,7 +266,7 @@
         integer, intent(in) :: line
         integer, intent(in) :: column
         integer, allocatable :: body(:)
-        type(program_node) :: multi_prog
+        type(multi_unit_container_node) :: multi_cont
         integer :: i
 
         allocate (body(module_count + 1))
@@ -261,9 +275,8 @@
         end if
         body(module_count + 1) = original_prog_idx
 
-        multi_prog = create_program("__MULTI_UNIT__", body, line=line, &
-                                    column=column)
-        call arena%push(multi_prog)
+        multi_cont = create_multi_unit_container(body, line=line, column=column)
+        call arena%push(multi_cont, "multi_unit_container", 0)
         root_index = arena%size
         do i = 1, module_count
             call set_parent_if_valid(arena, module_indices(i), root_index)

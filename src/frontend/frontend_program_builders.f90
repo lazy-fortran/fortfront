@@ -5,7 +5,7 @@ module frontend_program_builders
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_control, only: if_node, do_loop_node
     use ast_nodes_procedure, only: subroutine_call_node
-    use ast_nodes_data, only: declaration_node
+    use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &
                               end_statement_node, comment_node, directive_node, &
                               blank_line_node
@@ -130,8 +130,7 @@ contains
         logical :: child_is_main_candidate, has_exec, has_procs
 
         select type (prog_root => root)
-        type is (program_node)
-            if (trim(prog_root%name) /= "__MULTI_UNIT__") return
+        type is (multi_unit_container_node)
             if (.not. allocated(prog_root%body_indices)) return
 
             do i = 1, size(prog_root%body_indices)
@@ -144,13 +143,11 @@ contains
                     has_exec = program_has_executable_statements(arena, child_index)
                     has_procs = program_contains_procedures(arena, child_index)
                     if (main_prog_index == 0) then
-                        if (trim(child%name) /= "__MULTI_UNIT__") then
-                            if (has_exec .and. .not. has_procs) then
-                                main_prog_index = child_index
-                                child_is_main_candidate = .true.
-                            else if (has_exec .and. candidate_prog_index == 0) then
-                                candidate_prog_index = child_index
-                            end if
+                        if (has_exec .and. .not. has_procs) then
+                            main_prog_index = child_index
+                            child_is_main_candidate = .true.
+                        else if (has_exec .and. candidate_prog_index == 0) then
+                            candidate_prog_index = child_index
                         end if
                     else if (child_index == main_prog_index) then
                         child_is_main_candidate = .true.

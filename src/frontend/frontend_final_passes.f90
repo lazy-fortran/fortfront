@@ -5,8 +5,8 @@ module frontend_final_passes
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
-    use ast_nodes_data, only: mixed_construct_container_node
-    use ast_nodes_core, only: program_node
+    use ast_nodes_data, only: mixed_construct_container_node, &
+                              multi_unit_container_node
     use call_graph_signatures_mod, only: create_signatures_map
     use frontend_transformation_semantics, only: analyze_container_semantics, &
                                                  get_detailed_semantic_errors
@@ -104,10 +104,8 @@ contains
                           context%prog_index)%node)) then
                 select type (node => context%compiler_arena%ast%entries( &
                              context%prog_index)%node)
-                type is (program_node)
-                    if (node%name == "__MULTI_UNIT__") then
-                        skip_standardization = .true.
-                    end if
+                type is (multi_unit_container_node)
+                    skip_standardization = .true.
                 end select
             end if
         end if

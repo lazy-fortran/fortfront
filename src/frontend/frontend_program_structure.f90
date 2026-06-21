@@ -7,7 +7,7 @@ module frontend_program_structure
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
                               end_statement_node, implicit_statement_node, &
                               interface_block_node
-    use ast_factory, only: push_program
+    use ast_factory, only: push_program, push_multi_unit_container
 
     implicit none
     private
@@ -76,8 +76,8 @@ contains
                     ! Already a program node
                     prog_index = valid_units(1)
                 type is (interface_block_node)
-                    prog_index = push_program(arena, "__MULTI_UNIT__", &
-                                              valid_units(1:1), 1, 1)
+                    prog_index = push_multi_unit_container(arena, &
+                                                           valid_units(1:1), 1, 1)
                 class default
                     ! Wrap in program node for consistent API
                     prog_index = push_program(arena, "main", valid_units(1:1), 1, 1)
@@ -88,8 +88,8 @@ contains
             end if
         else
             ! Multiple units - create container
-            prog_index = push_program(arena, "__MULTI_UNIT__", &
-                                      valid_units(1:valid_count), 1, 1)
+            prog_index = push_multi_unit_container(arena, &
+                                                   valid_units(1:valid_count), 1, 1)
         end if
 
         deallocate (valid_units)

@@ -19,7 +19,8 @@ module ast_factory_core
     public :: validate_arena, validate_node_index
 
     ! Public core node creation functions
-    public :: push_program, push_identifier, push_literal, push_binary_op
+    public :: push_program, push_multi_unit_container, push_identifier, &
+              push_literal, push_binary_op
     public :: push_assignment, push_pointer_assignment
     public :: push_array_literal, push_complex_literal, push_component_access
     public :: push_range_subscript, push_type_constructor
@@ -133,6 +134,26 @@ contains
             call link_children_to_parent(arena, prog_index, body_indices)
         end if
     end function push_program
+
+    function push_multi_unit_container(arena, body_indices, line, column) &
+        result(container_index)
+        use ast_nodes_data, only: multi_unit_container_node, &
+                                  create_multi_unit_container
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in), optional :: line, column
+        integer :: container_index
+        type(multi_unit_container_node) :: container
+
+        container = create_multi_unit_container(body_indices, line=line, &
+                                                column=column)
+        call arena%push(container, "multi_unit_container", 0)
+        container_index = arena%size
+
+        if (size(body_indices) > 0) then
+            call link_children_to_parent(arena, container_index, body_indices)
+        end if
+    end function push_multi_unit_container
 
     ! Create assignment node and add to stack
     function push_assignment(arena, target_index, value_index, line, column, &

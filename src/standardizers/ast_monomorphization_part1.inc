@@ -3,36 +3,27 @@
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
         type(signatures_map_t), intent(in) :: signatures
-        type(program_node), pointer :: root_prog
-        logical :: is_multi_unit
+        logical :: is_multi_unit, found
         integer :: body_size
+        integer, allocatable :: body_indices(:)
         integer, allocatable :: preserved_indices(:)
         integer, allocatable :: module_indices(:)
         integer, allocatable :: program_indices(:)
         character(len=128), allocatable :: module_names(:)
         integer :: preserved_count, module_count, program_count, i, j
 
-        call get_program_node(arena, root_index, root_prog)
-        if (.not. associated(root_prog)) then
+        call get_root_body(arena, root_index, body_indices, is_multi_unit, found)
+        if (.not. found) then
             call handle_non_program_root(arena, root_index, signatures)
             return
         end if
-        if (debug_logging_enabled()) then
-            write (error_unit, '(A,1X,A)') 'DEBUG root_prog name', trim(root_prog%name)
-        end if
-        if (.not. allocated(root_prog%body_indices)) then
+        if (size(body_indices) == 0) then
             if (debug_logging_enabled()) then
-                write (error_unit, '(A)') 'DEBUG root_prog body not allocated'
+                write (error_unit, '(A)') 'DEBUG root body not allocated'
             end if
             return
         end if
-        if (debug_logging_enabled()) then
-            write (error_unit, '(A,1X,I0)') 'DEBUG root_prog body size', &
-                size(root_prog%body_indices)
-        end if
-
-        is_multi_unit = trim(root_prog%name) == "__MULTI_UNIT__"
-        body_size = size(root_prog%body_indices)
+        body_size = size(body_indices)
 
         allocate (preserved_indices(max(1, body_size)))
         allocate (module_indices(max(1, body_size)))
@@ -43,24 +34,67 @@
         module_count = 0
         program_count = 0
 
-        call process_program_body_children(arena, root_prog, signatures, &
+        call process_program_body_children(arena, body_indices, signatures, &
                                            preserved_indices, preserved_count, &
                                            module_indices, &
                                            module_count, module_names, &
                                            program_indices, &
                                            program_count)
         if (module_count == 0) then
-            root_prog%body_indices = preserved_indices(1:preserved_count)
+            call set_root_body(arena, root_index, &
+                               preserved_indices(1:preserved_count))
             return
         end if
 
-        call finalize_monomorphized_root(arena, root_index, root_prog, &
+        call finalize_monomorphized_root(arena, root_index, &
                                          is_multi_unit, preserved_indices, &
                                          preserved_count, &
                                          module_indices, module_count, module_names, &
                                          program_indices, &
                                          program_count)
     end subroutine transform_monomorphization
+
+    ! Read the root's body indices, reporting whether the root is the multi-unit
+    ! container. Both a top-level program and the container expose body_indices.
+    subroutine get_root_body(arena, root_index, body_indices, is_multi_unit, found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        integer, allocatable, intent(out) :: body_indices(:)
+        logical, intent(out) :: is_multi_unit, found
+
+        found = .false.
+        is_multi_unit = .false.
+        allocate (body_indices(0))
+        if (root_index < 1 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        select type (n => arena%entries(root_index)%node)
+        type is (program_node)
+            if (allocated(n%body_indices)) body_indices = n%body_indices
+            found = .true.
+        type is (multi_unit_container_node)
+            if (allocated(n%body_indices)) body_indices = n%body_indices
+            is_multi_unit = .true.
+            found = .true.
+        end select
+    end subroutine get_root_body
+
+    ! Replace the root's body indices in place (program or container root).
+    subroutine set_root_body(arena, root_index, body_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        integer, intent(in) :: body_indices(:)
+
+        if (root_index < 1 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        select type (n => arena%entries(root_index)%node)
+        type is (program_node)
+            n%body_indices = body_indices
+        type is (multi_unit_container_node)
+            n%body_indices = body_indices
+        end select
+    end subroutine set_root_body
 
     ! Handle root node that is not a program node
     subroutine handle_non_program_root(arena, root_index, signatures)
@@ -136,14 +170,14 @@
         end do
     end subroutine debug_log_index_array
 
-    subroutine process_program_body_children(arena, root_prog, signatures, &
+    subroutine process_program_body_children(arena, body_indices, signatures, &
                                              preserved_indices, preserved_count, &
                                              module_indices, &
                                              module_count, &
                                              module_names, program_indices, &
                                              program_count)
         type(ast_arena_t), intent(inout) :: arena
-        type(program_node), pointer, intent(in) :: root_prog
+        integer, intent(in) :: body_indices(:)
         type(signatures_map_t), intent(in) :: signatures
         integer, allocatable, intent(inout) :: preserved_indices(:)
         integer, intent(inout) :: preserved_count
@@ -157,11 +191,10 @@
         integer, allocatable :: local_indices(:)
         character(len=:), allocatable :: proc_name
 
-        ! CRITICAL: Copy indices before loop - root_prog is a POINTER parameter!
-        ! process_specializable_procedure modifies arena via create_procedure_variants,
-        ! so copying the indices prevents root_prog pointer invalidation.
-        allocate (local_indices(size(root_prog%body_indices)))
-        local_indices = root_prog%body_indices
+        ! Copy indices before the loop: process_specializable_procedure mutates
+        ! the arena via create_procedure_variants, which can move entries.
+        allocate (local_indices(size(body_indices)))
+        local_indices = body_indices
 
         do i = 1, size(local_indices)
             child_idx = local_indices(i)
@@ -190,10 +223,8 @@
                     write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=program', &
                         child_idx, trim(node%name)
                 end if
-                if (trim(node%name) /= "__MULTI_UNIT__") then
-                    program_count = program_count + 1
-                    program_indices(program_count) = child_idx
-                end if
+                program_count = program_count + 1
+                program_indices(program_count) = child_idx
                 preserved_count = preserved_count + 1
                 preserved_indices(preserved_count) = child_idx
             type is (subroutine_def_node)

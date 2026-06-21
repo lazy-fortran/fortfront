@@ -11,7 +11,7 @@ module frontend_parsing
     use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_factory, only: push_program
+    use ast_factory, only: push_program, push_multi_unit_container
     use frontend_utilities, only: is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &
@@ -81,9 +81,7 @@ contains
         integer, intent(in) :: unit_indices(:)
         integer :: container_index
 
-        ! For now, use a program node with a special flag to indicate multiple units
-        ! The code generator will handle this specially
-        container_index = push_program(arena, "__MULTI_UNIT__", unit_indices, 1, 1)
+        container_index = push_multi_unit_container(arena, unit_indices, 1, 1)
     end function create_multi_unit_container
 
     ! Main parsing entry point
@@ -335,7 +333,7 @@ contains
                 prog_index = create_multi_unit_container(arena, [unit_index])
             end if
         type is (interface_block_node)
-            prog_index = push_program(arena, "__MULTI_UNIT__", [unit_index], 1, 1)
+            prog_index = push_multi_unit_container(arena, [unit_index], 1, 1)
         class default
             prog_index = push_program(arena, "main", [unit_index], 1, 1)
         end select

@@ -11,7 +11,8 @@ module ast_factory
     ! Core functionality and utilities
     use ast_factory_core, only: &
         validate_arena, validate_node_index, &
-        push_program, push_identifier, push_literal, push_binary_op, &
+        push_program, push_multi_unit_container, push_identifier, push_literal, &
+        push_binary_op, &
         push_assignment, push_pointer_assignment, push_array_literal, &
         push_complex_literal, push_component_access, push_range_subscript, &
         push_type_constructor
@@ -81,7 +82,8 @@ module ast_factory
 
     ! Core functionality and utilities
     public :: validate_arena, validate_node_index
-    public :: push_program, push_identifier, push_literal, push_binary_op
+    public :: push_program, push_multi_unit_container, push_identifier, &
+              push_literal, push_binary_op
     public :: push_assignment, push_pointer_assignment, push_array_literal
     public :: push_complex_literal, push_component_access, push_range_subscript
     public :: push_type_constructor

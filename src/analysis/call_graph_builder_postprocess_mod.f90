@@ -8,6 +8,7 @@ module call_graph_builder_postprocess_mod
     use call_graph_builder_state_mod, only: extract_simple_name
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_data, only: MULTI_UNIT_NAME
     use call_graph_constants_mod, only: max_proc_name_len
     implicit none
     private
@@ -216,14 +217,14 @@ contains
 
         program_count = 0
         rename_count = 0
-        agg_symbol = find_symbol_by_full_name(builder, "__MULTI_UNIT__")
-        agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+        agg_symbol = find_symbol_by_full_name(builder, MULTI_UNIT_NAME)
+        agg_proc_index = builder%graph%find_proc_index(MULTI_UNIT_NAME)
 
         do i = 1, builder%symbol_count
             if (.not. builder%symbol_table(i)%is_procedure) cycle
             if (builder%symbol_table(i)%parent_symbol /= 0) cycle
             if (.not. allocated(builder%symbol_table(i)%full_name)) cycle
-            if (trim(builder%symbol_table(i)%full_name) == "__MULTI_UNIT__") cycle
+            if (trim(builder%symbol_table(i)%full_name) == MULTI_UNIT_NAME) cycle
             node_index = builder%symbol_table(i)%node_index
             if (node_index <= 0) cycle
             if (node_index > arena%size) cycle
@@ -239,7 +240,7 @@ contains
         do i = 1, builder%symbol_count
             if (.not. builder%symbol_table(i)%is_procedure) cycle
             if (.not. allocated(builder%symbol_table(i)%full_name)) cycle
-            if (trim(builder%symbol_table(i)%full_name) == "__MULTI_UNIT__") cycle
+            if (trim(builder%symbol_table(i)%full_name) == MULTI_UNIT_NAME) cycle
             if (is_program_symbol(i)) cycle
 
             root_symbol = i
@@ -253,7 +254,8 @@ contains
 
             if (agg_symbol <= 0) call ensure_aggregator()
             old_name = trim(builder%symbol_table(i)%full_name)
-            new_name = "__MULTI_UNIT__::" // trim(builder%symbol_table(i)%simple_name)
+            new_name = MULTI_UNIT_NAME//"::"// &
+                       trim(builder%symbol_table(i)%simple_name)
             if (old_name == new_name) cycle
 
             builder%symbol_table(i)%parent_symbol = agg_symbol
@@ -264,7 +266,7 @@ contains
         if (rename_count == 0) return
 
         if (agg_proc_index <= 0) then
-            call builder%graph%add_proc("__MULTI_UNIT__", 0, 0, 0, is_main=.true.)
+            call builder%graph%add_proc(MULTI_UNIT_NAME, 0, 0, 0, is_main=.true.)
         end if
 
         do i = 1, builder%graph%proc_count
@@ -309,13 +311,13 @@ contains
 
         subroutine ensure_aggregator()
             if (agg_symbol <= 0) then
-                call add_symbol_entry(builder, "__MULTI_UNIT__", "__MULTI_UNIT__", &
+                call add_symbol_entry(builder, MULTI_UNIT_NAME, MULTI_UNIT_NAME, &
                                       0, 0, .true., agg_symbol)
             end if
-            agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+            agg_proc_index = builder%graph%find_proc_index(MULTI_UNIT_NAME)
             if (agg_proc_index <= 0) then
-                call builder%graph%add_proc("__MULTI_UNIT__", 0, 0, 0, is_main=.true.)
-                agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+                call builder%graph%add_proc(MULTI_UNIT_NAME, 0, 0, 0, is_main=.true.)
+                agg_proc_index = builder%graph%find_proc_index(MULTI_UNIT_NAME)
             end if
         end subroutine ensure_aggregator
 
@@ -354,7 +356,7 @@ contains
                     if (name(1:old_len) == trim(renames(idx)%old_name) .and. &
                         name(old_len + 1:old_len + 2) == '::') then
                         suffix = name(old_len + 1:len_trim(name))
-                        name = trim(renames(idx)%new_name) // trim(suffix)
+                        name = trim(renames(idx)%new_name)//trim(suffix)
                         exit
                     end if
                 end if

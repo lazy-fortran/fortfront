@@ -252,6 +252,8 @@ contains
             type_id = 83 ! NODE_COMMON_BLOCK
         type is (enum_node)
             type_id = 84 ! NODE_ENUM
+        type is (multi_unit_container_node)
+            type_id = 85 ! NODE_MULTI_UNIT_CONTAINER
         class default
             type_id = 99 ! NODE_UNKNOWN
         end select
