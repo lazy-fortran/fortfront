@@ -2,7 +2,6 @@ module standardizer_function_parameter_builders
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node
     use standardizer_parameter, only: fill_parameter_declaration
-    use standardizer_parameter, only: metadata_find_param
     use standardizer_parameter, only: node_exists
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: reset_declaration_node

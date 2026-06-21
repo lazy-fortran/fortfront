@@ -1,5 +1,4 @@
 program test_issue_1813_matrix_ops
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use string_utils_mod, only: to_lower
@@ -53,6 +52,5 @@ contains
 
         print *, 'PASS: test_matrix_literal_addition'
     end subroutine test_matrix_literal_addition
-
 
 end program test_issue_1813_matrix_ops

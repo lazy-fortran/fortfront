@@ -1,6 +1,5 @@
 program test_issue_1782_procedure_pointer
     use fortfront, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     character(len=:), allocatable :: source
@@ -35,9 +34,7 @@ program test_issue_1782_procedure_pointer
 
     print *, 'PASS: procedure pointer declarations preserved'
 
-
 contains
-
 
     include '../../common/read_example.inc'
 end program test_issue_1782_procedure_pointer

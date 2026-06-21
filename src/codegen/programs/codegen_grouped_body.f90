@@ -1,26 +1,24 @@
 module codegen_grouped_body
     use ast_arena_modern, only: ast_arena_t
-    use ast_base, only: ast_node
-    use ast_nodes_control, only: cycle_node, exit_node, goto_node, return_node, &
-                                 continue_node, stop_node, &
-                                 error_stop_node
+    use ast_nodes_control, only: &
+        continue_node, stop_node, &
+        error_stop_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
                               contains_node, end_statement_node, &
                               data_statement_node, use_statement_node, &
                               implicit_statement_node, intrinsic_statement_node, &
                               namelist_statement_node, import_statement_node, &
                               include_statement_node
-    use ast_nodes_transfer, only: entry_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, &
                               INTENT_NONE
-    use ast_nodes_io, only: read_statement_node, write_statement_node, &
-                            print_statement_node, &
-                            format_statement_node
+    use ast_nodes_io, only: &
+        print_statement_node, &
+        format_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use codegen_arena_interface, only: generate_code_from_arena
-    use codegen_character_normalization, only: normalize_character_type, &
-                                               normalize_character_type_param
+    use codegen_character_normalization, only: &
+        normalize_character_type_param
     use codegen_declaration_grouping, only: can_group_declarations, &
                                             can_group_parameters, &
                                             generate_grouped_declaration, &
@@ -45,7 +43,7 @@ contains
         stmt_code = generate_code_from_arena(arena, idx)
         if (.not. allocated(stmt_code)) return
         if (len(stmt_code) == 0) return
-        code = code // indent_lines(stmt_code, indent) // new_line('A')
+        code = code//indent_lines(stmt_code, indent)//new_line('A')
     end subroutine process_single_statement
 
     subroutine process_procedure_def(arena, idx, indent, indent_str, in_contains, &
@@ -59,12 +57,12 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         character(len=:), allocatable :: stmt_code
 
-        if (in_contains .and. i > 1) code = code // new_line('A')
+        if (in_contains .and. i > 1) code = code//new_line('A')
         stmt_code = generate_code_from_arena(arena, idx)
         if (in_contains) then
-            code = code // indent_lines(stmt_code, indent) // new_line('A')
+            code = code//indent_lines(stmt_code, indent)//new_line('A')
         else
-            code = code // indent_str // stmt_code // new_line('A')
+            code = code//indent_str//stmt_code//new_line('A')
         end if
     end subroutine process_procedure_def
 
@@ -94,7 +92,7 @@ contains
         integer, intent(inout) :: i
 
         in_contains_section = .true.
-        code = code // "contains" // new_line('A')
+        code = code//"contains"//new_line('A')
         i = i + 1
     end subroutine handle_contains_entry
 
@@ -152,7 +150,7 @@ contains
         character(len=:), allocatable :: stmt_code
 
         stmt_code = generate_code_from_arena(arena, idx)
-        code = code // stmt_code // new_line('A')
+        code = code//stmt_code//new_line('A')
         i = i + 1
     end subroutine handle_comment_entry
 
@@ -160,7 +158,7 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         integer, intent(inout) :: i
 
-        code = code // new_line('A')
+        code = code//new_line('A')
         i = i + 1
     end subroutine handle_blank_line_entry
 
@@ -467,7 +465,7 @@ contains
         character(len=:), allocatable :: stmt_code
 
         stmt_code = generate_code_from_arena(arena, idx)
-        code = code // indent_str // stmt_code // new_line('A')
+        code = code//indent_str//stmt_code//new_line('A')
     end subroutine emit_declaration_statement
 
     pure logical function is_groupable_declaration(node) result(can_group)
@@ -597,7 +595,7 @@ contains
             select type (next_node => arena%entries(body_indices(j))%node)
             type is (parameter_declaration_node)
                 if (can_group_parameters(first_node, next_node)) then
-                    var_list = var_list // ", " // trim(next_node%name)
+                    var_list = var_list//", "//trim(next_node%name)
                     j = j + 1
                 else
                     exit
@@ -628,20 +626,20 @@ contains
         else
             stmt = base_type
             if (first_node%has_kind .and. first_node%kind_value > 0) then
-                stmt = stmt // "(" // &
-                       trim(adjustl(int_to_string(first_node%kind_value))) // ")"
+                stmt = stmt//"("// &
+                       trim(adjustl(int_to_string(first_node%kind_value)))//")"
             end if
         end if
 
         if (first_node%intent_type /= INTENT_NONE) then
-            stmt = stmt // ", intent(" // &
-                   intent_type_to_string(first_node%intent_type) // ")"
+            stmt = stmt//", intent("// &
+                   intent_type_to_string(first_node%intent_type)//")"
         end if
         if (first_node%is_optional) then
-            stmt = stmt // ", optional"
+            stmt = stmt//", optional"
         end if
 
-        stmt = stmt // " :: " // var_list
+        stmt = stmt//" :: "//var_list
     end function build_parameter_statement
 
     subroutine process_grouped_declarations(arena, body_indices, i, indent_str, code)
@@ -682,7 +680,7 @@ contains
             end if
 
             stmt_code = build_grouped_statement(first_node, grouped_names, group_count)
-            code = code // indent_str // stmt_code // new_line('A')
+            code = code//indent_str//stmt_code//new_line('A')
             i = next_index
         end select
     end subroutine process_grouped_declarations
@@ -708,7 +706,7 @@ contains
                                         next_index, first_node)
 
             stmt_code = build_parameter_statement(first_node, var_list)
-            code = code // indent_str // stmt_code // new_line('A')
+            code = code//indent_str//stmt_code//new_line('A')
             i = next_index
         end select
     end subroutine process_grouped_parameters
@@ -758,8 +756,8 @@ contains
 
         var_list = ""
         do idx = 1, count
-            if (idx > 1) var_list = var_list // ", "
-            var_list = var_list // trim(names(idx))
+            if (idx > 1) var_list = var_list//", "
+            var_list = var_list//trim(names(idx))
         end do
     end function build_var_list
 

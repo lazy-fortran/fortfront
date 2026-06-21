@@ -15,7 +15,7 @@ module fortfront_utils
     use ast_nodes_data, only: declaration_node, derived_type_node, &
                               parameter_declaration_node
     use ast_nodes_core, only: array_literal_node
-    use ast_nodes_misc, only: interface_block_node, import_statement_node
+    use ast_nodes_misc, only: interface_block_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
                                      case_default_node, case_range_node, &
                                      select_type_node, type_guard_block_node

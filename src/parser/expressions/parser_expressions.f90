@@ -5,8 +5,7 @@ module parser_expressions_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: component_access_node, identifier_node, &
                               range_subscript_node
-    use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
-    use ast_nodes_loops, only: do_loop_node
+    use ast_types, only: LITERAL_INTEGER, LITERAL_LOGICAL
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_range_expression, push_complex_literal, &
                            push_assumed_size_bounds, push_assumed_rank_bounds
@@ -35,14 +34,14 @@ module parser_expressions_module
                                                operand_stack_is_empty, &
                                                token_stack_clear, token_stack_push, &
                                                token_stack_pop
-    use parser_expression_tokens_module, only: token_matches, &
-                                               token_is_boolean_literal, &
-                                               is_prefix_operator_token, &
-                                               is_immediate_prefix_token, &
-                                               is_not_operator_token, &
-                                               is_defined_operator_token, &
-                                               token_is_terminator, &
-                                               is_legacy_array_literal_start
+    use parser_expression_tokens_module, only: &
+        token_is_boolean_literal, &
+        is_prefix_operator_token, &
+        is_immediate_prefix_token, &
+        is_not_operator_token, &
+        is_defined_operator_token, &
+        token_is_terminator, &
+        is_legacy_array_literal_start
     use parser_expression_operator_utils_module, only: PREC_ASSIGNMENT, PREC_RANGE, &
                                                        PREC_LOGICAL_EQV, &
                                                        PREC_LOGICAL_OR, &

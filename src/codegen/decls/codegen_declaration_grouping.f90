@@ -1,8 +1,8 @@
 module codegen_declaration_grouping
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use codegen_character_normalization, only: normalize_character_type, &
-                                               normalize_character_type_param
+    use codegen_character_normalization, only: &
+        normalize_character_type_param
     use codegen_parameter_info, only: parameter_info_t, find_parameter_info
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: is_character_type_string
@@ -248,20 +248,20 @@ contains
             normalized = normalize_character_type_param(stmt, has_kind, kind_value)
             stmt = normalized
         else if (has_kind) then
-            stmt = stmt // "(" // trim(adjustl(int_to_string(kind_value))) // ")"
+            stmt = stmt//"("//trim(adjustl(int_to_string(kind_value)))//")"
         end if
 
         if (len_trim(intent) > 0) then
-            stmt = stmt // ", intent(" // intent // ")"
+            stmt = stmt//", intent("//intent//")"
         end if
         if (opt_flag) then
-            stmt = stmt // ", optional"
+            stmt = stmt//", optional"
         end if
         if (target_flag) then
-            stmt = stmt // ", target"
+            stmt = stmt//", target"
         end if
 
-        stmt = stmt // " :: " // var_list
+        stmt = stmt//" :: "//var_list
     end function generate_grouped_declaration
 
     pure logical function is_type_definition_declaration(node) result(is_header)

@@ -1,5 +1,5 @@
 module parser_assignment_module
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_EOF, TK_NUMBER, &
+    use lexer_core, only: token_t, TK_OPERATOR, TK_EOF, &
                           TK_STRING, &
                           TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
@@ -7,7 +7,6 @@ module parser_assignment_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
                            push_identifier, push_literal, push_complex_literal
-    use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
     private

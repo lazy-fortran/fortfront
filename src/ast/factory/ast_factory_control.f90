@@ -10,7 +10,7 @@ module ast_factory_control
                                  block_construct_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use uid_generator, only: generate_uid
-    use error_handling, only: result_t, success_result, create_error_result
+    use error_handling, only: result_t
     implicit none
     private
 

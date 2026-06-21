@@ -1,5 +1,5 @@
 module ast_nodes_core
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_visitor_base_t, copy_ast_node_base
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: subroutine_call_node

@@ -9,77 +9,72 @@ module frontend_transformation_pipeline
                           TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_UNKNOWN
-    use compiler_arena, only: compiler_arena_t, create_compiler_arena
+    use compiler_arena, only: compiler_arena_t
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use type_system_unified, only: reset_type_system
-    use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
+    use standardizer, only: standardize_ast, &
                             get_standardizer_type_standardization, &
                             mark_pointer_targets, set_standardizer_input_mode
-    use codegen_arena_interface, only: generate_code_from_arena
     use ast_monomorphization, only: transform_monomorphization
-    use call_graph_signatures_mod, only: signatures_map_t, type_signature_t, &
+    use call_graph_signatures_mod, only: signatures_map_t, &
                                          add_signature, create_signatures_map
-    use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
-    use codegen_type_utils, only: set_type_standardization, &
-                                  get_type_standardization
-    use codegen_indent, only: set_indent_config, get_indent_config, &
-                              set_line_length_config, get_line_length_config
+    use codegen_type_utils, only: &
+        get_type_standardization
+    use codegen_indent, only: &
+        set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
-    use ast_nodes_core, only: program_node, assignment_node, &
+    use ast_nodes_core, only: program_node, &
                               identifier_node, call_or_subscript_node, &
                               component_access_node
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_misc, only: contains_node, use_statement_node
-    use ast_nodes_data, only: declaration_node, module_node, &
+    use ast_nodes_data, only: module_node, &
                               mixed_construct_container_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
-    use procedure_classification, only: should_hoist_procedure
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use semantic_operating_mode, only: OPERATING_MODE_INFER, &
                                        OPERATING_MODE_STRICT
     use frontend_program_unit_detection, only: tokens_have_explicit_program_unit
     use frontend_transformation_common, only: format_options_t, &
                                               transform_context_t
-    use frontend_transformation_structure, only: collect_procedures_and_target, &
-                                                 filter_hoistable_procedures, &
-                                                 remove_procedures_from_body, &
-                                                 ensure_contains_exists, &
-                                                 insert_procedures_after_contains, &
-                                                 clean_external_declarations, &
-                                                 merge_additional_main_programs, &
-                                                 append_program_body_to_target, &
-                                                 remove_target_procedures_from_body, &
-                                                 normalize_multi_unit_container, &
-                                                 collect_procedure_indices, &
-                                                 create_module_with_procedures, &
-                                                 wrap_ast_in_module_only, &
-                                                 wrap_ast_in_module_and_program, &
-                                                 run_code_generation_phase, &
-                                                 is_whitespace_only, &
-                                                 has_leading_comment, &
-                                                 extract_leading_comment_block, &
-                                                 contains_binary_data, &
-                                                 save_current_configuration, &
-                                                 restore_configuration, &
-                                                 apply_format_options, &
-                                                 decode_bom_if_needed
-    use frontend_transformation_analysis, only: build_procedure_membership, &
-                                                analyze_ast_content, &
-                                                analyze_single_unit, &
-                                                collect_host_assignment_names, &
-                                                collect_program_assignment_names, &
-                                                collect_procedure_assignment_names, &
-                                                collect_assignment_from_node, &
-                                                record_identifier_name, &
-                                                append_unique_name, &
-                                                promote_functions_to_internal_program, &
-                                                requires_lazy_internalization, &
-                                                has_existing_module_in_ast
+    use frontend_transformation_structure, only: &
+        filter_hoistable_procedures, &
+        remove_procedures_from_body, &
+        ensure_contains_exists, &
+        insert_procedures_after_contains, &
+        clean_external_declarations, &
+        merge_additional_main_programs, &
+        append_program_body_to_target, &
+        remove_target_procedures_from_body, &
+        normalize_multi_unit_container, &
+        collect_procedure_indices, &
+        create_module_with_procedures, &
+        wrap_ast_in_module_only, &
+        wrap_ast_in_module_and_program, &
+        run_code_generation_phase, &
+        is_whitespace_only, &
+        has_leading_comment, &
+        extract_leading_comment_block, &
+        contains_binary_data, &
+        save_current_configuration, &
+        restore_configuration, &
+        apply_format_options, &
+        decode_bom_if_needed
+    use frontend_transformation_analysis, only: &
+        analyze_ast_content, &
+        analyze_single_unit, &
+        collect_host_assignment_names, &
+        collect_program_assignment_names, &
+        collect_procedure_assignment_names, &
+        collect_assignment_from_node, &
+        record_identifier_name, &
+        append_unique_name, &
+        promote_functions_to_internal_program, &
+        requires_lazy_internalization, &
+        has_existing_module_in_ast
     use frontend_location_validation, only: validate_ast_locations
     use frontend_transformation_semantics, only: analyze_container_semantics, &
                                                  merge_signature_maps, &
@@ -88,7 +83,7 @@ module frontend_transformation_pipeline
     use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
                                     DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
                                     DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR
-    use fortfront_types, only: diagnostic_t, source_range_t
+    use fortfront_types, only: diagnostic_t
     use frontend_pass_manager, only: pass_manager_t, pass_context_t, &
                                      pass_config_t, create_pass_manager, &
                                      PASS_SEMANTIC, PASS_STANDARDIZATION, &
@@ -397,7 +392,7 @@ contains
                 character(len=:), allocatable :: lead
                 lead = extract_leading_comment_block(source)
                 if (allocated(lead) .and. len_trim(lead) > 0) then
-                    output = trim(lead) // new_line('A') // trim(output)
+                    output = trim(lead)//new_line('A')//trim(output)
                 end if
             end block
         end if
@@ -417,7 +412,7 @@ contains
         else if (text(text_len:text_len) == new_line('A')) then
             with_newline = text
         else
-            with_newline = text // new_line('A')
+            with_newline = text//new_line('A')
         end if
     end function ensure_trailing_newline
 
@@ -433,9 +428,9 @@ contains
     subroutine create_minimal_program(output)
         character(len=:), allocatable, intent(out) :: output
 
-        output = "program main" // new_line('A') // &
-                 "    implicit none" // new_line('A') // &
-                 "end program main" // new_line('A')
+        output = "program main"//new_line('A')// &
+                 "    implicit none"//new_line('A')// &
+                 "end program main"//new_line('A')
     end subroutine create_minimal_program
 
     ! Run lexical analysis
@@ -458,10 +453,10 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main" // new_line('A') // &
-                 "    implicit none" // new_line('A') // &
-                 "    ! Original code could not be parsed" // new_line('A') // &
-                 "end program main" // new_line('A')
+        output = "program main"//new_line('A')// &
+                 "    implicit none"//new_line('A')// &
+                 "    ! Original code could not be parsed"//new_line('A')// &
+                 "end program main"//new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
@@ -479,11 +474,11 @@ contains
         if (error_msg /= "") then
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
             ! Keep stderr for diagnostics and stdout for usable Fortran output
-            output = "program main" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    ! COMPILATION FAILED" // new_line('A') // &
-                     "    ! Original code could not be parsed" // new_line('A') // &
-                     "end program main" // new_line('A')
+            output = "program main"//new_line('A')// &
+                     "    implicit none"//new_line('A')// &
+                     "    ! COMPILATION FAILED"//new_line('A')// &
+                     "    ! Original code could not be parsed"//new_line('A')// &
+                     "end program main"//new_line('A')
             ! error_msg already contains the error details for stderr
             ! Reuse shared arena: do not destroy here
         end if
@@ -568,11 +563,11 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main" // new_line('A') // &
-                 "    implicit none" // new_line('A') // &
-                 "    ! COMPILATION FAILED" // new_line('A') // &
-                 "    ! Original code could not be parsed" // new_line('A') // &
-                 "end program main" // new_line('A')
+        output = "program main"//new_line('A')// &
+                 "    implicit none"//new_line('A')// &
+                 "    ! COMPILATION FAILED"//new_line('A')// &
+                 "    ! Original code could not be parsed"//new_line('A')// &
+                 "end program main"//new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -589,12 +584,12 @@ contains
         error_msg = format_diagnostic(diag)
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main" // new_line('A') // &
-                 "    implicit none" // new_line('A') // &
-                 "    ! COMPILATION FAILED" // new_line('A') // &
-                 "    ! Original code could not be structured as a program" // &
-                 new_line('A') // &
-                 "end program main" // new_line('A')
+        output = "program main"//new_line('A')// &
+                 "    implicit none"//new_line('A')// &
+                 "    ! COMPILATION FAILED"//new_line('A')// &
+                 "    ! Original code could not be structured as a program"// &
+                 new_line('A')// &
+                 "end program main"//new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index

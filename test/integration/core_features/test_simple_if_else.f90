@@ -1,6 +1,5 @@
 program test_simple_if_else
     ! Simple test to isolate the if/else issue reported in #623
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
@@ -15,11 +14,11 @@ program test_simple_if_else
     print *, "=== Testing Simple If/Else Issue #623 ==="
 
     ! Test the exact case from the GitHub issue
-    source = 'x = 5' // new_line('A') // &
-             'if (x > 3) then' // new_line('A') // &
-             '  print *, "big"' // new_line('A') // &
-             'else' // new_line('A') // &
-             '  print *, "small"' // new_line('A') // &
+    source = 'x = 5'//new_line('A')// &
+             'if (x > 3) then'//new_line('A')// &
+             '  print *, "big"'//new_line('A')// &
+             'else'//new_line('A')// &
+             '  print *, "small"'//new_line('A')// &
              'end if'
 
     print *, "INPUT SOURCE:"

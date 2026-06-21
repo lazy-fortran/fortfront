@@ -1,7 +1,6 @@
 program test_shared_context
     ! Test basic semantic context functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
-    use scope_manager, only: create_scope_stack
     implicit none
 
     logical :: tests_passed = .true.

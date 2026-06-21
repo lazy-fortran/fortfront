@@ -1,6 +1,5 @@
 ! @slow-path
 module variable_usage_core_module
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern
     implicit none
     private

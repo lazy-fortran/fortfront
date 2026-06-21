@@ -1,5 +1,4 @@
 module string_builder_mod
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 

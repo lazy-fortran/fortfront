@@ -12,9 +12,7 @@ module frontend_program_units
                                         get_last_parser_errors
     use frontend_statement_processing, only: parse_all_statements, &
                                              parse_explicit_program_unit
-    use parser_declarations, only: parse_derived_type_def
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
     use ast_factory, only: push_program
     use frontend_utilities, only: is_type_start
 
@@ -71,7 +69,6 @@ contains
 
         ! Determine unit type and parse accordingly
         block
-            use, intrinsic :: iso_fortran_env, only: error_unit
             if (is_function_start(trimmed_tokens, 1)) then
                 unit_index = parse_function_unit(trimmed_tokens, arena, parse_error)
             else if (is_subroutine_start(trimmed_tokens, 1)) then
@@ -103,7 +100,6 @@ contains
 
         ! Propagate error message if requested
         block
-            use, intrinsic :: iso_fortran_env, only: error_unit
             if (allocated(parse_error)) then
             end if
 
@@ -264,7 +260,6 @@ contains
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program, &
                                          error_msg) result(prog_index)
-        use, intrinsic :: iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program

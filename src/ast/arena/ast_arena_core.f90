@@ -2,7 +2,6 @@ module ast_arena_core
     ! Core AST arena implementation with generation-based handles
     ! Focused on essential arena operations without compatibility layer
 
-    use ast_base, only: ast_node
     use, intrinsic :: iso_fortran_env, only: int64, dp => real64
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
     use fortfront_constants, only: MAX_AST_STRING_DATA_LEN
@@ -39,53 +38,53 @@ module ast_arena_core
 
     ! Arena-based AST node storage (without allocatables to avoid GCC Bug 114612)
     type :: ast_node_arena_t
-        character(len=64) :: node_type_name = ""  ! Node type for debugging
-        integer :: node_kind = 0  ! Numeric node kind
-        integer :: parent_handle_id = 0  ! Parent handle ID
-        integer :: parent_handle_gen = 0  ! Parent handle generation
-        integer :: first_child_id = 0  ! First child handle ID
-        integer :: first_child_gen = 0  ! First child generation
-        integer :: next_sibling_id = 0  ! Next sibling handle ID
-        integer :: next_sibling_gen = 0  ! Next sibling generation
-        integer :: depth = 0  ! Depth in AST tree
-        integer :: child_count = 0  ! Number of direct children
+        character(len=64) :: node_type_name = "" ! Node type for debugging
+        integer :: node_kind = 0 ! Numeric node kind
+        integer :: parent_handle_id = 0 ! Parent handle ID
+        integer :: parent_handle_gen = 0 ! Parent handle generation
+        integer :: first_child_id = 0 ! First child handle ID
+        integer :: first_child_gen = 0 ! First child generation
+        integer :: next_sibling_id = 0 ! Next sibling handle ID
+        integer :: next_sibling_gen = 0 ! Next sibling generation
+        integer :: depth = 0 ! Depth in AST tree
+        integer :: child_count = 0 ! Number of direct children
 
         ! Node-specific data (expandable without breaking compatibility)
         character(len=MAX_AST_STRING_DATA_LEN) :: string_data = ""
-        integer :: integer_data = 0  ! Integer content (indices, counts)
-        logical :: boolean_data = .false.  ! Boolean flags
-        real(dp) :: real_data = 0.0_dp  ! Real values
+        integer :: integer_data = 0 ! Integer content (indices, counts)
+        logical :: boolean_data = .false. ! Boolean flags
+        real(dp) :: real_data = 0.0_dp ! Real values
 
         ! Extended metadata
-        integer :: source_line = 0  ! Source code line number
-        integer :: source_column = 0  ! Source code column
-        integer :: source_length = 0  ! Length in source
-        logical :: is_synthetic = .false.  ! Generated during transformation
-        logical :: is_visited = .false.  ! For traversal algorithms
+        integer :: source_line = 0 ! Source code line number
+        integer :: source_column = 0 ! Source code column
+        integer :: source_length = 0 ! Length in source
+        logical :: is_synthetic = .false. ! Generated during transformation
+        logical :: is_visited = .false. ! For traversal algorithms
     end type ast_node_arena_t
 
     ! Handle for safe AST node references
     type :: ast_handle_t
-        integer :: node_id = 0  ! Node ID in arena
-        integer :: generation = 0  ! Generation for validation
-        integer :: arena_id = 0  ! Arena identifier for cross-arena safety
+        integer :: node_id = 0 ! Node ID in arena
+        integer :: generation = 0 ! Generation for validation
+        integer :: arena_id = 0 ! Arena identifier for cross-arena safety
     end type ast_handle_t
 
     ! Core AST arena with slot management (extends base_arena_t)
     type, extends(base_arena_t) :: ast_arena_core_t
         private
         ! All internal fields are private - use public methods for access
-        type(ast_node_arena_t), allocatable :: nodes(:)  ! slot storage
-        integer, allocatable :: slot_gen(:)  ! per-slot generation
-        integer, allocatable :: free_stack(:)  ! freelist (indices)
-        integer :: cap = 0  ! arena capacity
-        integer :: free_top = 0  ! freelist top pointer
-        integer :: node_count = 0  ! Number of stored nodes
-        integer :: epoch = 1  ! Current epoch for resets
-        integer :: total_allocations = 0  ! Performance counter
-        integer :: total_validations = 0  ! Validation counter
-        integer :: arena_id = 0  ! Unique arena identifier
-        logical :: is_initialized = .false.  ! Initialization state
+        type(ast_node_arena_t), allocatable :: nodes(:) ! slot storage
+        integer, allocatable :: slot_gen(:) ! per-slot generation
+        integer, allocatable :: free_stack(:) ! freelist (indices)
+        integer :: cap = 0 ! arena capacity
+        integer :: free_top = 0 ! freelist top pointer
+        integer :: node_count = 0 ! Number of stored nodes
+        integer :: epoch = 1 ! Current epoch for resets
+        integer :: total_allocations = 0 ! Performance counter
+        integer :: total_validations = 0 ! Validation counter
+        integer :: arena_id = 0 ! Unique arena identifier
+        logical :: is_initialized = .false. ! Initialization state
     contains
         ! Base arena interface implementations
         procedure :: insert => ast_arena_insert
@@ -123,29 +122,29 @@ module ast_arena_core
 
     ! Statistics for performance monitoring
     type :: ast_arena_stats_t
-        integer :: node_count = 0  ! Number of AST nodes
-        integer(int64) :: total_memory = 0  ! Total memory usage
-        real(dp) :: utilization = 0.0_dp  ! Memory utilization ratio
-        integer :: total_allocations = 0  ! Allocation counter
-        integer :: total_validations = 0  ! Validation counter
-        real(dp) :: allocation_rate = 0.0_dp  ! Nodes per second
-        integer :: max_depth = 0  ! Maximum tree depth
-        integer :: total_children = 0  ! Total child relationships
-        integer :: active_nodes = 0  ! Number of active (non-freed) nodes
-        integer :: freed_nodes = 0  ! Number of freed nodes
-        real(dp) :: fragmentation = 0.0_dp  ! Memory fragmentation ratio
+        integer :: node_count = 0 ! Number of AST nodes
+        integer(int64) :: total_memory = 0 ! Total memory usage
+        real(dp) :: utilization = 0.0_dp ! Memory utilization ratio
+        integer :: total_allocations = 0 ! Allocation counter
+        integer :: total_validations = 0 ! Validation counter
+        real(dp) :: allocation_rate = 0.0_dp ! Nodes per second
+        integer :: max_depth = 0 ! Maximum tree depth
+        integer :: total_children = 0 ! Total child relationships
+        integer :: active_nodes = 0 ! Number of active (non-freed) nodes
+        integer :: freed_nodes = 0 ! Number of freed nodes
+        real(dp) :: fragmentation = 0.0_dp ! Memory fragmentation ratio
 
         ! Compatibility fields for old arena API
-        integer :: total_nodes = 0  ! Alias for node_count
-        integer :: capacity = 0  ! Arena capacity
-        integer :: memory_usage = 0  ! Alias for total_memory
+        integer :: total_nodes = 0 ! Alias for node_count
+        integer :: capacity = 0 ! Arena capacity
+        integer :: memory_usage = 0 ! Alias for total_memory
     end type ast_arena_stats_t
 
     ! Result type for node freeing operations
     type :: ast_free_result_t
-        logical :: success = .false.  ! Whether freeing succeeded
-        integer :: freed_generation = 0  ! Generation when node was freed
-        character(len=:), allocatable :: error_message  ! Error description if failed
+        logical :: success = .false. ! Whether freeing succeeded
+        integer :: freed_generation = 0 ! Generation when node was freed
+        character(len=:), allocatable :: error_message ! Error description if failed
     end type ast_free_result_t
 
 contains
@@ -156,7 +155,7 @@ contains
         type(ast_arena_core_t) :: ast_arena
         integer :: capacity, i
 
-        capacity = 16  ! PERFORMANCE FIX: Start very small, grow as needed
+        capacity = 16 ! PERFORMANCE FIX: Start very small, grow as needed
         if (present(initial_capacity)) then
             capacity = initial_capacity
         else
@@ -257,7 +256,7 @@ contains
         ! Set slot generation and create handle
         ! Assign valid generation when slot is used (ensures cross-arena safety)
         if (ast_arena%slot_gen(slot_id) == 0) then
-            ast_arena%slot_gen(slot_id) = 1  ! First use gets generation 1
+            ast_arena%slot_gen(slot_id) = 1 ! First use gets generation 1
         end if
         handle%node_id = slot_id
         handle%generation = ast_arena%slot_gen(slot_id)
@@ -319,12 +318,12 @@ contains
 
         ! Increment generations to invalidate all existing handles
         this%epoch = this%epoch + 1
-        this%generation = this%generation + 1  ! Increment base generation
+        this%generation = this%generation + 1 ! Increment base generation
 
         ! Reset counters
         this%node_count = 0
         this%free_top = 0
-        this%size = 0  ! Reset base size
+        this%size = 0 ! Reset base size
 
         ! Mark all slots as invalid (generation 0)
         this%slot_gen(:) = 0
@@ -363,8 +362,8 @@ contains
             stats%allocation_rate = real(this%node_count) / real(this%total_allocations)
         end if
 
-        stats%max_depth = 0  ! Not tracked in core arena
-        stats%total_children = 0  ! Would be sum of all child_count fields
+        stats%max_depth = 0 ! Not tracked in core arena
+        stats%total_children = 0 ! Would be sum of all child_count fields
 
         ! Populate compatibility fields for old arena API
         stats%total_nodes = this%node_count
@@ -544,7 +543,7 @@ contains
                 slot_id = arena%free_stack(arena%free_top)
                 arena%free_top = arena%free_top - 1
             else
-                slot_id = 0  ! Failed to grow
+                slot_id = 0 ! Failed to grow
             end if
         end if
     end function pop_slot
@@ -568,7 +567,7 @@ contains
         integer :: new_cap, i, old_cap
 
         old_cap = arena%cap
-        new_cap = max(old_cap * 2, 16)  ! Minimum growth
+        new_cap = max(old_cap * 2, 16) ! Minimum growth
 
         ! Allocate new arrays
         allocate (new_nodes(new_cap))
@@ -629,7 +628,7 @@ contains
             lhs%capacity = rhs%capacity
             lhs%cap = rhs%cap
             lhs%free_top = rhs%free_top
-            lhs%node_count = 0  ! Explicitly empty
+            lhs%node_count = 0 ! Explicitly empty
             lhs%epoch = rhs%epoch
             lhs%total_allocations = rhs%total_allocations
             lhs%total_validations = rhs%total_validations
@@ -642,7 +641,7 @@ contains
             end if
             if (allocated(rhs%slot_gen)) then
                 allocate (lhs%slot_gen(size(rhs%slot_gen)))
-                lhs%slot_gen = 0  ! All unused
+                lhs%slot_gen = 0 ! All unused
             end if
             if (allocated(rhs%free_stack)) then
                 allocate (lhs%free_stack(size(rhs%free_stack)))
@@ -785,7 +784,7 @@ contains
             ast_handle = store_ast_node(this, item)
 
             ! Convert ast_handle_t to arena_handle_t
-            handle%chunk_id = 1  ! AST arena uses single logical chunk
+            handle%chunk_id = 1 ! AST arena uses single logical chunk
             handle%offset = ast_handle%node_id
             ! Use base generation for container API handles
             handle%generation = this%generation
@@ -860,7 +859,7 @@ contains
 
         ! Update counters
         this%node_count = this%node_count - 1
-        this%size = this%node_count  ! Keep base size in sync
+        this%size = this%node_count ! Keep base size in sync
     end subroutine ast_arena_free
 
     ! Create checkpoint for AST arena
@@ -869,9 +868,9 @@ contains
         type(arena_checkpoint_t) :: checkpoint
 
         checkpoint%generation = this%generation
-        checkpoint%size = this%node_count  ! Use actual node count
+        checkpoint%size = this%node_count ! Use actual node count
         checkpoint%capacity = this%cap
-        checkpoint%chunk_count = 1  ! AST arena uses logical single chunk
+        checkpoint%chunk_count = 1 ! AST arena uses logical single chunk
         checkpoint%current_chunk = 1
         checkpoint%total_allocated = this%node_count
     end function ast_arena_checkpoint

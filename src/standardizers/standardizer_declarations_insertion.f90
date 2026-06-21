@@ -8,7 +8,7 @@ module standardizer_declarations_insertion
                               use_statement_node, allocate_statement_node, &
                               namelist_statement_node
     use ast_nodes_procedure, only: function_def_node
-    use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
+    use ast_base, only: LITERAL_STRING
     use lexer_core, only: to_lower
     use standardizer_declarations_collection, only: collect_statement_vars
     use standardizer_declarations_parsing, only: apply_type_string_to_decl, &

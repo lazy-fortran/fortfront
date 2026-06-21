@@ -6,7 +6,6 @@ module parser_statements_module
     use parser_execution_statements_module
     use parser_import_resolution_module
     use parser_definition_statements_module, only: parse_statement_in_if_block
-    use parser_declarations, only: parse_declaration
 
     ! For backward compatibility, re-export all the parsing functions
     use parser_io_statements_module, only: &
@@ -22,16 +21,12 @@ module parser_statements_module
     use parser_import_resolution_module, only: &
         parse_use_statement, parse_include_statement
     use parser_type_specifications_module, only: parse_implicit_statement
-    use parser_module_structures_module, only: parse_module
 
     ! Additional dependencies for remaining utility functions
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_comparison, parse_expression, &
+    use parser_expressions_module, only: parse_comparison, &
                                          parse_range
-    use parser_declarations, only: parse_declaration, parse_multi_declaration
-    use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -83,10 +78,10 @@ contains
             ! Check for rename: new_name => old_name
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                token = parser%consume()  ! consume '='
+                token = parser%consume() ! consume '='
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ">") then
-                    token = parser%consume()  ! consume '>'
+                    token = parser%consume() ! consume '>'
                     ! This is a rename
                     new_name = item_name
                     token = parser%peek()
@@ -108,7 +103,7 @@ contains
             ! Check for comma
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
+                token = parser%consume() ! consume ','
             else
                 exit
             end if
@@ -159,7 +154,6 @@ contains
 
     ! Simple associate parser (utility function)
     function parse_associate_simple(parser, arena) result(assoc_index)
-        use ast_nodes_control, only: association_t
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assoc_index
@@ -185,13 +179,13 @@ contains
         ! Check for opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
             condition_index = parse_comparison(parser, arena)
 
             ! Consume closing parenthesis
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()  ! consume ')'
+                token = parser%consume() ! consume ')'
             end if
         else
             ! No parentheses - parse condition directly

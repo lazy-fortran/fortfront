@@ -1,7 +1,6 @@
 module ast_nodes_misc
-    use ast_base, only: ast_node, visit_interface, string_t, &
+    use ast_base, only: ast_node, string_t, &
                         ast_visitor_base_t
-    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -12,7 +11,7 @@ module ast_nodes_misc
         character(len=:), allocatable :: text
     contains
 
-    include 'ast_nodes_misc_part1.inc'
-    include 'ast_nodes_misc_part2.inc'
+        include 'ast_nodes_misc_part1.inc'
+        include 'ast_nodes_misc_part2.inc'
 
-end module ast_nodes_misc
+        end module ast_nodes_misc

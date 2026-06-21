@@ -1,15 +1,15 @@
 module semantic_analyzer
-    use type_system_unified, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
+    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    substitution_t, allocation_info_t
     use scope_manager, only: scope_stack_t, create_scope_stack
     use ast_arena_modern, only: ast_arena_t
-    use semantic_validation_utils, only: validate_array_bounds, &
-                                         check_shape_conformance, &
-                                         update_identifier_type_in_arena, int_to_str
-    use semantic_function_analysis, only: infer_type_from_usage_context, &
-                                          analyze_function_parameters, &
-                                          determine_function_return_type, &
-                                          create_function_scope
+    use semantic_validation_utils, only: &
+        check_shape_conformance, &
+        update_identifier_type_in_arena, int_to_str
+    use semantic_function_analysis, only: &
+        analyze_function_parameters, &
+        determine_function_return_type, &
+        create_function_scope
     use semantic_subroutine_analysis, only: analyze_subroutine_parameters, &
                                             create_subroutine_scope
     use semantic_type_operations, only: generate_fresh_type_var_op, &
@@ -18,9 +18,9 @@ module semantic_analyzer
                                         instantiate_type_scheme_op, get_common_type
     use semantic_assignment_inference, only: process_assignment_inference, &
                                              ensure_var_declared_from_arena
-    use semantic_binary_operations, only: infer_string_concatenation, &
-                                          infer_comparison_operation, &
-                                          infer_logical_operation
+    use semantic_binary_operations, only: &
+        infer_comparison_operation, &
+        infer_logical_operation
     use semantic_inference_helpers, only: check_implicit_none, &
                                           process_if_node_branches, &
                                           process_do_loop_body, &
@@ -38,12 +38,12 @@ module semantic_analyzer
                                         consume_type_annotations, has_type_annotations
     use semantic_annotation_utils, only: type_from_annotation
     use semantic_literal_identifier, only: infer_literal_type, infer_identifier_type
-    use semantic_binary_ops_core, only: infer_binary_operation, rewrite_operator
+    use semantic_binary_ops_core, only: infer_binary_operation
     use semantic_function_call, only: infer_function_call_type
     use semantic_array_slice, only: infer_array_slice_type
     use semantic_array_literal, only: infer_array_literal_type
     use lexer_core, only: to_lower
-    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use ast_base, only: LITERAL_STRING
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                               assignment_node, pointer_assignment_node, &
                               call_or_subscript_node, &
@@ -56,9 +56,9 @@ module semantic_analyzer
                                  cycle_node, exit_node, stop_node, return_node, &
                                  entry_node, continue_node, elsewhere_clause_t, &
                                  pause_node, nullify_node
-    use ast_nodes_data, only: intent_type_to_string, declaration_node, &
+    use ast_nodes_data, only: declaration_node, &
                               module_node, derived_type_node
-    use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
+    use ast_nodes_bounds, only: array_slice_node, &
                                 array_bounds_node, range_expression_node, &
                                 get_array_slice_node
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &

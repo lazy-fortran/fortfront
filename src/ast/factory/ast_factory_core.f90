@@ -9,8 +9,6 @@ module ast_factory_core
                               create_pointer_assignment
     use ast_nodes_misc, only: complex_literal_node
     use uid_generator, only: generate_uid
-    use ast_base, only: LITERAL_STRING
-    use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use error_handling, only: result_t, success_result, create_error_result, &
                               critical_result, &
                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL

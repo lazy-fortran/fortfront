@@ -4,7 +4,6 @@ program test_type_bound_procedures_codegen
     use codegen_api, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     call test_simple_procedure_binding()
@@ -22,11 +21,11 @@ contains
 
     subroutine test_simple_procedure_binding()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure :: method" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                                       "   procedure :: method"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -61,11 +60,11 @@ contains
 
     subroutine test_procedure_with_implementation()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure :: method => impl_method" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                              "   procedure :: method => impl_method"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -95,13 +94,13 @@ contains
 
     subroutine test_multiple_bindings()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure :: method1 => impl1" // new_line('A') // &
-            "   procedure :: method2 => impl2" // new_line('A') // &
-            "   procedure :: method3" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                                   "   procedure :: method1 => impl1"//new_line('A')// &
+                                   "   procedure :: method2 => impl2"//new_line('A')// &
+                                       "   procedure :: method3"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -138,12 +137,12 @@ contains
 
     subroutine test_final_procedure()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure :: method => impl_method" // new_line('A') // &
-            "   final :: destroy" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                              "   procedure :: method => impl_method"//new_line('A')// &
+                                       "   final :: destroy"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -173,12 +172,12 @@ contains
 
     subroutine test_accessibility_modifiers()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure, public :: pub_method" // new_line('A') // &
-            "   procedure, private :: priv_method" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                                 "   procedure, public :: pub_method"//new_line('A')// &
+                               "   procedure, private :: priv_method"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -213,11 +212,11 @@ contains
 
     subroutine test_generic_binding()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "   integer :: x" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   generic, public :: assign_all => assign_impl" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "   integer :: x"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                    "   generic, public :: assign_all => assign_impl"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -247,10 +246,10 @@ contains
 
     subroutine test_deferred_binding()
         character(len=*), parameter :: source = &
-            "type, abstract :: atype" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure, deferred :: abstract_method" // new_line('A') // &
-            "end type atype"
+                                       "type, abstract :: atype"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                          "   procedure, deferred :: abstract_method"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -280,10 +279,10 @@ contains
 
     subroutine test_nopass_binding()
         character(len=*), parameter :: source = &
-            "type :: atype" // new_line('A') // &
-            "contains" // new_line('A') // &
-            "   procedure, private, nopass :: act => act_impl" // new_line('A') // &
-            "end type atype"
+                                       "type :: atype"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                   "   procedure, private, nopass :: act => act_impl"//new_line('A')// &
+                                       "end type atype"
         character(len=:), allocatable :: code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena

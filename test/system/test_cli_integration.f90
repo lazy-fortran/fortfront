@@ -1,5 +1,4 @@
 program test_cli_integration
-    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     integer :: test_count, pass_count
     logical :: is_windows
@@ -19,7 +18,7 @@ program test_cli_integration
     print *, ""
 
     if (.not. run_system) then
-        print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
+       print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
         stop 0
     end if
 
@@ -32,12 +31,12 @@ program test_cli_integration
         executable_path = find_fortfront_executable()
         if (len(executable_path) == 0) then
             print *, "Building fortfront executable..."
-            build_command = timeout_wrapper('60') // 'fpm build'
+            build_command = timeout_wrapper('60')//'fpm build'
             call execute_command_line(build_command, exitstat=build_status)
             if (build_status /= 0) then
                 print *, "SKIPPING: Failed to build fortfront executable (exit code:", &
                     & build_status, ")"
-                print *, "This may indicate CI environment issues or missing build dependencies"
+        print *, "This may indicate CI environment issues or missing build dependencies"
                 stop 0
             end if
             executable_path = find_fortfront_executable()
@@ -130,17 +129,17 @@ contains
         end if
     end subroutine write_text_file
 
-    function build_pipe_command(exe, in_file, out_file, err_file, on_windows) result(cmd)
+   function build_pipe_command(exe, in_file, out_file, err_file, on_windows) result(cmd)
         character(len=*), intent(in) :: exe, in_file, out_file, err_file
         logical, intent(in) :: on_windows
         character(len=:), allocatable :: cmd
         if (on_windows) then
-            cmd = 'cmd /C "set FORTFRONT_TRACE=0 && type ' // trim(in_file) // &
-                  ' | "' // trim(exe) // '" > ' // trim(out_file) // ' 2> ' // &
-                  trim(err_file) // '"'
+            cmd = 'cmd /C "set FORTFRONT_TRACE=0 && type '//trim(in_file)// &
+                  ' | "'//trim(exe)//'" > '//trim(out_file)//' 2> '// &
+                  trim(err_file)//'"'
         else
-            cmd = 'sh -lc "cat ' // trim(in_file) // ' | FORTFRONT_TRACE=0 ' // &
-                  trim(exe) // ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
+            cmd = 'sh -lc "cat '//trim(in_file)//' | FORTFRONT_TRACE=0 '// &
+                  trim(exe)//' > '//trim(out_file)//' 2> '//trim(err_file)//'"'
         end if
     end function build_pipe_command
 
@@ -172,13 +171,13 @@ contains
 
         inquire (file='scripts/with_timeout.sh', exist=script_exists)
         if (script_exists) then
-            prefix = 'scripts/with_timeout.sh ' // trim(limit_secs) // ' '
+            prefix = 'scripts/with_timeout.sh '//trim(limit_secs)//' '
             return
         end if
 
         call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=ec)
         if (ec == 0) then
-            prefix = 'timeout ' // trim(limit_secs) // ' '
+            prefix = 'timeout '//trim(limit_secs)//' '
         else
             prefix = ''
         end if
@@ -251,15 +250,15 @@ contains
                                 read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code == 0 .and. &
                                     len_trim(search_output) > 0) then
-                                    inquire (file=trim(search_output), exist=file_exists)
+                                   inquire (file=trim(search_output), exist=file_exists)
                                     if (file_exists) executable_path = &
                                         trim(search_output)
                                 end if
                             end if
                             close (unit_num)
                         end if
-                  call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
-                                  & exitstat=exit_code)
+                call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
+                                          & exitstat=exit_code)
                     end if
                     if (len(executable_path) > 0) return
                 end do
@@ -360,7 +359,7 @@ contains
 
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "'//executable_path// &
                 & '" test_input.lf > test_output.txt 2> test_error.txt"'
         else
             command = build_pipe_command(executable_path, 'test_input.lf', &
@@ -387,8 +386,8 @@ contains
 100             close (10)
                 ! On Windows via fpm wrapper, allow any non-empty output as success
                 if (.not. success .and. is_windows) then
-                    open (unit=13, file='test_output.txt', status='old', action='read', &
-                        & iostat=exit_code)
+                   open (unit=13, file='test_output.txt', status='old', action='read', &
+                         & iostat=exit_code)
                     if (exit_code == 0) then
                         do
                             read (13, '(A)', end=102, iostat=exit_code) output_line
@@ -500,8 +499,8 @@ contains
                 end do
 110             close (14)
 
-                open (unit=15, file='test_error_crlf.txt', status='old', action='read', &
-                    & iostat=exit_code)
+               open (unit=15, file='test_error_crlf.txt', status='old', action='read', &
+                     & iostat=exit_code)
                 if (exit_code == 0) then
                     do
                         read (15, '(A)', end=111, iostat=exit_code) err_line
@@ -586,8 +585,8 @@ contains
         if (.not. success) then
             print *, "  Windows pipe CLI test failed"
             print *, "  Exit code: ", run_status
-            open (unit=96, file='test_error_pipe_win.txt', status='old', action='read', &
-                & iostat=exit_code)
+           open (unit=96, file='test_error_pipe_win.txt', status='old', action='read', &
+                 & iostat=exit_code)
             if (exit_code == 0) then
                 do
                     read (96, '(A)', end=398, iostat=exit_code) line
@@ -690,10 +689,10 @@ contains
 
         ! Run with an unknown flag; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "'//executable_path// &
                 & '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
         else
-            command = 'FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // executable_path // &
+            command = 'FORTFRONT_TRACE=0 '//timeout_wrapper('20')//executable_path// &
                       ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
@@ -729,10 +728,10 @@ contains
 
         ! Run with a single dash; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "'//executable_path// &
                 & '" - > test_output_dash.txt 2>test_error_dash.txt"'
         else
-            command = 'FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // executable_path // &
+            command = 'FORTFRONT_TRACE=0 '//timeout_wrapper('20')//executable_path// &
                       ' - > test_output_dash.txt 2>test_error_dash.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
@@ -770,10 +769,10 @@ contains
         call write_text_file('-input_test.lf', 'print *, ''ok'''//new_line('a'))
 
         if (is_windows) then
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "'//executable_path// &
                 & '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
         else
-            command = timeout_wrapper('20') // executable_path // &
+            command = timeout_wrapper('20')//executable_path// &
                       ' -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt'
         end if
 
@@ -844,13 +843,13 @@ contains
 
         ! Run with lazy function syntax which is not supported
         if (is_windows) then
-            call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
+           call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
             command = build_pipe_command(executable_path, 'test_func.lf', &
                                          'test_out_func.txt', &
                                          'test_err_func.txt', .true.)
         else
-            command = 'bash -lc "echo \"func add(x, y) = x + y\" | ' // &
-                      timeout_wrapper('20') // executable_path // &
+            command = 'bash -lc "echo \"func add(x, y) = x + y\" | '// &
+                      timeout_wrapper('20')//executable_path// &
                       ' > test_out_func.txt 2>test_err_func.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
@@ -905,11 +904,11 @@ contains
         ! Run with empty input (cross-platform)
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && type NUL | "' // &
-                      executable_path // '" > test_output3.txt 2>test_error3.txt"'
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && type NUL | "'// &
+                      executable_path//'" > test_output3.txt 2>test_error3.txt"'
         else
-            command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
-                      executable_path // ' > test_output3.txt 2>test_error3.txt"'
+            command = 'bash -lc "echo \"\" | '//timeout_wrapper('20')// &
+                      executable_path//' > test_output3.txt 2>test_error3.txt"'
         end if
         call execute_command_line(command, exitstat=exit_code)
 
@@ -957,11 +956,11 @@ contains
         end if
 
         if (is_windows) then
-            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "'//executable_path// &
                 & '" --help > help_out.txt 2>help_err.txt"'
         else
-            command = 'bash -lc "FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // &
-                executable_path // ' --help > help_out.txt 2>help_err.txt"'
+            command = 'bash -lc "FORTFRONT_TRACE=0 '//timeout_wrapper('20')// &
+                      executable_path//' --help > help_out.txt 2>help_err.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -971,14 +970,14 @@ contains
         if (success) then
             open (unit=31, file='help_err.txt', status='old', action='read', iostat=ios)
             if (ios == 0) then
-               do
-                   read (31, '(A)', iostat=ios) line
-                   if (ios /= 0) exit
-                   if (len_trim(line) > 0) then
+                do
+                    read (31, '(A)', iostat=ios) line
+                    if (ios /= 0) exit
+                    if (len_trim(line) > 0) then
                         success = .false.
                         exit
-                   end if
-               end do
+                    end if
+                end do
                 close (31)
             else
                 success = .false.
@@ -1013,7 +1012,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         test_count = test_count + 1
-        write (*, '(A)', advance='no') "Testing: " // test_name // "  ... "
+        write (*, '(A)', advance='no') "Testing: "//test_name//"  ... "
     end subroutine test_start
 
     subroutine test_result(passed)

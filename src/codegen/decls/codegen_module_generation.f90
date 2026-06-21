@@ -7,10 +7,8 @@ module codegen_module_generation
                               import_statement_node, include_statement_node, &
                               comment_node, directive_node, blank_line_node
     use codegen_arena_interface, only: generate_code_from_arena
-    use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
     use codegen_program_body, only: maybe_require_dp_kind_use
-    use ast_traversal_utils, only: get_ancestor_of_type
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -47,13 +45,13 @@ contains
         needs_implicit = .not. has_implicit
 
         code = header
-        if (len(use_block) > 0) code = code // use_block
+        if (len(use_block) > 0) code = code//use_block
         if (needs_implicit) then
-            code = code // "    implicit none" // new_line('A')
+            code = code//"    implicit none"//new_line('A')
         end if
-        if (len(remainder_block) > 0) code = code // remainder_block
-        code = code // build_contains_section(arena, node)
-        code = code // "end module " // node%name
+        if (len(remainder_block) > 0) code = code//remainder_block
+        code = code//build_contains_section(arena, node)
+        code = code//"end module "//node%name
         call maybe_require_dp_kind_use(code)
         in_module_context = .false.
     end function generate_code_module
@@ -80,13 +78,13 @@ contains
         needs_implicit = .not. has_implicit
 
         code = header
-        if (len(use_block) > 0) code = code // use_block
+        if (len(use_block) > 0) code = code//use_block
         if (needs_implicit) then
-            code = code // "    implicit none" // new_line('A')
+            code = code//"    implicit none"//new_line('A')
         end if
-        if (len(remainder_block) > 0) code = code // remainder_block
-        code = code // build_contains_section_submodule(arena, node)
-        code = code // "end submodule " // node%name
+        if (len(remainder_block) > 0) code = code//remainder_block
+        code = code//build_contains_section_submodule(arena, node)
+        code = code//"end submodule "//node%name
         call maybe_require_dp_kind_use(code)
         in_module_context = .false.
     end function generate_code_submodule
@@ -96,7 +94,7 @@ contains
         type(submodule_node), intent(in) :: node
         character(len=:), allocatable :: header
 
-        header = "submodule (" // node%parent_identifier // ") " // node%name // &
+        header = "submodule ("//node%parent_identifier//") "//node%name// &
                  new_line('A')
     end function build_submodule_header
 
@@ -195,7 +193,7 @@ contains
         if (.not. node%has_contains) return
         if (.not. allocated(node%procedure_indices)) return
 
-        section_code = "contains" // new_line('A')
+        section_code = "contains"//new_line('A')
 
         do i = 1, size(node%procedure_indices)
             procedure_code = collect_contained_procedure(arena, &
@@ -203,7 +201,7 @@ contains
             if (len(procedure_code) == 0) cycle
             has_entries = .true.
             has_more = i < size(node%procedure_indices)
-            section_code = section_code // format_contained_procedure( &
+            section_code = section_code//format_contained_procedure( &
                            procedure_code, has_more)
         end do
 
@@ -223,22 +221,22 @@ contains
         header_line = ""
         if (allocated(node%header_label)) then
             if (len_trim(node%header_label) > 0) then
-                header_line = trim(node%header_label) // " "
+                header_line = trim(node%header_label)//" "
             end if
         end if
-        header_line = header_line // "block data"
+        header_line = header_line//"block data"
         if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) header_line = header_line // " " // &
+            if (len_trim(node%name) > 0) header_line = header_line//" "// &
                                                        trim(node%name)
         end if
 
-        code = header_line // new_line('A')
+        code = header_line//new_line('A')
 
         if (allocated(node%statement_indices)) then
             do i = 1, size(node%statement_indices)
                 body_code = generate_code_from_arena(arena, node%statement_indices(i))
                 if (len(body_code) > 0) then
-                    code = code // "    " // body_code // new_line('A')
+                    code = code//"    "//body_code//new_line('A')
                 end if
             end do
         end if
@@ -246,15 +244,15 @@ contains
         end_line = ""
         if (allocated(node%end_label)) then
             if (len_trim(node%end_label) > 0) then
-                end_line = trim(node%end_label) // " "
+                end_line = trim(node%end_label)//" "
             end if
         end if
-        end_line = end_line // "end block data"
+        end_line = end_line//"end block data"
         if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) end_line = end_line // " " // trim(node%name)
+            if (len_trim(node%name) > 0) end_line = end_line//" "//trim(node%name)
         end if
 
-        code = code // end_line
+        code = code//end_line
     end function generate_code_block_data
 
     function build_module_header(arena, node) result(header)
@@ -262,7 +260,7 @@ contains
         type(module_node), intent(in) :: node
         character(len=:), allocatable :: header
 
-        header = "module " // node%name // new_line('A')
+        header = "module "//node%name//new_line('A')
     end function build_module_header
 
     logical function module_has_implicit_statement(arena, node) result(has_implicit)
@@ -386,7 +384,7 @@ contains
         if (.not. node%has_contains) return
         if (.not. allocated(node%procedure_indices)) return
 
-        section_code = "contains" // new_line('A')
+        section_code = "contains"//new_line('A')
 
         do i = 1, size(node%procedure_indices)
             procedure_code = collect_contained_procedure(arena, &
@@ -394,7 +392,7 @@ contains
             if (len(procedure_code) == 0) cycle
             has_entries = .true.
             has_more = i < size(node%procedure_indices)
-            section_code = section_code // format_contained_procedure( &
+            section_code = section_code//format_contained_procedure( &
                            procedure_code, has_more)
         end do
 
@@ -417,11 +415,11 @@ contains
         logical, intent(in) :: has_more
         character(len=:), allocatable :: formatted
 
-        formatted = "    " // proc_code
+        formatted = "    "//proc_code
         if (has_more) then
-            formatted = formatted // new_line('A') // new_line('A')
+            formatted = formatted//new_line('A')//new_line('A')
         else
-            formatted = formatted // new_line('A')
+            formatted = formatted//new_line('A')
         end if
     end function format_contained_procedure
 
@@ -443,48 +441,48 @@ contains
             if (trim(node%kind) == "operator" .or. trim(node%kind) == &
                 "assignment") then
                 is_op_or_assign = .true.
-                code = code // " " // trim(node%kind)
+                code = code//" "//trim(node%kind)
                 if (allocated(node%operator)) then
-                    code = code // "(" // trim(node%operator) // ")"
+                    code = code//"("//trim(node%operator)//")"
                 end if
             else if (trim(node%kind) == "read" .or. trim(node%kind) == "write") then
-                code = code // " " // trim(node%kind)
+                code = code//" "//trim(node%kind)
                 if (allocated(node%operator)) then
-                    code = code // "(" // trim(node%operator) // ")"
+                    code = code//"("//trim(node%operator)//")"
                 end if
             else if (allocated(node%name)) then
-                if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+                if (len_trim(node%name) > 0) code = code//" "//trim(node%name)
             end if
         else if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+            if (len_trim(node%name) > 0) code = code//" "//trim(node%name)
         end if
-        code = code // new_line('A')
+        code = code//new_line('A')
 
         if (allocated(node%procedure_indices)) then
             in_operator_or_assignment_interface = is_op_or_assign
             body_code = generate_grouped_body(arena, node%procedure_indices, 1)
             in_operator_or_assignment_interface = .false.
-            if (len(body_code) > 0) code = code // body_code
+            if (len(body_code) > 0) code = code//body_code
         end if
 
-        code = code // "end interface"
+        code = code//"end interface"
         if (allocated(node%kind)) then
             if (trim(node%kind) == "operator" .or. trim(node%kind) == &
                 "assignment") then
-                code = code // " " // trim(node%kind)
+                code = code//" "//trim(node%kind)
                 if (allocated(node%operator)) then
-                    code = code // "(" // trim(node%operator) // ")"
+                    code = code//"("//trim(node%operator)//")"
                 end if
             else if (trim(node%kind) == "read" .or. trim(node%kind) == "write") then
-                code = code // " " // trim(node%kind)
+                code = code//" "//trim(node%kind)
                 if (allocated(node%operator)) then
-                    code = code // "(" // trim(node%operator) // ")"
+                    code = code//"("//trim(node%operator)//")"
                 end if
             else if (allocated(node%name)) then
-                if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+                if (len_trim(node%name) > 0) code = code//" "//trim(node%name)
             end if
         else if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+            if (len_trim(node%name) > 0) code = code//" "//trim(node%name)
         end if
     end function generate_code_interface_block
 
@@ -508,7 +506,7 @@ contains
             code = "procedure"
         end if
         if (node%has_double_colon) then
-            code = code // " ::"
+            code = code//" ::"
         end if
 
         first_name = .true.
@@ -518,10 +516,10 @@ contains
                 name_text = trim(node%procedure_names(i)%s)
                 if (len_trim(name_text) == 0) cycle
                 if (first_name) then
-                    code = code // " " // name_text
+                    code = code//" "//name_text
                     first_name = .false.
                 else
-                    code = code // ", " // name_text
+                    code = code//", "//name_text
                 end if
             end do
         end if

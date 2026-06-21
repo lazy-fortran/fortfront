@@ -12,7 +12,6 @@ program test_if_else_body_type_inference
     use fortfront, only: compile_frontend_from_string, &
                          compiler_frontend_options_t, &
                          compiler_frontend_result_t, INPUT_MODE_STANDARD
-    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control, only: if_node
     use ast_nodes_core, only: assignment_node, call_or_subscript_node
     implicit none

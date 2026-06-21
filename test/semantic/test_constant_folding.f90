@@ -1,9 +1,6 @@
 program test_constant_folding
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_control, only: if_node
     use ast_nodes_core, only: literal_node, binary_op_node
@@ -11,7 +8,7 @@ program test_constant_folding
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+ use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -34,7 +31,6 @@ program test_constant_folding
 contains
 
     include '../common/read_example.inc'
-
 
     logical function test_literal_false_condition()
         character(len=:), allocatable :: source
@@ -212,7 +208,7 @@ contains
                 ! Check if condition is marked as constant false
                 if (node%condition_index > 0 .and. &
                     node%condition_index <= arena%size) then
-                    if (debug) print *, "DEBUG: Condition index is", node%condition_index
+                   if (debug) print *, "DEBUG: Condition index is", node%condition_index
                     select type (cond => arena%entries(node%condition_index)%node)
                     type is (literal_node)
                         if (debug) then

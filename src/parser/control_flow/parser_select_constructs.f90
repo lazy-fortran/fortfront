@@ -1,10 +1,8 @@
 module parser_select_constructs_module
     ! Parser module for SELECT CASE and SELECT TYPE constructs
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
-    use ast_types, only: LITERAL_STRING
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression_until
     use parser_io_statements_module, only: &
@@ -12,8 +10,6 @@ module parser_select_constructs_module
     use parser_control_statements_module, only: &
         parse_cycle_statement, parse_exit_statement, parse_return_statement, &
         parse_stop_statement, parse_goto_statement, parse_error_stop_statement
-    use parser_declarations, only: parse_declaration, parse_multi_declaration
-    use parser_utils, only: analyze_declaration_structure
     use parser_basic_statement_module, only: parse_statement_body
     use parser_statement_core_module, only: statement_callbacks_t, &
                                             null_statement_callbacks

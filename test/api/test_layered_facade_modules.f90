@@ -5,7 +5,6 @@ program test_layered_facade_modules
                                   compile_frontend_from_string, &
                                   INPUT_MODE_STANDARD
     use fortfront_lexer, only: token_t
-    use fortfront_semantic, only: semantic_context_t
     use fortfront_tooling, only: tooling_load_ast_from_string
     use fortfront_transform, only: transform_lazy_fortran_string
     implicit none

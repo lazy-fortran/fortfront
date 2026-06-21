@@ -1,6 +1,5 @@
 module codegen_program_decl_utils
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: module_node
     use ast_nodes_procedure, only: function_def_node
     use fortfront_constants, only: MAX_PROGRAM_VARIABLES
     use string_utils_mod, only: to_lower

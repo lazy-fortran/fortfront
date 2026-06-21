@@ -1,5 +1,5 @@
 program test_all_examples
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     use test_example_lists, only: assert_skip_path_handling, load_example_list
     use test_example_lists, only: load_skip_examples, is_analysis_only_example
     use test_example_lists, only: is_expected_diagnostic, is_expected_failure
@@ -52,7 +52,7 @@ program test_all_examples
     print *, "=== Platform Diagnostics ==="
     if (is_windows) then
         print *, "Platform: Windows"
-        print *, "Path separator: ", char(92)  ! backslash
+        print *, "Path separator: ", char(92) ! backslash
         example_timeout_seconds = 15
     else
         print *, "Platform: Linux/Unix"
@@ -236,15 +236,15 @@ contains
         character(len=256) :: line
 
         ! Create unique temp file name for this extension
-        list_file = 'examples_list' // trim(extension) // '.txt'
+        list_file = 'examples_list'//trim(extension)//'.txt'
 
         ! List files with this extension (recursively search subdirectories)
         if (is_windows) then
-            list_command = 'cmd /C "dir /B /S ' // trim(examples_dir) // '\*' // &
-                           trim(extension) // ' > ' // trim(list_file) // ' 2>nul"'
+            list_command = 'cmd /C "dir /B /S '//trim(examples_dir)//'\*'// &
+                           trim(extension)//' > '//trim(list_file)//' 2>nul"'
         else
-            list_command = 'find ' // trim(examples_dir) // ' -name "*' // &
-                           trim(extension) // '" -type f > ' // trim(list_file) // &
+            list_command = 'find '//trim(examples_dir)//' -name "*'// &
+                           trim(extension)//'" -type f > '//trim(list_file)// &
                                & ' 2>/dev/null || true'
         end if
 
@@ -317,12 +317,12 @@ contains
 
         basename_str = extract_example_basename(filepath)
         sep = path_separator_for(temp_dir)
-        output_file = trim(temp_dir) // sep // 'test_example_' // &
-                      trim(basename_str) // '_output.f90'
-        error_file = trim(temp_dir) // sep // 'test_example_' // &
-                     trim(basename_str) // '.err'
+        output_file = trim(temp_dir)//sep//'test_example_'// &
+                      trim(basename_str)//'_output.f90'
+        error_file = trim(temp_dir)//sep//'test_example_'// &
+                     trim(basename_str)//'.err'
         is_f90_roundtrip = (index(filepath, '.f90') > 0)
-        write (*, '(A)', advance='no') "Testing " // trim(basename_str) // " ... "
+        write (*, '(A)', advance='no') "Testing "//trim(basename_str)//" ... "
 
         inquire (file=trim(filepath), exist=file_exists)
         if (.not. file_exists) then
@@ -418,8 +418,8 @@ contains
             return
         end if
 
-        raw_command = trim(exe_arg) // ' ' // trim(input_arg) // ' > ' // &
-                      trim(output_arg) // ' 2> ' // trim(error_arg)
+        raw_command = trim(exe_arg)//' '//trim(input_arg)//' > '// &
+                      trim(output_arg)//' 2> '//trim(error_arg)
 
         timed_command = build_timed_command(raw_command, example_timeout_seconds)
 
@@ -604,9 +604,9 @@ contains
         if (len_trim(quoted_dir) == 0) return
 
         if (is_windows) then
-            prefixed = 'cd /d ' // trim(quoted_dir) // ' && ' // trim(command)
+            prefixed = 'cd /d '//trim(quoted_dir)//' && '//trim(command)
         else
-            prefixed = 'cd ' // trim(quoted_dir) // ' && ' // trim(command)
+            prefixed = 'cd '//trim(quoted_dir)//' && '//trim(command)
         end if
     end function prepend_workdir
 
@@ -648,9 +648,9 @@ contains
         tmp_file = 'fortfront_cwd_temp.txt'
 
         if (is_win) then
-            call execute_command_line('cd > ' // trim(tmp_file), exitstat=exit_code)
+            call execute_command_line('cd > '//trim(tmp_file), exitstat=exit_code)
         else
-            call execute_command_line('pwd > ' // trim(tmp_file), exitstat=exit_code)
+            call execute_command_line('pwd > '//trim(tmp_file), exitstat=exit_code)
         end if
 
         if (exit_code /= 0) return
@@ -704,9 +704,9 @@ contains
         sep = path_separator_for(cwd)
         absolute = trim(cwd)
         if (absolute(len_trim(absolute):len_trim(absolute)) /= sep) then
-            absolute = trim(absolute) // sep
+            absolute = trim(absolute)//sep
         end if
-        absolute = trim(absolute) // trim(path)
+        absolute = trim(absolute)//trim(path)
     end function to_absolute_path
 
     logical function is_absolute_path(path, is_windows)
@@ -898,7 +898,7 @@ contains
         if (is_windows) then
             inquire (file='scripts\with_timeout.ps1', exist=exists)
             if (.not. exists) then
-                print *, 'ERROR: scripts\with_timeout.ps1 is required for example timeouts on Windows'
+  print *, 'ERROR: scripts\with_timeout.ps1 is required for example timeouts on Windows'
                 stop 1
             end if
             launcher = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\with_timeout.ps1'
@@ -943,19 +943,19 @@ contains
         effective_timeout = max(1, timeout_seconds)
         write (timeout_buffer, '(I0)') effective_timeout
         timeout_arg = trim(timeout_buffer)
-        launcher_prefix = trim(example_timeout_launcher) // ' ' // &
-                          trim(timeout_arg) // ' '
+        launcher_prefix = trim(example_timeout_launcher)//' '// &
+                          trim(timeout_arg)//' '
 
         if (timeout_requires_command_string) then
             if (timeout_string_needs_quotes) then
                 quoted_cmd = quote_for_shell(trim(raw_command), .true., &
                                              escape_for_cmd=.true.)
-                full_command = launcher_prefix // trim(quoted_cmd)
+                full_command = launcher_prefix//trim(quoted_cmd)
             else
-                full_command = launcher_prefix // trim(raw_command)
+                full_command = launcher_prefix//trim(raw_command)
             end if
         else
-            full_command = launcher_prefix // trim(raw_command)
+            full_command = launcher_prefix//trim(raw_command)
         end if
     end function build_timed_command
 

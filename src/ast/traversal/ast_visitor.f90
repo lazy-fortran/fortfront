@@ -1,6 +1,4 @@
 module ast_visitor
-    use ast_base, only: ast_node
-    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_procedure
     use ast_nodes_control
@@ -656,7 +654,7 @@ contains
         character(len=:), allocatable :: parent_str
 
         if (allocated(node%parent_identifier)) then
-            parent_str = " parent=" // node%parent_identifier
+            parent_str = " parent="//node%parent_identifier
         else
             parent_str = ""
         end if
@@ -697,10 +695,10 @@ contains
         end if
 
         if (node%has_list .and. allocated(node%names)) then
-            clause = clause // " ::"
+            clause = clause//" ::"
             do i = 1, size(node%names)
                 if (allocated(node%names(i)%s)) then
-                    clause = clause // " " // trim(node%names(i)%s)
+                    clause = clause//" "//trim(node%names(i)%s)
                 end if
             end do
         end if
@@ -774,9 +772,9 @@ contains
         end do
 
         if (allocated(this%output)) then
-            this%output = this%output // new_line('a') // indent // text
+            this%output = this%output//new_line('a')//indent//text
         else
-            this%output = indent // text
+            this%output = indent//text
         end if
     end subroutine append_debug
 
@@ -786,16 +784,16 @@ contains
         integer :: i
 
         if (size(arr) == 0) then
-            str = "[integer ::]"  ! Empty array with type spec
+            str = "[integer ::]" ! Empty array with type spec
             return
         end if
 
         str = "["
         do i = 1, size(arr)
-            if (i > 1) str = str // ","
-            str = str // int_to_string(arr(i))
+            if (i > 1) str = str//","
+            str = str//int_to_string(arr(i))
         end do
-        str = str // "]"
+        str = str//"]"
     end function int_array_to_string
 
 end module ast_visitor

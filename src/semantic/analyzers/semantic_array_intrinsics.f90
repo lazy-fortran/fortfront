@@ -11,7 +11,6 @@ module semantic_array_intrinsics
     use semantic_function_helpers, only: get_type_lookup, &
                                          gather_call_argument_types
     use semantic_constant_values, only: get_constant_integer_value
-    use constant_transformation, only: fold_constants_in_arena
     implicit none
     private
 

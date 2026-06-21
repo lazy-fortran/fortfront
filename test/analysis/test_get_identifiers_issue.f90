@@ -1,5 +1,4 @@
 program test_get_identifiers_issue
-    use lexer_api, only: lex_file
     use parser_api, only: parse_tokens
     use lexer_core, only: token_t, tokenize_core
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
@@ -75,7 +74,7 @@ contains
         end do
 
         if (size(identifiers) == 0) then
-            print '(a)', "FAIL: No identifiers found in print statement " // &
+            print '(a)', "FAIL: No identifiers found in print statement "// &
                 "(reproduces issue #104)"
             test_print_statement_identifiers = .false.
         else if (size(identifiers) == 1 .and. identifiers(1) == "used_var") then

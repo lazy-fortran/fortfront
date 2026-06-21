@@ -1,7 +1,7 @@
 module standardizer_parameter
     use ast_arena_modern, only: ast_arena_t
     use string_utils_mod, only: to_lower
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_input_mode, only: INPUT_MODE_LAZY
     use standardizer_declarations_state, only: &
         get_shared_type_standardization => get_standardizer_type_standardization
     implicit none
@@ -594,10 +594,10 @@ contains
                   'q', 's', 't', 'u', 'v', 'w')
                 type_name = "real"
             case default
-                type_name = "real"  ! Default to real
+                type_name = "real" ! Default to real
             end select
         else
-            type_name = "real"  ! Default fallback
+            type_name = "real" ! Default fallback
         end if
 
     end subroutine infer_parameter_type

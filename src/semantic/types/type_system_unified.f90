@@ -4,9 +4,9 @@ module type_system_unified
 
     use, intrinsic :: iso_fortran_env, only: error_unit
     use type_system_arena
-    use error_handling, only: result_t, create_error_result, &
-                              success_result, ERROR_MEMORY
-    use fortfront_constants, only: MAX_SUBST_SIZE, MAX_ENV_SIZE
+    use error_handling, only: &
+        success_result, ERROR_MEMORY
+    use fortfront_constants, only: MAX_ENV_SIZE
     use identifier_table, only: identifier_table_t, identifier_id_kind, &
                                 identifier_table_intern, identifier_table_find
     implicit none

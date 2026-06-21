@@ -1,10 +1,7 @@
 program test_ast_traversal
     use fortfront
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
     use ast_visitor
     use ast_traversal
     implicit none
@@ -34,10 +31,10 @@ contains
 
     logical function test_preorder_traversal()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    implicit none" // new_line('A') // &
-                                       "    integer :: x" // new_line('A') // &
-                                       "    x = 5 + 3" // new_line('A') // &
+                                       "program test"//new_line('A')// &
+                                       "    implicit none"//new_line('A')// &
+                                       "    integer :: x"//new_line('A')// &
+                                       "    x = 5 + 3"//new_line('A')// &
                                        "end program test"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -82,9 +79,9 @@ contains
 
     logical function test_postorder_traversal()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    integer :: y" // new_line('A') // &
-                                       "    y = 10" // new_line('A') // &
+                                       "program test"//new_line('A')// &
+                                       "    integer :: y"//new_line('A')// &
+                                       "    y = 10"//new_line('A')// &
                                        "end program test"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -113,11 +110,11 @@ contains
 
     logical function test_node_type_checking()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    real :: z" // new_line('A') // &
-                                       "    if (z > 0) then" // new_line('A') // &
-                                       "        print *, z" // new_line('A') // &
-                                       "    end if" // new_line('A') // &
+                                       "program test"//new_line('A')// &
+                                       "    real :: z"//new_line('A')// &
+                                       "    if (z > 0) then"//new_line('A')// &
+                                       "        print *, z"//new_line('A')// &
+                                       "    end if"//new_line('A')// &
                                        "end program test"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -166,10 +163,10 @@ contains
 
     logical function test_visitor_pattern()
         character(len=*), parameter :: source = &
-                                       "function add(a, b)" // new_line('A') // &
-                                       "    real :: add" // new_line('A') // &
-                                       "    real :: a, b" // new_line('A') // &
-                                       "    add = a + b" // new_line('A') // &
+                                       "function add(a, b)"//new_line('A')// &
+                                       "    real :: add"//new_line('A')// &
+                                       "    real :: a, b"//new_line('A')// &
+                                       "    add = a + b"//new_line('A')// &
                                        "end function add"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -204,18 +201,18 @@ contains
 
     logical function test_traverse_ast_main()
         character(len=*), parameter :: source = &
-                                       "module test_mod" // new_line('A') // &
-                                       "    implicit none" // new_line('A') // &
-                                       "contains" // new_line('A') // &
-                                       "    subroutine sub1()" // new_line('A') // &
-                                       "        call sub2()" // new_line('A') // &
-                                       "    end subroutine sub1" // new_line('A') // &
-                                       "    subroutine sub2()" // new_line('A') // &
-                                       "        integer :: i" // new_line('A') // &
-                                       "        do i = 1, 10" // new_line('A') // &
-                                       "            print *, i" // new_line('A') // &
-                                       "        end do" // new_line('A') // &
-                                       "    end subroutine sub2" // new_line('A') // &
+                                       "module test_mod"//new_line('A')// &
+                                       "    implicit none"//new_line('A')// &
+                                       "contains"//new_line('A')// &
+                                       "    subroutine sub1()"//new_line('A')// &
+                                       "        call sub2()"//new_line('A')// &
+                                       "    end subroutine sub1"//new_line('A')// &
+                                       "    subroutine sub2()"//new_line('A')// &
+                                       "        integer :: i"//new_line('A')// &
+                                       "        do i = 1, 10"//new_line('A')// &
+                                       "            print *, i"//new_line('A')// &
+                                       "        end do"//new_line('A')// &
+                                       "    end subroutine sub2"//new_line('A')// &
                                        "end module test_mod"
 
         type(token_t), allocatable :: tokens(:)

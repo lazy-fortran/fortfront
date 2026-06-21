@@ -12,7 +12,7 @@ program test_destructor_segfault
     use ast_factory_control, only: push_select_case, push_case_block
     use ast_factory_procedures, only: push_module, push_function_def, &
                                       push_subroutine_def
-    use ast_factory_core, only: push_literal, push_identifier, push_assignment
+    use ast_factory_core, only: push_literal
     use ast_base, only: LITERAL_INTEGER
     implicit none
 

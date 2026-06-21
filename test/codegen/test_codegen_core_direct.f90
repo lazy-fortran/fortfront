@@ -1,5 +1,5 @@
 program test_codegen_core_direct
-    use codegen_core, only: codegen_core_generate_arena, generate_code_polymorphic, initialize_codegen
+    use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_core, only: identifier_node, literal_node, create_identifier, create_literal, create_program
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
@@ -83,8 +83,8 @@ program test_codegen_core_direct
     ! Test 5: Invalid node index handling
     call test_start("Invalid node index")
     arena = create_ast_arena()
-    code = codegen_core_generate_arena(arena, 999)  ! Invalid index
-    if (len_trim(code) == 0) then  ! Should return empty string
+    code = codegen_core_generate_arena(arena, 999) ! Invalid index
+    if (len_trim(code) == 0) then ! Should return empty string
         call test_pass()
     else
         call test_fail()
@@ -95,8 +95,8 @@ program test_codegen_core_direct
     ! Test 6: Empty arena handling
     call test_start("Empty arena")
     arena = create_ast_arena()
-    code = codegen_core_generate_arena(arena, 1)  ! No nodes in arena
-    if (len_trim(code) == 0) then  ! Should return empty string
+    code = codegen_core_generate_arena(arena, 1) ! No nodes in arena
+    if (len_trim(code) == 0) then ! Should return empty string
         call test_pass()
     else
         call test_fail()

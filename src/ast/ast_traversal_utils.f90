@@ -1,7 +1,5 @@
 module ast_traversal_utils
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use ast_arena_modern, only: ast_arena_t
-    use ast_base, only: ast_node
     implicit none
     private
 

@@ -2,7 +2,7 @@ module semantic_where_validation
     ! Validates WHERE/ELSEWHERE construct body statements per F2018 Section 10.2.3.2
     ! Only allowed: array assignments, nested WHERE statements, nested WHERE constructs
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: assignment_node, pointer_assignment_node
+    use ast_nodes_core, only: assignment_node
     use ast_nodes_array, only: where_node, where_stmt_node
     use error_handling, only: error_collection_t, result_t, create_error_result, &
                               ERROR_SEMANTIC
@@ -71,12 +71,12 @@ contains
         is_valid = .false.
 
         if (stmt_index <= 0 .or. stmt_index > arena%size) then
-            is_valid = .true.  ! Skip invalid indices
+            is_valid = .true. ! Skip invalid indices
             return
         end if
 
         if (.not. allocated(arena%entries(stmt_index)%node)) then
-            is_valid = .true.  ! Skip unallocated nodes
+            is_valid = .true. ! Skip unallocated nodes
             return
         end if
 
@@ -115,8 +115,8 @@ contains
         stmt_line = arena%entries(stmt_index)%node%line
         stmt_col = arena%entries(stmt_index)%node%column
 
-        msg = "Invalid statement in WHERE construct: " // stmt_type // &
-              " (line " // trim(int_to_string(stmt_line)) // ")"
+        msg = "Invalid statement in WHERE construct: "//stmt_type// &
+              " (line "//trim(int_to_string(stmt_line))//")"
 
         error_result = create_error_result( &
                        msg, &

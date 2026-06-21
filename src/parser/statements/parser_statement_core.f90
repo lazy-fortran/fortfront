@@ -3,7 +3,7 @@ module parser_statement_core_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_expression, parse_expression_until
+    use parser_expressions_module, only: parse_expression
     use parser_io_statements_module, only: parse_print_statement, &
         & parse_write_statement, parse_read_statement, &
         & parse_open_statement, parse_close_statement, &
@@ -28,7 +28,7 @@ module parser_statement_core_module
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_allocatable_statements_module, only: parse_allocatable_statement
-    use parser_statement_detection_module, only: is_block_if, find_statement_end, &
+    use parser_statement_detection_module, only: find_statement_end, &
                                                  extend_if_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_statement_utilities_module, only: parse_if_from_definition, &
@@ -238,7 +238,7 @@ contains
         stmt_index = 0
         select case (keyword)
         case ("if")
-           ! Check if this "if" is part of a compound keyword like "end if" or "else if"
+            ! Check if this "if" is part of a compound keyword like "end if" or "else if"
             skip_if = .false.
             if (parser%current_token >= 2) then
                 ! Look back for previous non-whitespace token
@@ -257,12 +257,12 @@ contains
                                 skip_if = .true.
                             end if
                         end if
-                        exit  ! Found a significant token, stop searching
+                        exit ! Found a significant token, stop searching
                     end if
                 end do
             end if
 
-         ! Only call parse_if if this is a standalone "if", not part of compound keyword
+            ! Only call parse_if if this is a standalone "if", not part of compound keyword
             if (.not. skip_if) then
                 if (associated(callbacks%parse_if)) then
                     if (present(parent_index)) then
@@ -713,7 +713,7 @@ contains
 
             token_text = trim(tokens(i)%text)
             if (msg_len + len_trim(token_text) + 1 < len(message)) then
-                message = message(1:msg_len) // " " // token_text
+                message = message(1:msg_len)//" "//token_text
                 msg_len = len_trim(message)
             end if
         end do

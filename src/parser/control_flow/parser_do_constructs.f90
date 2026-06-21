@@ -1,6 +1,5 @@
 module parser_do_constructs_module
     ! Parser module for DO constructs (do loops, do while)
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t

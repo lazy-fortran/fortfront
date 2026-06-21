@@ -6,7 +6,6 @@ program test_module_distribution
     ! When: The build system collects all .mod files
     ! Then: All required Fortran modules should be available for external use
     !
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use test_filesystem_helpers, only: cleanup_file
     implicit none
 
@@ -116,7 +115,7 @@ contains
             end if
         end do
 
-        all_modules_found = (found_count >= 8)  ! At least 8 of 10 core modules
+        all_modules_found = (found_count >= 8) ! At least 8 of 10 core modules
 
         call test_result(all_modules_found)
         if (all_modules_found) then
@@ -237,7 +236,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         test_count = test_count + 1
-        write (*, '(A)', advance='no') "Testing: " // test_name // "  ... "
+        write (*, '(A)', advance='no') "Testing: "//test_name//"  ... "
     end subroutine test_start
 
     subroutine test_result(passed)

@@ -1,5 +1,5 @@
 module semantic_function_inference
-    use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
+    use type_system_unified, only: mono_type_t, create_mono_type, &
                                    create_type_var, TVAR, TREAL, TCHAR, TARRAY
     use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t

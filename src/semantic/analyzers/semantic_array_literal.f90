@@ -1,7 +1,6 @@
 module semantic_array_literal
     ! Array literal type inference
-    use, intrinsic :: iso_fortran_env, only: dp => real64
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    use type_system_unified, only: mono_type_t, &
                                    create_mono_type, create_poly_type, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
                                    TDOUBLE, TFUN, TARRAY, type_args_allocated, &

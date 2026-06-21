@@ -6,13 +6,12 @@ program test_derived_type_extends
     use fortfront_utils, only: get_node_type
     use fortfront_types, only: NODE_DERIVED_TYPE
     use lexer_core, only: token_t
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     character(len=*), parameter :: source = &
-        "type, extends(base_type) :: derived_type" // new_line('A') // &
-        "    integer :: x" // new_line('A') // &
-        "end type derived_type"
+                           "type, extends(base_type) :: derived_type"//new_line('A')// &
+                                   "    integer :: x"//new_line('A')// &
+                                   "end type derived_type"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena

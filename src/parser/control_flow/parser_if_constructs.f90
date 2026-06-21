@@ -1,7 +1,6 @@
 module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
-    use, intrinsic :: iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression

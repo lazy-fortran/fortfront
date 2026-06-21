@@ -1,11 +1,11 @@
 program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: &
         input_unit, output_unit, error_unit, iostat_end, iostat_eor
-    use transformation_api, only: transform_lazy_fortran_string, &
-                                  transform_with_context, transform_context_t, &
-                                  INPUT_MODE_LAZY, &
-                                  INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+    use transformation_api, only: &
+        transform_with_context, transform_context_t, &
+        INPUT_MODE_LAZY, &
+        INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     use debug_trace, only: trace_finalize, trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
@@ -461,7 +461,7 @@ contains
         if (allocated(ignored_name)) deallocate (ignored_name)
         if (.not. is_standard) then
             write (error_unit, '(A)') &
-                'ERROR: Strict mode forbids bare statements without an explicit ' // &
+                'ERROR: Strict mode forbids bare statements without an explicit '// &
                 'program/module/procedure unit.'
             write (error_unit, '(A)') &
                 'Suggestion: use --infer for top-level statements.'

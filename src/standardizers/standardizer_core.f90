@@ -5,15 +5,12 @@ module standardizer_core
     use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use type_system_unified
-    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
-    use error_handling, only: result_t, success_result, create_error_result, &
-                              ERROR_TYPE_SYSTEM
+    use error_handling, only: &
+        ERROR_TYPE_SYSTEM
     use standardizer_program
     use standardizer_module
-    use standardizer_types, only: string_result_t
-    use standardizer_subprograms, only: wrap_function_in_program, &
-                                        wrap_subroutine_in_program
-    use debug_trace, only: trace_enter, trace_leave
+    use standardizer_subprograms, only: &
+        wrap_subroutine_in_program
     use standardizer_parameter, only: set_standardizer_input_mode
     use standardizer_declarations_state, only: &
         set_declaration_type_standardization => set_standardizer_type_standardization, &

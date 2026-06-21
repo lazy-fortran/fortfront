@@ -3,7 +3,7 @@ program test_type_arena_performance
     ! Compares arena-based allocation vs traditional allocatable approach
 
     use type_system_arena
-    use type_system_unified, only: TVAR, TINT, TREAL, TFUN, mono_type_t
+    use type_system_unified, only: TINT, TFUN, mono_type_t
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
@@ -22,7 +22,7 @@ program test_type_arena_performance
     print *, ""
     print *, "=== Performance Comparison Complete ==="
     print *, "Arena-based type system provides significant performance benefits"
-    print *, "while eliminating GCC Bug 114612 crashes with self-referential allocatables."
+ print *, "while eliminating GCC Bug 114612 crashes with self-referential allocatables."
 
 contains
 
@@ -42,7 +42,7 @@ contains
         call system_clock(start_time, count_rate)
 
         ! Create arena
-        arena = create_type_arena(65536)  ! 64KB chunks for good performance
+        arena = create_type_arena(65536) ! 64KB chunks for good performance
 
         ! Create base types
         base_type%kind = TINT
@@ -90,7 +90,7 @@ contains
     end subroutine test_arena_performance
 
     subroutine test_traditional_performance()
-        type(mono_type_t) :: types(100)  ! Limited size to avoid GCC crashes
+        type(mono_type_t) :: types(100) ! Limited size to avoid GCC crashes
         integer(int64) :: start_time, end_time, count_rate
         real :: elapsed_time
         integer :: i, j
@@ -123,7 +123,7 @@ contains
         print *, "Traditional Performance Results:"
         write (*, '(A,I0,A)') "  Created ", 100, " basic types (NO function types)"
         write (*, '(A,F8.4,A)') "  Time elapsed: ", elapsed_time, " seconds"
-        write (*, '(A,F10.2,A)') "  Types per second: ", 100.0 / elapsed_time, " types/sec"
+     write (*, '(A,F10.2,A)') "  Types per second: ", 100.0 / elapsed_time, " types/sec"
 
         print *, "⚠ Traditional approach: LIMITED by GCC Bug 114612"
         print *, "  - Cannot safely create complex function types"

@@ -1,11 +1,11 @@
 module parser_declarations_multi_module
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR
+    use lexer_core, only: token_t, TK_IDENTIFIER
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_core_module, only: skip_declaration_separator
     use parser_declarations_construction_module, only: handle_complex_initializer, &
-                                                        add_single_declaration, &
-                                                        emit_multi_declaration
+                                                       add_single_declaration, &
+                                                       emit_multi_declaration
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_declarations_type_spec_module, only: parse_type_specifier
     use parser_declaration_attributes_module, only: parse_declaration_attributes, &

@@ -1,11 +1,9 @@
 module parser_parameter_handling_module
     ! Parser module for parameter handling and typed parameter parsing
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
-    use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_declarations, only: parse_declaration
-    use parser_expressions_module, only: parse_comparison
+    use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_parameter_declaration, push_identifier, push_literal
     use ast_factory
@@ -88,7 +86,7 @@ contains
                 do j = 1, size(body_indices)
                     if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
 
-             ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
+                    ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
                     if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
 
                     select type (body_node => arena%entries(body_indices(j))%node)
@@ -227,18 +225,18 @@ contains
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "(") then
                     paren_count = paren_count + 1
-                    type_expr = type_expr // token%text
+                    type_expr = type_expr//token%text
                     call consume_token(parser)
                 else if (token%kind == TK_OPERATOR .and. token%text == ")") then
                     paren_count = paren_count - 1
-                    if (paren_count > 0) type_expr = type_expr // token%text
+                    if (paren_count > 0) type_expr = type_expr//token%text
                     call consume_token(parser)
                 else
-                    type_expr = type_expr // token%text
+                    type_expr = type_expr//token%text
                     call consume_token(parser)
                 end if
             end do
-            info%type_name = info%type_name // "(" // type_expr // ")"
+            info%type_name = info%type_name//"("//type_expr//")"
         else if (to_lower(info%type_name) == "character") then
             type_expr = ""
             paren_count = 1
@@ -246,19 +244,19 @@ contains
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "(") then
                     paren_count = paren_count + 1
-                    type_expr = type_expr // token%text
+                    type_expr = type_expr//token%text
                     call consume_token(parser)
                 else if (token%kind == TK_OPERATOR .and. token%text == ")") then
                     paren_count = paren_count - 1
-                    if (paren_count > 0) type_expr = type_expr // token%text
+                    if (paren_count > 0) type_expr = type_expr//token%text
                     call consume_token(parser)
                 else
-                    type_expr = type_expr // token%text
+                    type_expr = type_expr//token%text
                     call consume_token(parser)
                 end if
             end do
             info%character_length_expr = type_expr
-            info%type_name = info%type_name // "(" // type_expr // ")"
+            info%type_name = info%type_name//"("//type_expr//")"
         else
             token = parser%peek()
             if (token%kind == TK_NUMBER) then

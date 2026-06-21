@@ -1,6 +1,5 @@
 program test_node_type_identification
     use fortfront
-    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     logical :: all_tests_passed
@@ -69,9 +68,9 @@ contains
         print *, "Testing get_node_type function..."
 
         ! Create test source with known node types
-        source = "program test" // new_line('a') // &
-                 "    integer :: x = 42" // new_line('a') // &
-                 "    x = x + 1" // new_line('a') // &
+        source = "program test"//new_line('a')// &
+                 "    integer :: x = 42"//new_line('a')// &
+                 "    x = x + 1"//new_line('a')// &
                  "end program test"
 
         ! Parse source
@@ -130,7 +129,7 @@ contains
         print *, "Testing get_node_type_id function..."
 
         ! Create simple test source
-        source = "program simple" // new_line('a') // &
+        source = "program simple"//new_line('a')// &
                  "end program simple"
 
         ! Parse source
@@ -190,7 +189,7 @@ contains
         test_comment%text = "! This is a test comment"
         type_id = get_node_type_id(test_comment)
         if (type_id /= NODE_COMMENT) then
-            print *, "FAILED: get_node_type_id does not correctly identify comment nodes"
+           print *, "FAILED: get_node_type_id does not correctly identify comment nodes"
             all_tests_passed = .false.
             return
         end if

@@ -1,5 +1,5 @@
 module semantic_identifier_context
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    use type_system_unified, only: mono_type_t, poly_type_t, &
                                    create_mono_type, TVAR, TREAL, TARRAY, TFUN
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &

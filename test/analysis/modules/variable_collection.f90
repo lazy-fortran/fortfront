@@ -6,7 +6,7 @@ module variable_collection
                               call_or_subscript_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_loops, only: do_loop_node
-    use type_system_arena, only: mono_handle_t, null_mono_handle
+    use type_system_arena, only: mono_handle_t
     implicit none
     private
 

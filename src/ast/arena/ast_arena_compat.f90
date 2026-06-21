@@ -3,7 +3,7 @@ module ast_arena_compat
     ! Provides backward compatibility while using modern arena internally
 
     use ast_base, only: ast_node
-    use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
+    use ast_arena_core, only: ast_arena_core_t, &
                               ast_arena_stats_t, create_ast_arena_core
     use fortfront_constants, only: AST_ARENA_GROWTH_MINIMUM
     implicit none
@@ -15,10 +15,10 @@ module ast_arena_compat
     ! Extended arena with compatibility layer
     type, extends(ast_arena_core_t) :: ast_arena_compat_t
         ! Compatibility layer for old arena API (public for compatibility)
-        type(ast_entry_t), allocatable :: entries(:)  ! Compatibility entry access
-        integer :: compat_size = 0  ! Compatibility: current size
-        integer :: current_index = 0  ! Compatibility: last stored node
-        integer :: max_depth = 0  ! Compatibility: maximum tree depth
+        type(ast_entry_t), allocatable :: entries(:) ! Compatibility entry access
+        integer :: compat_size = 0 ! Compatibility: current size
+        integer :: current_index = 0 ! Compatibility: last stored node
+        integer :: max_depth = 0 ! Compatibility: maximum tree depth
     contains
         ! Compatibility methods for old arena API
         procedure :: push => ast_arena_push_compat
@@ -39,12 +39,12 @@ module ast_arena_compat
 
     ! Compatibility type for bridging to old arena API
     type :: ast_entry_t
-        class(ast_node), allocatable :: node  ! The AST node itself
-        integer :: parent_index = 0  ! Index of parent node (0 for root)
-        integer :: depth = 0  ! Depth in tree (0 for root)
-        character(len=:), allocatable :: node_type  ! Type name for debugging
-        integer, allocatable :: child_indices(:)  ! Indices of child nodes
-        integer :: child_count = 0  ! Number of children
+        class(ast_node), allocatable :: node ! The AST node itself
+        integer :: parent_index = 0 ! Index of parent node (0 for root)
+        integer :: depth = 0 ! Depth in tree (0 for root)
+        character(len=:), allocatable :: node_type ! Type name for debugging
+        integer, allocatable :: child_indices(:) ! Indices of child nodes
+        integer :: child_count = 0 ! Number of children
     contains
         procedure :: deep_copy => ast_entry_deep_copy
         procedure :: assign => ast_entry_assign
@@ -59,7 +59,7 @@ contains
         type(ast_arena_compat_t) :: arena
         integer :: capacity
 
-        capacity = 16  ! PERFORMANCE FIX: Start minimal, grow as needed
+        capacity = 16 ! PERFORMANCE FIX: Start minimal, grow as needed
         if (present(initial_capacity)) capacity = initial_capacity
 
         ! Initialize core arena
@@ -287,7 +287,7 @@ contains
         this%compat_size = this%compat_size + 1
 
         ! Store in compatibility entries array (safe allocation with minimal checking)
-  ! Note: For newly grown entries, node will never be allocated, but we check for safety
+        ! Note: For newly grown entries, node will never be allocated, but we check for safety
         if (allocated(this%entries(this%compat_size)%node)) then
             deallocate (this%entries(this%compat_size)%node)
         end if
@@ -365,7 +365,7 @@ contains
 
         if (.not. allocated(this%entries)) then
             stats = this%get_stats()
-            core_capacity = stats%capacity  ! Use core arena capacity from stats
+            core_capacity = stats%capacity ! Use core arena capacity from stats
             new_capacity = max(core_capacity, AST_ARENA_GROWTH_MINIMUM)
             allocate (this%entries(new_capacity))
             ! CRITICAL FIX: Synchronize base arena capacity field
@@ -374,7 +374,7 @@ contains
         end if
 
         stats = this%get_stats()
-        core_capacity = stats%capacity  ! Current core arena capacity from stats
+        core_capacity = stats%capacity ! Current core arena capacity from stats
 
         ! Grow compatibility array if needed (also ensure capacity growth)
         if (this%compat_size >= size(this%entries)) then

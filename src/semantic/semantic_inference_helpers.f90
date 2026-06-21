@@ -12,7 +12,6 @@ module semantic_inference_helpers
                                  associate_node, stop_node, pause_node, nullify_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
-    use scope_manager, only: scope_stack_t
     implicit none
     private
 

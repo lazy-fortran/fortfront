@@ -5,8 +5,8 @@ module scope_manager
     use identifier_table, only: identifier_table_t, identifier_table_init, &
                                 identifier_table_intern, identifier_table_find, &
                                 identifier_id_kind
-    use error_handling, only: result_t, create_error_result, &
-                              success_result, ERROR_MEMORY
+    use error_handling, only: &
+        success_result, ERROR_MEMORY
     implicit none
     private
 
@@ -18,14 +18,14 @@ module scope_manager
     integer, parameter, public :: SCOPE_MODULE = 2
     integer, parameter, public :: SCOPE_FUNCTION = 3
     integer, parameter, public :: SCOPE_SUBROUTINE = 4
-    integer, parameter, public :: SCOPE_BLOCK = 5  ! if/do/etc blocks
+    integer, parameter, public :: SCOPE_BLOCK = 5 ! if/do/etc blocks
     integer, parameter, public :: SCOPE_INTERFACE = 6
 
     ! Single scope with its own environment
     ! (no parent pointer - stack handles hierarchy)
     type :: scope_t
         integer :: scope_type = SCOPE_GLOBAL
-        character(len=:), allocatable :: name  ! e.g., module name, function name
+        character(len=:), allocatable :: name ! e.g., module name, function name
         type(type_env_t) :: env
         type(identifier_table_t), pointer :: identifiers => null()
         ! No parent pointer - stack handles hierarchy
@@ -40,9 +40,9 @@ module scope_manager
 
     ! Stack of scopes for managing nested scopes (cache-efficient design)
     type :: scope_stack_t
-        type(scope_t), allocatable :: scopes(:)  ! Stack of scopes (contiguous memory)
-        integer :: depth = 0  ! Current depth (top of stack)
-        integer :: capacity = 0  ! Array capacity
+        type(scope_t), allocatable :: scopes(:) ! Stack of scopes (contiguous memory)
+        integer :: depth = 0 ! Current depth (top of stack)
+        integer :: capacity = 0 ! Array capacity
         type(identifier_table_t), pointer :: identifier_storage => null()
         ! No current/global pointers - use array indices
     contains
@@ -425,7 +425,7 @@ contains
         if (allocated(this%name)) then
             copy%name = this%name
         end if
-        copy%env = this%env  ! Uses type_env_t assignment (deep copy)
+        copy%env = this%env ! Uses type_env_t assignment (deep copy)
         if (associated(this%identifiers)) then
             copy%identifiers => this%identifiers
             copy%env%identifiers => this%identifiers
@@ -444,7 +444,7 @@ contains
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
         end if
-        lhs%env = rhs%env  ! Uses type_env_t assignment (deep copy)
+        lhs%env = rhs%env ! Uses type_env_t assignment (deep copy)
         if (associated(rhs%identifiers)) then
             lhs%identifiers => rhs%identifiers
             lhs%env%identifiers => rhs%identifiers
@@ -477,7 +477,7 @@ contains
         if (allocated(this%scopes)) then
             allocate (copy%scopes(size(this%scopes)))
             do i = 1, size(this%scopes)
-                copy%scopes(i) = this%scopes(i)  ! Uses scope_t assignment (deep copy)
+                copy%scopes(i) = this%scopes(i) ! Uses scope_t assignment (deep copy)
                 if (associated(copy%identifier_storage)) then
                     copy%scopes(i)%identifiers => copy%identifier_storage
                     copy%scopes(i)%env%identifiers => copy%identifier_storage
@@ -512,7 +512,7 @@ contains
         if (allocated(rhs%scopes)) then
             allocate (lhs%scopes(size(rhs%scopes)))
             do i = 1, size(rhs%scopes)
-                lhs%scopes(i) = rhs%scopes(i)  ! Uses scope_t assignment (deep copy)
+                lhs%scopes(i) = rhs%scopes(i) ! Uses scope_t assignment (deep copy)
                 if (associated(lhs%identifier_storage)) then
                     lhs%scopes(i)%identifiers => lhs%identifier_storage
                     lhs%scopes(i)%env%identifiers => lhs%identifier_storage

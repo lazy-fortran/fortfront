@@ -1,7 +1,7 @@
 module semantic_validation_utils
     ! Utility functions for semantic validation and array operations
     ! Extracted from semantic_analyzer for architectural compliance (Issue #1016)
-    use type_system_unified, only: mono_type_t, type_var_t, &
+    use type_system_unified, only: mono_type_t, &
                                    create_mono_type, create_type_var, &
                                    TARRAY, TCHAR, TVAR
     use ast_arena_modern, only: ast_arena_t

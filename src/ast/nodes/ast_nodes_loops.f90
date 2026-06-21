@@ -1,6 +1,6 @@
 module ast_nodes_loops
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, &
+    use ast_base, only: ast_node, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -16,14 +16,14 @@ module ast_nodes_loops
 
     ! Do loop node
     type, extends(ast_node) :: do_loop_node
-        character(len=:), allocatable :: var_name  ! Loop variable
-        character(len=:), allocatable :: label  ! Loop label (optional)
-        integer :: start_expr_index = 0  ! Start expression arena index
-        integer :: end_expr_index = 0  ! End expression arena index
-        integer :: step_expr_index = 0  ! Step expression arena &
+        character(len=:), allocatable :: var_name ! Loop variable
+        character(len=:), allocatable :: label ! Loop label (optional)
+        integer :: start_expr_index = 0 ! Start expression arena index
+        integer :: end_expr_index = 0 ! End expression arena index
+        integer :: step_expr_index = 0 ! Step expression arena &
         ! index (optional)
-        integer, allocatable :: body_indices(:)  ! Loop body arena indices
-        logical :: is_concurrent = .false.  ! Is this a DO CONCURRENT loop?
+        integer, allocatable :: body_indices(:) ! Loop body arena indices
+        logical :: is_concurrent = .false. ! Is this a DO CONCURRENT loop?
     contains
         procedure :: accept => do_loop_accept
         procedure :: assign => do_loop_assign
@@ -32,9 +32,9 @@ module ast_nodes_loops
 
     ! Do while loop node
     type, extends(ast_node) :: do_while_node
-        character(len=:), allocatable :: label  ! Loop label (optional)
-        integer :: condition_index  ! Index to condition expression
-        integer, allocatable :: body_indices(:)  ! Indices to body statements
+        character(len=:), allocatable :: label ! Loop label (optional)
+        integer :: condition_index ! Index to condition expression
+        integer, allocatable :: body_indices(:) ! Indices to body statements
     contains
         procedure :: accept => do_while_accept
         procedure :: assign => do_while_assign
@@ -48,7 +48,7 @@ module ast_nodes_loops
         character(len=:), allocatable :: index_names(:)
         integer, allocatable :: lower_bound_indices(:)
         integer, allocatable :: upper_bound_indices(:)
-        integer, allocatable :: stride_indices(:)  ! Optional strides (0 = no stride)
+        integer, allocatable :: stride_indices(:) ! Optional strides (0 = no stride)
 
         ! Optional mask
         logical :: has_mask = .false.
@@ -60,7 +60,7 @@ module ast_nodes_loops
         ! Dependency analysis results
         logical :: has_dependencies = .false.
         logical :: is_parallel_safe = .false.
-        integer, allocatable :: dependency_pairs(:, :)  ! Pairs of dependent statements
+        integer, allocatable :: dependency_pairs(:, :) ! Pairs of dependent statements
     contains
         procedure :: accept => forall_accept
         procedure :: assign => forall_assign
@@ -72,7 +72,7 @@ module ast_nodes_loops
         character(len=:), allocatable :: index_name
         integer :: lower_expr_index = 0
         integer :: upper_expr_index = 0
-        integer :: stride_expr_index = 0  ! 0 if no stride
+        integer :: stride_expr_index = 0 ! 0 if no stride
     end type forall_triplet_t
 
 contains

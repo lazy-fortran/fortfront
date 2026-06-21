@@ -1,5 +1,4 @@
 program test_issue_1703_lazy_matrices
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use string_utils_mod, only: to_lower
@@ -111,6 +110,5 @@ contains
 
         print *, 'PASS: test_reshape_mixed_operations'
     end subroutine test_reshape_mixed_operations
-
 
 end program test_issue_1703_lazy_matrices

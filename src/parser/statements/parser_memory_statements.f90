@@ -1,7 +1,7 @@
 module parser_memory_statements_module
     ! Parser module for memory management statement types (allocate, deallocate)
     use fortfront_constants, only: MAX_TYPE_SPEC_BUFFER_LEN
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
     use parser_state_module, only: parser_state_t
@@ -38,7 +38,7 @@ contains
             ! Check for array dimensions: var(size1, size2, ...)
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                token = parser%consume()  ! consume '('
+                token = parser%consume() ! consume '('
 
                 ! Parse dimension expressions
                 do
@@ -47,7 +47,7 @@ contains
 
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                        token = parser%consume()  ! consume ','
+                        token = parser%consume() ! consume ','
                     else
                         exit
                     end if
@@ -56,7 +56,7 @@ contains
                 ! Expect closing parenthesis
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    token = parser%consume()  ! consume ')'
+                    token = parser%consume() ! consume ')'
                 end if
             end if
         end if
@@ -73,10 +73,10 @@ contains
         integer, intent(inout) :: source_expr_index, mold_expr_index
         type(token_t) :: token
 
-        token = parser%consume()  ! consume parameter name
+        token = parser%consume() ! consume parameter name
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "=") then
-            token = parser%consume()  ! consume '='
+            token = parser%consume() ! consume '='
             select case (param_name)
             case ("stat")
                 stat_var_index = parse_comparison(parser, arena)
@@ -155,13 +155,13 @@ contains
         do i = start_pos, end_pos - 1
             token = parser%peek()
             if (len_trim(buffer) > 0 .and. token%kind /= TK_OPERATOR) then
-                buffer = trim(buffer) // " "
+                buffer = trim(buffer)//" "
             end if
-            buffer = trim(buffer) // trim(token%text)
+            buffer = trim(buffer)//trim(token%text)
             token = parser%consume()
         end do
 
-        type_spec_str = trim(type_token%text) // "(" // trim(buffer) // ")"
+        type_spec_str = trim(type_token%text)//"("//trim(buffer)//")"
         parser%current_token = saved_current
     end subroutine build_type_spec
 
@@ -199,7 +199,7 @@ contains
         ! Expect opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
 
             ! Check for type-spec: TypeName :: or TypeName(param) ::
             token = parser%peek()
@@ -324,7 +324,7 @@ contains
         ! Expect opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
+            token = parser%consume() ! consume '('
 
             ! Inline the list processing logic to avoid procedure pointer issues
             token = parser%peek()

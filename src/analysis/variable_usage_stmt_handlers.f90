@@ -1,6 +1,5 @@
 ! @slow-path
 module variable_usage_stmt_handlers_module
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_control_handlers_module, only: traversal_context_t, &
