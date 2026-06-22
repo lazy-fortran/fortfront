@@ -196,7 +196,7 @@ module fortfront
                                 get_arena_stats, analyze_program, get_type_for_node, &
                                 get_diagnostics, semantic_info_to_json, get_max_depth, &
                                 get_node_as_program, get_node_as_assignment, &
-                                get_node_as_function_def, &
+                                get_node_as_function_def, get_node_as_subroutine_def, &
                                 get_children, traverse_ast, traverse_node, &
                                 get_node_range
     use fortfront_node_constants
