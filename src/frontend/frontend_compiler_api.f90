@@ -14,6 +14,7 @@ module frontend_compiler_api
     use standardizer, only: standardize_ast, standardize_multi_unit_children, &
                             set_standardizer_input_mode
     use ast_monomorphization, only: transform_monomorphization
+    use ast_nodes_data, only: multi_unit_container_node
     implicit none
     private
 
@@ -107,10 +108,37 @@ contains
             ! before standardization so backends see specialized procedures.
             call transform_monomorphization(result%arena, result%root_index, &
                                             result%semantic_ctx%signatures)
-            call standardize_multi_unit_children(result%arena, result%root_index)
-            call standardize_ast(result%arena, result%root_index)
+            ! A multi_unit_container is fully standardized by
+            ! standardize_multi_unit_children, which sends each child through
+            ! standardize_function_def / standardize_subroutine_def /
+            ! standardize_program. Running standardize_ast on it as well makes
+            ! standardize_ast_iter re-process the container's function children
+            ! through wrap_function_in_program: they get standardized twice
+            ! (double implicit none) and their result variable is left broken, so
+            ! a lazy `result = expr; return result` function returns garbage.
+            ! Standardize the container exactly once; standardize_ast handles
+            ! every other root (a plain program, a bare procedure, a module).
+            if (is_multi_unit_container(result%arena, result%root_index)) then
+                call standardize_multi_unit_children(result%arena, &
+                                                     result%root_index)
+            else
+                call standardize_ast(result%arena, result%root_index)
+            end if
         end if
     end subroutine compile_frontend_from_string
+
+    logical function is_multi_unit_container(arena, root_index) result(is_container)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+
+        is_container = .false.
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+        select type (node => arena%entries(root_index)%node)
+        type is (multi_unit_container_node)
+            is_container = .true.
+        end select
+    end function is_multi_unit_container
 
     subroutine compile_frontend_from_file(path, result, options)
         character(len=*), intent(in) :: path
