@@ -162,6 +162,27 @@ contains
                                      result_name_position)
 
         if (has_function_name_result(func_def)) then
+            if (has_decl .and. is_character_length_decl(existing_decl%type_name)) &
+                then
+                ! A character result declared on the result variable (the
+                ! function name) is authoritative: clear return_type so the body
+                ! declaration drives the result type downstream, instead of
+                ! ensure_function_name_return_type falling back to implicit
+                ! typing (which mistypes e.g. `greet` as real). Only the
+                ! character case is special-cased; every other result keeps the
+                ! existing path to avoid changing non-character behaviour.
+                if (decl_in_multi) then
+                    call detach_result_from_declaration(arena, func_def, &
+                                                        func_index, decl_index, &
+                                                        existing_decl, &
+                                                        result_name_position)
+                end if
+                call update_return_type_from_existing(func_def, arena, &
+                                                      func_index, existing_decl)
+                call remove_intent_from_declaration(arena, decl_index)
+                arena%entries(func_index)%node = func_def
+                return
+            end if
             if (has_decl) then
                 if (decl_in_multi) then
                     call detach_result_from_declaration(arena, func_def, &
