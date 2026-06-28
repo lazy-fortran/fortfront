@@ -9,9 +9,9 @@ program test_derived_type_extends
     implicit none
 
     character(len=*), parameter :: source = &
-                           "type, extends(base_type) :: derived_type"//new_line('A')// &
-                                   "    integer :: x"//new_line('A')// &
-                                   "end type derived_type"
+        "type, extends(base_type) :: derived_type"//new_line('A')// &
+        "    integer :: x"//new_line('A')// &
+        "end type derived_type"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
@@ -65,7 +65,7 @@ program test_derived_type_extends
     end if
 
     select type (node => arena%entries(type_index)%node)
-    type is (derived_type_node)
+        type is (derived_type_node)
         dtype => node
 
         if (.not. allocated(dtype%extends_parent)) then

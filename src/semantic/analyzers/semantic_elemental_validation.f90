@@ -35,7 +35,7 @@ contains
     ! Validate the dummy arguments of an ELEMENTAL procedure. Non-elemental
     ! procedures are accepted unchanged.
     subroutine validate_elemental_procedure(arena, param_indices, body_indices, &
-                                            prefix_keywords, errors)
+            prefix_keywords, errors)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: param_indices(:)
         integer, allocatable, intent(in) :: body_indices(:)
@@ -73,9 +73,9 @@ contains
         if (.not. arena%has_node_at(param_index)) return
 
         select type (node => arena%entries(param_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             is_array = node%is_array
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             is_array = node%is_array
         end select
     end function param_is_array
@@ -90,11 +90,11 @@ contains
         if (.not. arena%has_node_at(param_index)) return
 
         select type (node => arena%entries(param_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) name = trim(node%name)
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(node%var_name)) name = trim(node%var_name)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (allocated(node%name)) name = trim(node%name)
         end select
     end function param_name
@@ -111,7 +111,7 @@ contains
         do i = 1, size(body_indices)
             if (.not. arena%has_node_at(body_indices(i))) cycle
             select type (node => arena%entries(body_indices(i))%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (.not. node%is_array) cycle
                 if (declaration_names_dummy(node, dummy_name)) then
                     is_array = .true.

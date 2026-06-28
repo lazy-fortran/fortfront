@@ -27,10 +27,10 @@ program test_issue_2809_enum
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (n => arena%entries(i)%node)
-        type is (enum_node)
+            type is (enum_node)
             enum_count = enum_count + 1
             call check_enum(n)
-        type is (error_node_t)
+            type is (error_node_t)
             error_count = error_count + 1
         end select
     end do

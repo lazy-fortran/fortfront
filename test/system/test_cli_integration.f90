@@ -18,7 +18,7 @@ program test_cli_integration
     print *, ""
 
     if (.not. run_system) then
-       print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
+        print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
         stop 0
     end if
 
@@ -36,7 +36,7 @@ program test_cli_integration
             if (build_status /= 0) then
                 print *, "SKIPPING: Failed to build fortfront executable (exit code:", &
                     & build_status, ")"
-        print *, "This may indicate CI environment issues or missing build dependencies"
+                print *, "This may indicate CI environment issues or missing build dependencies"
                 stop 0
             end if
             executable_path = find_fortfront_executable()
@@ -112,7 +112,7 @@ contains
             & iostat=ios)
         if (ios /= 0) then
             open (newunit=unit_num, file=trimmed, status='old', action='read', &
-                  iostat=ios)
+                iostat=ios)
         end if
         if (ios == 0) then
             close (unit_num, status='delete', iostat=ios)
@@ -129,17 +129,17 @@ contains
         end if
     end subroutine write_text_file
 
-   function build_pipe_command(exe, in_file, out_file, err_file, on_windows) result(cmd)
+    function build_pipe_command(exe, in_file, out_file, err_file, on_windows) result(cmd)
         character(len=*), intent(in) :: exe, in_file, out_file, err_file
         logical, intent(in) :: on_windows
         character(len=:), allocatable :: cmd
         if (on_windows) then
             cmd = 'cmd /C "set FORTFRONT_TRACE=0 && type '//trim(in_file)// &
-                  ' | "'//trim(exe)//'" > '//trim(out_file)//' 2> '// &
-                  trim(err_file)//'"'
+                ' | "'//trim(exe)//'" > '//trim(out_file)//' 2> '// &
+                trim(err_file)//'"'
         else
             cmd = 'sh -lc "cat '//trim(in_file)//' | FORTFRONT_TRACE=0 '// &
-                  trim(exe)//' > '//trim(out_file)//' 2> '//trim(err_file)//'"'
+                trim(exe)//' > '//trim(out_file)//' 2> '//trim(err_file)//'"'
         end if
     end function build_pipe_command
 
@@ -223,7 +223,7 @@ contains
                     & '..\\..\\..\\..']
                 do r = 1, size(roots)
                     call execute_command_line('cmd /C where /R ' // trim(roots(r)) // ' fortfront.exe > fortfront_search_win.txt', &
-                                              exitstat=exit_code)
+                        exitstat=exit_code)
                     if (exit_code == 0) then
                         open (newunit=unit_num, file='fortfront_search_win.txt', &
                             & status='old', action='read', iostat=exit_code)
@@ -250,15 +250,15 @@ contains
                                 read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code == 0 .and. &
                                     len_trim(search_output) > 0) then
-                                   inquire (file=trim(search_output), exist=file_exists)
+                                    inquire (file=trim(search_output), exist=file_exists)
                                     if (file_exists) executable_path = &
                                         trim(search_output)
                                 end if
                             end if
                             close (unit_num)
                         end if
-                call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
-                                          & exitstat=exit_code)
+                        call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
+                            & exitstat=exit_code)
                     end if
                     if (len(executable_path) > 0) return
                 end do
@@ -280,7 +280,7 @@ contains
 
         ! Strategy 1: Use find command to dynamically locate fortfront executable
         call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
-                                  exitstat=exit_code)
+            exitstat=exit_code)
         if (exit_code == 0) then
             open (newunit=unit_num, file='fortfront_search.txt', status='old', &
                 & action='read', iostat=exit_code)
@@ -303,26 +303,26 @@ contains
         ! Strategy 2: Check hardcoded patterns as fallback
         ! List of common build hash patterns to check (update when needed)
         build_patterns = [ &
-                         "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
-                         "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
-                         "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
-                         "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
-                         "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
-                         "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
-                         "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
-                         "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
-                         "build/gfortran_A56298966DD7666C/app/fortfront   ", &
-                         "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
-                         "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
-                         "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
-                         "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
-                         "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
-                         "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
-                         "fortfront                                       ", &
-                         "./fortfront                                     ", &
-                         "app/fortfront                                   ", &
-                         "./app/fortfront                                 ", &
-                         "../fortfront                                    "]
+            "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
+            "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
+            "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
+            "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
+            "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
+            "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
+            "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
+            "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
+            "build/gfortran_A56298966DD7666C/app/fortfront   ", &
+            "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
+            "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
+            "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
+            "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
+            "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
+            "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
+            "fortfront                                       ", &
+            "./fortfront                                     ", &
+            "app/fortfront                                   ", &
+            "./app/fortfront                                 ", &
+            "../fortfront                                    "]
 
         ! Check each candidate path
         do i = 1, size(build_patterns)
@@ -363,7 +363,7 @@ contains
                 & '" test_input.lf > test_output.txt 2> test_error.txt"'
         else
             command = build_pipe_command(executable_path, 'test_input.lf', &
-                                         'test_output.txt', 'test_error.txt', .false.)
+                'test_output.txt', 'test_error.txt', .false.)
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -383,11 +383,11 @@ contains
                         exit
                     end if
                 end do
-100             close (10)
+                100             close (10)
                 ! On Windows via fpm wrapper, allow any non-empty output as success
                 if (.not. success .and. is_windows) then
-                   open (unit=13, file='test_output.txt', status='old', action='read', &
-                         & iostat=exit_code)
+                    open (unit=13, file='test_output.txt', status='old', action='read', &
+                        & iostat=exit_code)
                     if (exit_code == 0) then
                         do
                             read (13, '(A)', end=102, iostat=exit_code) output_line
@@ -397,7 +397,7 @@ contains
                                 exit
                             end if
                         end do
-102                     close (13)
+                        102                     close (13)
                     end if
                 end if
                 ! Ensure no diagnostics leaked to stderr (should be empty on success)
@@ -412,7 +412,7 @@ contains
                             exit
                         end if
                     end do
-101                 close (12)
+                    101                 close (12)
                 end if
                 ! Clean up test files
                 call cleanup_file('test_input.lf')
@@ -439,7 +439,7 @@ contains
                         print *, '  TRACE: ', trim(err_line)
                     end if
                 end do
-199             close (98)
+                199             close (98)
             end if
         end if
     end subroutine test_basic_io
@@ -466,9 +466,9 @@ contains
 
         ! Prepare a CRLF-ended input file (convert from LF)
         call write_text_file('test_input_crlf_src.lf', &
-                             'print *, ''test'''//new_line('a'))
+            'print *, ''test'''//new_line('a'))
         call execute_command_line('bash -lc "sed ''s/$/\\r/'' test_input_crlf_src.lf > test_input_crlf.lf"', &
-                                  exitstat=exit_code)
+            exitstat=exit_code)
         if (exit_code /= 0) then
             call test_result(.false.)
             print *, "  ERROR: Failed to prepare CRLF test input"
@@ -477,8 +477,8 @@ contains
 
         ! Pipe CRLF input to the executable
         command = build_pipe_command(executable_path, 'test_input_crlf.lf', &
-                                     'test_output_crlf.txt', &
-                                         & 'test_error_crlf.txt', .false.)
+            'test_output_crlf.txt', &
+            & 'test_error_crlf.txt', .false.)
         call execute_command_line(command, exitstat=run_status)
 
         success = (run_status == 0)
@@ -497,10 +497,10 @@ contains
                         exit
                     end if
                 end do
-110             close (14)
+                110             close (14)
 
-               open (unit=15, file='test_error_crlf.txt', status='old', action='read', &
-                     & iostat=exit_code)
+                open (unit=15, file='test_error_crlf.txt', status='old', action='read', &
+                    & iostat=exit_code)
                 if (exit_code == 0) then
                     do
                         read (15, '(A)', end=111, iostat=exit_code) err_line
@@ -510,7 +510,7 @@ contains
                             exit
                         end if
                     end do
-111                 close (15)
+                    111                 close (15)
                 end if
             else
                 success = .false.
@@ -550,10 +550,10 @@ contains
         end if
 
         call write_text_file('test_input_pipe_win.lf', &
-                             'print *, ''test'''//new_line('a'))
+            'print *, ''test'''//new_line('a'))
         command = build_pipe_command(executable_path, 'test_input_pipe_win.lf', &
-                                     'test_output_pipe_win.txt', &
-                                         & 'test_error_pipe_win.txt', .true.)
+            'test_output_pipe_win.txt', &
+            & 'test_error_pipe_win.txt', .true.)
         call execute_command_line(command, exitstat=run_status)
 
         success = (run_status == 0)
@@ -571,7 +571,7 @@ contains
                         exit
                     end if
                 end do
-120             close (16)
+                120             close (16)
             else
                 success = .false.
             end if
@@ -585,8 +585,8 @@ contains
         if (.not. success) then
             print *, "  Windows pipe CLI test failed"
             print *, "  Exit code: ", run_status
-           open (unit=96, file='test_error_pipe_win.txt', status='old', action='read', &
-                 & iostat=exit_code)
+            open (unit=96, file='test_error_pipe_win.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 do
                     read (96, '(A)', end=398, iostat=exit_code) line
@@ -595,7 +595,7 @@ contains
                         print *, '  TRACE: ', trim(line)
                     end if
                 end do
-398             close (96)
+                398             close (96)
             end if
         end if
     end subroutine test_basic_io_windows_pipe
@@ -621,7 +621,7 @@ contains
         call write_text_file('test_invalid.lf', &
             & 'invalid fortran code @#$%'//new_line('a'))
         command = build_pipe_command(executable_path, 'test_invalid.lf', &
-                                     'test_output2.txt', 'test_error2.txt', is_windows)
+            'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
 
         ! Invalid source input should surface a non-zero exit with diagnostics
@@ -647,7 +647,7 @@ contains
                         exit
                     end if
                 end do
-275             close (unit_num)
+                275             close (unit_num)
             end if
         end if
         success = success .and. has_error_output
@@ -693,7 +693,7 @@ contains
                 & '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
         else
             command = 'FORTFRONT_TRACE=0 '//timeout_wrapper('20')//executable_path// &
-                      ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+                ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -732,7 +732,7 @@ contains
                 & '" - > test_output_dash.txt 2>test_error_dash.txt"'
         else
             command = 'FORTFRONT_TRACE=0 '//timeout_wrapper('20')//executable_path// &
-                      ' - > test_output_dash.txt 2>test_error_dash.txt'
+                ' - > test_output_dash.txt 2>test_error_dash.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -773,7 +773,7 @@ contains
                 & '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
         else
             command = timeout_wrapper('20')//executable_path// &
-                      ' -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt'
+                ' -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt'
         end if
 
         call execute_command_line(command, exitstat=run_status)
@@ -790,7 +790,7 @@ contains
                 else
                     success = .false.
                 end if
-410             close (31)
+                410             close (31)
             else
                 success = .false.
             end if
@@ -807,7 +807,7 @@ contains
                             exit
                         end if
                     end do
-411                 close (32)
+                    411                 close (32)
                 end if
             end if
         end if
@@ -843,14 +843,14 @@ contains
 
         ! Run with lazy function syntax which is not supported
         if (is_windows) then
-           call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
+            call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
             command = build_pipe_command(executable_path, 'test_func.lf', &
-                                         'test_out_func.txt', &
-                                         'test_err_func.txt', .true.)
+                'test_out_func.txt', &
+                'test_err_func.txt', .true.)
         else
             command = 'bash -lc "echo \"func add(x, y) = x + y\" | '// &
-                      timeout_wrapper('20')//executable_path// &
-                      ' > test_out_func.txt 2>test_err_func.txt"'
+                timeout_wrapper('20')//executable_path// &
+                ' > test_out_func.txt 2>test_err_func.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -866,7 +866,7 @@ contains
                 if (exit_code == 0) then
                     success = success .and. (index(line, 'program main') > 0)
                 end if
-300             close (21)
+                300             close (21)
             else
                 success = .false.
             end if
@@ -905,10 +905,10 @@ contains
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
             command = 'cmd /C "set FORTFRONT_TRACE=0 && type NUL | "'// &
-                      executable_path//'" > test_output3.txt 2>test_error3.txt"'
+                executable_path//'" > test_output3.txt 2>test_error3.txt"'
         else
             command = 'bash -lc "echo \"\" | '//timeout_wrapper('20')// &
-                      executable_path//' > test_output3.txt 2>test_error3.txt"'
+                executable_path//' > test_output3.txt 2>test_error3.txt"'
         end if
         call execute_command_line(command, exitstat=exit_code)
 
@@ -923,7 +923,7 @@ contains
                 if (exit_code == 0) then
                     success = success .and. (index(output_line, 'program main') > 0)
                 end if
-200             close (11)
+                200             close (11)
                 ! Clean up test files
                 call cleanup_file('test_output3.txt')
                 call cleanup_file('test_error3.txt')
@@ -960,7 +960,7 @@ contains
                 & '" --help > help_out.txt 2>help_err.txt"'
         else
             command = 'bash -lc "FORTFRONT_TRACE=0 '//timeout_wrapper('20')// &
-                      executable_path//' --help > help_out.txt 2>help_err.txt"'
+                executable_path//' --help > help_out.txt 2>help_err.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
 

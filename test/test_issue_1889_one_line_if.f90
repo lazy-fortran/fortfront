@@ -24,7 +24,7 @@ contains
         integer :: prog_index
 
         call read_example('examples/f90/issue_1889_single_line_if.f90', &
-                          input_code)
+            input_code)
 
         print *, ""
         print *, "Test: single-line IF statements stay compact"

@@ -3,7 +3,7 @@ program test_issue_2154_do_loop_with_exit_cycle
     ! This test verifies that print statements after a DO loop containing EXIT/CYCLE
     ! are correctly parsed and included in the output.
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                              iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none
@@ -15,7 +15,7 @@ program test_issue_2154_do_loop_with_exit_cycle
 
     ! Read the example file
     call read_example('examples/lf/issue_playtest5_print_after_loop_deleted.lf', &
-                      input_text)
+        input_text)
 
     ! Transform the lazy fortran code
     call transform_lazy_fortran_string(input_text, output_text, error_msg)

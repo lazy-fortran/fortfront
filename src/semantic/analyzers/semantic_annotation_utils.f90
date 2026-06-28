@@ -1,7 +1,7 @@
 module semantic_annotation_utils
     use string_utils_mod, only: to_lower
     use type_system_unified, only: create_mono_type, mono_type_t, TINT, TREAL, &
-                                   TCHAR, TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
+        TCHAR, TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use parser_type_hooks_module, only: type_annotation_t
     implicit none
     private
@@ -40,7 +40,7 @@ contains
 
         if (kind_id == TINT) then
             var_type = create_mono_type(kind_id, &
-                                        is_unsigned=annotation%is_unsigned)
+                is_unsigned=annotation%is_unsigned)
         else
             var_type = create_mono_type(kind_id)
         end if

@@ -3,7 +3,7 @@ module parser_inline_instantiation_module
     use lexer_token_types, only: TK_OPERATOR
     use parser_state_module, only: parser_state_t
     use parser_token_views_module, only: token_view_t, view_peek_token, &
-                                         view_consume_token
+        view_consume_token
     implicit none
     private
 
@@ -70,7 +70,7 @@ contains
         end if
 
         call scan_balanced(parser, "(", ")", "parentheses", arg_tokens, &
-                           arg_count, view)
+            arg_count, view)
         if (arg_count == 0) return
 
         allocate (tokens(arg_count + 1))
@@ -82,7 +82,7 @@ contains
     ! Collect tokens of a balanced open/close group starting at the open token.
     ! On unbalanced input reports an error and leaves count == 0.
     subroutine scan_balanced(parser, open_ch, close_ch, group_name, tokens, &
-                             count, view)
+            count, view)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: open_ch, close_ch, group_name
         type(token_t), allocatable, intent(out) :: tokens(:)

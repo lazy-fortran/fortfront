@@ -2,7 +2,7 @@ program test_issue_1573_pointer_assignment_lost
     ! Test for issue #1573: Pointer assignment (=>) lost during transformation
     ! Bug: Pointer assignment is silently dropped when followed by print then regular assignment
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
     call test_pointer_assignment_preserved_case1()
@@ -20,7 +20,7 @@ contains
         character(len=:), allocatable :: input_code, output_code, error_msg
 
         call read_example('examples/lf/pointer_assignment_before_print.lf', &
-                          input_code)
+            input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -44,7 +44,7 @@ contains
         character(len=:), allocatable :: input_code, output_code, error_msg
 
         call read_example('examples/lf/pointer_assignment_direct_print.lf', &
-                          input_code)
+            input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -68,7 +68,7 @@ contains
         character(len=:), allocatable :: input_code, output_code, error_msg
 
         call read_example('examples/lf/pointer_assignment_print_then_assign.lf', &
-                          input_code)
+            input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

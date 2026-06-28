@@ -66,7 +66,7 @@ contains
 
         executable_path = ''
         roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', &
-                 '..\\..\\..\\..']
+            '..\\..\\..\\..']
 
         do r = 1, size(roots)
             call execute_command_line( &
@@ -75,7 +75,7 @@ contains
                 exitstat=exit_code)
             if (exit_code /= 0) cycle
             call select_search_result('fortfront_search_win.txt', &
-                                      'app\\fortfront.exe', executable_path)
+                'app\\fortfront.exe', executable_path)
             call execute_command_line( &
                 'cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
             if (len_trim(executable_path) > 0) exit
@@ -97,7 +97,7 @@ contains
             exitstat=exit_code)
         if (exit_code == 0) then
             call select_search_result('fortfront_search.txt', '/app/fortfront', &
-                                      executable_path)
+                executable_path)
         end if
         call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
     end function find_fortfront_on_posix
@@ -113,30 +113,30 @@ contains
         executable_path = ''
 
         build_patterns = [ &
-                         'build/gfortran_266FF454AB2555FE/app/fortfront   ', &
-                         'build/gfortran_9ABCD662468F5A74/app/fortfront   ', &
-                         'build/gfortran_C79DEB301B8081FC/app/fortfront   ', &
-                         'build/gfortran_C523F0F8A99FF060/app/fortfront   ', &
-                         'build/gfortran_1F2DC83CBD1DC595/app/fortfront   ', &
-                         'build/gfortran_35CFD5CFC35942D6/app/fortfront   ', &
-                         'build/gfortran_4AE9E4ED7A89B913/app/fortfront   ', &
-                         'build/gfortran_66DBF6172AF51040/app/fortfront   ', &
-                         'build/gfortran_A56298966DD7666C/app/fortfront   ', &
-                         'build/gfortran_E3D58E6D75301430/app/fortfront   ', &
-                         'build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ', &
-                         './build/gfortran_266FF454AB2555FE/app/fortfront ', &
-                         './build/gfortran_9ABCD662468F5A74/app/fortfront ', &
-                         './build/gfortran_C79DEB301B8081FC/app/fortfront ', &
-                         './build/gfortran_C523F0F8A99FF060/app/fortfront ', &
-                         'fortfront                                       ', &
-                         './fortfront                                     ', &
-                         'app/fortfront                                   ', &
-                         './app/fortfront                                 ', &
-                         '../fortfront                                    ', &
-                         'fortfront.exe                                   ', &
-                         '.\\fortfront.exe                                ', &
-                         'app\\fortfront.exe                              ', &
-                         '.\\app\\fortfront.exe                           ']
+            'build/gfortran_266FF454AB2555FE/app/fortfront   ', &
+            'build/gfortran_9ABCD662468F5A74/app/fortfront   ', &
+            'build/gfortran_C79DEB301B8081FC/app/fortfront   ', &
+            'build/gfortran_C523F0F8A99FF060/app/fortfront   ', &
+            'build/gfortran_1F2DC83CBD1DC595/app/fortfront   ', &
+            'build/gfortran_35CFD5CFC35942D6/app/fortfront   ', &
+            'build/gfortran_4AE9E4ED7A89B913/app/fortfront   ', &
+            'build/gfortran_66DBF6172AF51040/app/fortfront   ', &
+            'build/gfortran_A56298966DD7666C/app/fortfront   ', &
+            'build/gfortran_E3D58E6D75301430/app/fortfront   ', &
+            'build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ', &
+            './build/gfortran_266FF454AB2555FE/app/fortfront ', &
+            './build/gfortran_9ABCD662468F5A74/app/fortfront ', &
+            './build/gfortran_C79DEB301B8081FC/app/fortfront ', &
+            './build/gfortran_C523F0F8A99FF060/app/fortfront ', &
+            'fortfront                                       ', &
+            './fortfront                                     ', &
+            'app/fortfront                                   ', &
+            './app/fortfront                                 ', &
+            '../fortfront                                    ', &
+            'fortfront.exe                                   ', &
+            '.\\fortfront.exe                                ', &
+            'app\\fortfront.exe                              ', &
+            '.\\app\\fortfront.exe                           ']
 
         do i = 1, size(build_patterns)
             candidate_path = trim(build_patterns(i))
@@ -178,7 +178,7 @@ contains
         fallback = ''
 
         open (newunit=unit_num, file=trim(filename), status='old', action='read', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) return
 
         do
@@ -228,10 +228,10 @@ contains
         if (.not. exists) return
 
         open (newunit=unit_num, file=trimmed, status='old', action='readwrite', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) then
             open (newunit=unit_num, file=trimmed, status='old', action='read', &
-                  iostat=ios)
+                iostat=ios)
         end if
         if (ios == 0) then
             close (unit_num, status='delete', iostat=ios)
@@ -262,7 +262,7 @@ contains
 
         if (is_windows) then
             mkdir_cmd = 'cmd /C "if not exist "' // trim(temp_dir) // &
-                        '" mkdir "' // trim(temp_dir) // '""'
+                '" mkdir "' // trim(temp_dir) // '""'
         else
             mkdir_cmd = 'mkdir -p "' // trim(temp_dir) // '"'
         end if
@@ -368,7 +368,7 @@ contains
 
         if (is_windows) then
             mkdir_cmd = 'cmd /C "if not exist "' // trim(path) // &
-                        '" mkdir "' // trim(path) // '""'
+                '" mkdir "' // trim(path) // '""'
         else
             mkdir_cmd = 'mkdir -p "' // trim(path) // '"'
         end if
@@ -386,7 +386,7 @@ contains
         suffix = ''
         call date_and_time(values=date_vals)
         call system_clock(count=clock_count, count_rate=clock_rate, &
-                          count_max=clock_max)
+            count_max=clock_max)
         pid = getpid()
 
         write (suffix, '(I0,"_",I4.4,I2.2,I2.2,"_",I2.2,I2.2,I2.2,"_",I0)') &

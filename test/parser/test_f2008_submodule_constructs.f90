@@ -7,7 +7,7 @@ program test_f2008_submodule_constructs
     use transformation_api, only: transform_context_t, transform_with_context, &
         & INPUT_MODE_STANDARD
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-                         ast_arena_t, token_t, get_node_type_at, ast_to_json
+        ast_arena_t, token_t, get_node_type_at, ast_to_json
     implicit none
 
     character(len=:), allocatable :: source_code
@@ -100,7 +100,7 @@ contains
         print *, '  Testing submodule with contains section...'
 
         call read_example('examples/f90/issue_1827_submodule_with_contents.f90', &
-                          source)
+            source)
 
         ctx%input_mode = INPUT_MODE_STANDARD
         ctx%has_filename = .true.
@@ -147,7 +147,7 @@ contains
         options%run_semantics = .false.
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options, tokens)
+            options, tokens)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             write (error_unit, '(A)') 'FAIL: submodule AST load error: ' // &

@@ -1,7 +1,7 @@
 program test_tooling_computed_goto
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-                         ast_arena_t, token_t
+        ast_arena_t, token_t
     use ast_nodes_transfer, only: goto_node
     use ast_nodes_core, only: identifier_node
     implicit none
@@ -21,7 +21,7 @@ program test_tooling_computed_goto
     options%run_semantics = .false.
 
     call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                      options, tokens)
+        options, tokens)
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
@@ -42,7 +42,7 @@ program test_tooling_computed_goto
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (goto_node)
+            type is (goto_node)
             if (.not. allocated(node%label_list)) cycle
             if (node%selector_index <= 0) cycle
             found = .true.
@@ -58,7 +58,7 @@ program test_tooling_computed_goto
     end if
 
     select type (selector => arena%entries(selector_index)%node)
-    type is (identifier_node)
+        type is (identifier_node)
         if (trim(selector%name) /= 'choice') then
             write (error_unit, '(a,1x,a)') 'FAIL: selector identifier mismatch:', &
                 trim(selector%name)

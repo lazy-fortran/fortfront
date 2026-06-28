@@ -1,6 +1,6 @@
 program test_issue_2153_array_call_scalar_param
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-                                             iostat_end, iostat_eor
+        iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 

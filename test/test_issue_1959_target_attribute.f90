@@ -1,6 +1,6 @@
 program test_issue_1959_target_attribute
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_STANDARD
     implicit none
@@ -15,7 +15,7 @@ program test_issue_1959_target_attribute
     print *, "=== Issue #1959: preserve target attribute for pointer targets ==="
 
     call read_example('examples/f90/issue_1959_target_attribute.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.
@@ -29,7 +29,7 @@ program test_issue_1959_target_attribute
     end if
 
     has_target_attr = index(output_code, ", target :: x") > 0 .or. &
-                      index(output_code, ", target :: y") > 0
+        index(output_code, ", target :: y") > 0
 
     test_passed = has_target_attr
 

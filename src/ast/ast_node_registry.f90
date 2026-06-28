@@ -7,9 +7,9 @@ module ast_node_registry
     ! Node registry for distributed node management
     type :: node_entry_t
         class(ast_node), allocatable :: node
-        integer :: ref_count = 0  ! Reference counting for memory management
-        logical :: is_root = .false.  ! Track root nodes for GC
-        integer :: generation = 0  ! For generational GC
+        integer :: ref_count = 0 ! Reference counting for memory management
+        logical :: is_root = .false. ! Track root nodes for GC
+        integer :: generation = 0 ! For generational GC
     contains
         procedure :: increment_ref
         procedure :: decrement_ref
@@ -23,9 +23,9 @@ module ast_node_registry
         integer :: size = 0
         integer :: capacity = 0
         integer :: generation_counter = 0
-        integer, allocatable :: free_list(:)  ! Free slot management
+        integer, allocatable :: free_list(:) ! Free slot management
         integer :: free_count = 0
-        integer :: initial_capacity = 64  ! Smaller initial size
+        integer :: initial_capacity = 64 ! Smaller initial size
     contains
         procedure :: register_node
         procedure :: get_node
@@ -60,7 +60,7 @@ contains
         type(ast_node_registry_t) :: registry
         integer :: cap
 
-        cap = 64  ! Smaller default capacity
+        cap = 64 ! Smaller default capacity
         if (present(initial_capacity)) then
             cap = max(initial_capacity, 16)
         end if
@@ -94,7 +94,7 @@ contains
             deallocate (this%nodes(slot)%node)
         end if
         allocate (this%nodes(slot)%node, source=node)
-        this%nodes(slot)%ref_count = 1  ! Start with one reference
+        this%nodes(slot)%ref_count = 1 ! Start with one reference
         this%nodes(slot)%generation = this%generation_counter
 
         if (present(is_root)) then
@@ -213,7 +213,7 @@ contains
         stats%total_nodes = this%size
         stats%active_nodes = active_count
         stats%free_slots = this%free_count
-        stats%memory_usage = this%capacity * 64  ! Rough estimate
+        stats%memory_usage = this%capacity * 64 ! Rough estimate
         stats%ref_count_total = ref_total
 
         if (this%capacity > 0) then

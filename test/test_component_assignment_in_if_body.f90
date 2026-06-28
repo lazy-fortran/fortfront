@@ -24,20 +24,20 @@ program test_component_assignment_in_if_body
     integer :: i
 
     src = 'program test'//new_line('a')// &
-          '  type :: point_t'//new_line('a')// &
-          '    integer :: x'//new_line('a')// &
-          '    integer :: y'//new_line('a')// &
-          '  end type point_t'//new_line('a')// &
-          '  type(point_t) :: p'//new_line('a')// &
-          '  integer :: flag'//new_line('a')// &
-          '  flag = 1'//new_line('a')// &
-          '  if (flag == 1) then'//new_line('a')// &
-          '    p%x = 7'//new_line('a')// &
-          '  else'//new_line('a')// &
-          '    p%x = 9'//new_line('a')// &
-          '  end if'//new_line('a')// &
-          '  stop p%x'//new_line('a')// &
-          'end program test'
+        '  type :: point_t'//new_line('a')// &
+        '    integer :: x'//new_line('a')// &
+        '    integer :: y'//new_line('a')// &
+        '  end type point_t'//new_line('a')// &
+        '  type(point_t) :: p'//new_line('a')// &
+        '  integer :: flag'//new_line('a')// &
+        '  flag = 1'//new_line('a')// &
+        '  if (flag == 1) then'//new_line('a')// &
+        '    p%x = 7'//new_line('a')// &
+        '  else'//new_line('a')// &
+        '    p%x = 9'//new_line('a')// &
+        '  end if'//new_line('a')// &
+        '  stop p%x'//new_line('a')// &
+        'end program test'
 
     arena = create_ast_arena()
     call lex_source(src, tokens, error_msg)
@@ -58,7 +58,7 @@ program test_component_assignment_in_if_body
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (n => arena%entries(i)%node)
-        type is (if_node)
+            type is (if_node)
             if (allocated(n%then_body_indices)) then
                 then_count = size(n%then_body_indices)
                 if (then_count >= 1) found_then_assign = n%then_body_indices(1)
@@ -81,14 +81,14 @@ program test_component_assignment_in_if_body
         error stop 1
     end if
     select type (n => arena%entries(found_then_assign)%node)
-    type is (assignment_node)
+        type is (assignment_node)
         ! expected
     class default
         print *, 'FAIL: then body[1] is not an assignment_node'
         error stop 1
     end select
     select type (n => arena%entries(found_else_assign)%node)
-    type is (assignment_node)
+        type is (assignment_node)
         ! expected
     class default
         print *, 'FAIL: else body[1] is not an assignment_node'

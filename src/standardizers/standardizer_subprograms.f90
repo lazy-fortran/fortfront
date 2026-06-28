@@ -9,7 +9,7 @@ module standardizer_subprograms
     use standardizer_subroutine, only: standardize_subroutine_def
     use standardizer_subroutine, only: standardize_subroutine_parameters
     use standardizer_wrapping, only: wrap_function_in_program, &
-                                     wrap_subroutine_in_program
+        wrap_subroutine_in_program
     implicit none
     private
     public :: standardize_subprograms
@@ -31,8 +31,8 @@ contains
         if (.not. allocated(prog%body_indices)) return
 
         ! CRITICAL: Copy indices before loop to prevent dangling pointer access
-  ! standardize_function_def and standardize_subroutine_def call push_implicit_statement
-  ! which modifies arena, potentially invalidating the prog selector used in select type
+        ! standardize_function_def and standardize_subroutine_def call push_implicit_statement
+        ! which modifies arena, potentially invalidating the prog selector used in select type
         block
             integer, allocatable :: local_indices(:)
             allocate (local_indices(size(prog%body_indices)))
@@ -42,11 +42,11 @@ contains
                 if (local_indices(i) > 0 .and. local_indices(i) <= arena%size) then
                     if (allocated(arena%entries(local_indices(i))%node)) then
                         select type (stmt => arena%entries(local_indices(i))%node)
-                        type is (function_def_node)
+                            type is (function_def_node)
                             call standardize_function_def(arena, stmt, local_indices(i))
-                        type is (subroutine_def_node)
+                            type is (subroutine_def_node)
                             call standardize_subroutine_def(arena, stmt, &
-                                                            local_indices(i))
+                                local_indices(i))
                         end select
                     end if
                 end if

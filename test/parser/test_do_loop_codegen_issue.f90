@@ -1,7 +1,7 @@
 program test_do_loop_codegen_issue
     ! Test that do loops generate correct code, not broken declarations
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -92,7 +92,7 @@ program test_do_loop_codegen_issue
     test_passed = .false.
     if (index(output, 'do i =') > 0 .and. &
         (index(output, 'n-5') > 0 .or. index(output, 'n - 5') > 0 .or. &
-         index(output, 'n-5d0') > 0 .or. index(output, 'n - 5d0') > 0)) then
+        index(output, 'n-5d0') > 0 .or. index(output, 'n - 5d0') > 0)) then
         print *, '  OK: Found do loop with expressions'
         test_passed = .true.
     end if

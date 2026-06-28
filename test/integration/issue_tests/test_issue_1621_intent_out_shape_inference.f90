@@ -20,18 +20,18 @@ program test_issue_1621_intent_out_shape_inference
     end if
 
     has_n1_decl = (index(transformed, 'integer :: n1') > 0) .or. &
-                  (index(transformed, 'integer :: n1,') > 0) .or. &
-                  (index(transformed, 'integer, intent(in) :: n1') > 0) .or. &
-                  (index(transformed, 'integer, intent(in) :: n1,') > 0) .or. &
-                  (index(transformed, ':: n1, n2') > 0) .or. &
-                  (index(transformed, ':: n1,n2') > 0)
+        (index(transformed, 'integer :: n1,') > 0) .or. &
+        (index(transformed, 'integer, intent(in) :: n1') > 0) .or. &
+        (index(transformed, 'integer, intent(in) :: n1,') > 0) .or. &
+        (index(transformed, ':: n1, n2') > 0) .or. &
+        (index(transformed, ':: n1,n2') > 0)
 
     has_n2_decl = (index(transformed, 'integer :: n2') > 0) .or. &
-                  (index(transformed, 'integer :: n1, n2') > 0) .or. &
-                  (index(transformed, 'integer :: n1,n2') > 0) .or. &
-                  (index(transformed, 'integer, intent(in) :: n2') > 0) .or. &
-                  (index(transformed, 'integer, intent(in) :: n1, n2') > 0) .or. &
-                  (index(transformed, 'integer, intent(in) :: n1,n2') > 0)
+        (index(transformed, 'integer :: n1, n2') > 0) .or. &
+        (index(transformed, 'integer :: n1,n2') > 0) .or. &
+        (index(transformed, 'integer, intent(in) :: n2') > 0) .or. &
+        (index(transformed, 'integer, intent(in) :: n1, n2') > 0) .or. &
+        (index(transformed, 'integer, intent(in) :: n1,n2') > 0)
 
     if (.not. (has_n1_decl .and. has_n2_decl)) then
         print *, 'FAIL: parameter declarations n1,n2 missing'
@@ -41,9 +41,9 @@ program test_issue_1621_intent_out_shape_inference
     end if
 
     if ((index(transformed, 'dimension(n1)') == 0 .and. &
-         index(transformed, 'a1(n1)') == 0) .or. &
+        index(transformed, 'a1(n1)') == 0) .or. &
         (index(transformed, 'dimension(n2)') == 0 .and. &
-         index(transformed, 'a2(n2)') == 0)) then
+        index(transformed, 'a2(n2)') == 0)) then
         print *, 'FAIL: dimension specifications missing for input arrays a1,a2'
         print *, 'Output:'
         print *, trim(transformed)

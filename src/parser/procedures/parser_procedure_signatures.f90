@@ -1,14 +1,14 @@
 module parser_procedure_signatures_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR, &
-                          TK_NEWLINE, TK_WHITESPACE, TK_STRING
+        TK_NEWLINE, TK_WHITESPACE, TK_STRING
     use parser_state_module, only: parser_state_t
     use parser_parameter_handling_module, only: parse_typed_parameters, &
-                                                merge_parameter_attributes
+        merge_parameter_attributes
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
-                                              consume_optional_kind_spec, &
-                                              keyword_can_be_function_name
+        consume_optional_kind_spec, &
+        keyword_can_be_function_name
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -25,8 +25,8 @@ module parser_procedure_signatures_module
 contains
 
     subroutine parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
-                                              prefix_keywords, has_recursive_keyword, &
-                                              return_type_from_prefix)
+            prefix_keywords, has_recursive_keyword, &
+            return_type_from_prefix)
         type(parser_state_t), intent(inout) :: parser
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), intent(in), optional :: prefix_list(:)
@@ -41,15 +41,15 @@ contains
         if (present(return_type_from_prefix)) return_type_from_prefix = ""
 
         call initialise_function_prefix_sources(prefix_buffer, prefix_list, &
-                                                pending_prefixes)
+            pending_prefixes)
         call append_pending_prefixes(pending_prefixes, prefix_keywords, &
-                                     has_recursive_keyword, return_type_from_prefix)
+            has_recursive_keyword, return_type_from_prefix)
         call consume_function_prefix_tokens(parser, prefix_keywords, &
-                                            has_recursive_keyword)
+            has_recursive_keyword)
     end subroutine parse_function_prefix_keywords
 
     subroutine initialise_function_prefix_sources(prefix_buffer, prefix_list, &
-                                                  pending_prefixes)
+            pending_prefixes)
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), intent(in), optional :: prefix_list(:)
         character(len=16), allocatable, intent(out) :: pending_prefixes(:)
@@ -71,7 +71,7 @@ contains
     end subroutine initialise_function_prefix_sources
 
     subroutine append_pending_prefixes(pending_prefixes, prefix_keywords, &
-                                       has_recursive_keyword, return_type_from_prefix)
+            has_recursive_keyword, return_type_from_prefix)
         use string_utils_mod, only: to_lower
         character(len=16), intent(in) :: pending_prefixes(:)
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
@@ -134,21 +134,21 @@ contains
             character(len=*), intent(in) :: text
 
             has_type = starts_with(text, "integer(") .or. &
-                       starts_with(text, "integer (") .or. &
-                       starts_with(text, "real(") .or. &
-                       starts_with(text, "real (") .or. &
-                       starts_with(text, "logical(") .or. &
-                       starts_with(text, "logical (") .or. &
-                       starts_with(text, "character(") .or. &
-                       starts_with(text, "character (") .or. &
-                       starts_with(text, "complex(") .or. &
-                       starts_with(text, "complex (") .or. &
-                       starts_with(text, "procedure(") .or. &
-                       starts_with(text, "procedure (") .or. &
-                       starts_with(text, "type(") .or. &
-                       starts_with(text, "type (") .or. &
-                       starts_with(text, "class(") .or. &
-                       starts_with(text, "class (")
+                starts_with(text, "integer (") .or. &
+                starts_with(text, "real(") .or. &
+                starts_with(text, "real (") .or. &
+                starts_with(text, "logical(") .or. &
+                starts_with(text, "logical (") .or. &
+                starts_with(text, "character(") .or. &
+                starts_with(text, "character (") .or. &
+                starts_with(text, "complex(") .or. &
+                starts_with(text, "complex (") .or. &
+                starts_with(text, "procedure(") .or. &
+                starts_with(text, "procedure (") .or. &
+                starts_with(text, "type(") .or. &
+                starts_with(text, "type (") .or. &
+                starts_with(text, "class(") .or. &
+                starts_with(text, "class (")
         end function has_type_with_parentheses
 
         logical function starts_with(text, prefix) result(matches)
@@ -165,7 +165,7 @@ contains
     end subroutine append_pending_prefixes
 
     subroutine consume_function_prefix_tokens(parser, prefix_keywords, &
-                                              has_recursive_keyword)
+            has_recursive_keyword)
         type(parser_state_t), intent(inout) :: parser
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
         logical, intent(inout) :: has_recursive_keyword
@@ -198,8 +198,8 @@ contains
     end subroutine consume_function_prefix_tokens
 
     subroutine parse_function_signature(parser, return_type_str, function_name, &
-                                        line, column, is_valid, &
-                                        return_type_from_prefix)
+            line, column, is_valid, &
+            return_type_from_prefix)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: return_type_str, function_name
         integer, intent(out) :: line, column
@@ -240,7 +240,7 @@ contains
             token = parser%consume()
             call consume_optional_inline_instantiations(parser, function_name)
         else if (token%kind == TK_KEYWORD .and. &
-                 keyword_can_be_function_name(parser, token)) then
+                keyword_can_be_function_name(parser, token)) then
             function_name = token%text
             token = parser%consume()
             call consume_optional_inline_instantiations(parser, function_name)
@@ -297,7 +297,7 @@ contains
     end subroutine parse_parameter_list
 
     subroutine merge_parameter_attributes_if_needed(arena, param_indices, &
-                                                    body_indices)
+            body_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: param_indices(:)
         integer, allocatable, intent(in) :: body_indices(:)
@@ -311,8 +311,8 @@ contains
     end subroutine merge_parameter_attributes_if_needed
 
     subroutine ensure_recursive_prefix(has_recursive_keyword, &
-                                       infer_recursive_from_body, &
-                                       prefix_keywords)
+            infer_recursive_from_body, &
+            prefix_keywords)
         logical, intent(inout) :: has_recursive_keyword
         logical, intent(in) :: infer_recursive_from_body
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)

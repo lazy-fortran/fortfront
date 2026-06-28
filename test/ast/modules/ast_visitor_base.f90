@@ -41,121 +41,121 @@ module ast_visitor_base
             import :: ast_visitor_t
             ! Forward declaration - will be fully defined when node types available
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with program_node
+            class(*), intent(in) :: node ! Temporary - will replace with program_node
         end subroutine visit_program_interface
 
         subroutine visit_assignment_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with assignment_node
+            class(*), intent(in) :: node ! Temporary - will replace with assignment_node
         end subroutine visit_assignment_interface
 
         subroutine visit_binary_op_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with binary_op_node
+            class(*), intent(in) :: node ! Temporary - will replace with binary_op_node
         end subroutine visit_binary_op_interface
 
         subroutine visit_function_def_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with function_def_node
+            class(*), intent(in) :: node ! Temporary - will replace with function_def_node
         end subroutine visit_function_def_interface
 
         subroutine visit_subroutine_def_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with subroutine_def_node
+            class(*), intent(in) :: node ! Temporary - will replace with subroutine_def_node
         end subroutine visit_subroutine_def_interface
 
         subroutine visit_call_or_subscript_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with call_or_subscript_node
+            class(*), intent(in) :: node ! Temporary - will replace with call_or_subscript_node
         end subroutine visit_call_or_subscript_interface
 
         subroutine visit_subroutine_call_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with subroutine_call_node
+            class(*), intent(in) :: node ! Temporary - will replace with subroutine_call_node
         end subroutine visit_subroutine_call_interface
 
         subroutine visit_identifier_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with identifier_node
+            class(*), intent(in) :: node ! Temporary - will replace with identifier_node
         end subroutine visit_identifier_interface
 
         subroutine visit_literal_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with literal_node
+            class(*), intent(in) :: node ! Temporary - will replace with literal_node
         end subroutine visit_literal_interface
 
         subroutine visit_declaration_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with declaration_node
+            class(*), intent(in) :: node ! Temporary - will replace with declaration_node
         end subroutine visit_declaration_interface
 
         subroutine visit_print_statement_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with print_statement_node
+            class(*), intent(in) :: node ! Temporary - will replace with print_statement_node
         end subroutine visit_print_statement_interface
 
         subroutine visit_if_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with if_node
+            class(*), intent(in) :: node ! Temporary - will replace with if_node
         end subroutine visit_if_interface
 
         subroutine visit_do_loop_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with do_loop_node
+            class(*), intent(in) :: node ! Temporary - will replace with do_loop_node
         end subroutine visit_do_loop_interface
 
         subroutine visit_do_while_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with do_while_node
+            class(*), intent(in) :: node ! Temporary - will replace with do_while_node
         end subroutine visit_do_while_interface
 
         subroutine visit_select_case_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with select_case_node
+            class(*), intent(in) :: node ! Temporary - will replace with select_case_node
         end subroutine visit_select_case_interface
 
         subroutine visit_derived_type_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with derived_type_node
+            class(*), intent(in) :: node ! Temporary - will replace with derived_type_node
         end subroutine visit_derived_type_interface
 
         subroutine visit_interface_block_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with interface_block_node
+            class(*), intent(in) :: node ! Temporary - will replace with interface_block_node
         end subroutine visit_interface_block_interface
 
         subroutine visit_module_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with module_node
+            class(*), intent(in) :: node ! Temporary - will replace with module_node
         end subroutine visit_module_interface
 
         subroutine visit_use_statement_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with use_statement_node
+            class(*), intent(in) :: node ! Temporary - will replace with use_statement_node
         end subroutine visit_use_statement_interface
 
         subroutine visit_include_statement_interface(this, node)
             import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
-            class(*), intent(in) :: node  ! Temporary - will replace with include_statement_node
+            class(*), intent(in) :: node ! Temporary - will replace with include_statement_node
         end subroutine visit_include_statement_interface
     end interface
 

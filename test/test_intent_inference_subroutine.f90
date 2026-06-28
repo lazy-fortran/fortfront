@@ -1,17 +1,17 @@
 program test_intent_inference_subroutine
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     print *, "=== Testing Subroutine Intent Inference (Issue #2114) ==="
 
     call assert_intent_counts('examples/lf/issue_missing_intent_inout_subroutine.lf', &
-                              expected_in=0, expected_inout=1)
+        expected_in=0, expected_inout=1)
     call assert_intent_counts('examples/lf/intent_in_only_subroutine.lf', &
-                              expected_in=1, expected_inout=0)
+        expected_in=1, expected_inout=0)
     call assert_intent_counts('examples/lf/intent_mixed_subroutine.lf', &
-                              expected_in=1, expected_inout=2)
+        expected_in=1, expected_inout=2)
 
     print *, "All subroutine intent inference tests PASSED"
 

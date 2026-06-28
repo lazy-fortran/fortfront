@@ -13,11 +13,11 @@ program test_issue_1692_select_case_open_range
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     call require(.not. allocated(error_msg) .or. len_trim(error_msg) == 0, &
-                 'Unexpected parser error: '//merge(error_msg, '', allocated(error_msg)))
+        'Unexpected parser error: '//merge(error_msg, '', allocated(error_msg)))
     call require(allocated(output_code), 'No output generated')
 
     call require(index(output_code, 'select case') > 0, &
-                 'SELECT CASE block missing (entire construct removed)')
+        'SELECT CASE block missing (entire construct removed)')
     call require(index(output_code, 'case (0:50)') > 0, 'Missing case (0:50) closed range')
     call require(index(output_code, 'case (51:70)') > 0, 'Missing case (51:70) closed range')
     call require(index(output_code, 'case (71:85)') > 0, 'Missing case (71:85) closed range')

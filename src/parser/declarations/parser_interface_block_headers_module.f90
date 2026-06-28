@@ -9,7 +9,7 @@ module parser_interface_block_headers_module
 contains
 
     subroutine begin_interface_block(parser, interface_name, interface_kind, &
-                                     operator_symbol, line, column, is_abstract)
+            operator_symbol, line, column, is_abstract)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: interface_name
         character(len=:), allocatable, intent(out) :: interface_kind

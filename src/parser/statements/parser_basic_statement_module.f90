@@ -1,13 +1,13 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE
+        TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, &
-                                            null_statement_callbacks, &
-                                            find_statement_end
+        statement_callbacks_t, &
+        null_statement_callbacks, &
+        find_statement_end
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -19,7 +19,7 @@ contains
 
     ! Parse basic statement with support for multi-variable declarations
     function parse_basic_statement_multi(tokens, arena, parent_index, callbacks, &
-                                         consumed_count) result(stmt_indices)
+            consumed_count) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -37,22 +37,22 @@ contains
         if (present(parent_index)) then
             if (present(consumed_count)) then
                 stmt_indices = parse_basic_statement_core( &
-                               tokens, arena, parent_index=parent_index, &
-                               callbacks=local_callbacks, &
-                               consumed_count=consumed_count)
+                    tokens, arena, parent_index=parent_index, &
+                    callbacks=local_callbacks, &
+                    consumed_count=consumed_count)
             else
                 stmt_indices = parse_basic_statement_core( &
-                               tokens, arena, parent_index=parent_index, &
-                               callbacks=local_callbacks)
+                    tokens, arena, parent_index=parent_index, &
+                    callbacks=local_callbacks)
             end if
         else
             if (present(consumed_count)) then
                 stmt_indices = parse_basic_statement_core( &
-                               tokens, arena, callbacks=local_callbacks, &
-                               consumed_count=consumed_count)
+                    tokens, arena, callbacks=local_callbacks, &
+                    consumed_count=consumed_count)
             else
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                                                          callbacks=local_callbacks)
+                    callbacks=local_callbacks)
             end if
         end if
     end function parse_basic_statement_multi
@@ -60,7 +60,7 @@ contains
     ! Unified function for parsing statement bodies (used by if blocks, &
     ! do while loops, etc.)
     function parse_statement_body(parser, arena, end_keywords, callbacks, &
-                                  parent_index) result(body_indices)
+            parent_index) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: end_keywords(:)
@@ -100,17 +100,17 @@ contains
                 if (stmt_end < stmt_start) stmt_end = stmt_start
 
                 has_meaningful = has_meaningful_tokens(parser%tokens, stmt_start, &
-                                                       stmt_end)
+                    stmt_end)
                 if (.not. has_meaningful) then
                     call advance_past_empty_statement(parser, stmt_start, stmt_end)
                     cycle
                 end if
 
                 call extract_statement_tokens(parser%tokens, stmt_start, stmt_end, &
-                                              stmt_tokens)
+                    stmt_tokens)
                 call parse_and_add_statement(stmt_tokens, arena, parent_index, &
-                                             local_callbacks, body_indices, &
-                                             stmt_count)
+                    local_callbacks, body_indices, &
+                    stmt_count)
                 call release_statement_tokens(stmt_tokens)
 
                 parser%current_token = next_statement_start(parser%tokens, stmt_end)
@@ -144,7 +144,7 @@ contains
     end subroutine skip_nonstatements
 
     logical function check_end_keyword_match(token, parser, end_keywords) &
-        result(found_end)
+            result(found_end)
         type(token_t), intent(in) :: token
         type(parser_state_t), intent(in) :: parser
         character(len=*), intent(in) :: end_keywords(:)
@@ -193,7 +193,7 @@ contains
     end function check_end_keyword_match
 
     logical function has_meaningful_tokens(tokens, stmt_start, stmt_end) &
-        result(has_meaningful)
+            result(has_meaningful)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         integer :: j
@@ -241,7 +241,7 @@ contains
     end subroutine extract_statement_tokens
 
     subroutine parse_and_add_statement(stmt_tokens, arena, parent_index, &
-                                       callbacks, body_indices, stmt_count)
+            callbacks, body_indices, stmt_count)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -254,10 +254,10 @@ contains
 
         if (present(parent_index)) then
             stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
-                                                       parent_index, callbacks)
+                parent_index, callbacks)
         else
             stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
-                                                       callbacks=callbacks)
+                callbacks=callbacks)
         end if
 
         do k = 1, size(stmt_indices)
@@ -298,7 +298,7 @@ contains
         start_pos = parser%current_token
         expr_index = parse_range(parser, arena)
         length = parser%current_token - start_pos
-        if (length == 0) length = 1  ! At least one token
+        if (length == 0) length = 1 ! At least one token
     end function parse_expression_length
 
 end module parser_basic_statement_module

@@ -24,7 +24,7 @@ contains
         integer :: prog_index
 
         call read_example('examples/f90/issue_2254_free_form_continuation.f90', &
-                          source)
+            source)
 
         arena = create_ast_arena()
 

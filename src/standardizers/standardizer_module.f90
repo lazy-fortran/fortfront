@@ -6,7 +6,7 @@ module standardizer_module
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: module_node
     use standardizer_subprograms, only: standardize_function_def, &
-                                        standardize_subroutine_def
+        standardize_subroutine_def
     implicit none
     private
 
@@ -27,9 +27,9 @@ contains
         ! For module contents, we only need to handle function/subroutine definitions
         ! All other declarations are left as-is
         select type (node => arena%entries(root_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             call standardize_function_def(arena, node, root_index)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             call standardize_subroutine_def(arena, node, root_index)
         class default
             ! For declarations and other node types inside modules, no action needed
@@ -49,7 +49,7 @@ contains
                 if (mod%declaration_indices(i) > 0 .and. &
                     mod%declaration_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%declaration_indices(i), &
-                                         in_module=.true.)
+                        in_module=.true.)
                 end if
             end do
         end if
@@ -60,7 +60,7 @@ contains
                 if (mod%procedure_indices(i) > 0 .and. &
                     mod%procedure_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%procedure_indices(i), &
-                                         in_module=.true.)
+                        in_module=.true.)
                 end if
             end do
         end if

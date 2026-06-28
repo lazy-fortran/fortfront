@@ -1,13 +1,13 @@
 module semantic_binary_ops_core
     ! Binary operation type inference
     use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, &
-                                   TARRAY, allocation_info_t
+        TARRAY, allocation_info_t
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node
     use semantic_binary_operations, only: infer_string_concatenation, &
-                                          infer_comparison_operation, &
-                                          infer_logical_operation
+        infer_comparison_operation, &
+        infer_logical_operation
     use semantic_type_operations, only: get_common_type
     implicit none
     private
@@ -18,7 +18,7 @@ module semantic_binary_ops_core
 contains
 
     function infer_binary_operation(arena, binop_index, binop, left_typ, right_typ) &
-        result(typ)
+            result(typ)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: binop_index
         type(binary_op_node), intent(in) :: binop
@@ -28,8 +28,8 @@ contains
         if (binop%operator == "+") then
             if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
                 typ = infer_string_concatenation(arena, binop%left_index, &
-                                                 binop%right_index, left_typ, &
-                                                 right_typ)
+                    binop%right_index, left_typ, &
+                    right_typ)
                 call rewrite_operator(arena, binop_index, "//")
                 return
             end if
@@ -37,15 +37,15 @@ contains
 
         if (binop%operator == "//") then
             typ = infer_string_concatenation(arena, binop%left_index, &
-                                             binop%right_index, left_typ, &
-                                             right_typ)
+                binop%right_index, left_typ, &
+                right_typ)
         else if (binop%operator == "==" .or. binop%operator == "/=" .or. &
-                 binop%operator == "<" .or. binop%operator == "<=" .or. &
-                 binop%operator == ">" .or. binop%operator == ">=") then
+                binop%operator == "<" .or. binop%operator == "<=" .or. &
+                binop%operator == ">" .or. binop%operator == ">=") then
             typ = infer_comparison_operation(left_typ, right_typ)
         else if (binop%operator == ".and." .or. binop%operator == ".or." .or. &
-                 binop%operator == ".not." .or. binop%operator == ".eqv." .or. &
-                 binop%operator == ".neqv.") then
+                binop%operator == ".not." .or. binop%operator == ".eqv." .or. &
+                binop%operator == ".neqv.") then
             typ = infer_logical_operation()
         else
             typ = get_common_type(left_typ, right_typ)
@@ -122,7 +122,7 @@ contains
     end subroutine merge_array_shapes
 
     function rebuild_array_type(common_typ, shape, left_typ, right_typ) &
-        result(array_typ)
+            result(array_typ)
         type(mono_type_t), intent(in) :: common_typ
         integer, intent(in) :: shape(:)
         type(mono_type_t), intent(in) :: left_typ
@@ -155,7 +155,7 @@ contains
     end function rebuild_array_type
 
     type(allocation_info_t) function merge_alloc_flags(common_typ, left_typ, &
-                                                       right_typ, shape) result(flags)
+            right_typ, shape) result(flags)
         type(mono_type_t), intent(in) :: common_typ
         type(mono_type_t), intent(in) :: left_typ
         type(mono_type_t), intent(in) :: right_typ
@@ -164,19 +164,19 @@ contains
         flags = common_typ%alloc_info
         if (left_typ%kind == TARRAY) then
             flags%is_allocatable = flags%is_allocatable .or. &
-                                   left_typ%alloc_info%is_allocatable
+                left_typ%alloc_info%is_allocatable
             flags%is_pointer = flags%is_pointer .or. &
-                               left_typ%alloc_info%is_pointer
+                left_typ%alloc_info%is_pointer
             flags%is_target = flags%is_target .or. &
-                              left_typ%alloc_info%is_target
+                left_typ%alloc_info%is_target
         end if
         if (right_typ%kind == TARRAY) then
             flags%is_allocatable = flags%is_allocatable .or. &
-                                   right_typ%alloc_info%is_allocatable
+                right_typ%alloc_info%is_allocatable
             flags%is_pointer = flags%is_pointer .or. &
-                               right_typ%alloc_info%is_pointer
+                right_typ%alloc_info%is_pointer
             flags%is_target = flags%is_target .or. &
-                              right_typ%alloc_info%is_target
+                right_typ%alloc_info%is_target
         end if
         if (any(shape <= 0)) then
             flags%is_allocatable = .true.
@@ -262,7 +262,7 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (binary_op_node)
+            type is (binary_op_node)
             node%operator = new_operator
             arena%entries(node_index)%node = node
         end select

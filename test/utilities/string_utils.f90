@@ -129,7 +129,7 @@ contains
         character(len=*), intent(in) :: str, substring
         logical :: contains
 
-        contains = (index(str, substring) > 0)
+    contains = (index(str, substring) > 0)
     end function string_contains
 
     ! ========================================================================

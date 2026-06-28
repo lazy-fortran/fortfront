@@ -8,7 +8,7 @@ program issue_2811_select_type_trailing
     i = 0
     allocate (integer :: x)
     select type (x)
-    type is (integer)
+        type is (integer)
         i = 1
     class default
         i = 2

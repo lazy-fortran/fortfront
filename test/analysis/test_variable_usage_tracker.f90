@@ -501,7 +501,7 @@ contains
 
         ! Get program body
         select type (prog_node => arena%entries(prog_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (allocated(prog_node%body_indices)) then
                 ! Look for if statement in body
                 do i = 1, size(prog_node%body_indices)
@@ -510,7 +510,7 @@ contains
                         if (arena%entries(if_index)%node_type == "if_statement") then
                             ! Get condition from if statement
                             select type (if_stmt => arena%entries(if_index)%node)
-                            type is (if_node)
+                                type is (if_node)
                                 condition_index = if_stmt%condition_index
                                 return
                             end select

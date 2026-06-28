@@ -8,19 +8,19 @@ program test_debug_code
 
     source = "x = 42"
     call lex_source(source, tokens, error_msg)
-    arena = create_ast_arena()  
+    arena = create_ast_arena()
     call parse_tokens(tokens, arena, prog_index, error_msg)
     call analyze_semantics(arena, prog_index)
     call emit_fortran(arena, prog_index, fortran_code)
-    
+
     print *, "Generated code length:", len_trim(fortran_code)
     print *, "Generated code:"
     print *, trim(fortran_code)
     print *, "---END---"
-    
+
     if (index(fortran_code, "implicit none") > 0) then
         print *, "FOUND: implicit none"
-    else  
+    else
         print *, "NOT FOUND: implicit none"
     end if
 end program test_debug_code

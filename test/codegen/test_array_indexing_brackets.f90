@@ -1,6 +1,6 @@
 program test_array_indexing_brackets
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use fortfront
     implicit none
 
@@ -57,8 +57,8 @@ contains
         end if
 
         ok = index(output, "i = a(i, j+1)") > 0 .or. &
-             index(output, "i = a(i,j+1)") > 0 .or. &
-             index(output, "i = a(i, j + 1)") > 0
+            index(output, "i = a(i,j+1)") > 0 .or. &
+            index(output, "i = a(i, j + 1)") > 0
         if (ok) then
             print *, "  PASS"
         else
@@ -125,8 +125,8 @@ contains
         end if
 
         ok = index(output, "x = a(:5)") > 0 .and. &
-             index(output, "x = a(3:)") > 0 .and. &
-             index(output, "x = a(:)") > 0
+            index(output, "x = a(3:)") > 0 .and. &
+            index(output, "x = a(:)") > 0
         if (ok) then
             print *, "  PASS"
         else

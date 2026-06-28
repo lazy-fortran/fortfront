@@ -85,7 +85,7 @@ program test_deferred_strings
 
     ! Test edge case: All spaces assignment from fixed-length
     ! Given: A fixed-length string containing only spaces
-    fixed_str = "          "  ! 10 spaces
+    fixed_str = "          " ! 10 spaces
     str1 = fixed_str
     ! When: Checking behavior with all-space strings
     ! Then: Content should be consistent (trim should give empty string)
@@ -101,7 +101,7 @@ program test_deferred_strings
 
     ! Test edge case: Single character assignment
     ! Given: Single character in fixed-length string
-    fixed_str = "A"  ! Implicit padding to length 10
+    fixed_str = "A" ! Implicit padding to length 10
     str1 = fixed_str
     ! When: Assigning single character
     ! Then: Trimmed content should be single character
@@ -113,8 +113,8 @@ program test_deferred_strings
     ! Test edge case: Multiple consecutive assignments
     ! Given: Different string assignments in sequence
     str1 = "First"
-    str1 = "Second Assignment"  ! Longer string
-    str1 = "X"  ! Much shorter string
+    str1 = "Second Assignment" ! Longer string
+    str1 = "X" ! Much shorter string
     ! When: Checking final assignment
     ! Then: Should handle reallocation correctly
     if (len(str1) /= 1) then

@@ -34,7 +34,7 @@ contains
         end if
 
         ok = index(output, "recursive") > 0 .and. &
-             index(output, "function factorial") > 0
+            index(output, "function factorial") > 0
         if (.not. ok) then
             print *, "  FAIL: recursive keyword missing"
             print *, "  Output: ", trim(output)
@@ -56,7 +56,7 @@ contains
         end if
 
         ok = index(output, "f = n * factorial") > 0 .or. &
-             index(output, "f = n*factorial") > 0
+            index(output, "f = n*factorial") > 0
         if (.not. ok) then
             print *, "  FAIL: recursive assignment missing from ELSE branch"
             print *, "  Output: ", trim(output)

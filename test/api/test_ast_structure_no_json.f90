@@ -23,11 +23,11 @@ contains
     subroutine test_basic_ast(ok)
         logical, intent(inout) :: ok
         character(len=*), parameter :: src = &
-                                       'program test'//new_line('a')// &
-                                       '  integer :: x, y'//new_line('a')// &
-                                       '  x = 10'//new_line('a')// &
-                                       '  y = x + 5'//new_line('a')// &
-                                       'end program test'
+            'program test'//new_line('a')// &
+            '  integer :: x, y'//new_line('a')// &
+            '  x = 10'//new_line('a')// &
+            '  y = x + 5'//new_line('a')// &
+            'end program test'
         type(ast_arena_t) :: arena
         type(token_t), allocatable :: tokens(:)
         integer :: prog_index

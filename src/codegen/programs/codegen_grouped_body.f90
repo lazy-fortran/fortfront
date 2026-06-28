@@ -4,14 +4,14 @@ module codegen_grouped_body
         continue_node, stop_node, &
         error_stop_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
-                              contains_node, end_statement_node, &
-                              data_statement_node, use_statement_node, &
-                              implicit_statement_node, intrinsic_statement_node, &
-                              namelist_statement_node, import_statement_node, &
-                              include_statement_node
+        contains_node, end_statement_node, &
+        data_statement_node, use_statement_node, &
+        implicit_statement_node, intrinsic_statement_node, &
+        namelist_statement_node, import_statement_node, &
+        include_statement_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string, &
-                              INTENT_NONE
+        intent_type_to_string, &
+        INTENT_NONE
     use ast_nodes_io, only: &
         print_statement_node, &
         format_statement_node
@@ -20,9 +20,9 @@ module codegen_grouped_body
     use codegen_character_normalization, only: &
         normalize_character_type_param
     use codegen_declaration_grouping, only: can_group_declarations, &
-                                            can_group_parameters, &
-                                            generate_grouped_declaration, &
-                                            is_type_definition_declaration
+        can_group_parameters, &
+        generate_grouped_declaration, &
+        is_type_definition_declaration
     use codegen_indent, only: indent_lines
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: is_character_type_string
@@ -47,7 +47,7 @@ contains
     end subroutine process_single_statement
 
     subroutine process_procedure_def(arena, idx, indent, indent_str, in_contains, &
-                                     i, code)
+            i, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
         integer, intent(in) :: indent
@@ -103,7 +103,7 @@ contains
     end subroutine handle_end_statement
 
     subroutine handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
-                                      in_contains_section, code)
+            in_contains_section, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
@@ -113,12 +113,12 @@ contains
         character(len=:), allocatable, intent(inout) :: code
 
         call process_procedure_def(arena, body_indices(i), indent, indent_str, &
-                                   in_contains_section, i, code)
+            in_contains_section, i, code)
         i = i + 1
     end subroutine handle_procedure_entry
 
     subroutine handle_declaration_entry(node, arena, body_indices, i, indent, &
-                                        indent_str, in_contains_section, code)
+            indent_str, in_contains_section, code)
         type(declaration_node), intent(in) :: node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
@@ -135,7 +135,7 @@ contains
         ! Removed has_intent skip to prevent dropping declarations (fixes #2140)
         if (.not. in_contains_section .and. node%initializer_index == 0) then
             call process_grouped_declarations(arena, body_indices, i, indent_str, &
-                                              code)
+                code)
         else
             call process_single_statement(arena, body_indices(i), indent, code)
             i = i + 1
@@ -174,8 +174,8 @@ contains
     end subroutine handle_default_entry
 
     recursive subroutine process_body_entry(arena, body_indices, i, indent, &
-                                            indent_str, in_contains_section, &
-                                            code)
+            indent_str, in_contains_section, &
+            code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
@@ -185,38 +185,38 @@ contains
         character(len=:), allocatable, intent(inout) :: code
 
         select type (node => arena%entries(body_indices(i))%node)
-        type is (contains_node)
+            type is (contains_node)
             call handle_contains_entry(in_contains_section, code, i)
 
-        type is (end_statement_node)
+            type is (end_statement_node)
             call handle_end_statement(i)
 
-        type is (function_def_node)
+            type is (function_def_node)
             call handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
-                                        in_contains_section, code)
+                in_contains_section, code)
 
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             call handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
-                                        in_contains_section, code)
+                in_contains_section, code)
 
-        type is (declaration_node)
+            type is (declaration_node)
             call handle_declaration_entry(node, arena, body_indices, i, indent, &
-                                          indent_str, in_contains_section, code)
+                indent_str, in_contains_section, code)
 
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             call process_grouped_parameters(arena, body_indices, i, &
-                                            indent_str, code)
+                indent_str, code)
 
-        type is (data_statement_node)
+            type is (data_statement_node)
             call process_single_statement(arena, body_indices(i), indent, code)
             i = i + 1
 
-        type is (comment_node)
+            type is (comment_node)
             call handle_comment_entry(arena, body_indices(i), code, i)
-        type is (directive_node)
+            type is (directive_node)
             call handle_comment_entry(arena, body_indices(i), code, i)
 
-        type is (blank_line_node)
+            type is (blank_line_node)
             call handle_blank_line_entry(code, i)
 
         class default
@@ -252,7 +252,7 @@ contains
                 cycle
             end if
             call process_body_entry(arena, ordered_indices, i, indent, indent_str, &
-                                    in_contains_section, code)
+                in_contains_section, code)
         end do
     end function generate_grouped_body
 
@@ -344,31 +344,31 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             is_spec = .true.
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             is_spec = .true.
-        type is (use_statement_node)
+            type is (use_statement_node)
             is_spec = .true.
-        type is (implicit_statement_node)
+            type is (implicit_statement_node)
             is_spec = .true.
-        type is (intrinsic_statement_node)
+            type is (intrinsic_statement_node)
             is_spec = .true.
-        type is (namelist_statement_node)
+            type is (namelist_statement_node)
             is_spec = .true.
-        type is (import_statement_node)
+            type is (import_statement_node)
             is_spec = .true.
-        type is (include_statement_node)
+            type is (include_statement_node)
             is_spec = .true.
-        type is (data_statement_node)
+            type is (data_statement_node)
             is_spec = .true.
-        type is (format_statement_node)
+            type is (format_statement_node)
             is_spec = .true.
-        type is (comment_node)
+            type is (comment_node)
             is_spec = .true.
-        type is (directive_node)
+            type is (directive_node)
             is_spec = .true.
-        type is (blank_line_node)
+            type is (blank_line_node)
             is_spec = .true.
         class default
             is_spec = .false.
@@ -383,7 +383,7 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (implicit_statement_node)
+            type is (implicit_statement_node)
             is_implicit = .true.
         class default
             is_implicit = .false.
@@ -398,11 +398,11 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (use_statement_node)
+            type is (use_statement_node)
             is_use_like = .true.
-        type is (import_statement_node)
+            type is (import_statement_node)
             is_use_like = .true.
-        type is (intrinsic_statement_node)
+            type is (intrinsic_statement_node)
             is_use_like = .true.
         class default
             is_use_like = .false.
@@ -417,7 +417,7 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (data_statement_node)
+            type is (data_statement_node)
             is_data = .true.
         class default
             is_data = .false.
@@ -432,7 +432,7 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (contains_node)
+            type is (contains_node)
             is_contains = .true.
         class default
             is_contains = .false.
@@ -516,7 +516,7 @@ contains
     end function is_groupable_declaration
 
     subroutine extend_declaration_group(arena, body_indices, start_pos, first_node, &
-                                        grouped_names, group_count, next_index)
+            grouped_names, group_count, next_index)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: start_pos
@@ -532,11 +532,11 @@ contains
             if (body_indices(j) > arena%size) exit
             if (.not. allocated(arena%entries(body_indices(j))%node)) exit
             select type (next_node => arena%entries(body_indices(j))%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (can_group_declarations(first_node, next_node)) then
                     group_count = group_count + 1
                     call append_name(grouped_names, group_count, &
-                                     trim(next_node%var_name))
+                        trim(next_node%var_name))
                     j = j + 1
                 else
                     exit
@@ -549,7 +549,7 @@ contains
     end subroutine extend_declaration_group
 
     function build_grouped_statement(first_node, grouped_names, group_count) &
-        result(stmt)
+            result(stmt)
         type(declaration_node), intent(in) :: first_node
         character(len=64), allocatable, intent(in) :: grouped_names(:)
         integer, intent(in) :: group_count
@@ -569,16 +569,16 @@ contains
         end if
 
         stmt = generate_grouped_declaration(first_node%type_name, &
-                                            first_node%kind_value, &
-                                            first_node%has_kind, &
-                                            intent_text, &
-                                            var_list, &
-                                            first_node%is_optional, &
-                                            first_node%is_target)
+            first_node%kind_value, &
+            first_node%has_kind, &
+            intent_text, &
+            var_list, &
+            first_node%is_optional, &
+            first_node%is_target)
     end function build_grouped_statement
 
     subroutine extend_parameter_group(arena, body_indices, start_pos, var_list, &
-                                      next_index, first_node)
+            next_index, first_node)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: start_pos
@@ -593,7 +593,7 @@ contains
             if (body_indices(j) > arena%size) exit
             if (.not. allocated(arena%entries(body_indices(j))%node)) exit
             select type (next_node => arena%entries(body_indices(j))%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (can_group_parameters(first_node, next_node)) then
                     var_list = var_list//", "//trim(next_node%name)
                     j = j + 1
@@ -621,19 +621,19 @@ contains
 
         if (is_character_type_string(base_type)) then
             stmt = normalize_character_type_param(base_type, &
-                                                  first_node%has_kind, &
-                                                  first_node%kind_value)
+                first_node%has_kind, &
+                first_node%kind_value)
         else
             stmt = base_type
             if (first_node%has_kind .and. first_node%kind_value > 0) then
                 stmt = stmt//"("// &
-                       trim(adjustl(int_to_string(first_node%kind_value)))//")"
+                    trim(adjustl(int_to_string(first_node%kind_value)))//")"
             end if
         end if
 
         if (first_node%intent_type /= INTENT_NONE) then
             stmt = stmt//", intent("// &
-                   intent_type_to_string(first_node%intent_type)//")"
+                intent_type_to_string(first_node%intent_type)//")"
         end if
         if (first_node%is_optional) then
             stmt = stmt//", optional"
@@ -656,10 +656,10 @@ contains
         integer :: next_index
 
         select type (node => arena%entries(body_indices(i))%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. is_groupable_declaration(node)) then
                 call emit_declaration_statement(arena, body_indices(i), &
-                                                indent_str, code)
+                    indent_str, code)
                 i = i + 1
                 return
             end if
@@ -670,11 +670,11 @@ contains
             grouped_names(1) = trim(node%var_name)
 
             call extend_declaration_group(arena, body_indices, i + 1, first_node, &
-                                          grouped_names, group_count, next_index)
+                grouped_names, group_count, next_index)
 
             if (group_count == 1) then
                 call emit_declaration_statement(arena, body_indices(i), &
-                                                indent_str, code)
+                    indent_str, code)
                 i = next_index
                 return
             end if
@@ -698,12 +698,12 @@ contains
         integer :: next_index
 
         select type (node => arena%entries(body_indices(i))%node)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             first_node = node
             var_list = trim(node%name)
 
             call extend_parameter_group(arena, body_indices, i + 1, var_list, &
-                                        next_index, first_node)
+                next_index, first_node)
 
             stmt_code = build_parameter_statement(first_node, var_list)
             code = code//indent_str//stmt_code//new_line('A')

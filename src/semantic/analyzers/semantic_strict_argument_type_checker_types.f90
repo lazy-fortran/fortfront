@@ -1,13 +1,13 @@
 module semantic_strict_argument_type_checker_types
     use ast_base, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_REAL, &
-                        LITERAL_STRING
+        LITERAL_STRING
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, literal_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use semantic_procedure_utils, only: declaration_type_to_mono
     use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t, create_mono_type, TARRAY, TDOUBLE, &
-                                   TCHAR, TCOMPLEX, TINT, TLOGICAL, TREAL, TVAR
+        TCHAR, TCOMPLEX, TINT, TLOGICAL, TREAL, TVAR
     implicit none
     private
 
@@ -29,7 +29,7 @@ contains
         if (.not. arena%has_node_at(decl_index)) return
 
         select type (node => arena%entries(decl_index)%node)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (.not. allocated(node%type_name)) return
             lowered = to_lower(trim(node%type_name))
             if (lowered == "real" .and. node%has_kind) then
@@ -44,7 +44,7 @@ contains
                     typ%is_unsigned = .true.
                 end if
             end if
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(node%type_name)) then
                 typ = declaration_type_to_mono(node%type_name)
             else
@@ -69,9 +69,9 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             typ = strict_literal_type(node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (node%is_keyword_argument) then
                 typ = strict_actual_argument_type(arena, node%value_index)
             else
@@ -145,7 +145,7 @@ contains
             if (.not. expected_copy%has_args()) return
             if (.not. actual_copy%has_args()) return
             matches = strict_types_match(expected_copy%get_arg(1), &
-                                         actual_copy%get_arg(1))
+                actual_copy%get_arg(1))
             return
         end if
 

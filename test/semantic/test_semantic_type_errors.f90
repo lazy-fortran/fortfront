@@ -40,10 +40,10 @@ contains
         passed = .true.
 
         source = "program test" // new_line('a') // &
-                 "  integer :: i" // new_line('a') // &
-                 "  real :: r" // new_line('a') // &
-                 "  i = 3.14" // new_line('a') // &  ! Type mismatch
-                 "end program"
+            "  integer :: i" // new_line('a') // &
+            "  real :: r" // new_line('a') // &
+            "  i = 3.14" // new_line('a') // & ! Type mismatch
+            "end program"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -69,9 +69,9 @@ contains
         passed = .true.
 
         source = "program test" // new_line('a') // &
-                 "  logical :: flag" // new_line('a') // &
-                 "  flag = 42" // new_line('a') // &  ! Type error
-                 "end program"
+            "  logical :: flag" // new_line('a') // &
+            "  flag = 42" // new_line('a') // & ! Type error
+            "end program"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -96,8 +96,8 @@ contains
         passed = .true.
 
         source = "program test" // new_line('a') // &
-                 "  x = undefined_var" // new_line('a') // &  ! Undefined
-                 "end program"
+            "  x = undefined_var" // new_line('a') // & ! Undefined
+            "end program"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -122,12 +122,12 @@ contains
         passed = .true.
 
         source = "program test" // new_line('a') // &
-                 "  if (.true.) then" // new_line('a') // &
-                 "    integer :: local" // new_line('a') // &
-                 "    local = 10" // new_line('a') // &
-                 "  end if" // new_line('a') // &
-                 "  print *, local" // new_line('a') // &  ! Out of scope
-                 "end program"
+            "  if (.true.) then" // new_line('a') // &
+            "    integer :: local" // new_line('a') // &
+            "    local = 10" // new_line('a') // &
+            "  end if" // new_line('a') // &
+            "  print *, local" // new_line('a') // & ! Out of scope
+            "end program"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then

@@ -88,7 +88,7 @@ contains
         inquire (file='fpm.toml', exist=fpm_exists)
         if (fpm_exists) then
             open (newunit=unit_num, file='fpm.toml', status='old', action='read', &
-                  iostat=iostat)
+                iostat=iostat)
             if (iostat == 0) then
                 do
                     read (unit_num, '(A)', iostat=iostat) line
@@ -126,12 +126,12 @@ contains
         inquire (file='Makefile', exist=makefile_exists)
         if (makefile_exists) then
             call execute_command_line('grep -q "libfortfront.a" Makefile', &
-                                      exitstat=exit_code)
+                exitstat=exit_code)
 
             if (exit_code == 0) then
                 ! Try to build using Makefile (skip in problematic CI environments)
                 call execute_command_line('make --version >/dev/null 2>&1', &
-                                          exitstat=exit_code)
+                    exitstat=exit_code)
                 if (exit_code == 0) then
                     ! Test if GNU find with -printf works (needed by Makefile)
                     call execute_command_line( &
@@ -141,7 +141,7 @@ contains
                 end if
                 if (exit_code == 0) then
                     call execute_command_line('command -v timeout >/dev/null 2>&1', &
-                                              exitstat=exit_code)
+                        exitstat=exit_code)
                     if (exit_code == 0) then
                         call execute_command_line( &
                             'timeout 10 make libfortfront.a 2>/dev/null', &
@@ -188,12 +188,12 @@ contains
         if (file_exists) then
             ! Check if bash is available first
             call execute_command_line('bash --version >/dev/null 2>&1', &
-                                      exitstat=exit_code)
+                exitstat=exit_code)
             if (exit_code == 0) then
                 ! Try running static library build script with timeout
                 ! Use timeout to prevent hanging during recursive builds
                 call execute_command_line('command -v timeout >/dev/null 2>&1', &
-                                          exitstat=exit_code)
+                    exitstat=exit_code)
                 if (exit_code == 0) then
                     call execute_command_line( &
                         'timeout 10 ./build_static_lib.sh 2>/dev/null', &
@@ -250,7 +250,7 @@ contains
         end if
         if (exit_code == 0) then
             call execute_command_line('command -v timeout >/dev/null 2>&1', &
-                                      exitstat=exit_code)
+                exitstat=exit_code)
             if (exit_code == 0) then
                 call &
                     execute_command_line( &
@@ -301,12 +301,12 @@ contains
             if (.not. lib_exists_before) then
                 call &
                     execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', &
-                                         exitstat=exit_code)
+                    exitstat=exit_code)
             end if
 
             ! Test incremental build by rebuilding existing library
             call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', &
-                                      exitstat=exit_code)
+                exitstat=exit_code)
             inquire (file='libfortfront.a', exist=lib_exists_after)
 
             incremental_works = (exit_code == 0) .and. lib_exists_after

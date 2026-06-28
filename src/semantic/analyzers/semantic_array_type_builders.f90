@@ -40,7 +40,7 @@ contains
     end function build_deferred_shape_array
 
     function build_fixed_shape_array(element_type, dimension_sizes) &
-        result(array_type)
+            result(array_type)
         type(mono_type_t), intent(in) :: element_type
         integer, intent(in) :: dimension_sizes(:)
         type(mono_type_t) :: array_type
@@ -60,7 +60,7 @@ contains
             allocate (args(1))
             args(1) = current
             current = create_mono_type(TARRAY, args=args, &
-                                      array_size=dimension_sizes(dim))
+                array_size=dimension_sizes(dim))
             current%alloc_info%is_allocatable = .false.
             current%alloc_info%needs_allocation_check = .false.
             current%alloc_info%is_pointer = .false.

@@ -5,11 +5,11 @@ module ast_visitor
     use ast_nodes_loops
     use ast_nodes_io
     use ast_nodes_data, only: declaration_node, module_node, submodule_node, &
-                              derived_type_node
+        derived_type_node
     use ast_nodes_misc
     use ast_nodes_generics, only: template_block_node, &
-                                  instantiate_statement_node, trait_block_node, &
-                                  requirement_block_node, implements_block_node
+        instantiate_statement_node, trait_block_node, &
+        requirement_block_node, implements_block_node
     use string_utils_mod, only: int_to_string
     implicit none
     private
@@ -258,12 +258,12 @@ module ast_visitor
     public :: program_accept, assignment_accept, binary_op_accept
     public :: function_def_accept, subroutine_def_accept
     public :: call_or_subscript_accept, subroutine_call_accept, &
-              identifier_accept, literal_accept
+        identifier_accept, literal_accept
     public :: use_statement_accept, visibility_statement_accept, &
-              include_statement_accept, print_statement_accept
+        include_statement_accept, print_statement_accept
     public :: declaration_accept, do_loop_accept, do_while_accept, if_accept
     public :: select_case_accept, derived_type_accept, interface_block_accept, &
-              module_accept
+        module_accept
     public :: submodule_accept
 
 contains
@@ -497,7 +497,7 @@ contains
         this%indent_level = this%indent_level + 1
         if (allocated(node%body_indices)) then
             call append_debug(this, "body_indices: "// &
-                              int_array_to_string(node%body_indices))
+                int_array_to_string(node%body_indices))
         else
             call append_debug(this, "body_indices: []")
         end if
@@ -509,8 +509,8 @@ contains
         class(assignment_node), intent(in) :: node
 
         call append_debug(this, &
-                          "assignment: target="//int_to_string(node%target_index)// &
-                          " value="//int_to_string(node%value_index))
+            "assignment: target="//int_to_string(node%target_index)// &
+            " value="//int_to_string(node%value_index))
     end subroutine debug_visit_assignment
 
     subroutine debug_visit_binary_op(this, node)
@@ -518,8 +518,8 @@ contains
         class(binary_op_node), intent(in) :: node
 
         call append_debug(this, "binary_op: "//node%operator//" left="// &
-                          int_to_string(node%left_index)//" right="// &
-                          int_to_string(node%right_index))
+            int_to_string(node%left_index)//" right="// &
+            int_to_string(node%right_index))
     end subroutine debug_visit_binary_op
 
     subroutine debug_visit_function_def(this, node)
@@ -533,7 +533,7 @@ contains
         end if
         if (allocated(node%param_indices)) then
             call append_debug(this, "param_indices: "// &
-                              int_array_to_string(node%param_indices))
+                int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_function_def
@@ -546,7 +546,7 @@ contains
         this%indent_level = this%indent_level + 1
         if (allocated(node%param_indices)) then
             call append_debug(this, "param_indices: "// &
-                              int_array_to_string(node%param_indices))
+                int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_subroutine_def
@@ -558,7 +558,7 @@ contains
         call append_debug(this, "subroutine_call: "//node%name)
         if (allocated(node%arg_indices)) then
             call append_debug(this, &
-                              "arg_indices: "//int_array_to_string(node%arg_indices))
+                "arg_indices: "//int_array_to_string(node%arg_indices))
         end if
     end subroutine debug_visit_subroutine_call
 
@@ -574,7 +574,7 @@ contains
         class(literal_node), intent(in) :: node
 
         call append_debug(this, "literal: "//node%value//" kind="// &
-                          int_to_string(node%literal_kind))
+            int_to_string(node%literal_kind))
     end subroutine debug_visit_literal
 
     subroutine debug_visit_declaration(this, node)
@@ -591,7 +591,7 @@ contains
         call append_debug(this, "print_statement: "//node%format_spec)
         if (allocated(node%expression_indices)) then
             call append_debug(this, "expression_indices: "// &
-                              int_array_to_string(node%expression_indices))
+                int_array_to_string(node%expression_indices))
         end if
     end subroutine debug_visit_print_statement
 
@@ -600,7 +600,7 @@ contains
         class(if_node), intent(in) :: node
 
         call append_debug(this, "if_statement: condition="// &
-                          int_to_string(node%condition_index))
+            int_to_string(node%condition_index))
     end subroutine debug_visit_if
 
     subroutine debug_visit_do_loop(this, node)
@@ -608,8 +608,8 @@ contains
         class(do_loop_node), intent(in) :: node
 
         call append_debug(this, "do_loop: "//node%var_name//" start="// &
-                          int_to_string(node%start_expr_index)//" end="// &
-                          int_to_string(node%end_expr_index))
+            int_to_string(node%start_expr_index)//" end="// &
+            int_to_string(node%end_expr_index))
     end subroutine debug_visit_do_loop
 
     subroutine debug_visit_do_while(this, node)
@@ -617,7 +617,7 @@ contains
         class(do_while_node), intent(in) :: node
 
         call append_debug(this, &
-                          "do_while: condition="//int_to_string(node%condition_index))
+            "do_while: condition="//int_to_string(node%condition_index))
     end subroutine debug_visit_do_while
 
     subroutine debug_visit_select_case(this, node)
@@ -662,13 +662,13 @@ contains
         this%indent_level = this%indent_level + 1
         if (allocated(node%declaration_indices)) then
             call append_debug(this, "declaration_indices: "// &
-                              int_array_to_string(node%declaration_indices))
+                int_array_to_string(node%declaration_indices))
         else
             call append_debug(this, "declaration_indices: []")
         end if
         if (allocated(node%procedure_indices)) then
             call append_debug(this, "procedure_indices: "// &
-                              int_array_to_string(node%procedure_indices))
+                int_array_to_string(node%procedure_indices))
         else
             call append_debug(this, "procedure_indices: []")
         end if

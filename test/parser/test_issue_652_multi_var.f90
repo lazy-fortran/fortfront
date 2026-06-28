@@ -42,7 +42,7 @@ contains
         end if
 
         if (.not. (index(output, 'x = 1') > 0 .and. index(output, 'y = 2') > 0 &
-                   .and. index(output, 'z = 3') > 0)) then
+            .and. index(output, 'z = 3') > 0)) then
             write (error_unit, '(A)') 'FAIL: Variable assignments not preserved'
             write (error_unit, '(A)') trim(output)
             test_simple_multi_var = .false.
@@ -81,7 +81,7 @@ contains
         test_multi_var_with_attributes = .true.
 
         call read_example('examples/lf/issue_652_multi_var_allocatable.lf', &
-                          input)
+            input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (len_trim(error_msg) > 0) then

@@ -1,8 +1,8 @@
 module parser_type_definitions_module
     ! Parser module for derived type definitions and type parameters
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_derived_type
@@ -49,7 +49,7 @@ contains
     end subroutine parse_derived_type_parameters
 
     subroutine parse_type_name_and_parameters(parser, arena, type_name, &
-                                              has_parameters, param_indices)
+            has_parameters, param_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out) :: type_name
@@ -185,28 +185,28 @@ contains
 
         ! Get type name and parameters
         call parse_type_name_and_parameters(parser, arena, type_name, &
-                                            has_parameters, param_indices)
+            has_parameters, param_indices)
 
         ! Create derived type node
         if (has_parameters .and. allocated(param_indices)) then
             if (allocated(extends_parent)) then
                 type_index = push_derived_type(arena, type_name, &
-                                               param_indices=param_indices, &
-                                               extends_parent=extends_parent, &
-                                               line=line, column=column)
+                    param_indices=param_indices, &
+                    extends_parent=extends_parent, &
+                    line=line, column=column)
             else
                 type_index = push_derived_type(arena, type_name, &
-                                               param_indices=param_indices, &
-                                               line=line, column=column)
+                    param_indices=param_indices, &
+                    line=line, column=column)
             end if
         else
             if (allocated(extends_parent)) then
                 type_index = push_derived_type(arena, type_name, &
-                                               extends_parent=extends_parent, &
-                                               line=line, column=column)
+                    extends_parent=extends_parent, &
+                    line=line, column=column)
             else
                 type_index = push_derived_type(arena, type_name, &
-                                               line=line, column=column)
+                    line=line, column=column)
             end if
         end if
     end function parse_derived_type

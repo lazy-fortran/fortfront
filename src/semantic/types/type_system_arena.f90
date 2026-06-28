@@ -20,28 +20,28 @@ module type_system_arena
     ! Handle types for safe type references
     type :: mono_handle_t
         type(arena_handle_t) :: handle
-        integer :: type_id = 0  ! Unique identifier for debugging
+        integer :: type_id = 0 ! Unique identifier for debugging
     end type mono_handle_t
 
     type :: poly_handle_t
         type(arena_handle_t) :: handle
-        integer :: type_id = 0  ! Unique identifier for debugging
+        integer :: type_id = 0 ! Unique identifier for debugging
     end type poly_handle_t
 
     ! Handle for type argument arrays
     type :: args_handle_t
         type(arena_handle_t) :: handle
-        integer :: count = 0  ! Number of arguments
-        integer :: type_id = 0  ! Unique identifier for debugging
+        integer :: count = 0 ! Number of arguments
+        integer :: type_id = 0 ! Unique identifier for debugging
     end type args_handle_t
 
     ! Arena-based monomorphic type (no self-referential allocatables)
     type :: arena_mono_type_t
-        integer :: kind = 0  ! TVAR, TINT, TREAL, etc.
-        integer :: var_id = 0  ! Type variable ID
-        character(len=64) :: var_name = ""  ! Fixed-size name to avoid allocatable
-        type(args_handle_t) :: args  ! Handle to argument array
-        integer :: size = 0  ! For TCHAR(len=size), TARRAY(size)
+        integer :: kind = 0 ! TVAR, TINT, TREAL, etc.
+        integer :: var_id = 0 ! Type variable ID
+        character(len=64) :: var_name = "" ! Fixed-size name to avoid allocatable
+        type(args_handle_t) :: args ! Handle to argument array
+        integer :: size = 0 ! For TCHAR(len=size), TARRAY(size)
         logical :: is_unsigned = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
@@ -50,15 +50,15 @@ module type_system_arena
 
     ! Arena-based polymorphic type
     type :: arena_poly_type_t
-        type(args_handle_t) :: forall_vars  ! Handle to quantified variables
-        type(mono_handle_t) :: mono  ! Handle to monomorphic type
+        type(args_handle_t) :: forall_vars ! Handle to quantified variables
+        type(mono_handle_t) :: mono ! Handle to monomorphic type
     end type arena_poly_type_t
 
     ! Type arena for managing all type allocations (extends base_arena_t)
     type, extends(base_arena_t), public :: type_arena_t
-        type(arena_t) :: arena  ! Underlying memory arena
-        integer :: next_type_id = 1  ! Unique ID counter
-        integer :: mono_count = 0  ! Statistics
+        type(arena_t) :: arena ! Underlying memory arena
+        integer :: next_type_id = 1 ! Unique ID counter
+        integer :: mono_count = 0 ! Statistics
         integer :: poly_count = 0
         integer :: args_count = 0
     contains
@@ -129,7 +129,7 @@ contains
         if (present(chunk_size)) then
             type_arena%arena = create_arena(chunk_size)
         else
-            type_arena%arena = create_arena(32768)  ! 32KB default for types
+            type_arena%arena = create_arena(32768) ! 32KB default for types
         end if
         type_arena%next_type_id = 1
         type_arena%mono_count = 0
@@ -199,7 +199,7 @@ contains
         if (is_valid_mono_handle(handle)) then
             call arena%get_mono(handle, mono_type)
         else
-            mono_type = arena_mono_type_t()  ! Default initialization
+            mono_type = arena_mono_type_t() ! Default initialization
         end if
     end function get_mono_type
 
@@ -212,7 +212,7 @@ contains
         if (is_valid_poly_handle(handle)) then
             call arena%get_poly(handle, poly_type)
         else
-            poly_type = arena_poly_type_t()  ! Default initialization
+            poly_type = arena_poly_type_t() ! Default initialization
         end if
     end function get_poly_type
 
@@ -294,7 +294,7 @@ contains
         if (status) then
             mono_type = transfer(buffer, mono_type)
         else
-            mono_type = arena_mono_type_t()  ! Default on failure
+            mono_type = arena_mono_type_t() ! Default on failure
         end if
     end subroutine type_arena_get_mono
 
@@ -310,7 +310,7 @@ contains
         if (status) then
             poly_type = transfer(buffer, poly_type)
         else
-            poly_type = arena_poly_type_t()  ! Default on failure
+            poly_type = arena_poly_type_t() ! Default on failure
         end if
     end subroutine type_arena_get_poly
 
@@ -404,7 +404,7 @@ contains
         logical :: valid
 
         valid = this%arena%validate(handle%handle) .and. &
-                handle%type_id > 0 .and. handle%count >= 0
+            handle%type_id > 0 .and. handle%count >= 0
     end function type_arena_validate_args
 
     ! Get type arena statistics
@@ -473,7 +473,7 @@ contains
         type(args_handle_t), intent(in) :: handle
         logical :: valid
         valid = is_valid_handle(handle%handle) .and. &
-                handle%type_id > 0 .and. handle%count >= 0
+            handle%type_id > 0 .and. handle%count >= 0
     end function is_valid_args_handle
 
     ! Deep copy assignment operator to prevent double free
@@ -507,21 +507,21 @@ contains
 
         ! Determine type and store accordingly
         select type (item)
-        type is (arena_mono_type_t)
+            type is (arena_mono_type_t)
             mono_h = this%allocate_mono()
             if (is_valid_mono_handle(mono_h)) then
                 call this%set_mono(mono_h, item, status)
                 if (.not. status) mono_h = null_mono_handle()
             end if
             handle = mono_h%handle
-        type is (arena_poly_type_t)
+            type is (arena_poly_type_t)
             poly_h = this%allocate_poly()
             if (is_valid_poly_handle(poly_h)) then
                 call this%set_poly(poly_h, item, status)
                 if (.not. status) poly_h = null_poly_handle()
             end if
             handle = poly_h%handle
-        type is (mono_handle_t)
+            type is (mono_handle_t)
             ! Store single mono handle as args array of size 1
             args_h = this%allocate_args(1)
             if (is_valid_args_handle(args_h)) then

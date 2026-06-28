@@ -3,10 +3,10 @@ module variable_usage_expr_handlers_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_control_handlers_module, only: traversal_context_t, &
-                                                      push_node, validate_node_index
+        push_node, validate_node_index
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
-                              identifier_node, component_access_node, &
-                              assignment_node, program_node, literal_node
+        identifier_node, component_access_node, &
+        assignment_node, program_node, literal_node
     use ast_nodes_bounds, only: array_slice_node
     implicit none
     private
@@ -26,7 +26,7 @@ contains
         type(traversal_context_t), intent(inout) :: ctx
 
         select type (node => arena%entries(node_index)%node)
-        type is (binary_op_node)
+            type is (binary_op_node)
             call push_node(ctx, node%left_index)
             call push_node(ctx, node%right_index)
         end select
@@ -41,7 +41,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 call add_string_to_info(node%name, node_index, info)
             end if
@@ -51,7 +51,7 @@ contains
                     if (node%arg_indices(i) <= 0) cycle
                     if (.not. allocated(arena%entries(node%arg_indices(i))%node)) cycle
                     select type (arg => arena%entries(node%arg_indices(i))%node)
-                    type is (assignment_node)
+                        type is (assignment_node)
                         call push_node(ctx, arg%value_index)
                     class default
                         call push_node(ctx, node%arg_indices(i))
@@ -68,7 +68,7 @@ contains
         type(traversal_context_t), intent(inout) :: ctx
 
         select type (node => arena%entries(node_index)%node)
-        type is (array_slice_node)
+            type is (array_slice_node)
             call push_node(ctx, node%array_index)
 
             block
@@ -87,7 +87,7 @@ contains
         type(traversal_context_t), intent(inout) :: ctx
 
         select type (node => arena%entries(node_index)%node)
-        type is (component_access_node)
+            type is (component_access_node)
             call push_node(ctx, node%base_expr_index)
 
             if (allocated(node%component_name)) then
@@ -109,7 +109,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (node%is_keyword_argument) then
                 call push_node(ctx, node%value_index)
                 return
@@ -131,7 +131,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     call push_node(ctx, node%body_indices(i))

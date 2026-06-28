@@ -3,7 +3,7 @@ module semantic_array_slice
     use type_array_safe, only: safe_extract_array_rank
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_bounds, only: array_slice_node, range_expression_node, &
-                                array_bounds_node
+        array_bounds_node
     use semantic_function_helpers, only: get_type_lookup
     use semantic_constant_values, only: get_constant_integer_value
     implicit none
@@ -35,7 +35,7 @@ contains
         if (source_type%kind == TCHAR) then
             typ = source_type
             substring_len = infer_character_substring_length(arena, slice_node, &
-                                                             source_type%size)
+                source_type%size)
             if (substring_len > 0) typ%size = substring_len
             return
         end if
@@ -63,9 +63,9 @@ contains
             if (bounds_idx > 0 .and. bounds_idx <= arena%size) then
                 if (allocated(arena%entries(bounds_idx)%node)) then
                     select type (bounds => arena%entries(bounds_idx)%node)
-                    type is (range_expression_node)
+                        type is (range_expression_node)
                         is_range = .true.
-                    type is (array_bounds_node)
+                        type is (array_bounds_node)
                         is_range = .true.
                     end select
                 end if
@@ -93,7 +93,7 @@ contains
             args(1) = typ
             if (dim_lengths(i) > 0) then
                 typ = create_mono_type(TARRAY, args=args, &
-                                       array_size=dim_lengths(i))
+                    array_size=dim_lengths(i))
                 typ%alloc_info%is_allocatable = .false.
                 typ%alloc_info%needs_allocation_check = .false.
             else
@@ -133,11 +133,11 @@ contains
         if (.not. allocated(arena%entries(bounds_index)%node)) return
 
         select type (bounds => arena%entries(bounds_index)%node)
-        type is (range_expression_node)
+            type is (range_expression_node)
             start_idx = bounds%start_index
             end_idx = bounds%end_index
             stride_idx = bounds%stride_index
-        type is (array_bounds_node)
+            type is (array_bounds_node)
             start_idx = bounds%lower_bound_index
             end_idx = bounds%upper_bound_index
             stride_idx = bounds%stride_index
@@ -155,7 +155,7 @@ contains
 
         if (stride_idx > 0) then
             has_stride = get_constant_integer_value(arena, stride_idx, &
-                                                    stride_value)
+                stride_value)
             if (.not. has_stride) return
         else
             stride_value = 1
@@ -174,7 +174,7 @@ contains
     end function infer_slice_extent
 
     integer function infer_character_substring_length(arena, slice_node, &
-                                                      base_length) result(len)
+            base_length) result(len)
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         integer, intent(in) :: base_length
@@ -193,10 +193,10 @@ contains
         if (.not. arena%has_node_at(bounds_idx)) return
 
         select type (bounds => arena%entries(bounds_idx)%node)
-        type is (range_expression_node)
+            type is (range_expression_node)
             start_expr_idx = bounds%start_index
             end_expr_idx = bounds%end_index
-        type is (array_bounds_node)
+            type is (array_bounds_node)
             start_expr_idx = bounds%lower_bound_index
             end_expr_idx = bounds%upper_bound_index
         class default
@@ -208,7 +208,7 @@ contains
             has_start = .true.
         else
             has_start = get_constant_integer_value(arena, start_expr_idx, &
-                                                   start_value)
+                start_value)
         end if
 
         if (end_expr_idx <= 0) then

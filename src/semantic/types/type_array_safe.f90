@@ -28,7 +28,7 @@ contains
         safety_counter = 0
 
         do while (current%kind == TARRAY .and. current%has_args() .and. &
-                  safety_counter < MAX_ARRAY_RANK)
+                safety_counter < MAX_ARRAY_RANK)
             rank = rank + 1
             safety_counter = safety_counter + 1
             current = current%get_arg(1)
@@ -50,8 +50,8 @@ contains
         safety_counter = 0
 
         do while (element_type%kind == TARRAY .and. &
-                  element_type%has_args() .and. &
-                  safety_counter < MAX_ARRAY_RANK)
+                element_type%has_args() .and. &
+                safety_counter < MAX_ARRAY_RANK)
             if (element_type%get_args_count() < 1) exit
             element_type = element_type%get_arg(1)
             call element_type%sync_from_arena()

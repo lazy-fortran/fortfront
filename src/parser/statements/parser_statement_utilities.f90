@@ -1,29 +1,29 @@
 module parser_statement_utilities_module
     ! Parser utility functions for statement parsing within function/subroutine bodies
     use lexer_core, only: token_t, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, &
-                                           parse_write_statement, &
-                                           parse_open_statement, &
-                                           parse_close_statement, &
-                                           parse_read_statement
+        parse_write_statement, &
+        parse_open_statement, &
+        parse_close_statement, &
+        parse_read_statement
     use parser_control_statements_module, only: parse_stop_statement, &
-                                                parse_return_statement, &
-                                                parse_entry_statement, &
-                                                parse_goto_statement, &
-                                                parse_error_stop_statement, &
-                                                parse_cycle_statement, &
-                                                parse_exit_statement, &
-                                                parse_nullify_statement, &
-                                                parse_continue_statement, &
-                                                parse_pause_statement
+        parse_return_statement, &
+        parse_entry_statement, &
+        parse_goto_statement, &
+        parse_error_stop_statement, &
+        parse_cycle_statement, &
+        parse_exit_statement, &
+        parse_nullify_statement, &
+        parse_continue_statement, &
+        parse_pause_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
-                                               parse_deallocate_statement
+        parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
@@ -31,7 +31,7 @@ module parser_statement_utilities_module
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, &
-                           push_import_statement
+        push_import_statement
     use ast_nodes_control, only: association_t
     use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement
@@ -113,7 +113,7 @@ contains
             case ("use")
                 stmt_index = parse_use_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "type", "class", "procedure")
+                    "double", "type", "class", "procedure")
                 ! Check if this is actually an assignment like "double = 5"
                 next_token = parser%get_token_at_index(parser%current_token + 1)
                 if (next_token%kind == TK_OPERATOR .and. &
@@ -124,7 +124,7 @@ contains
                         logical :: has_initializer, has_comma
                         integer, allocatable :: decl_indices(:)
                         call analyze_declaration_structure(parser, has_initializer, &
-                                                           has_comma)
+                            has_comma)
                         if (has_comma) then
                             decl_indices = parse_multi_declaration(parser, arena)
                             if (allocated(decl_indices) .and. size(decl_indices) > 0) &
@@ -135,7 +135,7 @@ contains
                                         deallocate (stmt_util_additional_indices)
                                     end if
                                     allocate (stmt_util_additional_indices( &
-                                              size(decl_indices) - 1))
+                                        size(decl_indices) - 1))
                                     stmt_util_additional_indices = decl_indices(2:)
                                 end if
                             else
@@ -179,7 +179,7 @@ contains
                 stmt_index = parse_import_stmt_inline(parser, arena)
             case ("equivalence")
                 stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
-                                                    parser, arena)
+                    parser, arena)
             case ("common")
                 stmt_index = parse_common_statement(parser, arena)
             case default
@@ -200,7 +200,7 @@ contains
 
     ! Shared handling for OpenMP/OpenACC directives and regular comments
     function parse_comment_or_directive(parser, arena, comment_token) &
-        result(node_index)
+            result(node_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: comment_token
@@ -276,7 +276,7 @@ contains
             token = parser%peek()
             if (token%kind == TK_NEWLINE .or. &
                 (token%kind == TK_KEYWORD .and. &
-                 (token%text == "end" .or. token%text == "endif"))) then
+                (token%text == "end" .or. token%text == "endif"))) then
                 exit
             end if
             token = parser%consume()
@@ -414,8 +414,8 @@ contains
 
             ! Create if node
             if_index = push_if(arena, condition_index, then_body_indices, &
-                               else_body_indices=else_body_indices, &
-                               line=if_token%line, column=if_token%column)
+                else_body_indices=else_body_indices, &
+                line=if_token%line, column=if_token%column)
         else
             ! Single-line if statement - parse the single statement
             allocate (then_body_indices(1))
@@ -436,7 +436,7 @@ contains
 
             ! Create if node with single statement in then body
             if_index = push_if(arena, condition_index, then_body_indices, &
-                               line=if_token%line, column=if_token%column)
+                line=if_token%line, column=if_token%column)
         end if
 
     end function parse_if_from_definition
@@ -630,13 +630,13 @@ contains
 
         if (name_count > 0) then
             stmt_index = push_import_statement(arena, import_names(1:name_count), &
-                                               has_double_colon=has_double_colon, &
-                                               line=line, column=column)
+                has_double_colon=has_double_colon, &
+                line=line, column=column)
         else
             stmt_index = push_import_statement(arena, &
-                                               has_double_colon=has_double_colon, &
-                                               is_all=is_all, is_none=is_none, &
-                                               line=line, column=column)
+                has_double_colon=has_double_colon, &
+                is_all=is_all, is_none=is_none, &
+                line=line, column=column)
         end if
     end function parse_import_stmt_inline
 

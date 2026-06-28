@@ -12,7 +12,7 @@ program test_string_transformation
         'hello world', &
         'examples/lf/string_transform_hello.lf', &
         [character(len=32) :: 'program main', 'implicit none', &
-         'print *, ''Hello'''])) then
+        'print *, ''Hello'''])) then
         all_passed = .false.
     end if
 
@@ -41,7 +41,7 @@ program test_string_transformation
         'complex expression', &
         'examples/lf/string_transform_complex_expression.lf', &
         [character(len=48) :: 'result = (x * 2 + y) / 3.0', 'integer :: x', &
-         'real(dp) :: result, y'])) then
+        'real(dp) :: result, y'])) then
         all_passed = .false.
     end if
 
@@ -110,7 +110,7 @@ contains
 
         test_error_handling = .true.
         call transform_lazy_fortran_string('invalid fortran !!!', output, &
-                                           error_msg)
+            error_msg)
         if (.not. allocated(output) .and. len_trim(error_msg) == 0) then
             write (error_unit, '(A)') 'FAIL: error handling produced no feedback'
             test_error_handling = .false.

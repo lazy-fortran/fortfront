@@ -5,7 +5,7 @@ module parser_common_statement_module
     !   common w, v                 ! blank common
     !   common // p, /a/ q          ! explicit blank then named
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, to_lower
+        TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
@@ -63,7 +63,7 @@ contains
         end do
 
         stmt_index = push_common_block(arena, block_names, member_names, &
-                                       member_block, line=line, column=column)
+            member_block, line=line, column=column)
     end function parse_common_statement
 
     subroutine parse_block_header(parser, block_names, current_block)
@@ -94,7 +94,7 @@ contains
     logical function is_slash(token)
         type(token_t), intent(in) :: token
         is_slash = token%kind == TK_OPERATOR .and. &
-                   (trim(token%text) == "/" .or. trim(token%text) == "//")
+            (trim(token%text) == "/" .or. trim(token%text) == "//")
     end function is_slash
 
     subroutine skip_inline_trivia(parser)

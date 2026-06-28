@@ -25,7 +25,7 @@ module variable_usage_core_module
     ! Expression visitor interface
     abstract interface
         subroutine expression_visitor_interface(arena, node_index, node_type, &
-                                                user_data)
+                user_data)
             import :: ast_arena_t
             type(ast_arena_t), intent(in) :: arena
             integer, intent(in) :: node_index
@@ -60,7 +60,7 @@ contains
 
         ! Get variable name from identifier node
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             var_name = node%name
         class default
             return
@@ -111,7 +111,7 @@ contains
 
                     n = size(info%variable_names)
                     allocate (character(len=max(len(info%variable_names), &
-                                                len(var_name))) :: temp_names(n + 1))
+                        len(var_name))) :: temp_names(n + 1))
                     allocate (temp_counts(n + 1))
                     allocate (temp_indices(n + 1))
 
@@ -155,7 +155,7 @@ contains
         ! Deep copy allocatable arrays
         if (allocated(rhs%variable_names)) then
             allocate (character(len(rhs%variable_names)) :: &
-                      lhs%variable_names(size(rhs%variable_names)))
+                lhs%variable_names(size(rhs%variable_names)))
             lhs%variable_names = rhs%variable_names
         end if
 

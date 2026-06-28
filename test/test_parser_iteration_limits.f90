@@ -35,12 +35,12 @@ contains
         print *, "Testing complex nested function calls..."
 
         source = "program test" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: arr(3,3), res(2)" // new_line('a') // &
-                 "  arr = reshape([1,2,3,4,5,6,7,8,9], [3,3])" // new_line('a') // &
-                 "  res = maxloc(arr, dim=1, mask=arr > 5)" // new_line('a') // &
-                 "  print *, res" // new_line('a') // &
-                 "end program test"
+            "  implicit none" // new_line('a') // &
+            "  integer :: arr(3,3), res(2)" // new_line('a') // &
+            "  arr = reshape([1,2,3,4,5,6,7,8,9], [3,3])" // new_line('a') // &
+            "  res = maxloc(arr, dim=1, mask=arr > 5)" // new_line('a') // &
+            "  print *, res" // new_line('a') // &
+            "end program test"
 
         call transform_lazy_fortran_string(source, result, error_msg)
 
@@ -60,10 +60,10 @@ contains
         print *, "Testing function with many arguments..."
 
         source = "program test" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  call sub(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)" // &
-                 new_line('a') // &
-                 "end program test"
+            "  implicit none" // new_line('a') // &
+            "  call sub(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)" // &
+            new_line('a') // &
+            "end program test"
 
         call transform_lazy_fortran_string(source, result, error_msg)
 
@@ -83,14 +83,14 @@ contains
         print *, "Testing large array literal..."
 
         source = "program test" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: x(50)" // new_line('a') // &
-                 "  x = [1,2,3,4,5,6,7,8,9,10," // &
-                 "11,12,13,14,15,16,17,18,19,20," // &
-                 "21,22,23,24,25,26,27,28,29,30," // &
-                 "31,32,33,34,35,36,37,38,39,40," // &
-                 "41,42,43,44,45,46,47,48,49,50]" // new_line('a') // &
-                 "end program test"
+            "  implicit none" // new_line('a') // &
+            "  integer :: x(50)" // new_line('a') // &
+            "  x = [1,2,3,4,5,6,7,8,9,10," // &
+            "11,12,13,14,15,16,17,18,19,20," // &
+            "21,22,23,24,25,26,27,28,29,30," // &
+            "31,32,33,34,35,36,37,38,39,40," // &
+            "41,42,43,44,45,46,47,48,49,50]" // new_line('a') // &
+            "end program test"
 
         call transform_lazy_fortran_string(source, result, error_msg)
 

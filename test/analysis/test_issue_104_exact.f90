@@ -103,7 +103,7 @@ program test_issue_104_exact
                 block
                     use ast_nodes_io, only: print_statement_node
                     select type (node => arena%entries(i)%node)
-                    type is (print_statement_node)
+                        type is (print_statement_node)
                         if (allocated(node%expression_indices)) then
                             print *, "  Has", size(node%expression_indices), "expressions"
                             do j = 1, size(node%expression_indices)

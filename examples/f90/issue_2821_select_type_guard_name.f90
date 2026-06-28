@@ -9,7 +9,7 @@ program issue_2821_select_type_guard_name
     i = 0
     allocate (integer :: x)
     select type (x)
-    type is (integer)
+        type is (integer)
         i = 1
     class default
         i = 2

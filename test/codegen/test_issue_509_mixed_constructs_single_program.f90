@@ -11,7 +11,7 @@ program test_issue_509_mixed_constructs_single_program
     call read_example('examples/lf/issue_509_mixed_constructs_input.lf', test_code)
 
     ! Expected output from Issue #509
-call read_example('examples/f90/issue_509_mixed_constructs_expected.f90', expected_code)
+    call read_example('examples/f90/issue_509_mixed_constructs_expected.f90', expected_code)
 
     print *, "Test Issue #509: subroutine and function indentation should be consistent"
     print *, "================================================================"

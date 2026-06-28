@@ -15,17 +15,17 @@ program test_issue_1707_import_order
     character(len=1), parameter :: nl = new_line('A')
 
     input_code = "module reorder_import" // nl // &
-                 "    type data_t" // nl // &
-                 "        integer value" // nl // &
-                 "    end type" // nl // &
-                 "" // nl // &
-                 "    interface" // nl // &
-                 "        subroutine process_data(d)" // nl // &
-                 "            import data_t" // nl // &
-                 "            type(data_t) d" // nl // &
-                 "        end subroutine process_data" // nl // &
-                 "    end interface" // nl // &
-                 "end module"
+        "    type data_t" // nl // &
+        "        integer value" // nl // &
+        "    end type" // nl // &
+        "" // nl // &
+        "    interface" // nl // &
+        "        subroutine process_data(d)" // nl // &
+        "            import data_t" // nl // &
+        "            type(data_t) d" // nl // &
+        "        end subroutine process_data" // nl // &
+        "    end interface" // nl // &
+        "end module"
 
     passed = .true.
     arena = create_ast_arena()
@@ -80,13 +80,13 @@ program test_issue_1707_import_order
     passed = .true.
 
     input_code = "module reorder_assignment" // nl // &
-                 "    implicit none" // nl // &
-                 "contains" // nl // &
-                 "    subroutine process()" // nl // &
-                 "        integer :: important_value" // nl // &
-                 "        important_value = 1" // nl // &
-                 "    end subroutine process" // nl // &
-                 "end module reorder_assignment"
+        "    implicit none" // nl // &
+        "contains" // nl // &
+        "    subroutine process()" // nl // &
+        "        integer :: important_value" // nl // &
+        "        important_value = 1" // nl // &
+        "    end subroutine process" // nl // &
+        "end module reorder_assignment"
 
     call lex_source(input_code, tokens, error_msg)
 

@@ -9,24 +9,24 @@ program test_compiler_facing_queries
     !   has_bind_c_attribute
     !   get_bind_c_name
     use fortfront, only: compile_frontend_from_string, &
-                         compiler_frontend_options_t, &
-                         compiler_frontend_result_t, INPUT_MODE_STANDARD, &
-                         get_node_type_at
+        compiler_frontend_options_t, &
+        compiler_frontend_result_t, INPUT_MODE_STANDARD, &
+        get_node_type_at
     use fortfront_compiler, only: get_declaration_initializer, &
-                                   get_derived_type_components, &
-                                   get_array_literal_elements, get_import_list, &
-                                   get_interface_block_body, has_bind_c_attribute, &
-                                   get_bind_c_name, &
-                                   get_select_case_info, get_case_block_info, &
-                                   get_case_default_body, get_case_range_info, &
-                                   get_select_type_info, get_type_guard_info, &
-                                   get_dummy_allocatable_attribute, &
-                                   get_program_body_info, &
-                                   get_module_body_info, &
-                                   get_function_body_info, &
-                                   get_subroutine_body_info, &
-                                   get_used_modules, get_defined_module, &
-                                   used_module_t, defined_module_t
+        get_derived_type_components, &
+        get_array_literal_elements, get_import_list, &
+        get_interface_block_body, has_bind_c_attribute, &
+        get_bind_c_name, &
+        get_select_case_info, get_case_block_info, &
+        get_case_default_body, get_case_range_info, &
+        get_select_type_info, get_type_guard_info, &
+        get_dummy_allocatable_attribute, &
+        get_program_body_info, &
+        get_module_body_info, &
+        get_function_body_info, &
+        get_subroutine_body_info, &
+        get_used_modules, get_defined_module, &
+        used_module_t, defined_module_t
     implicit none
 
     call test_declaration_initializer()
@@ -60,8 +60,8 @@ contains
         integer :: i, init_index, found
 
         src = 'program t'//new_line('a')// &
-              '  integer, parameter :: n = 7'//new_line('a')// &
-              'end program t'
+            '  integer, parameter :: n = 7'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -94,11 +94,11 @@ contains
         logical :: ok
 
         src = 'program t'//new_line('a')// &
-              '  type :: point_t'//new_line('a')// &
-              '    integer :: x'//new_line('a')// &
-              '    integer :: y'//new_line('a')// &
-              '  end type point_t'//new_line('a')// &
-              'end program t'
+            '  type :: point_t'//new_line('a')// &
+            '    integer :: x'//new_line('a')// &
+            '    integer :: y'//new_line('a')// &
+            '  end type point_t'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -132,9 +132,9 @@ contains
         logical :: ok
 
         src = 'program t'//new_line('a')// &
-              '  integer :: a(3)'//new_line('a')// &
-              '  a = [10, 20, 30]'//new_line('a')// &
-              'end program t'
+            '  integer :: a(3)'//new_line('a')// &
+            '  a = [10, 20, 30]'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -166,16 +166,16 @@ contains
         logical :: saw_function_with_bind_c
 
         src = 'module m'//new_line('a')// &
-              '  use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
-              '  interface'//new_line('a')// &
-              '    function abs_c(value) bind(c, name="abs") result(r)'// &
-              new_line('a')// &
-              '      use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
-              '      integer(c_int), value :: value'//new_line('a')// &
-              '      integer(c_int) :: r'//new_line('a')// &
-              '    end function abs_c'//new_line('a')// &
-              '  end interface'//new_line('a')// &
-              'end module m'
+            '  use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
+            '  interface'//new_line('a')// &
+            '    function abs_c(value) bind(c, name="abs") result(r)'// &
+            new_line('a')// &
+            '      use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
+            '      integer(c_int), value :: value'//new_line('a')// &
+            '      integer(c_int) :: r'//new_line('a')// &
+            '    end function abs_c'//new_line('a')// &
+            '  end interface'//new_line('a')// &
+            'end module m'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -211,17 +211,17 @@ contains
         logical :: saw_select, saw_block, saw_default
 
         src = 'program t'//new_line('a')// &
-              '  integer :: k'//new_line('a')// &
-              '  k = 2'//new_line('a')// &
-              '  select case (k)'//new_line('a')// &
-              '  case (1)'//new_line('a')// &
-              '    stop 1'//new_line('a')// &
-              '  case (2, 3)'//new_line('a')// &
-              '    stop 2'//new_line('a')// &
-              '  case default'//new_line('a')// &
-              '    stop 9'//new_line('a')// &
-              '  end select'//new_line('a')// &
-              'end program t'
+            '  integer :: k'//new_line('a')// &
+            '  k = 2'//new_line('a')// &
+            '  select case (k)'//new_line('a')// &
+            '  case (1)'//new_line('a')// &
+            '    stop 1'//new_line('a')// &
+            '  case (2, 3)'//new_line('a')// &
+            '    stop 2'//new_line('a')// &
+            '  case default'//new_line('a')// &
+            '    stop 9'//new_line('a')// &
+            '  end select'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -240,7 +240,7 @@ contains
             select case (trim(get_node_type_at(result%arena, i)))
             case ('select_case')
                 call get_select_case_info(result%arena, i, selector, &
-                                          case_indices, default)
+                    case_indices, default)
                 if (selector <= 0) then
                     print *, 'FAIL: select case missing selector index'
                     error stop 1
@@ -287,15 +287,15 @@ contains
         logical :: saw_range
 
         src = 'program t'//new_line('a')// &
-              '  integer :: k'//new_line('a')// &
-              '  k = 2'//new_line('a')// &
-              '  select case (k)'//new_line('a')// &
-              '  case (1:5)'//new_line('a')// &
-              '    stop 1'//new_line('a')// &
-              '  case default'//new_line('a')// &
-              '    stop 9'//new_line('a')// &
-              '  end select'//new_line('a')// &
-              'end program t'
+            '  integer :: k'//new_line('a')// &
+            '  k = 2'//new_line('a')// &
+            '  select case (k)'//new_line('a')// &
+            '  case (1:5)'//new_line('a')// &
+            '    stop 1'//new_line('a')// &
+            '  case default'//new_line('a')// &
+            '    stop 9'//new_line('a')// &
+            '  end select'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -333,21 +333,21 @@ contains
         logical :: saw_select_type, saw_type_is, saw_class_default
 
         src = 'module m'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              '  type :: base_t'//new_line('a')// &
-              '    integer :: x'//new_line('a')// &
-              '  end type base_t'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  subroutine dispatch(value)'//new_line('a')// &
-              '    class(*), intent(in) :: value'//new_line('a')// &
-              '    select type (value)'//new_line('a')// &
-              '    type is (integer)'//new_line('a')// &
-              '      print *, value'//new_line('a')// &
-              '    class default'//new_line('a')// &
-              '      print *, 0'//new_line('a')// &
-              '    end select'//new_line('a')// &
-              '  end subroutine dispatch'//new_line('a')// &
-              'end module m'
+            '  implicit none'//new_line('a')// &
+            '  type :: base_t'//new_line('a')// &
+            '    integer :: x'//new_line('a')// &
+            '  end type base_t'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine dispatch(value)'//new_line('a')// &
+            '    class(*), intent(in) :: value'//new_line('a')// &
+            '    select type (value)'//new_line('a')// &
+            '    type is (integer)'//new_line('a')// &
+            '      print *, value'//new_line('a')// &
+            '    class default'//new_line('a')// &
+            '      print *, 0'//new_line('a')// &
+            '    end select'//new_line('a')// &
+            '  end subroutine dispatch'//new_line('a')// &
+            'end module m'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -366,13 +366,13 @@ contains
             select case (trim(get_node_type_at(result%arena, i)))
             case ('select_type')
                 call get_select_type_info(result%arena, i, selector, &
-                                          guard_indices, default)
+                    guard_indices, default)
                 if (selector > 0 .and. size(guard_indices) >= 1) &
                     saw_select_type = .true.
                 if (default > 0) saw_class_default = .true.
             case ('type_guard_block')
                 call get_type_guard_info(result%arena, i, guard_kind, &
-                                         type_name, body)
+                    type_name, body)
                 if (allocated(guard_kind)) then
                     if (len_trim(guard_kind) > 0) saw_type_is = .true.
                 end if
@@ -396,14 +396,14 @@ contains
         logical :: saw_alloc
 
         src = 'module m'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  subroutine s(buf)'//new_line('a')// &
-              '    character(len=:), allocatable, intent(out) :: buf'// &
-              new_line('a')// &
-              '    buf = "hi"'//new_line('a')// &
-              '  end subroutine s'//new_line('a')// &
-              'end module m'
+            '  implicit none'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine s(buf)'//new_line('a')// &
+            '    character(len=:), allocatable, intent(out) :: buf'// &
+            new_line('a')// &
+            '    buf = "hi"'//new_line('a')// &
+            '  end subroutine s'//new_line('a')// &
+            'end module m'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -441,11 +441,11 @@ contains
         integer :: i, with_init, without_init, init_index
 
         src = 'program t'//new_line('a')// &
-              '  integer :: a, b = 3, c'//new_line('a')// &
-              '  a = 1'//new_line('a')// &
-              '  c = 5'//new_line('a')// &
-              '  print *, a + b + c'//new_line('a')// &
-              'end program t'
+            '  integer :: a, b = 3, c'//new_line('a')// &
+            '  a = 1'//new_line('a')// &
+            '  c = 5'//new_line('a')// &
+            '  print *, a + b + c'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -485,9 +485,9 @@ contains
         character(:), allocatable :: name, error_msg
 
         src = 'program myprog'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              '  x = 1'//new_line('a')// &
-              'end program myprog'
+            '  integer :: x'//new_line('a')// &
+            '  x = 1'//new_line('a')// &
+            'end program myprog'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -502,7 +502,7 @@ contains
         do i = 1, result%arena%size
             if (trim(get_node_type_at(result%arena, i)) /= 'program') cycle
             call get_program_body_info(result%arena, i, name, body_indices, &
-                                        error_msg)
+                error_msg)
             if (len_trim(name) == 0) then
                 print *, 'FAIL: program name is empty'
                 error stop 1
@@ -529,13 +529,13 @@ contains
         character(:), allocatable :: name, error_msg
 
         src = 'module mymod'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  subroutine s()'//new_line('a')// &
-              '    x = 1'//new_line('a')// &
-              '  end subroutine s'//new_line('a')// &
-              'end module mymod'
+            '  implicit none'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine s()'//new_line('a')// &
+            '    x = 1'//new_line('a')// &
+            '  end subroutine s'//new_line('a')// &
+            'end module mymod'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -550,8 +550,8 @@ contains
         do i = 1, result%arena%size
             if (trim(get_node_type_at(result%arena, i)) /= 'module_node') cycle
             call get_module_body_info(result%arena, i, name, &
-                                       declaration_indices, procedure_indices, &
-                                       error_msg)
+                declaration_indices, procedure_indices, &
+                error_msg)
             if (len_trim(name) == 0) then
                 print *, 'FAIL: module name is empty'
                 error stop 1
@@ -582,13 +582,13 @@ contains
         character(:), allocatable :: name, result_name, error_msg
 
         src = 'program t'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  function add(a, b) result(r)'//new_line('a')// &
-              '    integer, intent(in) :: a, b'//new_line('a')// &
-              '    integer :: r'//new_line('a')// &
-              '    r = a + b'//new_line('a')// &
-              '  end function add'//new_line('a')// &
-              'end program t'
+            'contains'//new_line('a')// &
+            '  function add(a, b) result(r)'//new_line('a')// &
+            '    integer, intent(in) :: a, b'//new_line('a')// &
+            '    integer :: r'//new_line('a')// &
+            '    r = a + b'//new_line('a')// &
+            '  end function add'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -604,7 +604,7 @@ contains
             if (trim(get_node_type_at(result%arena, i)) /= 'function_def') &
                 cycle
             call get_function_body_info(result%arena, i, name, param_indices, &
-                                         body_indices, result_name, error_msg)
+                body_indices, result_name, error_msg)
             if (len_trim(name) == 0) then
                 print *, 'FAIL: function name is empty'
                 error stop 1
@@ -639,12 +639,12 @@ contains
         character(:), allocatable :: name, error_msg
 
         src = 'program t'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  subroutine greet(msg)'//new_line('a')// &
-              '    character(len=*), intent(in) :: msg'//new_line('a')// &
-              '    print *, msg'//new_line('a')// &
-              '  end subroutine greet'//new_line('a')// &
-              'end program t'
+            'contains'//new_line('a')// &
+            '  subroutine greet(msg)'//new_line('a')// &
+            '    character(len=*), intent(in) :: msg'//new_line('a')// &
+            '    print *, msg'//new_line('a')// &
+            '  end subroutine greet'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -660,7 +660,7 @@ contains
             if (trim(get_node_type_at(result%arena, i)) /= 'subroutine_def') &
                 cycle
             call get_subroutine_body_info(result%arena, i, name, param_indices, &
-                                           body_indices, error_msg)
+                body_indices, error_msg)
             if (len_trim(name) == 0) then
                 print *, 'FAIL: subroutine name is empty'
                 error stop 1
@@ -692,8 +692,8 @@ contains
         character(:), allocatable :: name, error_msg
 
         src = 'program t'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              'end program t'
+            '  integer :: x'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -708,7 +708,7 @@ contains
         do i = 1, result%arena%size
             if (trim(get_node_type_at(result%arena, i)) /= 'declaration') cycle
             call get_program_body_info(result%arena, i, name, body_indices, &
-                                        error_msg)
+                error_msg)
             if (len_trim(error_msg) == 0) then
                 print *, 'FAIL: expected non-empty error_msg for wrong node kind'
                 error stop 1
@@ -740,8 +740,8 @@ contains
         character(:), allocatable :: name, error_msg
 
         src = 'program t'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              'end program t'
+            '  integer :: x'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -756,8 +756,8 @@ contains
         do i = 1, result%arena%size
             if (trim(get_node_type_at(result%arena, i)) /= 'program') cycle
             call get_module_body_info(result%arena, i, name, &
-                                       declaration_indices, procedure_indices, &
-                                       error_msg)
+                declaration_indices, procedure_indices, &
+                error_msg)
             if (len_trim(error_msg) == 0) then
                 print *, 'FAIL: expected non-empty error_msg for wrong node kind'
                 error stop 1
@@ -791,11 +791,11 @@ contains
         integer :: n
 
         src = 'module mymod'//new_line('a')// &
-              '  use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
-              '  use other_mod, only: foo => bar'//new_line('a')// &
-              '  use simple_mod'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              'end module mymod'
+            '  use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
+            '  use other_mod, only: foo => bar'//new_line('a')// &
+            '  use simple_mod'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            'end module mymod'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -892,13 +892,13 @@ contains
         character(:), allocatable :: error_msg
 
         src = 'module mymod'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              'contains'//new_line('a')// &
-              '  subroutine s()'//new_line('a')// &
-              '    x = 1'//new_line('a')// &
-              '  end subroutine s'//new_line('a')// &
-              'end module mymod'
+            '  implicit none'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine s()'//new_line('a')// &
+            '    x = 1'//new_line('a')// &
+            '  end subroutine s'//new_line('a')// &
+            'end module mymod'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -938,8 +938,8 @@ contains
         character(:), allocatable :: error_msg
 
         src = 'submodule(parent_mod) child_sub'//new_line('a')// &
-              '  implicit none'//new_line('a')// &
-              'end submodule child_sub'
+            '  implicit none'//new_line('a')// &
+            'end submodule child_sub'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.
@@ -985,9 +985,9 @@ contains
         character(:), allocatable :: error_msg
 
         src = 'program t'//new_line('a')// &
-              '  integer :: x'//new_line('a')// &
-              '  x = 1'//new_line('a')// &
-              'end program t'
+            '  integer :: x'//new_line('a')// &
+            '  x = 1'//new_line('a')// &
+            'end program t'
 
         options = compiler_frontend_options_t()
         options%run_semantics = .true.

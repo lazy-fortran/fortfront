@@ -4,10 +4,10 @@ module frontend_transformation_semantics
     use ast_nodes_data, only: mixed_construct_container_node
     use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program, has_semantic_errors
+        analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use call_graph_signatures_mod, only: signatures_map_t, type_signature_t, &
-                                         add_signature, create_signatures_map
+        add_signature, create_signatures_map
     use debug_trace, only: trace_enter, trace_leave
     implicit none
     private
@@ -36,7 +36,7 @@ contains
         error_msg = ""
         have_error = .false.
         call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', dump_flag, &
-                                       status=dump_status)
+            status=dump_status)
         debug_enabled = (dump_status == 0 .and. len_trim(dump_flag) > 0)
 
         if (allocated(container%implicit_declaration_indices)) then
@@ -108,8 +108,8 @@ contains
             if (source%proc_sigs(i)%sig_count <= 0) cycle
             do j = 1, source%proc_sigs(i)%sig_count
                 call add_signature_from_entry(target, &
-     &                 trim(source%proc_sigs(i)%procedure_name), &
-     &                 source%proc_sigs(i)%signatures(j))
+                    &                 trim(source%proc_sigs(i)%procedure_name), &
+                    &                 source%proc_sigs(i)%signatures(j))
             end do
         end do
     end subroutine merge_signature_maps
@@ -135,21 +135,21 @@ contains
         if (has_param_types) then
             if (has_return_type) then
                 call add_signature(target, name, kinds, sig%return_kind, &
-                                   sig%call_site_node, sig%line, sig%column, &
-                                   sig%param_type_strings, sig%return_type_string)
+                    sig%call_site_node, sig%line, sig%column, &
+                    sig%param_type_strings, sig%return_type_string)
             else
                 call add_signature(target, name, kinds, sig%return_kind, &
-                                   sig%call_site_node, sig%line, sig%column, &
-                                   param_type_strings=sig%param_type_strings)
+                    sig%call_site_node, sig%line, sig%column, &
+                    param_type_strings=sig%param_type_strings)
             end if
         else
             if (has_return_type) then
                 call add_signature(target, name, kinds, sig%return_kind, &
-                                   sig%call_site_node, sig%line, sig%column, &
-                                   return_type_string=sig%return_type_string)
+                    sig%call_site_node, sig%line, sig%column, &
+                    return_type_string=sig%return_type_string)
             else
                 call add_signature(target, name, kinds, sig%return_kind, &
-                                   sig%call_site_node, sig%line, sig%column)
+                    sig%call_site_node, sig%line, sig%column)
             end if
         end if
     end subroutine add_signature_from_entry

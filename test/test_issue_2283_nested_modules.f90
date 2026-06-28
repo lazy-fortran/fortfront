@@ -33,31 +33,31 @@ program test_issue_2283_nested_modules
     ! Verify the module structure is preserved
     has_module_value = index(output_code, 'module_value') > 0
     has_set_subroutine = index(output_code, 'set_module_value') > 0
-    has_touch_subroutine = index(output_code, 'touch_value') > 0
+        has_touch_subroutine = index(output_code, 'touch_value') > 0
 
-    if (.not. has_module_value) then
-        write (error_unit, '(A)') 'FAIL: module_value lost during round-trip'
-        write (error_unit, '(A)') output_code
-        error stop 1
-    end if
+            if (.not. has_module_value) then
+                write (error_unit, '(A)') 'FAIL: module_value lost during round-trip'
+                write (error_unit, '(A)') output_code
+                error stop 1
+            end if
 
-    if (.not. has_set_subroutine) then
-        write (error_unit, '(A)') 'FAIL: set_module_value subroutine lost'
-        write (error_unit, '(A)') output_code
-        error stop 1
-    end if
+            if (.not. has_set_subroutine) then
+                write (error_unit, '(A)') 'FAIL: set_module_value subroutine lost'
+                write (error_unit, '(A)') output_code
+                error stop 1
+            end if
 
-    if (.not. has_touch_subroutine) then
-        write (error_unit, '(A)') 'FAIL: touch_value subroutine lost'
-        write (error_unit, '(A)') output_code
-        error stop 1
-    end if
+            if (.not. has_touch_subroutine) then
+                write (error_unit, '(A)') 'FAIL: touch_value subroutine lost'
+                write (error_unit, '(A)') output_code
+                error stop 1
+            end if
 
-    print *, 'PASS: module with contained procedures survives round-trip'
-
-
-contains
+            print *, 'PASS: module with contained procedures survives round-trip'
 
 
-    include 'common/read_example.inc'
-end program test_issue_2283_nested_modules
+        contains
+
+
+            include 'common/read_example.inc'
+        end program test_issue_2283_nested_modules

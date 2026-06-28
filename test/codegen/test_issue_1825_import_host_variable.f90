@@ -15,20 +15,20 @@ program test_issue_1825_import_host_variable
     character(len=1), parameter :: nl = new_line('A')
 
     input_code = "program test_import_statement" // nl // &
-                 "    implicit none" // nl // &
-                 "    integer :: outer_var" // nl // &
-                 "    " // nl // &
-                 "    outer_var = 5" // nl // &
-                 "    " // nl // &
-                 "    interface" // nl // &
-                 "        subroutine sub_with_import(x)" // nl // &
-                 "            import :: outer_var" // nl // &
-                 "            integer, intent(in) :: x" // nl // &
-                 "        end subroutine sub_with_import" // nl // &
-                 "    end interface" // nl // &
-                 "    " // nl // &
-                 "    print *, outer_var" // nl // &
-                 "end program test_import_statement"
+        "    implicit none" // nl // &
+        "    integer :: outer_var" // nl // &
+        "    " // nl // &
+        "    outer_var = 5" // nl // &
+        "    " // nl // &
+        "    interface" // nl // &
+        "        subroutine sub_with_import(x)" // nl // &
+        "            import :: outer_var" // nl // &
+        "            integer, intent(in) :: x" // nl // &
+        "        end subroutine sub_with_import" // nl // &
+        "    end interface" // nl // &
+        "    " // nl // &
+        "    print *, outer_var" // nl // &
+        "end program test_import_statement"
 
     passed = .true.
     arena = create_ast_arena()

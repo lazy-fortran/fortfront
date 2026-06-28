@@ -2,8 +2,8 @@ module semantic_validation_utils
     ! Utility functions for semantic validation and array operations
     ! Extracted from semantic_analyzer for architectural compliance (Issue #1016)
     use type_system_unified, only: mono_type_t, &
-                                   create_mono_type, create_type_var, &
-                                   TARRAY, TCHAR, TVAR
+        create_mono_type, create_type_var, &
+        TARRAY, TCHAR, TVAR
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node
     use ast_nodes_data, only: declaration_node
@@ -51,7 +51,7 @@ contains
             if (bounds_idx <= 0 .or. bounds_idx > arena%size) cycle
             if (.not. allocated(arena%entries(bounds_idx)%node)) cycle
             select type (bounds => arena%entries(bounds_idx)%node)
-            type is (array_bounds_node)
+                type is (array_bounds_node)
                 if (.not. constant_bounds_valid(arena, bounds)) then
                     result = .false.
                     return
@@ -73,7 +73,7 @@ contains
         has_stride = .false.
         if (bounds%stride_index > 0) then
             has_stride = get_constant_integer_value(arena, bounds%stride_index, &
-                                                    stride)
+                stride)
             if (has_stride .and. stride == 0) then
                 valid = .false.
                 return
@@ -82,9 +82,9 @@ contains
         if (.not. has_stride) stride = 1
 
         has_lower = get_constant_integer_value(arena, bounds%lower_bound_index, &
-                                               lower)
+            lower)
         has_upper = get_constant_integer_value(arena, bounds%upper_bound_index, &
-                                               upper)
+            upper)
 
         ! Only a fully constant lower:upper pair can be decided statically.
         if (.not. (has_lower .and. has_upper)) return
@@ -128,18 +128,18 @@ contains
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     if (node%name == name) then
                         merged_type = new_type
                         call merge_allocatable_flags(node%inferred_type, &
-                                                     merged_type)
+                            merged_type)
                         arena%entries(i)%node%inferred_type = merged_type
                     end if
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     if (node%name == name) then
                         merged_type = new_type
                         call merge_allocatable_flags(node%inferred_type, &
-                                                     merged_type)
+                            merged_type)
                         arena%entries(i)%node%inferred_type = merged_type
                     end if
                 end select
@@ -150,7 +150,7 @@ contains
     ! Helper: Rename identifier within function scope
     ! Uses parent_index chain to ensure nodes belong to the specified function
     subroutine rename_identifier_in_arena(arena, old_name, new_name, &
-                                          body_indices, func_index)
+            body_indices, func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: old_name
         character(len=*), intent(in) :: new_name
@@ -188,7 +188,7 @@ contains
 
     ! Check if a node belongs to a function by following parent_index chain
     logical function node_belongs_to_function(arena, node_idx, func_index) &
-        result(belongs)
+            result(belongs)
         use ast_nodes_procedure, only: function_def_node, subroutine_def_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
@@ -221,10 +221,10 @@ contains
             ! Check if we hit a DIFFERENT function/subroutine (sibling scope)
             if (current_idx /= node_idx) then
                 select type (node => arena%entries(current_idx)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     ! Found a different function before reaching our target
                     if (current_idx /= func_index) return
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     ! Found a subroutine, node doesn't belong to our function
                     return
                 end select
@@ -258,21 +258,21 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             ! Rename variable references (assignment targets, not function calls)
             if (trim(node%name) == trim(old_name)) then
                 temp_identifier = node
                 temp_identifier%name = trim(new_name)
                 arena%entries(idx)%node = temp_identifier
             end if
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             ! EXPLICITLY SKIP: Do NOT rename function/subroutine calls
             ! Function calls should always use the original function name,
             ! not the result variable name. Only identifier_node (assignment targets)
             ! should be renamed.
             ! Even if node%name == old_name, DO NOT CHANGE IT.
             return
-        type is (declaration_node)
+            type is (declaration_node)
             ! Rename declarations (e.g., function result variable declarations)
             ! BUT: Do NOT rename EXTERNAL declarations - they refer to function names,
             ! not result variables!

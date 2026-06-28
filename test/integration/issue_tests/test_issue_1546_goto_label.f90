@@ -1,7 +1,7 @@
 program test_issue_1546_goto_label
     use fortfront, only: transform_lazy_fortran_string, tooling_parse_options_t, &
-                         tooling_load_ast_from_string, ast_arena_t, ast_to_json, &
-                         token_t
+        tooling_load_ast_from_string, ast_arena_t, ast_to_json, &
+        token_t
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
@@ -43,7 +43,7 @@ contains
         options%run_semantics = .false.
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options, tokens)
+            options, tokens)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then

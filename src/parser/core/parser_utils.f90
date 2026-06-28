@@ -1,6 +1,6 @@
 module parser_utils
     use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, &
-                          TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
+        TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -30,7 +30,7 @@ contains
 
         ! Defensive check for empty token array
         if (size(tokens) == 0) then
-            return  ! Safe defaults: no initializer, no comma
+            return ! Safe defaults: no initializer, no comma
         end if
 
         call scan_tokens(tokens, lookahead_pos, has_initializer, has_comma)
@@ -48,15 +48,15 @@ contains
 
         seen_double_colon = .false.
         in_brackets = .false.
-        in_attributes = .true.  ! Start assuming we're in the attribute section
+        in_attributes = .true. ! Start assuming we're in the attribute section
         bracket_depth = 0
         variable_count_after_colon = 0
-        start_pos = lookahead_pos  ! Remember starting position
+        start_pos = lookahead_pos ! Remember starting position
 
         do while (lookahead_pos <= size(tokens))
             if (lookahead_pos > size(tokens)) exit
             lookahead_token = tokens(lookahead_pos)
-            relative_pos = lookahead_pos - start_pos + 1  ! Calculate relative position
+            relative_pos = lookahead_pos - start_pos + 1 ! Calculate relative position
 
             if (lookahead_token%kind == TK_NEWLINE) then
                 if (.not. is_line_continued(tokens, lookahead_pos)) exit
@@ -65,9 +65,9 @@ contains
             end if
 
             call process_token(lookahead_token, relative_pos, &
-                               seen_double_colon, in_brackets, in_attributes, &
-                               bracket_depth, variable_count_after_colon, &
-                               has_initializer, has_comma, should_exit)
+                seen_double_colon, in_brackets, in_attributes, &
+                bracket_depth, variable_count_after_colon, &
+                has_initializer, has_comma, should_exit)
 
             if (has_comma .or. should_exit) exit
             lookahead_pos = lookahead_pos + 1
@@ -82,7 +82,7 @@ contains
 
     ! Process individual token (kept under 50 lines per CLAUDE.md)
     subroutine process_token(token, pos, seen_colon, in_brackets, in_attr, &
-                             bracket_depth, var_count, has_init, has_comma, should_exit)
+            bracket_depth, var_count, has_init, has_comma, should_exit)
         type(token_t), intent(in) :: token
         integer, intent(in) :: pos
         logical, intent(inout) :: seen_colon, in_brackets, in_attr
@@ -94,9 +94,9 @@ contains
 
         if (token%kind == TK_OPERATOR) then
             call process_operator(token, seen_colon, in_brackets, in_attr, &
-                                  bracket_depth, var_count, has_init, has_comma)
+                bracket_depth, var_count, has_init, has_comma)
         else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. &
-                 in_brackets) then
+                in_brackets) then
             var_count = var_count + 1
         else if (token%kind == TK_KEYWORD) then
             if (pos > 1 .and. .not. is_attribute_keyword(token%text)) then
@@ -109,7 +109,7 @@ contains
 
     ! Process operator tokens
     subroutine process_operator(token, seen_colon, in_brackets, in_attr, &
-                                bracket_depth, var_count, has_init, has_comma)
+            bracket_depth, var_count, has_init, has_comma)
         type(token_t), intent(in) :: token
         logical, intent(inout) :: seen_colon, in_brackets, in_attr
         integer, intent(inout) :: bracket_depth, var_count
@@ -137,15 +137,15 @@ contains
     logical function is_attribute_keyword(keyword)
         character(len=*), intent(in) :: keyword
         is_attribute_keyword = (keyword == "parameter" .or. &
-                                keyword == "intent" .or. &
-                                keyword == "optional" .or. &
-                                keyword == "allocatable" .or. &
-                                keyword == "pointer" .or. &
-                                keyword == "target" .or. &
-                                keyword == "save" .or. &
-                                keyword == "public" .or. &
-                                keyword == "private" .or. &
-                                keyword == "precision")  ! For double precision
+            keyword == "intent" .or. &
+            keyword == "optional" .or. &
+            keyword == "allocatable" .or. &
+            keyword == "pointer" .or. &
+            keyword == "target" .or. &
+            keyword == "save" .or. &
+            keyword == "public" .or. &
+            keyword == "private" .or. &
+            keyword == "precision") ! For double precision
     end function is_attribute_keyword
 
     logical function is_line_continued(tokens, newline_idx)

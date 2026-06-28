@@ -20,7 +20,7 @@ contains
 
         print *, "Testing basic arithmetic..."
         sum_val = 0
-        do i = 1, 10  ! Small loop instead of 300
+        do i = 1, 10 ! Small loop instead of 300
             sum_val = sum_val + i
         end do
 

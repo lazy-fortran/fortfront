@@ -50,7 +50,7 @@ program test_issue_2287_where_elsewhere
     ! Note: searching from pos_where to avoid matching program name
     pos_elsewhere = index(output_code(pos_where:), char(10)//'    elsewhere')
     if (pos_elsewhere > 0) then
-        pos_elsewhere = pos_elsewhere + pos_where - 1  ! Adjust to global position
+        pos_elsewhere = pos_elsewhere + pos_where - 1 ! Adjust to global position
     else
         write (error_unit, '(A)') 'FAIL: ELSEWHERE block missing in output'
         write (error_unit, '(A)') output_code

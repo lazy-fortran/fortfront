@@ -1,7 +1,7 @@
 module parser_declarations_type_spec_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, &
-                          TK_STRING, to_lower
+        TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, &
+        TK_STRING, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use string_utils_mod, only: int_to_string

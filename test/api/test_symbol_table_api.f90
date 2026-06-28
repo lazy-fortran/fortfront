@@ -40,8 +40,8 @@ contains
             type(symbol_info_t), allocatable :: symbols(:)
 
             source = 'x = 42' // new_line('A') // &
-                     'y = 3.14' // new_line('A') // &
-                     'z = x + y'
+                'y = 3.14' // new_line('A') // &
+                'z = x + y'
 
             call lex_source(source, tokens, error_msg)
             if (error_msg /= "") then
@@ -127,7 +127,7 @@ contains
             type(symbol_info_t) :: info
 
             source = 'counter = 1' // new_line('A') // &
-                     'counter = counter + 1'
+                'counter = counter + 1'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()
@@ -168,9 +168,9 @@ contains
             type(scope_info_t) :: info
 
             source = 'program test_prog' // new_line('A') // &
-                     '    implicit none' // new_line('A') // &
-                     '    integer :: a' // new_line('A') // &
-                     'end program test_prog'
+                '    implicit none' // new_line('A') // &
+                '    integer :: a' // new_line('A') // &
+                'end program test_prog'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()
@@ -218,8 +218,8 @@ contains
             type(symbol_info_t), allocatable :: all_symbols(:)
 
             source = 'a = 1' // new_line('A') // &
-                     'b = 2' // new_line('A') // &
-                     'c = a + b'
+                'b = 2' // new_line('A') // &
+                'c = a + b'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()

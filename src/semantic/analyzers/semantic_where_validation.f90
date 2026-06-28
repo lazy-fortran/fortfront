@@ -5,7 +5,7 @@ module semantic_where_validation
     use ast_nodes_core, only: assignment_node
     use ast_nodes_array, only: where_node, where_stmt_node
     use error_handling, only: error_collection_t, result_t, create_error_result, &
-                              ERROR_SEMANTIC
+        ERROR_SEMANTIC
     use string_utils_mod, only: int_to_string
     implicit none
     private
@@ -24,7 +24,7 @@ contains
         ! Validate main WHERE body
         if (allocated(node%where_body_indices)) then
             call validate_where_body(arena, node%where_body_indices, errors, &
-                                     node%line, node%column)
+                node%line, node%column)
         end if
 
         ! Validate all ELSEWHERE clauses
@@ -32,8 +32,8 @@ contains
             do i = 1, size(node%elsewhere_clauses)
                 if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                     call validate_where_body(arena, &
-                                             node%elsewhere_clauses(i)%body_indices, &
-                                             errors, node%line, node%column)
+                        node%elsewhere_clauses(i)%body_indices, &
+                        errors, node%line, node%column)
                 end if
             end do
         end if
@@ -56,7 +56,7 @@ contains
 
             if (.not. is_valid) then
                 call report_invalid_where_stmt(arena, stmt_index, errors, &
-                                               where_line, where_col)
+                    where_line, where_col)
             end if
         end do
     end subroutine validate_where_body
@@ -81,13 +81,13 @@ contains
         end if
 
         select type (node => arena%entries(stmt_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             ! Array assignments are allowed
             is_valid = .true.
-        type is (where_node)
+            type is (where_node)
             ! Nested WHERE constructs are allowed
             is_valid = .true.
-        type is (where_stmt_node)
+            type is (where_stmt_node)
             ! Nested WHERE statements are allowed
             is_valid = .true.
         class default
@@ -98,7 +98,7 @@ contains
 
     ! Report an error for invalid statement inside WHERE
     subroutine report_invalid_where_stmt(arena, stmt_index, errors, where_line, &
-                                         where_col)
+            where_col)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         type(error_collection_t), intent(inout) :: errors
@@ -116,18 +116,18 @@ contains
         stmt_col = arena%entries(stmt_index)%node%column
 
         msg = "Invalid statement in WHERE construct: "//stmt_type// &
-              " (line "//trim(int_to_string(stmt_line))//")"
+            " (line "//trim(int_to_string(stmt_line))//")"
 
         error_result = create_error_result( &
-                       msg, &
-                       ERROR_SEMANTIC, &
-                       component="semantic_where_validation", &
-                       context="WHERE construct at line "// &
-                       trim(int_to_string(where_line)), &
-                       suggestion="WHERE/ELSEWHERE may only contain array "// &
-                       "assignments, nested WHERE statements, or "// &
-                       "nested WHERE constructs (F2018 10.2.3.2)" &
-                       )
+            msg, &
+            ERROR_SEMANTIC, &
+            component="semantic_where_validation", &
+            context="WHERE construct at line "// &
+            trim(int_to_string(where_line)), &
+            suggestion="WHERE/ELSEWHERE may only contain array "// &
+            "assignments, nested WHERE statements, or "// &
+            "nested WHERE constructs (F2018 10.2.3.2)" &
+            )
 
         call errors%add_result(error_result)
     end subroutine report_invalid_where_stmt
@@ -135,10 +135,10 @@ contains
     ! Get human-readable statement type name
     function get_stmt_type_name(arena, stmt_index) result(name)
         use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-                                     stop_node, return_node, cycle_node, exit_node, &
-                                     forall_node, select_case_node, pause_node
+            stop_node, return_node, cycle_node, exit_node, &
+            forall_node, select_case_node, pause_node
         use ast_nodes_io, only: print_statement_node, write_statement_node, &
-                                read_statement_node
+            read_statement_node
         use ast_nodes_misc, only: allocate_statement_node, deallocate_statement_node
         use ast_nodes_procedure, only: subroutine_call_node
         type(ast_arena_t), intent(in) :: arena
@@ -150,37 +150,37 @@ contains
         if (.not. arena%has_node_at(stmt_index)) return
 
         select type (node => arena%entries(stmt_index)%node)
-        type is (if_node)
+            type is (if_node)
             name = "IF construct"
-        type is (do_loop_node)
+            type is (do_loop_node)
             name = "DO loop"
-        type is (do_while_node)
+            type is (do_while_node)
             name = "DO WHILE loop"
-        type is (stop_node)
+            type is (stop_node)
             name = "STOP statement"
-        type is (return_node)
+            type is (return_node)
             name = "RETURN statement"
-        type is (cycle_node)
+            type is (cycle_node)
             name = "CYCLE statement"
-        type is (exit_node)
+            type is (exit_node)
             name = "EXIT statement"
-        type is (forall_node)
+            type is (forall_node)
             name = "FORALL construct"
-        type is (select_case_node)
+            type is (select_case_node)
             name = "SELECT CASE construct"
-        type is (pause_node)
+            type is (pause_node)
             name = "PAUSE statement"
-        type is (print_statement_node)
+            type is (print_statement_node)
             name = "PRINT statement"
-        type is (write_statement_node)
+            type is (write_statement_node)
             name = "WRITE statement"
-        type is (read_statement_node)
+            type is (read_statement_node)
             name = "READ statement"
-        type is (allocate_statement_node)
+            type is (allocate_statement_node)
             name = "ALLOCATE statement"
-        type is (deallocate_statement_node)
+            type is (deallocate_statement_node)
             name = "DEALLOCATE statement"
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             name = "CALL statement"
         class default
             name = "non-assignment statement"

@@ -8,13 +8,13 @@ module codegen_subroutine_declarations
     use ast_nodes_misc, only: use_statement_node
     use codegen_declarations_inference, only: build_parameter_map
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
-                                        copy_indices, apply_default_intents, &
-                                        maybe_add_procedure_implicit_none, &
-                                        filter_implicit_statements, &
-                                        append_parameter_declaration, &
-                                        is_parameter_name, ensure_local_var_capacity, &
-                                        is_local_var_collected, add_declared_vars, &
-                                        add_single_declared_var
+        copy_indices, apply_default_intents, &
+        maybe_add_procedure_implicit_none, &
+        filter_implicit_statements, &
+        append_parameter_declaration, &
+        is_parameter_name, ensure_local_var_capacity, &
+        is_local_var_collected, add_declared_vars, &
+        add_single_declared_var
     use codegen_grouped_body_params, only: generate_grouped_body_with_params
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t
@@ -108,19 +108,19 @@ contains
         if (len_trim(use_section) > 0) body = body // use_section
 
         body = body // maybe_add_procedure_implicit_none(arena, body_indices, &
-                                                         node_index)
+            node_index)
         body = body // collect_subroutine_parameter_decls(arena, node, param_map)
         body = body // collect_subroutine_local_variable_decls(arena, node, param_map)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
-                                                         filtered_body_indices, 1, &
-                                                         param_map, node)
+            filtered_body_indices, 1, &
+            param_map, node)
         call reorder_import_lines(body)
     end function build_subroutine_body_section
 
     function collect_subroutine_parameter_decls(arena, sub, param_map) &
-        result(decl_code)
+            result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: sub
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -138,17 +138,17 @@ contains
             if (.not. arena%has_node_at(param_idx)) cycle
 
             has_declaration = subroutine_parameter_has_declaration(arena, sub, &
-                                                                   param_map, i)
+                param_map, i)
 
             if (.not. has_declaration .and. i <= size(param_map)) then
                 call append_parameter_declaration(arena, param_idx, param_map(i), &
-                                                  decl_code)
+                    decl_code)
             end if
         end do
     end function collect_subroutine_parameter_decls
 
     logical function subroutine_parameter_has_declaration(arena, sub, param_map, &
-                                                          param_idx) result(has_decl)
+            param_idx) result(has_decl)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: sub
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -165,7 +165,7 @@ contains
             body_idx = sub%body_indices(j)
             if (.not. arena%has_node_at(body_idx)) cycle
             select type (body_node => arena%entries(body_idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (len_trim(param_map(param_idx)%name) == 0) cycle
                 if (trim(body_node%var_name) == trim(param_map(param_idx)%name)) then
                     has_decl = .true.
@@ -181,7 +181,7 @@ contains
                         end if
                     end do
                 end if
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (trim(body_node%name) == trim(param_map(param_idx)%name)) then
                     has_decl = .true.
                     return
@@ -191,7 +191,7 @@ contains
     end function subroutine_parameter_has_declaration
 
     function collect_subroutine_local_variable_decls(arena, sub, param_map) &
-        result(decl_code)
+            result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: sub
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -219,43 +219,43 @@ contains
             if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     call add_declared_vars(stmt%var_names, declared_vars, n_declared, &
-                                           declared_capacity)
+                        declared_capacity)
                 else
                     call add_single_declared_var(stmt%var_name, declared_vars, &
-                                                 n_declared, declared_capacity)
+                        n_declared, declared_capacity)
                 end if
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 call add_single_declared_var(stmt%name, declared_vars, n_declared, &
-                                             declared_capacity)
-            type is (assignment_node)
+                    declared_capacity)
+                type is (assignment_node)
                 call collect_vars_from_assignment_sub(arena, stmt, param_map, &
-                                                      local_vars, n_locals, &
-                                                      capacity, declared_vars, &
-                                                      n_declared, decl_code)
-            type is (print_statement_node)
+                    local_vars, n_locals, &
+                    capacity, declared_vars, &
+                    n_declared, decl_code)
+                type is (print_statement_node)
                 call collect_vars_from_print_sub(arena, stmt, param_map, &
-                                                 local_vars, n_locals, capacity, &
-                                                 declared_vars, n_declared, &
-                                                 decl_code)
-            type is (read_statement_node)
+                    local_vars, n_locals, capacity, &
+                    declared_vars, n_declared, &
+                    decl_code)
+                type is (read_statement_node)
                 call collect_vars_from_read_sub(arena, stmt, param_map, &
-                                                local_vars, n_locals, capacity, &
-                                                declared_vars, n_declared, &
-                                                decl_code)
-            type is (do_loop_node)
+                    local_vars, n_locals, capacity, &
+                    declared_vars, n_declared, &
+                    decl_code)
+                type is (do_loop_node)
                 call collect_loop_var_sub(arena, stmt, param_map, local_vars, &
-                                          n_locals, capacity, declared_vars, &
-                                          n_declared, decl_code)
+                    n_locals, capacity, declared_vars, &
+                    n_declared, decl_code)
             end select
         end do
     end function collect_subroutine_local_variable_decls
 
     subroutine collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
-                                           n_locals, capacity, declared_vars, &
-                                           n_declared, decl_code)
+            n_locals, capacity, declared_vars, &
+            n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(print_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -276,7 +276,7 @@ contains
             if (.not. arena%has_node_at(expr_idx)) cycle
 
             select type (expr => arena%entries(expr_idx)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 if (.not. allocated(expr%name)) cycle
 
                 var_name = trim(expr%name)
@@ -289,15 +289,15 @@ contains
                     n_locals = n_locals + 1
                     local_vars(n_locals) = var_name
                     decl_code = decl_code // "    real :: " // trim(var_name) // &
-                                new_line('A')
+                        new_line('A')
                 end if
             end select
         end do
     end subroutine collect_vars_from_print_sub
 
     subroutine collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
-                                          n_locals, capacity, declared_vars, &
-                                          n_declared, decl_code)
+            n_locals, capacity, declared_vars, &
+            n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(read_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -318,7 +318,7 @@ contains
             if (.not. arena%has_node_at(var_idx)) cycle
 
             select type (var => arena%entries(var_idx)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 if (.not. allocated(var%name)) cycle
 
                 var_name = trim(var%name)
@@ -331,15 +331,15 @@ contains
                     n_locals = n_locals + 1
                     local_vars(n_locals) = var_name
                     decl_code = decl_code // "    real :: " // trim(var_name) // &
-                                new_line('A')
+                        new_line('A')
                 end if
             end select
         end do
     end subroutine collect_vars_from_read_sub
 
     recursive subroutine collect_loop_var_sub(arena, loop_node, param_map, &
-                                              local_vars, n_locals, capacity, &
-                                              declared_vars, n_declared, decl_code)
+            local_vars, n_locals, capacity, &
+            declared_vars, n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(do_loop_node), intent(in) :: loop_node
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -365,7 +365,7 @@ contains
             n_locals = n_locals + 1
             local_vars(n_locals) = var_name
             decl_code = decl_code // "    integer :: " // trim(var_name) // &
-                        new_line('A')
+                new_line('A')
         end if
 
         if (allocated(loop_node%body_indices)) then
@@ -374,18 +374,18 @@ contains
                 if (.not. arena%has_node_at(nested_idx)) cycle
 
                 select type (nested_stmt => arena%entries(nested_idx)%node)
-                type is (do_loop_node)
+                    type is (do_loop_node)
                     call collect_loop_var_sub(arena, nested_stmt, param_map, &
-                                              local_vars, n_locals, capacity, &
-                                              declared_vars, n_declared, decl_code)
+                        local_vars, n_locals, capacity, &
+                        declared_vars, n_declared, decl_code)
                 end select
             end do
         end if
     end subroutine collect_loop_var_sub
 
     subroutine collect_vars_from_assignment_sub(arena, stmt, param_map, &
-                                                local_vars, n_locals, capacity, &
-                                                declared_vars, n_declared, decl_code)
+            local_vars, n_locals, capacity, &
+            declared_vars, n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -401,7 +401,7 @@ contains
         if (.not. arena%has_node_at(stmt%target_index)) return
 
         select type (target => arena%entries(stmt%target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. allocated(target%name)) return
             if (target%inferred_type%kind == 0) return
 
@@ -418,16 +418,16 @@ contains
                 n_locals = n_locals + 1
                 local_vars(n_locals) = var_name
                 decl_code = decl_code // "    " // &
-                            mono_type_to_string(target%inferred_type, &
-                                                include_shape=.true., &
-                                                fallback='integer') // &
-                            " :: " // trim(var_name) // new_line('A')
+                    mono_type_to_string(target%inferred_type, &
+                    include_shape=.true., &
+                    fallback='integer') // &
+                    " :: " // trim(var_name) // new_line('A')
             end if
         end select
     end subroutine collect_vars_from_assignment_sub
 
     subroutine extract_use_statements(arena, original_indices, remaining_indices, &
-                                      use_code)
+            use_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: original_indices(:)
         integer, allocatable, intent(out) :: remaining_indices(:)
@@ -451,12 +451,12 @@ contains
             if (original_indices(i) > 0 .and. original_indices(i) <= arena%size) then
                 if (allocated(arena%entries(original_indices(i))%node)) then
                     select type (node => arena%entries(original_indices(i))%node)
-                    type is (use_statement_node)
+                        type is (use_statement_node)
                         is_use_stmt = .true.
                         stmt_text = generate_code_from_arena(arena, original_indices(i))
                         if (len_trim(stmt_text) > 0) then
                             use_code = use_code // "    " // trim(stmt_text) // &
-                                       new_line('A')
+                                new_line('A')
                         end if
                     end select
                 end if

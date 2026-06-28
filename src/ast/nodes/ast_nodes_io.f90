@@ -1,7 +1,7 @@
 module ast_nodes_io
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_visitor_base_t
+        ast_visitor_base_t
     implicit none
     private
 
@@ -435,7 +435,7 @@ contains
 
     ! Factory functions
     function create_print_statement(expression_indices, format_spec, &
-                                    line, column) result(node)
+            line, column) result(node)
         integer, intent(in), optional :: expression_indices(:)
         character(len=*), intent(in), optional :: format_spec
         integer, intent(in), optional :: line, column
@@ -457,8 +457,8 @@ contains
     end function create_print_statement
 
     function create_io_implied_do(expr_index, var_name, start_expr_index, &
-                                  end_expr_index, step_expr_index, line, column, &
-                                  object_indices) result(node)
+            end_expr_index, step_expr_index, line, column, &
+            object_indices) result(node)
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index

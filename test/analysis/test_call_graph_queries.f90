@@ -1,8 +1,8 @@
 program test_call_graph_queries
     use fortfront, only: ast_arena_t, build_call_graph, call_graph_t, &
-                         create_ast_arena, get_all_procedures, get_call_count, &
-                         get_callees, get_callers, is_procedure_used, lex_source, &
-                         parse_tokens, token_t
+        create_ast_arena, get_all_procedures, get_call_count, &
+        get_callees, get_callers, is_procedure_used, lex_source, &
+        parse_tokens, token_t
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
@@ -33,9 +33,9 @@ contains
         call parse_example('examples/f90/call_graph_mutual_recursion.f90', graph)
 
         call assert_edge(graph, 'call_graph_mutual_recursion_mod::first', &
-                         'call_graph_mutual_recursion_mod::second')
+            'call_graph_mutual_recursion_mod::second')
         call assert_edge(graph, 'call_graph_mutual_recursion_mod::second', &
-                         'call_graph_mutual_recursion_mod::first')
+            'call_graph_mutual_recursion_mod::first')
     end subroutine test_mutual_recursion_edges
 
     subroutine test_unused_procedure_query()
@@ -130,7 +130,7 @@ contains
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) then
             call report_failure('lexing failed for ' // trim(example_path) // &
-                                ': ' // trim(error_msg))
+                ': ' // trim(error_msg))
             return
         end if
 
@@ -138,7 +138,7 @@ contains
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (root_index <= 0) then
             call report_failure('parsing failed for ' // trim(example_path) // &
-                                ': ' // trim(error_msg))
+                ': ' // trim(error_msg))
             return
         end if
 
@@ -152,7 +152,7 @@ contains
 
         if (.not. edge_exists(graph, caller, callee)) then
             call report_failure('missing call edge: ' // trim(caller) // &
-                                ' -> ' // trim(callee))
+                ' -> ' // trim(callee))
         end if
     end subroutine assert_edge
 

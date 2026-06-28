@@ -1,9 +1,9 @@
 program test_block_boundaries_sibling_relationships
     use fortfront, only: ast_arena_t, create_ast_arena, &
-                         get_next_sibling, get_previous_sibling, &
-                         get_block_statements, is_last_in_block, is_block_node
+        get_next_sibling, get_previous_sibling, &
+        get_block_statements, is_last_in_block, is_block_node
     use ast_factory, only: push_program, push_assignment, push_if, &
-                           push_identifier, push_literal
+        push_identifier, push_literal
     use ast_types, only: LITERAL_INTEGER
     implicit none
 
@@ -91,7 +91,7 @@ contains
         end if
 
         ! Test boundary conditions
-        next_idx = get_next_sibling(arena, stmt3_idx)  ! Last sibling
+        next_idx = get_next_sibling(arena, stmt3_idx) ! Last sibling
         if (next_idx == 0) then
             print *, "  ✓ get_next_sibling: Last sibling returns 0"
         else
@@ -99,7 +99,7 @@ contains
             all_tests_passed = .false.
         end if
 
-        prev_idx = get_previous_sibling(arena, stmt1_idx)  ! First sibling
+        prev_idx = get_previous_sibling(arena, stmt1_idx) ! First sibling
         if (prev_idx == 0) then
             print *, "  ✓ get_previous_sibling: First sibling returns 0"
         else
@@ -123,7 +123,7 @@ contains
         prog_idx = push_program(arena, "test_prog", empty_body, 1, 1)
 
         ! Create an if statement with a condition and body
-        cond_idx = push_literal(arena, ".true.", LITERAL_INTEGER, 1, 1)  ! Simple condition
+        cond_idx = push_literal(arena, ".true.", LITERAL_INTEGER, 1, 1) ! Simple condition
         if_idx = push_if(arena, cond_idx, empty_body, empty_body, empty_body, 1, 1, prog_idx)
 
         ! Create assignment in if body

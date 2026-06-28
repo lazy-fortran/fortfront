@@ -56,7 +56,7 @@ contains
 
         call transform_example('examples/f90/issue_2820_save_attribute.f90', out)
         call require(index(out, 'save') > 0 .and. index(out, 'counter') > 0, &
-                     'SAVE attribute preserved', out)
+            'SAVE attribute preserved', out)
     end subroutine check_save
 
     subroutine check_allocate_mold_source()
@@ -65,7 +65,7 @@ contains
         call transform_example( &
             'examples/f90/issue_2820_allocate_mold_source.f90', out)
         call require(index(out, 'mold=') > 0 .and. index(out, 'source=') > 0, &
-                     'ALLOCATE MOLD= and SOURCE= preserved', out)
+            'ALLOCATE MOLD= and SOURCE= preserved', out)
     end subroutine check_allocate_mold_source
 
     subroutine check_timing_intrinsics()
@@ -74,8 +74,8 @@ contains
         call transform_example( &
             'examples/f90/issue_2820_intrinsics_timing.f90', out)
         call require(index(out, 'call cpu_time') > 0 .and. &
-                     index(out, 'call system_clock') > 0, &
-                     'CPU_TIME and SYSTEM_CLOCK calls preserved', out)
+            index(out, 'call system_clock') > 0, &
+            'CPU_TIME and SYSTEM_CLOCK calls preserved', out)
     end subroutine check_timing_intrinsics
 
     subroutine check_c_interop_pointers()
@@ -85,14 +85,14 @@ contains
         call transform_example( &
             'examples/f90/issue_2820_c_interop_pointers.f90', out)
         base_intrinsics = index(out, 'c_loc') > 0 .and. &
-                          index(out, 'c_f_pointer') > 0 .and. &
-                          index(out, 'c_associated') > 0 .and. &
-                          index(out, 'iso_c_binding') > 0
+            index(out, 'c_f_pointer') > 0 .and. &
+            index(out, 'c_associated') > 0 .and. &
+            index(out, 'iso_c_binding') > 0
         ! SHAPE-bearing C_F_POINTER and two-argument C_ASSOCIATED forms.
         shape_and_two_arg = index(out, 'c_f_pointer(cp2, parr, [4])') > 0 .and. &
-                            index(out, 'c_associated(cp2, cp2)') > 0
+            index(out, 'c_associated(cp2, cp2)') > 0
         call require(base_intrinsics .and. shape_and_two_arg, &
-                     'ISO_C_BINDING pointer intrinsics preserved', out)
+            'ISO_C_BINDING pointer intrinsics preserved', out)
     end subroutine check_c_interop_pointers
 
     subroutine check_infer_first_assignment()
@@ -102,11 +102,11 @@ contains
         call transform_example( &
             'examples/lf/issue_2820_infer_first_assignment.lf', out)
         y_is_real8 = index(out, 'double precision :: y') > 0 .or. &
-                     index(out, 'real(8) :: y') > 0 .or. &
-                     index(out, 'real(dp) :: y') > 0
+            index(out, 'real(8) :: y') > 0 .or. &
+            index(out, 'real(dp) :: y') > 0
         call require(index(out, 'integer :: x') > 0 .and. y_is_real8, &
-                     'INFER declares x integer and y real8 from first assignment', &
-                     out)
+            'INFER declares x integer and y real8 from first assignment', &
+            out)
     end subroutine check_infer_first_assignment
 
     subroutine check_dp_injection()
@@ -116,8 +116,8 @@ contains
         ! but never defined by the user.
         call transform_example('examples/lf/issue_2820_dp_injection.lf', out)
         call require(index(out, 'dp => real64') > 0 .and. &
-                     index(out, '1.0_dp') > 0, &
-                     'dp predefined symbol injected when undefined', out)
+            index(out, '1.0_dp') > 0, &
+            'dp predefined symbol injected when undefined', out)
     end subroutine check_dp_injection
 
     subroutine check_dp_collision()
@@ -127,9 +127,9 @@ contains
         ! renamed (lf_dp_kind) so the user symbol is not shadowed.
         call transform_example('examples/lf/issue_2820_dp_collision.lf', out)
         call require(index(out, 'integer, parameter :: dp = kind(1.0d0)') > 0 &
-                     .and. index(out, 'lf_dp_kind => real64') > 0 &
-                     .and. index(out, '1.0_lf_dp_kind') > 0, &
-                     'dp injection avoids collision with user-defined dp', out)
+            .and. index(out, 'lf_dp_kind => real64') > 0 &
+            .and. index(out, '1.0_lf_dp_kind') > 0, &
+            'dp injection avoids collision with user-defined dp', out)
     end subroutine check_dp_collision
 
 end program test_issue_2820_coverage_backfill

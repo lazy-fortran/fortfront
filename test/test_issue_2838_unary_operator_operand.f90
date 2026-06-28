@@ -5,10 +5,10 @@ program test_issue_2838_unary_operator_operand
     ! index reported as "argument index does not reference an AST node".
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: compiler_frontend_options_t, &
-                         compiler_frontend_result_t, &
-                         compile_frontend_from_string, &
-                         is_binary_op, get_binary_op_info, &
-                         get_identifier_name, INPUT_MODE_STANDARD
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        is_binary_op, get_binary_op_info, &
+        get_identifier_name, INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -34,7 +34,7 @@ program test_issue_2838_unary_operator_operand
     do i = 1, result%arena%size
         if (.not. is_binary_op(result%arena, i)) cycle
         call get_binary_op_info(result%arena, i, operator, left_index, &
-                                right_index, line, column, error_msg)
+            right_index, line, column, error_msg)
         if (len_trim(error_msg) > 0) cycle
         if (.not. allocated(operator)) cycle
         if (trim(operator) /= '.negation.') cycle

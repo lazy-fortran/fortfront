@@ -1,6 +1,6 @@
 program test_issue_2064_logical_return_inferred_as_integer
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use lexer_core, only: to_lower
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
@@ -11,7 +11,7 @@ program test_issue_2064_logical_return_inferred_as_integer
     character(len=:), allocatable :: lower_output
 
     call read_example('examples/lf/issue_2064_logical_return_inferred_as_integer.lf', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 

@@ -1,6 +1,6 @@
 program test_intrinsic_functions_math_expr
     use transformation_api, only: transform_lazy_fortran_string
- use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -10,7 +10,7 @@ program test_intrinsic_functions_math_expr
 
     ! Test the exact code from issue #92
     call read_example('examples/f90/intrinsic_functions_math_expr_complex.f90', &
-                      test_code)
+        test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
@@ -25,7 +25,7 @@ program test_intrinsic_functions_math_expr
 
     ! Test simpler sqrt case
     call read_example('examples/f90/intrinsic_functions_math_expr_simple.f90', &
-                      test_code)
+        test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
@@ -39,7 +39,7 @@ program test_intrinsic_functions_math_expr
 
     ! Test nested sqrt expressions
     call read_example('examples/f90/intrinsic_functions_math_expr_nested.f90', &
-                      test_code)
+        test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 

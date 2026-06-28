@@ -11,7 +11,7 @@ module semantic_constant_values
 contains
 
     logical function get_constant_integer_value(arena, expr_index, value) &
-        result(found)
+            result(found)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: expr_index
         integer, intent(out) :: value
@@ -24,7 +24,7 @@ contains
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) then
                 value = node%constant_integer
                 found = .true.
@@ -44,7 +44,7 @@ contains
     end function get_constant_integer_value
 
     logical function parse_literal_integer_value(raw_text, number) &
-        result(success)
+            result(success)
         character(len=*), intent(in) :: raw_text
         integer, intent(out) :: number
         character(len=:), allocatable :: cleaned

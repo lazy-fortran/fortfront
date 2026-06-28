@@ -6,7 +6,7 @@ module parser_statement_callbacks_module
 
     abstract interface
         recursive function parse_with_parent_interface(parser, arena, parent_index) &
-            result(node_index)
+                result(node_index)
             import :: parser_state_t, ast_arena_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
@@ -15,7 +15,7 @@ module parser_statement_callbacks_module
         end function parse_with_parent_interface
 
         recursive function parse_without_parent_interface(parser, arena) &
-            result(node_index)
+                result(node_index)
             import :: parser_state_t, ast_arena_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena

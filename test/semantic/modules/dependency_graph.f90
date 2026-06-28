@@ -120,7 +120,7 @@ contains
         ! Check all dependencies
         do i = 1, size(graph%nodes(node_index)%dependencies)
             dep_index = graph%find_node_index( &
-                        graph%nodes(node_index)%dependencies(i))
+                graph%nodes(node_index)%dependencies(i))
 
             if (dep_index > 0) then
                 ! If dependency is in progress, we have a cycle
@@ -149,7 +149,7 @@ contains
         class(dependency_graph_t), intent(inout) :: this
         character(len=32), allocatable :: sorted_names(:)
 
-        integer, allocatable :: in_degree(:)  ! True in-degree: number of nodes that depend on this
+        integer, allocatable :: in_degree(:) ! True in-degree: number of nodes that depend on this
         integer, allocatable :: queue(:)
         integer :: queue_start, queue_end, queue_size
         integer :: i, j, dep_index, current_node
@@ -252,8 +252,8 @@ contains
         if (allocated(lhs%dependencies) .and. allocated(rhs%dependencies)) then
             if (size(lhs%dependencies) == size(rhs%dependencies)) then
                 is_same = (lhs%name == rhs%name) .and. &
-                          (lhs%visited .eqv. rhs%visited) .and. &
-                          (lhs%in_progress .eqv. rhs%in_progress)
+                    (lhs%visited .eqv. rhs%visited) .and. &
+                    (lhs%in_progress .eqv. rhs%in_progress)
             end if
         end if
         if (is_same) return

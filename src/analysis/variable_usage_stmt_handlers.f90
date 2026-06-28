@@ -3,7 +3,7 @@ module variable_usage_stmt_handlers_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_control_handlers_module, only: traversal_context_t, &
-                                                      push_node, validate_node_index
+        push_node, validate_node_index
     implicit none
     private
 
@@ -21,7 +21,7 @@ module variable_usage_stmt_handlers_module
 contains
 
     logical function validate_node_with_type(arena, node_index, expected_type) &
-        result(is_valid)
+            result(is_valid)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: expected_type
@@ -46,7 +46,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (node%is_multi_declaration) then
                 if (node%has_initializer) then
                     call push_node(ctx, node%initializer_index)
@@ -67,7 +67,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (print_statement_node)
+            type is (print_statement_node)
             if (allocated(node%expression_indices)) then
                 do i = 1, size(node%expression_indices)
                     call push_node(ctx, node%expression_indices(i))
@@ -93,7 +93,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             if (allocated(node%name)) then
                 call add_string_to_info(node%name, node_index, info)
             end if
@@ -122,7 +122,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (write_statement_node)
+            type is (write_statement_node)
             call push_node(ctx, node%format_expr_index)
             call push_node(ctx, node%iostat_var_index)
 
@@ -150,7 +150,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (read_statement_node)
+            type is (read_statement_node)
             call push_node(ctx, node%format_expr_index)
             call push_node(ctx, node%iostat_var_index)
 
@@ -175,7 +175,7 @@ contains
             return
 
         select type (node => arena%entries(node_index)%node)
-        type is (allocate_statement_node)
+            type is (allocate_statement_node)
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
                     call push_node(ctx, node%var_indices(i))
@@ -208,7 +208,7 @@ contains
             return
 
         select type (node => arena%entries(node_index)%node)
-        type is (deallocate_statement_node)
+            type is (deallocate_statement_node)
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
                     call push_node(ctx, node%var_indices(i))
@@ -232,7 +232,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (associate_node)
+            type is (associate_node)
             if (allocated(node%associations)) then
                 do i = 1, size(node%associations)
                     call push_node(ctx, node%associations(i)%expr_index)
@@ -257,10 +257,10 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(node%body_indices)) then
                 call process_procedure_def_body(arena, node_index, info, &
-                                                node%body_indices, ctx)
+                    node%body_indices, ctx)
             end if
         end select
     end subroutine process_subroutine_def_children
@@ -275,10 +275,10 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(node%body_indices)) then
                 call process_procedure_def_body(arena, node_index, info, &
-                                                node%body_indices, ctx)
+                    node%body_indices, ctx)
             end if
         end select
     end subroutine process_function_def_children

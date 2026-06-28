@@ -13,7 +13,7 @@ program test_issue_2146_array_type_preserved
     type(transform_context_t) :: context
 
     call read_example('examples/f90/issue_playtest5_array_type_changed_real_to_int.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.

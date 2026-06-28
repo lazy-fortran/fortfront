@@ -1,6 +1,6 @@
 module parser_implicit_shared_module
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &
-                          TK_WHITESPACE, TK_COMMENT, TK_NEWLINE
+        TK_WHITESPACE, TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
@@ -39,18 +39,18 @@ contains
         if (implicit_type == "none") then
             if (allocated(none_spec)) then
                 stmt_index = push_implicit_statement(arena, .true., &
-                                                     line=implicit_token%line, &
-                                                     column=implicit_token%column, &
-                                                     none_spec=none_spec)
+                    line=implicit_token%line, &
+                    column=implicit_token%column, &
+                    none_spec=none_spec)
             else
                 stmt_index = push_implicit_statement(arena, .true., &
-                                                     line=implicit_token%line, &
-                                                     column=implicit_token%column)
+                    line=implicit_token%line, &
+                    column=implicit_token%column)
             end if
         else
             stmt_index = push_implicit_statement(arena, .false., &
-                                                 line=implicit_token%line, &
-                                                 column=implicit_token%column)
+                line=implicit_token%line, &
+                column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit_statement
 

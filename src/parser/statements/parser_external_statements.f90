@@ -63,8 +63,8 @@ contains
         if (count <= 0) return
 
         stmt_index = push_declaration(arena, "external", names(1:count), &
-                                      is_external=.true., line=line, &
-                                      column=column)
+            is_external=.true., line=line, &
+            column=column)
 
     contains
 

@@ -3,15 +3,15 @@ module mixed_construct_detector
     ! Analyzes token stream to identify mixed constructs requiring module generation
 
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, TK_NEWLINE, &
-                          TK_WHITESPACE, TK_COMMENT, TK_OPERATOR, to_lower
+        TK_WHITESPACE, TK_COMMENT, TK_OPERATOR, to_lower
     implicit none
     private
 
     ! Mixed construct analysis result
     type, public :: mixed_construct_result_t
         logical :: has_mixed_constructs = .false.
-        integer, allocatable :: implicit_ranges(:, :)  ! [start, end] pairs
-        integer, allocatable :: explicit_ranges(:, :)  ! [start, end] pairs
+        integer, allocatable :: implicit_ranges(:, :) ! [start, end] pairs
+        integer, allocatable :: explicit_ranges(:, :) ! [start, end] pairs
         integer :: num_implicit_ranges = 0
         integer :: num_explicit_ranges = 0
     end type mixed_construct_result_t
@@ -34,7 +34,7 @@ contains
         result%has_mixed_constructs = .false.
         result%num_implicit_ranges = 0
         result%num_explicit_ranges = 0
-        allocate (result%implicit_ranges(100, 2))  ! Max 100 ranges
+        allocate (result%implicit_ranges(100, 2)) ! Max 100 ranges
         allocate (result%explicit_ranges(100, 2))
 
         i = 1
@@ -78,7 +78,7 @@ contains
 
         ! Check if we have mixed constructs
         result%has_mixed_constructs = (result%num_implicit_ranges > 0 .and. &
-                                       result%num_explicit_ranges > 0)
+            result%num_explicit_ranges > 0)
 
         ! Resize arrays to actual size
         if (result%num_implicit_ranges > 0) then
@@ -369,8 +369,8 @@ contains
                                 if (prev_word == "end") is_after_end = .true.
                                 exit
                             else if (tokens(prev_pos)%kind /= TK_WHITESPACE .and. &
-                                     tokens(prev_pos)%kind /= TK_NEWLINE .and. &
-                                     tokens(prev_pos)%kind /= TK_COMMENT) then
+                                    tokens(prev_pos)%kind /= TK_NEWLINE .and. &
+                                    tokens(prev_pos)%kind /= TK_COMMENT) then
                                 exit
                             end if
                             prev_pos = prev_pos - 1

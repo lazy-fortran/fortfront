@@ -8,7 +8,7 @@ program test_issue_2150_reshape_literal_vs_variable
     character(len=:), allocatable :: source, output, error_msg
 
     call read_example('examples/lf/issue_2150_reshape_variable_vs_literal_shape.lf', &
-                      source)
+        source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then
@@ -20,8 +20,8 @@ program test_issue_2150_reshape_literal_vs_variable
 
     ! Check literal shape produces fixed-size array
     call assert_contains_any(output, 'integer :: matrix_literal(2, 3)', &
-                             'integer :: matrix_literal(2,3)', &
-                             'Expected fixed-size for literal shape [2, 3]')
+        'integer :: matrix_literal(2,3)', &
+        'Expected fixed-size for literal shape [2, 3]')
 
     ! Check variable shape produces fixed-size array (accept any real kind)
     if (index(output, 'real :: matrix_var(3, 3)') == 0 .and. &
@@ -39,9 +39,9 @@ program test_issue_2150_reshape_literal_vs_variable
 
     ! Ensure neither is allocatable
     call ensure_absent(output, 'allocatable :: matrix_literal', &
-                       'matrix_literal incorrectly marked allocatable')
+        'matrix_literal incorrectly marked allocatable')
     call ensure_absent(output, 'allocatable :: matrix_var', &
-                       'matrix_var incorrectly marked allocatable')
+        'matrix_var incorrectly marked allocatable')
 
     write (*, '(A)') 'PASS: Issue #2150 - reshape literal vs variable shape'
 

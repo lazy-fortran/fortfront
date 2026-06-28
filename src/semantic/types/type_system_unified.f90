@@ -8,7 +8,7 @@ module type_system_unified
         success_result, ERROR_MEMORY
     use fortfront_constants, only: MAX_ENV_SIZE
     use identifier_table, only: identifier_table_t, identifier_id_kind, &
-                                identifier_table_intern, identifier_table_find
+        identifier_table_intern, identifier_table_find
     implicit none
     private
 

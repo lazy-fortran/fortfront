@@ -97,7 +97,7 @@ contains
         end if
 
         applied = apply_allocatable_to_variable(arena, var_name, dimension_indices, &
-                                                has_dimensions)
+            has_dimensions)
         if (allocated(dimension_indices)) deallocate (dimension_indices)
     end function parse_single_allocatable_var
 
@@ -122,7 +122,7 @@ contains
     end function token_is_identifier
 
     logical function apply_allocatable_to_variable(arena, name, dimension_indices, &
-                                                   has_dimensions) result(applied)
+            has_dimensions) result(applied)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: dimension_indices(:)
@@ -136,10 +136,10 @@ contains
         do idx = arena%size, 1, -1
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     if (apply_allocatable_multi(arena, idx, decl, target, &
-                                                dimension_indices, has_dimensions)) then
+                        dimension_indices, has_dimensions)) then
                         applied = .true.
                         return
                     end if
@@ -162,8 +162,8 @@ contains
     end function apply_allocatable_to_variable
 
     logical function apply_allocatable_multi(arena, decl_index, decl, target, &
-                                             dimension_indices, has_dimensions) &
-        result(updated)
+            dimension_indices, has_dimensions) &
+            result(updated)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         type(declaration_node), intent(inout) :: decl

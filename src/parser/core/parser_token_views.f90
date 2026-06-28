@@ -73,7 +73,7 @@ contains
     end subroutine initialize_token_view_state
 
     integer function compute_max_token_length(parser, start_idx, end_idx) &
-        result(max_len)
+            result(max_len)
         type(parser_state_t), intent(in) :: parser
         integer, intent(in) :: start_idx
         integer, intent(in) :: end_idx

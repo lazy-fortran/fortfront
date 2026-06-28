@@ -12,8 +12,8 @@ module standardizer_function_parameter_builders
 contains
 
     subroutine add_missing_parameter_declarations_ext(arena, func_def, &
-                                                      func_index, &
-                                                      metadata, type_std_enabled)
+            func_index, &
+            metadata, type_std_enabled)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -48,7 +48,7 @@ contains
             call reset_declaration_node(decl)
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
-                                            inferred_local)
+                inferred_local)
             skip_intent = metadata%is_procedure(i)
             if (skip_intent) then
                 if (allocated(decl%intent)) deallocate (decl%intent)
@@ -70,11 +70,11 @@ contains
         end do
 
         call combine_existing_and_new_body(func_def, existing, &
-                                           new_indices, new_count)
+            new_indices, new_count)
     end subroutine add_missing_parameter_declarations_ext
     subroutine rebuild_parameter_declarations(arena, func_def, func_index, &
-                                              metadata, &
-                                              type_std_enabled)
+            metadata, &
+            type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index
@@ -89,11 +89,11 @@ contains
 
         call collect_non_param_body_indices(arena, func_def, metadata, existing)
         call build_replacement_parameter_declarations(arena, func_def, &
-                                                      func_index, &
-                                                      metadata, type_std_enabled, &
-                                                      new_indices)
+            func_index, &
+            metadata, type_std_enabled, &
+            new_indices)
         call combine_existing_and_new_body(func_def, existing, new_indices, &
-                                           size(new_indices))
+            size(new_indices))
     end subroutine rebuild_parameter_declarations
     subroutine collect_non_param_body_indices(arena, func_def, metadata, collected)
         use ast_nodes_data, only: declaration_node, parameter_declaration_node
@@ -124,30 +124,30 @@ contains
         if (.not. node_exists(arena, idx)) return
 
         select type (stmt => arena%entries(idx)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             skip = is_metadata_parameter(metadata, stmt%var_name)
             if (.not. skip) then
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     do name_idx = 1, size(stmt%var_names)
                         if (is_metadata_parameter(metadata, &
-                                                  stmt%var_names(name_idx))) then
+                            stmt%var_names(name_idx))) then
                             skip = .true.
                             exit
                         end if
                     end do
                 end if
             end if
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             skip = .true.
         class default
             skip = .false.
         end select
     end function should_skip_existing_param
     subroutine build_replacement_parameter_declarations(arena, func_def, &
-                                                        func_index, &
-                                                        metadata, &
-                                                        type_std_enabled, &
-                                                        new_indices)
+            func_index, &
+            metadata, &
+            type_std_enabled, &
+            new_indices)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -173,7 +173,7 @@ contains
             call reset_declaration_node(decl)
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
-                                            inferred_local)
+                inferred_local)
             skip_intent = metadata%is_procedure(i)
             if (skip_intent) then
                 if (allocated(decl%intent)) deallocate (decl%intent)
@@ -190,7 +190,7 @@ contains
         end do
     end subroutine build_replacement_parameter_declarations
     character(len=8) function choose_param_intent(intent_value) &
-        result(result_intent)
+            result(result_intent)
         character(len=*), intent(in) :: intent_value
 
         if (len_trim(intent_value) > 0) then
@@ -200,7 +200,7 @@ contains
         end if
     end function choose_param_intent
     subroutine combine_existing_and_new_body(func_def, existing, &
-                                             new_indices, new_count)
+            new_indices, new_count)
         type(function_def_node), intent(inout) :: func_def
         integer, allocatable, intent(in) :: existing(:)
         integer, intent(in) :: new_indices(:)

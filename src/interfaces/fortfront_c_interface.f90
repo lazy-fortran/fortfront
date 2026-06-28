@@ -31,7 +31,7 @@ contains
 
     ! Initialize the fortfront library
     function fortfront_initialize_c() result(status) bind(C, &
-                                                          name="fortfront_initialize")
+            name="fortfront_initialize")
         integer(c_int) :: status
 
         ! Clear any previous error
@@ -56,7 +56,7 @@ contains
 
     ! Parse Fortran source code
     function fortfront_parse_source_c(source_ptr, length) result(status) &
-        bind(C, name="fortfront_parse_source")
+            bind(C, name="fortfront_parse_source")
         type(c_ptr), intent(in), value :: source_ptr
         integer(c_int), intent(in), value :: length
         integer(c_int) :: status
@@ -67,7 +67,7 @@ contains
 
         ! Check if library is initialized
         if (.not. library_initialized) then
-      call set_last_error("Library not initialized. Call fortfront_initialize() first.")
+            call set_last_error("Library not initialized. Call fortfront_initialize() first.")
             status = -1
             return
         end if
@@ -129,7 +129,7 @@ contains
     ! Get the transformed output of the most recent successful parse call.
     ! Returns a null pointer when no output is available.
     function fortfront_get_output_c() result(output_ptr) bind(C, &
-                                                            name="fortfront_get_output")
+            name="fortfront_get_output")
         type(c_ptr) :: output_ptr
 
         if (allocated(last_output)) then
@@ -141,7 +141,7 @@ contains
 
     ! Get last error message
     function fortfront_get_last_error_c() result(error_ptr) bind(C, &
-                                                        name="fortfront_get_last_error")
+            name="fortfront_get_last_error")
         type(c_ptr) :: error_ptr
 
         if (allocated(last_error_message)) then
@@ -158,7 +158,7 @@ contains
 
     ! Get library version
     function fortfront_get_version_c() result(version_ptr) bind(C, &
-                                                           name="fortfront_get_version")
+            name="fortfront_get_version")
         type(c_ptr) :: version_ptr
         character(len=len(FORTFRONT_VERSION) + 1, kind=c_char), target, save &
             :: version_c
@@ -169,7 +169,7 @@ contains
 
     ! Get build information
     function fortfront_get_build_info_c() result(build_ptr) bind(C, &
-                                                        name="fortfront_get_build_info")
+            name="fortfront_get_build_info")
         type(c_ptr) :: build_ptr
         character(len=len(BUILD_INFO) + 1, kind=c_char), target, save :: build_c
 

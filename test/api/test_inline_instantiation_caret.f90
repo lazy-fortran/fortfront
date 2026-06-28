@@ -12,7 +12,7 @@ program test_inline_instantiation_caret
     integer :: root_index
 
     call read_example('examples/f90/issue_2817_inline_instantiate_caret.f90', &
-                      source)
+        source)
 
     arena = create_ast_arena()
     call lex_source(source, tokens, error_msg)

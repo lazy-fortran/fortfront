@@ -30,7 +30,7 @@ contains
         check_nested_call_parameters = .true.
 
         call read_example('examples/lf/issue_1964_nested_function_calls.lf', &
-                          source)
+            source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then

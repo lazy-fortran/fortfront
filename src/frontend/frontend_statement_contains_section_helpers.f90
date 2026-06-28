@@ -1,6 +1,6 @@
 module frontend_statement_token_walking_helpers
     use lexer_core, only: token_t, TK_COMMENT, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, &
-                          TK_NEWLINE, TK_NUMBER, TK_OPERATOR, TK_WHITESPACE, to_lower
+        TK_NEWLINE, TK_NUMBER, TK_OPERATOR, TK_WHITESPACE, to_lower
 
     implicit none
     private
@@ -16,7 +16,7 @@ contains
     logical function token_is_ignorable(kind) result(ignorable)
         integer, intent(in) :: kind
         ignorable = (kind == TK_WHITESPACE .or. kind == TK_NEWLINE .or. &
-                     kind == TK_COMMENT)
+            kind == TK_COMMENT)
     end function token_is_ignorable
 
     logical function token_is_word(kind) result(is_word)
@@ -157,7 +157,7 @@ contains
                         if (tokens(next_idx)%kind == TK_WHITESPACE) then
                             next_idx = next_idx + 1
                         else if (tokens(next_idx)%kind == TK_IDENTIFIER .or. &
-                                 tokens(next_idx)%kind == TK_KEYWORD) then
+                                tokens(next_idx)%kind == TK_KEYWORD) then
                             end_pos = next_idx
                             exit
                         else
@@ -188,8 +188,8 @@ contains
                                     if (tokens(next_idx)%kind == TK_WHITESPACE) then
                                         next_idx = next_idx + 1
                                     else if (tokens(next_idx)%kind == &
-                                             TK_IDENTIFIER .or. &
-                                             tokens(next_idx)%kind == TK_KEYWORD) then
+                                            TK_IDENTIFIER .or. &
+                                            tokens(next_idx)%kind == TK_KEYWORD) then
                                         end_pos = next_idx
                                         exit
                                     else
@@ -212,12 +212,12 @@ end module frontend_statement_token_walking_helpers
 module frontend_statement_contains_section_helpers
     use lexer_core, only: token_t, TK_EOF, to_lower
     use frontend_statement_token_walking_helpers, only: find_proc_keyword_after_type, &
-                                                        find_procedure_end, &
-                                                        skip_type_spec, &
-                                                        token_is_ignorable, &
-                                                        token_is_word
+        find_procedure_end, &
+        skip_type_spec, &
+        token_is_ignorable, &
+        token_is_word
     use parser_definition_statements_module, only: parse_function_definition, &
-                                                   parse_subroutine_definition
+        parse_subroutine_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_state_module, only: create_parser_state, parser_state_t
     use ast_arena_modern, only: ast_arena_t
@@ -243,7 +243,7 @@ contains
     end subroutine push_implicit_contains_statement
 
     subroutine scan_contains_section(tokens, start_pos, arena, prefix_buffer, &
-                                     body_indices, end_pos)
+            body_indices, end_pos)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         type(ast_arena_t), intent(inout) :: arena
@@ -279,13 +279,13 @@ contains
 
             if (is_contains_type_prefix_keyword(lowered)) then
                 call handle_type_prefixed_contains(tokens, i, arena, prefix_buffer, &
-                                                   prefix_list, body_indices)
+                    prefix_list, body_indices)
                 cycle
             end if
 
             if (handle_contains_procedure_keyword(tokens, lowered, i, arena, &
-                                                  prefix_buffer, prefix_list, &
-                                                  body_indices)) cycle
+                prefix_buffer, prefix_list, &
+                body_indices)) cycle
 
             i = i + 1
         end do
@@ -303,7 +303,7 @@ contains
     end function handle_contains_end
 
     logical function handle_contains_proc_prefix(lowered, pos, prefix_list) &
-        result(handled)
+            result(handled)
         character(len=*), intent(in) :: lowered
         integer, intent(inout) :: pos
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
@@ -325,8 +325,8 @@ contains
     end subroutine append_contains_prefix
 
     logical function handle_contains_procedure_keyword(tokens, lowered, pos, arena, &
-                                                       prefix_buffer, prefix_list, &
-                                                       body_indices) result(handled)
+            prefix_buffer, prefix_list, &
+            body_indices) result(handled)
         type(token_t), intent(in) :: tokens(:)
         character(len=*), intent(in) :: lowered
         integer, intent(inout) :: pos
@@ -343,7 +343,7 @@ contains
             proc_start = pos
             call find_procedure_end(tokens, proc_start, "function", proc_end)
             call parse_contains_function_span(tokens, proc_start, proc_end, arena, &
-                                              prefix_buffer, prefix_list, body_indices)
+                prefix_buffer, prefix_list, body_indices)
             pos = proc_end + 1
             handled = .true.
             return
@@ -353,8 +353,8 @@ contains
             proc_start = pos
             call find_procedure_end(tokens, proc_start, "subroutine", proc_end)
             call parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
-                                                prefix_buffer, prefix_list, &
-                                                body_indices)
+                prefix_buffer, prefix_list, &
+                body_indices)
             pos = proc_end + 1
             handled = .true.
             return
@@ -362,7 +362,7 @@ contains
     end function handle_contains_procedure_keyword
 
     subroutine handle_type_prefixed_contains(tokens, pos, arena, prefix_buffer, &
-                                             prefix_list, body_indices)
+            prefix_list, body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(inout) :: pos
         type(ast_arena_t), intent(inout) :: arena
@@ -374,9 +374,9 @@ contains
         logical :: parsed_procedure
 
         call try_parse_typed_function_in_contains(tokens, pos, arena, &
-                                                  prefix_buffer, prefix_list, &
-                                                  body_indices, parsed_procedure, &
-                                                  proc_end)
+            prefix_buffer, prefix_list, &
+            body_indices, parsed_procedure, &
+            proc_end)
         if (parsed_procedure) then
             pos = proc_end + 1
             return
@@ -388,16 +388,16 @@ contains
     logical function is_contains_proc_prefix_keyword(lowered) result(is_prefix)
         character(len=*), intent(in) :: lowered
         is_prefix = (lowered == "pure" .or. lowered == "elemental" .or. &
-                     lowered == "impure" .or. lowered == "recursive" .or. &
-                     lowered == "module" .or. lowered == "nonrecursive")
+            lowered == "impure" .or. lowered == "recursive" .or. &
+            lowered == "module" .or. lowered == "nonrecursive")
     end function is_contains_proc_prefix_keyword
 
     logical function is_contains_type_prefix_keyword(lowered) result(is_type_prefix)
         character(len=*), intent(in) :: lowered
         is_type_prefix = (lowered == "integer" .or. lowered == "real" .or. &
-                          lowered == "logical" .or. lowered == "character" .or. &
-                          lowered == "complex" .or. lowered == "double" .or. &
-                          lowered == "type" .or. lowered == "class")
+            lowered == "logical" .or. lowered == "character" .or. &
+            lowered == "complex" .or. lowered == "double" .or. &
+            lowered == "type" .or. lowered == "class")
     end function is_contains_type_prefix_keyword
 
     subroutine reset_contains_prefix_list(prefix_list)
@@ -407,8 +407,8 @@ contains
     end subroutine reset_contains_prefix_list
 
     subroutine try_parse_typed_function_in_contains(tokens, type_start, arena, &
-                                                    prefix_buffer, prefix_list, &
-                                                    body_indices, parsed, proc_end)
+            prefix_buffer, prefix_list, &
+            body_indices, parsed, proc_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: type_start
         type(ast_arena_t), intent(inout) :: arena
@@ -430,12 +430,12 @@ contains
 
         call find_procedure_end(tokens, proc_start, "function", proc_end)
         call parse_contains_function_span(tokens, type_start, proc_end, arena, &
-                                          prefix_buffer, prefix_list, body_indices)
+            prefix_buffer, prefix_list, body_indices)
         parsed = .true.
     end subroutine try_parse_typed_function_in_contains
 
     subroutine parse_contains_function_span(tokens, span_start, proc_end, arena, &
-                                            prefix_buffer, prefix_list, body_indices)
+            prefix_buffer, prefix_list, body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: span_start
         integer, intent(in) :: proc_end
@@ -456,7 +456,7 @@ contains
 
         if (size(prefix_list) > 0) then
             proc_index = parse_function_definition(parser, arena, prefix_buffer, &
-                                                   prefix_list)
+                prefix_list)
         else
             proc_index = parse_function_definition(parser, arena, prefix_buffer)
         end if
@@ -467,8 +467,8 @@ contains
     end subroutine parse_contains_function_span
 
     subroutine parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
-                                              prefix_buffer, prefix_list, &
-                                              body_indices)
+            prefix_buffer, prefix_list, &
+            body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: proc_start
         integer, intent(in) :: proc_end
@@ -489,7 +489,7 @@ contains
 
         if (size(prefix_list) > 0) then
             proc_index = parse_subroutine_definition(parser, arena, prefix_buffer, &
-                                                     prefix_list)
+                prefix_list)
         else
             proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
         end if

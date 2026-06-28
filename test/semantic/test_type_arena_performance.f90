@@ -22,7 +22,7 @@ program test_type_arena_performance
     print *, ""
     print *, "=== Performance Comparison Complete ==="
     print *, "Arena-based type system provides significant performance benefits"
- print *, "while eliminating GCC Bug 114612 crashes with self-referential allocatables."
+    print *, "while eliminating GCC Bug 114612 crashes with self-referential allocatables."
 
 contains
 
@@ -123,7 +123,7 @@ contains
         print *, "Traditional Performance Results:"
         write (*, '(A,I0,A)') "  Created ", 100, " basic types (NO function types)"
         write (*, '(A,F8.4,A)') "  Time elapsed: ", elapsed_time, " seconds"
-     write (*, '(A,F10.2,A)') "  Types per second: ", 100.0 / elapsed_time, " types/sec"
+        write (*, '(A,F10.2,A)') "  Types per second: ", 100.0 / elapsed_time, " types/sec"
 
         print *, "⚠ Traditional approach: LIMITED by GCC Bug 114612"
         print *, "  - Cannot safely create complex function types"

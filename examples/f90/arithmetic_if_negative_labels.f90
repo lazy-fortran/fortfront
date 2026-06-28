@@ -5,13 +5,13 @@ program test_arithmetic_if_neg
     val = -10
     if (val) 1, 2, 3
 
-1   print *, "Negative"
+    1   print *, "Negative"
     goto 4
 
-2   print *, "Zero"
+    2   print *, "Zero"
     goto 4
 
-3   print *, "Positive"
+    3   print *, "Positive"
 
-4   continue
+    4   continue
 end program test_arithmetic_if_neg

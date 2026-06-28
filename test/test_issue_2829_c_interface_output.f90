@@ -2,9 +2,9 @@ program test_issue_2829_c_interface_output
     ! Issue #2829 (c): fortfront_parse_source no longer discards the transformed
     ! output; C callers retrieve it via fortfront_get_output.
     use iso_c_binding, only: c_int, c_char, c_ptr, c_null_char, c_associated, &
-                             c_f_pointer, c_loc
+        c_f_pointer, c_loc
     use fortfront_c_interface, only: fortfront_initialize_c, fortfront_cleanup_c, &
-                                     fortfront_parse_source_c, fortfront_get_output_c
+        fortfront_parse_source_c, fortfront_get_output_c
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

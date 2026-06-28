@@ -45,7 +45,7 @@ contains
     function test_modern_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "arr = [1, 2, 3, 4]" // new_line('a')
+            "arr = [1, 2, 3, 4]" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "modern_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -110,7 +110,7 @@ contains
     function test_legacy_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "arr = (/ 1, 2, 3, 4 /)" // new_line('a')
+            "arr = (/ 1, 2, 3, 4 /)" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "legacy_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -175,8 +175,8 @@ contains
     function test_mixed_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "arr1 = [1, 2, 3]" // new_line('a') // &
-                                       "arr2 = (/ 4, 5, 6 /)" // new_line('a')
+            "arr1 = [1, 2, 3]" // new_line('a') // &
+            "arr2 = (/ 4, 5, 6 /)" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "mixed_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)

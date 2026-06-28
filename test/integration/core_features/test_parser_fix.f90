@@ -9,8 +9,8 @@ program test_parser_fix
 
     ! Test 1: Explicit program with write statement
     source = "program test"//char(10)// &
-             "    write(*,*) 'Hello'"//char(10)// &
-             "end program test"
+        "    write(*,*) 'Hello'"//char(10)// &
+        "end program test"
 
     print *, "Test 1: Explicit program with write statement"
     print *, "Source:"

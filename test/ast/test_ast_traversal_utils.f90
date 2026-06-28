@@ -2,8 +2,8 @@ program test_ast_traversal_utils
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_core, only: identifier_node, assignment_node, program_node
     use ast_traversal_utils, only: find_nodes_by_type, get_ancestor_of_type, &
-                                   has_child_of_type, get_children, &
-                                   traverse_ast, traverse_callback
+        has_child_of_type, get_children, &
+        traverse_ast, traverse_callback
     use test_ast_traversal_utils_helpers, only: traverse_counter_t, count_callback
     implicit none
 

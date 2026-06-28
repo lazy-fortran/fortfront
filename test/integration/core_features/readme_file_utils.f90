@@ -19,7 +19,7 @@ contains
 
         ! Open README.md file
         open (newunit=unit, file="README.md", status="old", &
-              action="read", iostat=ios)
+            action="read", iostat=ios)
 
         if (ios /= 0) then
             print *, "Error: Cannot open README.md for validation"

@@ -28,8 +28,8 @@ contains
         if (len_trim(lowered) == 0) return
 
         call find_procedure_interface_index(arena, lowered, call_index, &
-                                            want_function=.true., &
-                                            iface_index=iface_index)
+            want_function=.true., &
+            iface_index=iface_index)
     end subroutine find_function_interface_index
 
     subroutine find_subroutine_interface_index(arena, name, call_index, iface_index)
@@ -44,12 +44,12 @@ contains
         if (len_trim(lowered) == 0) return
 
         call find_procedure_interface_index(arena, lowered, call_index, &
-                                            want_function=.false., &
-                                            iface_index=iface_index)
+            want_function=.false., &
+            iface_index=iface_index)
     end subroutine find_subroutine_interface_index
 
     subroutine find_procedure_interface_index(arena, lowered_name, call_index, &
-                                              want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: lowered_name
         integer, intent(in) :: call_index
@@ -66,37 +66,37 @@ contains
         do while (current > 0 .and. current <= arena%size)
             if (allocated(arena%entries(current)%node)) then
                 select type (scope_node => arena%entries(current)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     call find_internal_procedure_in_body(arena, &
-                                                         scope_node%body_indices, &
-                                                         lowered_name, want_function, &
-                                                         iface_index)
+                        scope_node%body_indices, &
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
                     call find_used_procedure_in_body(arena, scope_node%body_indices, &
-                                                     lowered_name, want_function, &
-                                                     iface_index)
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     call find_internal_procedure_in_body(arena, &
-                                                         scope_node%body_indices, &
-                                                         lowered_name, want_function, &
-                                                         iface_index)
+                        scope_node%body_indices, &
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
                     call find_used_procedure_in_body(arena, scope_node%body_indices, &
-                                                     lowered_name, want_function, &
-                                                     iface_index)
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
-                type is (program_node)
+                    type is (program_node)
                     call find_internal_procedure_in_body(arena, &
-                                                         scope_node%body_indices, &
-                                                         lowered_name, want_function, &
-                                                         iface_index)
+                        scope_node%body_indices, &
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
                     call find_used_procedure_in_body(arena, scope_node%body_indices, &
-                                                     lowered_name, want_function, &
-                                                     iface_index)
+                        lowered_name, want_function, &
+                        iface_index)
                     if (iface_index > 0) return
-                type is (module_node)
+                    type is (module_node)
                     call find_module_procedure_in_indices( &
                         arena, scope_node%procedure_indices, lowered_name, &
                         want_function, iface_index)
@@ -105,7 +105,7 @@ contains
                         arena, scope_node%declaration_indices, lowered_name, &
                         want_function, iface_index)
                     if (iface_index > 0) return
-                type is (submodule_node)
+                    type is (submodule_node)
                     call find_module_procedure_in_indices( &
                         arena, scope_node%procedure_indices, lowered_name, &
                         want_function, iface_index)
@@ -123,7 +123,7 @@ contains
     end subroutine find_procedure_interface_index
 
     subroutine find_internal_procedure_in_body(arena, body_indices, lowered_name, &
-                                               want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: lowered_name
@@ -145,9 +145,9 @@ contains
             if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
-            type is (contains_node)
+                type is (contains_node)
                 in_contains = .true.
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. in_contains) cycle
                 if (.not. want_function) cycle
                 if (.not. allocated(node%name)) cycle
@@ -155,7 +155,7 @@ contains
                     iface_index = node_index
                     return
                 end if
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (.not. in_contains) cycle
                 if (want_function) cycle
                 if (.not. allocated(node%name)) cycle
@@ -170,7 +170,7 @@ contains
     end subroutine find_internal_procedure_in_body
 
     subroutine find_module_procedure_in_indices(arena, proc_indices, lowered_name, &
-                                                want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: proc_indices(:)
         character(len=*), intent(in) :: lowered_name
@@ -190,14 +190,14 @@ contains
             if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. want_function) cycle
                 if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
                     iface_index = node_index
                     return
                 end if
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (want_function) cycle
                 if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
@@ -211,7 +211,7 @@ contains
     end subroutine find_module_procedure_in_indices
 
     subroutine find_used_procedure_in_body(arena, body_indices, lowered_name, &
-                                           want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: lowered_name
@@ -231,11 +231,11 @@ contains
             if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
-            type is (contains_node)
+                type is (contains_node)
                 return
-            type is (use_statement_node)
+                type is (use_statement_node)
                 call resolve_use_associated_procedure(arena, node, lowered_name, &
-                                                      want_function, iface_index)
+                    want_function, iface_index)
                 if (iface_index > 0) return
             class default
                 cycle
@@ -244,7 +244,7 @@ contains
     end subroutine find_used_procedure_in_body
 
     subroutine find_used_procedure_in_indices(arena, spec_indices, lowered_name, &
-                                              want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: spec_indices(:)
         character(len=*), intent(in) :: lowered_name
@@ -264,9 +264,9 @@ contains
             if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
-            type is (use_statement_node)
+                type is (use_statement_node)
                 call resolve_use_associated_procedure(arena, node, lowered_name, &
-                                                      want_function, iface_index)
+                    want_function, iface_index)
                 if (iface_index > 0) return
             class default
                 cycle
@@ -275,7 +275,7 @@ contains
     end subroutine find_used_procedure_in_indices
 
     subroutine resolve_use_associated_procedure(arena, use_node, lowered_name, &
-                                                want_function, iface_index)
+            want_function, iface_index)
         type(ast_arena_t), intent(in) :: arena
         type(use_statement_node), intent(in) :: use_node
         character(len=*), intent(in) :: lowered_name
@@ -302,14 +302,14 @@ contains
         if (.not. allocated(arena%entries(module_index)%node)) return
 
         select type (mod_node => arena%entries(module_index)%node)
-        type is (module_node)
+            type is (module_node)
             call find_module_procedure_in_indices(arena, mod_node%procedure_indices, &
-                                                  remote_lowered, want_function, &
-                                                  iface_index)
-        type is (submodule_node)
+                remote_lowered, want_function, &
+                iface_index)
+            type is (submodule_node)
             call find_module_procedure_in_indices(arena, mod_node%procedure_indices, &
-                                                  remote_lowered, want_function, &
-                                                  iface_index)
+                remote_lowered, want_function, &
+                iface_index)
         class default
             return
         end select

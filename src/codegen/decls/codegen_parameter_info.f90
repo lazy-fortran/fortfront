@@ -38,7 +38,7 @@ contains
     end function find_parameter_info
 
     logical function check_param_indices_for_name(arena, param_indices, var_name) &
-        result(found)
+            result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_indices(:)
         character(len=*), intent(in) :: var_name
@@ -49,7 +49,7 @@ contains
             if (param_indices(i) > 0 .and. param_indices(i) <= arena%size) then
                 if (allocated(arena%entries(param_indices(i))%node)) then
                     select type (param_node => arena%entries(param_indices(i))%node)
-                    type is (identifier_node)
+                        type is (identifier_node)
                         if (param_node%name == var_name) then
                             found = .true.
                             return
@@ -69,14 +69,14 @@ contains
         is_param = .false.
 
         select type (proc_node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(proc_node%param_indices)) return
             is_param = check_param_indices_for_name(arena, proc_node%param_indices, &
-                                                    var_name)
-        type is (subroutine_def_node)
+                var_name)
+            type is (subroutine_def_node)
             if (.not. allocated(proc_node%param_indices)) return
             is_param = check_param_indices_for_name(arena, proc_node%param_indices, &
-                                                    var_name)
+                var_name)
         end select
     end function is_function_parameter
 

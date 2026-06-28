@@ -30,7 +30,7 @@ contains
         token_count = token_count - 1
 
         call locate_if_statement_sections(stmt_tokens, token_count, then_pos, &
-                                          else_pos, end_pos)
+            else_pos, end_pos)
         if (then_pos < 0 .or. end_pos < 0) then
             if_index = 0
             return
@@ -39,17 +39,17 @@ contains
         condition_index = build_if_condition(stmt_tokens, then_pos, arena)
 
         call parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
-                               then_body_indices)
+            then_body_indices)
         call parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &
-                               else_body_indices)
+            else_body_indices)
 
         if_index = push_if(arena, condition_index, then_body_indices, &
-                           else_body_indices=else_body_indices, &
-                           line=stmt_tokens(1)%line, column=stmt_tokens(1)%column)
+            else_body_indices=else_body_indices, &
+            line=stmt_tokens(1)%line, column=stmt_tokens(1)%column)
     end function parse_if_statement_tokens
 
     subroutine locate_if_statement_sections(stmt_tokens, token_count, then_pos, &
-                                            else_pos, end_pos)
+            else_pos, end_pos)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: token_count
         integer, intent(out) :: then_pos, else_pos, end_pos
@@ -84,7 +84,7 @@ contains
     end subroutine locate_if_statement_sections
 
     integer function build_if_condition(stmt_tokens, then_pos, arena) &
-        result(condition_index)
+            result(condition_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: then_pos
         type(ast_arena_t), intent(inout) :: arena
@@ -109,7 +109,7 @@ contains
     end function build_if_condition
 
     subroutine parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
-                                 then_body_indices)
+            then_body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: then_pos, else_pos, end_pos
         type(ast_arena_t), intent(inout) :: arena
@@ -125,11 +125,11 @@ contains
         end if
 
         then_body_indices = parse_if_body_tokens(stmt_tokens, then_start, &
-                                                 then_end, arena)
+            then_end, arena)
     end subroutine parse_then_branch
 
     subroutine parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &
-                                 else_body_indices)
+            else_body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: else_pos, end_pos
         type(ast_arena_t), intent(inout) :: arena
@@ -145,11 +145,11 @@ contains
         else_start = else_pos + 1
         else_end = end_pos - 1
         else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, &
-                                                 else_end, arena)
+            else_end, arena)
     end subroutine parse_else_branch
 
     function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) &
-        result(body_indices)
+            result(body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: start_idx, end_idx
         type(ast_arena_t), intent(inout) :: arena
@@ -215,7 +215,7 @@ contains
             stmt_start = body_parser%current_token
             stmt_end = find_if_body_line_end(body_tokens, stmt_start)
             call parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
-                                              arena, body_indices, count, capacity)
+                arena, body_indices, count, capacity)
             body_parser%current_token = stmt_end + 1
         end do
 
@@ -265,7 +265,7 @@ contains
     end function find_if_body_line_end
 
     subroutine parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
-                                            arena, body_indices, count, capacity)
+            arena, body_indices, count, capacity)
         type(token_t), intent(in) :: body_tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
@@ -293,7 +293,7 @@ contains
 
         if (.not. line_parser%is_at_end()) then
             stmt_index = parse_statement_in_if_block(line_parser, arena, &
-                                                     line_parser%peek())
+                line_parser%peek())
             if (stmt_index > 0) then
                 ! Grow array if needed
                 if (count >= capacity) then

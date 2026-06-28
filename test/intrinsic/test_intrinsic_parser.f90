@@ -11,11 +11,11 @@ contains
 
     subroutine test_intrinsic_function_in_pipeline()
         character(len=*), parameter :: source_code = &
-                                       "program test"//new_line('a')// &
-                                       "  real :: x, y"//new_line('a')// &
-                                       "  x = sin(y)"//new_line('a')// &
-                                       "  y = sqrt(x)"//new_line('a')// &
-                                       "end program"
+            "program test"//new_line('a')// &
+            "  real :: x, y"//new_line('a')// &
+            "  x = sin(y)"//new_line('a')// &
+            "  y = sqrt(x)"//new_line('a')// &
+            "end program"
 
         character(len=:), allocatable :: output, error_msg
 

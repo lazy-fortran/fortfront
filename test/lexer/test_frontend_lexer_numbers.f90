@@ -31,7 +31,7 @@ contains
 
         ! Test simple integer
         call tokenize_core("42", tokens)
-        if (size(tokens) /= 2) then  ! number + EOF
+        if (size(tokens) /= 2) then ! number + EOF
             print '(a)', "FAIL: Wrong token count for simple integer"
             test_integer_literals = .false.
             return
@@ -76,7 +76,7 @@ contains
 
         ! Test simple real
         call tokenize_core("3.14", tokens)
-        if (size(tokens) /= 2) then  ! number + EOF
+        if (size(tokens) /= 2) then ! number + EOF
             print '(a)', "FAIL: Wrong token count for simple real"
             test_real_literals = .false.
             return
@@ -121,7 +121,7 @@ contains
 
         ! Test simple scientific notation
         call tokenize_core("1.23e4", tokens)
-        if (size(tokens) /= 2) then  ! number + EOF
+        if (size(tokens) /= 2) then ! number + EOF
             print '(a)', "FAIL: Wrong token count for scientific notation"
             test_scientific_notation = .false.
             return
@@ -174,7 +174,7 @@ contains
 
         ! Test number followed by identifier
         call tokenize_core("42x", tokens)
-        if (size(tokens) /= 3) then  ! number + identifier + EOF
+        if (size(tokens) /= 3) then ! number + identifier + EOF
             print '(a)', "FAIL: Wrong token count for number+identifier"
             test_edge_cases = .false.
             return
@@ -194,7 +194,7 @@ contains
 
         ! Test number with spaces
         call tokenize_core("  123  ", tokens)
-        if (size(tokens) /= 2) then  ! number + EOF (spaces ignored)
+        if (size(tokens) /= 2) then ! number + EOF (spaces ignored)
             print '(a)', "FAIL: Spaces not handled correctly around number"
             test_edge_cases = .false.
             return

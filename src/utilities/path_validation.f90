@@ -10,7 +10,7 @@ module path_validation
     ! Public interface
     public :: validate_file_path, validate_input_path, validate_output_path
     public :: path_validation_result_t, PATH_VALID, PATH_INVALID_TRAVERSAL, &
-              PATH_INVALID_ABSOLUTE, PATH_INVALID_CHARACTERS, PATH_INVALID_EXTENSION
+        PATH_INVALID_ABSOLUTE, PATH_INVALID_CHARACTERS, PATH_INVALID_EXTENSION
 
     ! Validation result codes
     integer, parameter :: PATH_VALID = 0
@@ -219,7 +219,7 @@ contains
                 return
             end if
 
-     ! Check for control characters (except newline and tab which are handled elsewhere)
+            ! Check for control characters (except newline and tab which are handled elsewhere)
             if (ichar(c) < 32 .and. ichar(c) /= 9 .and. ichar(c) /= 10) then
                 has_invalid = .true.
                 return

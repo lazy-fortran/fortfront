@@ -1,7 +1,7 @@
 module ast_nodes_transfer
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -362,7 +362,7 @@ contains
     end subroutine error_stop_assign
 
     function create_error_stop(error_code_index, error_message, line, column) &
-        result(node)
+            result(node)
         integer, intent(in), optional :: error_code_index
         character(len=*), intent(in), optional :: error_message
         integer, intent(in), optional :: line, column
@@ -398,7 +398,7 @@ contains
     end subroutine pause_assign
 
     function create_pause(pause_code_index, pause_message, line, column) &
-        result(node)
+            result(node)
         integer, intent(in), optional :: pause_code_index
         character(len=*), intent(in), optional :: pause_message
         integer, intent(in), optional :: line, column

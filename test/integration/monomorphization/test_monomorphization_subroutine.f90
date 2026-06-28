@@ -2,8 +2,8 @@ program test_monomorphization_subroutine
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     use test_shell_commands, only: build_compile_command
     implicit none
     character(len=:), allocatable :: input, output, error_msg
@@ -31,13 +31,13 @@ program test_monomorphization_subroutine
     write (error_unit, '(A)') '=== END OUTPUT ==='
 
     call assert_contains(output, 'scale__i32_i32', &
-                         'missing integer specialization for scale')
+        'missing integer specialization for scale')
     call assert_contains(output, 'scale__r64_r64', &
-                         'missing real specialization for scale')
+        'missing real specialization for scale')
     call assert_contains(output, 'interface scale', &
-                         'missing generic interface for scale')
+        'missing generic interface for scale')
     call assert_contains(output, '    use auto_scale', &
-                         'program did not import generated module')
+        'program did not import generated module')
 
     module_pos = index(output, 'module auto_scale')
     program_pos = index(output, 'program main')

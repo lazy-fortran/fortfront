@@ -39,9 +39,9 @@ contains
 
         ! Test case from issue #135
         source = "subroutine test_sub(arg)" // new_line('a') // &
-                 "  integer :: arg" // new_line('a') // &
-                 "  print *, arg" // new_line('a') // &
-                 "end subroutine"
+            "  integer :: arg" // new_line('a') // &
+            "  print *, arg" // new_line('a') // &
+            "end subroutine"
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -106,9 +106,9 @@ contains
         print *, "Testing variable usage in print with multiple variables..."
 
         source = "subroutine test_multi(x, y)" // new_line('a') // &
-                 "  integer :: x, y" // new_line('a') // &
-                 "  print *, x, y" // new_line('a') // &
-                 "end subroutine"
+            "  integer :: x, y" // new_line('a') // &
+            "  print *, x, y" // new_line('a') // &
+            "end subroutine"
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -165,9 +165,9 @@ contains
         print *, "Testing variable usage in print with expression..."
 
         source = "subroutine test_expr(a, b)" // new_line('a') // &
-                 "  integer :: a, b" // new_line('a') // &
-                 "  print *, a + b" // new_line('a') // &
-                 "end subroutine"
+            "  integer :: a, b" // new_line('a') // &
+            "  print *, a + b" // new_line('a') // &
+            "end subroutine"
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()

@@ -241,14 +241,14 @@ contains
         indent = repeat("  ", depth)
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             print *, trim(indent) // "program_node: " // node%name
             if (allocated(node%body_indices)) then
                 do j = 1, size(node%body_indices)
                     call debug_ast_structure(arena, node%body_indices(j), depth + 1)
                 end do
             end if
-        type is (literal_node)
+            type is (literal_node)
             print *, trim(indent) // "literal_node: " // node%value
         class default
             print *, trim(indent) // "other_node"

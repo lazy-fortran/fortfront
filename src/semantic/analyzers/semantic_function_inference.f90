@@ -1,23 +1,23 @@
 module semantic_function_inference
     use type_system_unified, only: mono_type_t, create_mono_type, &
-                                   create_type_var, TVAR, TREAL, TCHAR, TARRAY
+        create_type_var, TVAR, TREAL, TCHAR, TARRAY
     use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
-                              call_or_subscript_node
+        call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-                                 select_case_node, case_block_node, &
-                                 case_default_node, select_type_node, &
-                                 type_guard_block_node, where_node, &
-                                 where_stmt_node, associate_node, &
-                                 block_construct_node, forall_node, &
-                                 elseif_wrapper_t, elsewhere_clause_t
+        select_case_node, case_block_node, &
+        case_default_node, select_type_node, &
+        type_guard_block_node, where_node, &
+        where_stmt_node, associate_node, &
+        block_construct_node, forall_node, &
+        elseif_wrapper_t, elsewhere_clause_t
     use ast_nodes_data, only: declaration_node
     use semantic_procedure_utils, only: detect_result_name, &
-                                        declaration_type_to_mono
+        declaration_type_to_mono
     use semantic_type_context, only: infer_type_from_usage_context, &
-                                     infer_expression_type_static
+        infer_expression_type_static
     use semantic_array_type_builders, only: build_deferred_shape_array
     use semantic_parameter_analysis, only: merge_parameter_type
     implicit none
@@ -28,8 +28,8 @@ module semantic_function_inference
 contains
 
     function determine_function_return_type(arena, func_node, param_names, &
-                                            param_types, next_var_id) &
-        result(return_type)
+            param_types, next_var_id) &
+            result(return_type)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -40,7 +40,7 @@ contains
 
         result_name = resolve_result_variable_name(arena, func_node)
         return_type = derive_result_type_candidate(arena, func_node, result_name, &
-                                                   param_names, param_types)
+            param_names, param_types)
         if (return_type%kind == 0) then
             return_type = fallback_result_type(func_node, result_name, next_var_id)
         end if
@@ -48,7 +48,7 @@ contains
     end function determine_function_return_type
 
     function derive_result_type_candidate(arena, func_node, result_name, &
-                                          param_names, param_types) result(candidate)
+            param_names, param_types) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
         character(len=*), intent(in) :: result_name
@@ -63,7 +63,7 @@ contains
         if (candidate%kind /= 0) return
 
         candidate = infer_result_type_from_assignments(arena, func_node, result_name, &
-                                                       param_names, param_types)
+            param_names, param_types)
     end function derive_result_type_candidate
 
     subroutine ensure_return_type_seed(return_type, next_var_id)
@@ -109,7 +109,7 @@ contains
             stmt_index = func_node%body_indices(i)
             if (.not. arena%has_node_at(stmt_index)) cycle
             select type (stmt => arena%entries(stmt_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (trim(stmt%var_name) == trim(result_name)) then
                     candidate = declaration_type_to_mono(stmt%type_name)
                     if (candidate%kind /= 0) return
@@ -119,8 +119,8 @@ contains
     end function find_declared_result_type
 
     function infer_result_type_from_assignments(arena, func_node, result_name, &
-                                                param_names, param_types) &
-        result(result_type)
+            param_names, param_types) &
+            result(result_type)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
         character(len=*), intent(in) :: result_name
@@ -132,8 +132,8 @@ contains
         if (.not. allocated(func_node%body_indices)) return
 
         result_type = select_best_assignment_type( &
-                      arena, func_node%body_indices, func_node, result_name, &
-                      param_names, param_types)
+            arena, func_node%body_indices, func_node, result_name, &
+            param_names, param_types)
     end function infer_result_type_from_assignments
 
     function build_result_aliases(func_node, result_name) result(aliases)
@@ -210,8 +210,8 @@ contains
     end function matches_alias
 
     function select_best_assignment_type(arena, body_indices, func_node, &
-                                         result_name, param_names, param_types) &
-        result(selected)
+            result_name, param_names, param_types) &
+            result(selected)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         type(function_def_node), intent(in) :: func_node
@@ -228,8 +228,8 @@ contains
         aliases = build_result_aliases(func_node, result_name)
         do i = 1, size(body_indices)
             call accumulate_result_assignments(arena, body_indices(i), result_name, &
-                                               aliases, param_names, param_types, &
-                                               selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end do
         if (selected%kind == 0) selected = fallback
 
@@ -256,9 +256,9 @@ contains
     end function is_elemental_function
 
     recursive subroutine accumulate_result_assignments(arena, stmt_index, &
-                                                       result_name, aliases, &
-                                                       param_names, param_types, &
-                                                       selected, fallback)
+            result_name, aliases, &
+            param_names, param_types, &
+            selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=*), intent(in) :: result_name
@@ -272,9 +272,9 @@ contains
         if (.not. arena%has_node_at(stmt_index)) return
 
         select type (stmt => arena%entries(stmt_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             candidate = infer_assignment_result_type(arena, stmt, result_name, &
-                                                     aliases, param_names, param_types)
+                aliases, param_names, param_types)
             if (candidate%kind == 0) then
                 ! no-op
             else if (candidate%kind == TVAR) then
@@ -282,57 +282,57 @@ contains
             else
                 call merge_parameter_type(selected, candidate)
             end if
-        type is (if_node)
+            type is (if_node)
             call process_if_node(arena, stmt, result_name, aliases, param_names, &
-                                 param_types, selected, fallback)
-        type is (where_node)
+                param_types, selected, fallback)
+            type is (where_node)
             call process_where_node(arena, stmt, result_name, aliases, param_names, &
-                                    param_types, selected, fallback)
-        type is (select_case_node)
+                param_types, selected, fallback)
+            type is (select_case_node)
             call process_select_case_node(arena, stmt, result_name, aliases, &
-                                          param_names, param_types, selected, fallback)
-        type is (select_type_node)
+                param_names, param_types, selected, fallback)
+            type is (select_type_node)
             call process_select_type_node(arena, stmt, result_name, aliases, &
-                                          param_names, param_types, selected, fallback)
-        type is (do_loop_node)
+                param_names, param_types, selected, fallback)
+            type is (do_loop_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (do_while_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (do_while_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (forall_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (forall_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (where_stmt_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (where_stmt_node)
             call accumulate_result_assignments(arena, stmt%assignment_index, &
-                                               result_name, aliases, param_names, &
-                                               param_types, selected, fallback)
-        type is (case_block_node)
+                result_name, aliases, param_names, &
+                param_types, selected, fallback)
+            type is (case_block_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (case_default_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (case_default_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (type_guard_block_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (type_guard_block_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (associate_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (associate_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (block_construct_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (block_construct_node)
             call process_simple_body_node(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-        type is (function_def_node)
+                aliases, param_names, param_types, &
+                selected, fallback)
+            type is (function_def_node)
             return
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             return
         class default
             ! Unhandled node types either cannot contain statements
@@ -341,9 +341,9 @@ contains
     end subroutine accumulate_result_assignments
 
     recursive subroutine process_simple_body_node(arena, body_indices, &
-                                                  result_name, aliases, &
-                                                  param_names, param_types, &
-                                                  selected, fallback)
+            result_name, aliases, &
+            param_names, param_types, &
+            selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: result_name
@@ -355,13 +355,13 @@ contains
 
         if (allocated(body_indices)) then
             call accumulate_body_list(arena, body_indices, result_name, &
-                                      aliases, param_names, param_types, &
-                                      selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end if
     end subroutine process_simple_body_node
 
     recursive subroutine process_if_node(arena, stmt, result_name, aliases, &
-                                         param_names, param_types, selected, fallback)
+            param_names, param_types, selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         type(if_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -374,8 +374,8 @@ contains
 
         if (allocated(stmt%then_body_indices)) then
             call accumulate_body_list(arena, stmt%then_body_indices, result_name, &
-                                      aliases, param_names, param_types, &
-                                      selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end if
         if (allocated(stmt%elseif_blocks)) then
             do i = 1, size(stmt%elseif_blocks)
@@ -388,14 +388,14 @@ contains
         end if
         if (allocated(stmt%else_body_indices)) then
             call accumulate_body_list(arena, stmt%else_body_indices, result_name, &
-                                      aliases, param_names, param_types, &
-                                      selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end if
     end subroutine process_if_node
 
     recursive subroutine process_where_node(arena, stmt, result_name, aliases, &
-                                            param_names, param_types, selected, &
-                                            fallback)
+            param_names, param_types, selected, &
+            fallback)
         type(ast_arena_t), intent(in) :: arena
         type(where_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -408,8 +408,8 @@ contains
 
         if (allocated(stmt%where_body_indices)) then
             call accumulate_body_list(arena, stmt%where_body_indices, result_name, &
-                                      aliases, param_names, param_types, &
-                                      selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end if
         if (allocated(stmt%elsewhere_clauses)) then
             do i = 1, size(stmt%elsewhere_clauses)
@@ -424,8 +424,8 @@ contains
     end subroutine process_where_node
 
     recursive subroutine process_select_case_node(arena, stmt, result_name, &
-                                                  aliases, param_names, &
-                                                  param_types, selected, fallback)
+            aliases, param_names, &
+            param_types, selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         type(select_case_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -439,19 +439,19 @@ contains
         if (allocated(stmt%case_indices)) then
             do i = 1, size(stmt%case_indices)
                 call accumulate_result_assignments(arena, stmt%case_indices(i), &
-                                                   result_name, aliases, &
-                                                   param_names, param_types, &
-                                                   selected, fallback)
+                    result_name, aliases, &
+                    param_names, param_types, &
+                    selected, fallback)
             end do
         end if
         call accumulate_result_assignments(arena, stmt%default_index, result_name, &
-                                           aliases, param_names, param_types, &
-                                           selected, fallback)
+            aliases, param_names, param_types, &
+            selected, fallback)
     end subroutine process_select_case_node
 
     recursive subroutine process_select_type_node(arena, stmt, result_name, &
-                                                  aliases, param_names, &
-                                                  param_types, selected, fallback)
+            aliases, param_names, &
+            param_types, selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         type(select_type_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -465,19 +465,19 @@ contains
         if (allocated(stmt%guard_indices)) then
             do i = 1, size(stmt%guard_indices)
                 call accumulate_result_assignments(arena, stmt%guard_indices(i), &
-                                                   result_name, aliases, &
-                                                   param_names, param_types, &
-                                                   selected, fallback)
+                    result_name, aliases, &
+                    param_names, param_types, &
+                    selected, fallback)
             end do
         end if
         call accumulate_result_assignments(arena, stmt%default_index, result_name, &
-                                           aliases, param_names, param_types, &
-                                           selected, fallback)
+            aliases, param_names, param_types, &
+            selected, fallback)
     end subroutine process_select_type_node
 
     recursive subroutine accumulate_body_list(arena, indices, result_name, &
-                                              aliases, param_names, param_types, &
-                                              selected, fallback)
+            aliases, param_names, param_types, &
+            selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: indices(:)
         character(len=*), intent(in) :: result_name
@@ -491,13 +491,13 @@ contains
         if (size(indices) <= 0) return
         do i = 1, size(indices)
             call accumulate_result_assignments(arena, indices(i), result_name, &
-                                               aliases, param_names, param_types, &
-                                               selected, fallback)
+                aliases, param_names, param_types, &
+                selected, fallback)
         end do
     end subroutine accumulate_body_list
 
     function infer_assignment_result_type(arena, stmt, result_name, aliases, &
-                                          param_names, param_types) result(candidate)
+            param_names, param_types) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -512,27 +512,27 @@ contains
         if (.not. arena%has_node_at(target_index)) return
 
         select type (target => arena%entries(target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
-                                                     param_names, param_types)
+                param_names, param_types)
             ! Issue #2066: Distinguish array operations from scalar accumulation.
             ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to
             ! scalar. If RHS is whole-array operation (e.g., x * x), keep as array.
             if (candidate%kind == TARRAY .and. &
                 .not. is_array_literal_node(arena, stmt%value_index)) then
                 if (expression_uses_subscripted_params(arena, stmt%value_index, &
-                                                       param_names)) then
+                    param_names)) then
                     candidate = safe_peel_array_to_base(candidate)
                 end if
             end if
             if (needs_deferred_shape(candidate)) then
                 candidate = convert_to_deferred_shape_array(candidate)
             end if
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             candidate = infer_array_assignment_type(arena, target, stmt%value_index, &
-                                                    result_name, aliases, &
-                                                    param_names, param_types)
+                result_name, aliases, &
+                param_names, param_types)
         end select
     end function infer_assignment_result_type
 
@@ -544,14 +544,14 @@ contains
         is_array_literal_node = .false.
         if (.not. arena%has_node_at(node_index)) return
         select type (value_node => arena%entries(node_index)%node)
-        type is (array_literal_node)
+            type is (array_literal_node)
             is_array_literal_node = .true.
         end select
     end function is_array_literal_node
 
     recursive function expression_uses_subscripted_params(arena, expr_index, &
-                                                          param_names) &
-        result(uses_subscripts)
+            param_names) &
+            result(uses_subscripts)
         use ast_nodes_core, only: call_or_subscript_node, binary_op_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
@@ -563,7 +563,7 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             ! Check if this is a subscripted parameter (e.g., arr(i))
             if (allocated(node%name) .and. allocated(node%arg_indices)) then
                 do i = 1, size(param_names)
@@ -574,15 +574,15 @@ contains
                     end if
                 end do
             end if
-        type is (binary_op_node)
+            type is (binary_op_node)
             ! Recursively check left and right sides
             uses_subscripts = expression_uses_subscripted_params(arena, &
-                                                                 node%left_index, &
-                                                                 param_names)
+                node%left_index, &
+                param_names)
             if (uses_subscripts) return
             uses_subscripts = expression_uses_subscripted_params(arena, &
-                                                                 node%right_index, &
-                                                                 param_names)
+                node%right_index, &
+                param_names)
         end select
     end function expression_uses_subscripted_params
 
@@ -598,8 +598,8 @@ contains
     end function needs_deferred_shape
 
     function infer_array_assignment_type(arena, target, value_index, result_name, &
-                                         aliases, param_names, param_types) &
-        result(candidate)
+            aliases, param_names, param_types) &
+            result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: target
         integer, intent(in) :: value_index
@@ -619,13 +619,13 @@ contains
         if (rank <= 0) return
 
         element_type = infer_expression_type_static(arena, value_index, param_names, &
-                                                    param_types)
+            param_types)
         if (element_type%kind == 0) element_type = create_mono_type(TREAL)
         candidate = build_deferred_shape_array(element_type, rank)
     end function infer_array_assignment_type
 
     function fallback_result_type(func_node, result_name, next_var_id) &
-        result(candidate)
+            result(candidate)
         type(function_def_node), intent(in) :: func_node
         character(len=*), intent(in) :: result_name
         integer, intent(inout) :: next_var_id

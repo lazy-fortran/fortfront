@@ -17,7 +17,7 @@ contains
 
     ! Create call_or_subscript node and add to stack
     function push_call_or_subscript(arena, name, arg_indices, line, column, &
-                                    parent_index, base_expr_index) result(call_index)
+            parent_index, base_expr_index) result(call_index)
         use intrinsic_registry, only: get_intrinsic_info
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
@@ -35,7 +35,7 @@ contains
 
         ! Set intrinsic function information efficiently
         call get_intrinsic_info(name, call_node%is_intrinsic, &
-                                call_node%intrinsic_signature)
+            call_node%intrinsic_signature)
 
         call arena%push(call_node, "call_or_subscript", parent_index)
         call_index = arena%size
@@ -53,7 +53,7 @@ contains
 
     ! Create subroutine call node and add to stack
     function push_subroutine_call(arena, name, arg_indices, line, column, &
-                                  parent_index) result(call_index)
+            parent_index) result(call_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: arg_indices(:)
@@ -77,10 +77,10 @@ contains
 
     ! Create call or subscript with array slice detection
     function push_call_or_subscript_with_slice_detection(arena, name, &
-                                                         arg_indices, line, column, &
-                                                         parent_index, &
-                                                         base_expr_index) &
-        result(node_index)
+            arg_indices, line, column, &
+            parent_index, &
+            base_expr_index) &
+            result(node_index)
         use ast_factory_arrays, only: push_array_slice
         use ast_factory_core, only: push_identifier
         type(ast_arena_t), intent(inout) :: arena
@@ -97,7 +97,7 @@ contains
             if (arg_indices(i) > 0 .and. arg_indices(i) <= arena%size) then
                 if (allocated(arena%entries(arg_indices(i))%node)) then
                     select type (node => arena%entries(arg_indices(i))%node)
-                    type is (range_expression_node)
+                        type is (range_expression_node)
                         has_slice = .true.
                         exit
                     end select
@@ -111,16 +111,16 @@ contains
             block
                 integer :: array_name_index
                 array_name_index = push_identifier(arena, name, line, column, &
-                                                   parent_index)
+                    parent_index)
                 node_index = push_array_slice(arena, array_name_index, &
-                                              arg_indices, size(arg_indices), line, &
-                                              column, parent_index)
+                    arg_indices, size(arg_indices), line, &
+                    column, parent_index)
             end block
         else
             ! Regular function call or array indexing
             node_index = push_call_or_subscript(arena, name, arg_indices, &
-                                                line, column, parent_index, &
-                                                base_expr_index)
+                line, column, parent_index, &
+                base_expr_index)
         end if
     end function push_call_or_subscript_with_slice_detection
 
@@ -150,12 +150,12 @@ contains
                         indices(i) = push_identifier(arena, node_name, i, 1)
                     case ('literal_int')
                         indices(i) = push_literal(arena, node_name, &
-                                                  LITERAL_INTEGER, i, 1)
+                            LITERAL_INTEGER, i, 1)
                     case ('literal_real')
                         indices(i) = push_literal(arena, node_name, LITERAL_REAL, i, 1)
                     case ('literal_string')
                         indices(i) = push_literal(arena, node_name, &
-                                                  LITERAL_STRING, i, 1)
+                            LITERAL_STRING, i, 1)
                     case default
                         indices(i) = push_identifier(arena, node_name, i, 1)
                     end select

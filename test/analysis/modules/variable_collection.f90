@@ -3,7 +3,7 @@ module variable_collection
     ! Consolidates DRY violations from multiple collection implementations
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, &
-                              call_or_subscript_node
+        call_or_subscript_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_loops, only: do_loop_node
     use type_system_arena, only: mono_handle_t
@@ -77,7 +77,7 @@ contains
 
     ! Main unified variable collection function
     subroutine collect_variables(arena, root_index, collection, filter_type, &
-                                 function_names, func_count)
+            function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         type(variable_collection_t), intent(inout) :: collection
@@ -102,7 +102,7 @@ contains
         end if
 
         call collect_variables_recursive(arena, root_index, collection, &
-                                         filter_mode, func_names, num_funcs)
+            filter_mode, func_names, num_funcs)
     end subroutine collect_variables
 
     ! Simplified interface for identifier collection
@@ -127,8 +127,8 @@ contains
 
     ! Simplified interface for typed variable collection
     subroutine collect_typed_variables(arena, root_index, var_names, var_types, &
-                                       var_declared, var_count, max_count, &
-                                       function_names, func_count)
+            var_declared, var_count, max_count, &
+            function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=*), intent(inout) :: var_names(:)
@@ -144,7 +144,7 @@ contains
 
         collection = create_variable_collection()
         call collect_variables(arena, root_index, collection, FILTER_ALL, &
-                               function_names, func_count)
+            function_names, func_count)
 
         var_count = min(collection%count, max_count)
         do i = 1, var_count
@@ -156,8 +156,8 @@ contains
 
     ! Core recursive collection implementation
     recursive subroutine collect_variables_recursive(arena, node_index, collection, &
-                                                     filter_type, function_names, &
-                                                     func_count)
+            filter_type, function_names, &
+            func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_collection_t), intent(inout) :: collection
@@ -169,95 +169,95 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             call process_identifier_node(node, collection, function_names, func_count)
 
-        type is (assignment_node)
+            type is (assignment_node)
             ! Process target variable
             call collect_variables_recursive(arena, node%target_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             ! Process value expression
             call collect_variables_recursive(arena, node%value_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
 
-        type is (declaration_node)
+            type is (declaration_node)
             call process_declaration_node(node, collection, filter_type)
 
-        type is (binary_op_node)
+            type is (binary_op_node)
             call collect_variables_recursive(arena, node%left_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             call collect_variables_recursive(arena, node%right_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
 
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             ! Check if this is a function call (not a variable)
             if (.not. is_function_name(node%name, function_names, func_count)) then
                 call process_identifier_variable(node%name, "", collection, &
-                                                 function_names, func_count)
+                    function_names, func_count)
             end if
             ! Process arguments
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     call collect_variables_recursive(arena, node%arg_indices(i), &
-                                                     collection, filter_type, &
-                                                     function_names, func_count)
+                        collection, filter_type, &
+                        function_names, func_count)
                 end do
             end if
 
-        type is (do_loop_node)
+            type is (do_loop_node)
             ! Add loop variable
             call process_identifier_variable(node%var_name, "integer", collection, &
-                                             function_names, func_count)
+                function_names, func_count)
             ! Process bounds
             call collect_variables_recursive(arena, node%start_expr_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             call collect_variables_recursive(arena, node%end_expr_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             if (node%step_expr_index > 0) then
                 call collect_variables_recursive(arena, node%step_expr_index, &
-                                                 collection, filter_type, &
-                                                 function_names, func_count)
+                    collection, filter_type, &
+                    function_names, func_count)
             end if
             ! Process body
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     call collect_variables_recursive(arena, node%body_indices(i), &
-                                                     collection, filter_type, &
-                                                     function_names, func_count)
+                        collection, filter_type, &
+                        function_names, func_count)
                 end do
             end if
 
-        type is (do_while_node)
+            type is (do_while_node)
             ! Process condition
             call collect_variables_recursive(arena, node%condition_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             ! Process body
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     call collect_variables_recursive(arena, node%body_indices(i), &
-                                                     collection, filter_type, &
-                                                     function_names, func_count)
+                        collection, filter_type, &
+                        function_names, func_count)
                 end do
             end if
 
-        type is (if_node)
+            type is (if_node)
             ! Process condition
             call collect_variables_recursive(arena, node%condition_index, collection, &
-                                             filter_type, function_names, func_count)
+                filter_type, function_names, func_count)
             ! Process then body
             if (allocated(node%then_body_indices)) then
                 do i = 1, size(node%then_body_indices)
                     call collect_variables_recursive(arena, node%then_body_indices(i), &
-                                                     collection, filter_type, &
-                                                     function_names, func_count)
+                        collection, filter_type, &
+                        function_names, func_count)
                 end do
             end if
             ! Process else body
             if (allocated(node%else_body_indices)) then
                 do i = 1, size(node%else_body_indices)
                     call collect_variables_recursive(arena, node%else_body_indices(i), &
-                                                     collection, filter_type, &
-                                                     function_names, func_count)
+                        collection, filter_type, &
+                        function_names, func_count)
                 end do
             end if
 
@@ -276,7 +276,7 @@ contains
         integer, intent(in) :: func_count
 
         call process_identifier_variable(node%name, "", collection, &
-                                         function_names, func_count)
+            function_names, func_count)
     end subroutine process_identifier_node
 
     ! Process declaration node
@@ -308,7 +308,7 @@ contains
 
     ! Process identifier as variable
     subroutine process_identifier_variable(name, type_hint, collection, &
-                                           function_names, func_count)
+            function_names, func_count)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: type_hint
         type(variable_collection_t), intent(inout) :: collection

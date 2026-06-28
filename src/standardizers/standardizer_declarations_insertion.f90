@@ -4,15 +4,15 @@ module standardizer_declarations_insertion
     use ast_nodes_core, only: literal_node, program_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
-                              implicit_statement_node, intrinsic_statement_node, &
-                              use_statement_node, allocate_statement_node, &
-                              namelist_statement_node
+        implicit_statement_node, intrinsic_statement_node, &
+        use_statement_node, allocate_statement_node, &
+        namelist_statement_node
     use ast_nodes_procedure, only: function_def_node
     use ast_base, only: LITERAL_STRING
     use lexer_core, only: to_lower
     use standardizer_declarations_collection, only: collect_statement_vars
     use standardizer_declarations_parsing, only: apply_type_string_to_decl, &
-                                                 update_existing_declaration_type
+        update_existing_declaration_type
     use standardizer_declarations_state, only: get_standardizer_type_standardization
     use uid_generator, only: generate_uid
     implicit none
@@ -54,14 +54,14 @@ contains
 
         if (.not. has_implicit_none(arena, prog)) then
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                          line=1, column=1, &
-                                                          parent_index=prog_index)
+                line=1, column=1, &
+                parent_index=prog_index)
         else
             implicit_none_index = 0
         end if
 
         call generate_and_insert_declarations(arena, prog, prog_index, &
-                                              declaration_indices)
+            declaration_indices)
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
@@ -137,13 +137,13 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (literal_node)
+                        type is (literal_node)
                         if (stmt%literal_kind == LITERAL_STRING .and. &
                             index(stmt%value, "implicit none") > 0) then
                             found = .true.
                             return
                         end if
-                    type is (implicit_statement_node)
+                        type is (implicit_statement_node)
                         found = .true.
                         return
                     end select
@@ -163,10 +163,10 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (declaration_node)
+                        type is (declaration_node)
                         program_has_variable_declarations = .true.
                         return
-                    type is (parameter_declaration_node)
+                        type is (parameter_declaration_node)
                         program_has_variable_declarations = .true.
                         return
                     end select
@@ -218,21 +218,21 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (stmt => arena%entries(node_index)%node)
-        type is (comment_node)
+            type is (comment_node)
             if (allocated(stmt%text)) then
                 comment_text = stmt%text
             else
                 comment_text = ""
             end if
             is_header_separator = .not. is_legacy_statement_text(comment_text)
-        type is (directive_node)
+            type is (directive_node)
             if (allocated(stmt%text)) then
                 comment_text = stmt%text
             else
                 comment_text = ""
             end if
             is_header_separator = .not. is_legacy_statement_text(comment_text)
-        type is (blank_line_node)
+            type is (blank_line_node)
             is_header_separator = .true.
         class default
             is_header_separator = .false.
@@ -255,11 +255,11 @@ contains
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     keep_scanning = .false.
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (use_statement_node)
+                        type is (use_statement_node)
                         keep_scanning = .true.
-                    type is (intrinsic_statement_node)
+                        type is (intrinsic_statement_node)
                         keep_scanning = .true.
-                    type is (comment_node)
+                        type is (comment_node)
                         if (allocated(stmt%text)) then
                             comment_text = stmt%text
                         else
@@ -270,7 +270,7 @@ contains
                         else
                             keep_scanning = (mode >= 1)
                         end if
-                    type is (directive_node)
+                        type is (directive_node)
                         if (allocated(stmt%text)) then
                             comment_text = stmt%text
                         else
@@ -281,15 +281,15 @@ contains
                         else
                             keep_scanning = (mode >= 1)
                         end if
-                    type is (blank_line_node)
+                        type is (blank_line_node)
                         keep_scanning = (mode >= 1)
-                    type is (implicit_statement_node)
+                        type is (implicit_statement_node)
                         keep_scanning = (mode >= 2)
-                    type is (declaration_node)
+                        type is (declaration_node)
                         keep_scanning = (mode >= 2)
-                    type is (parameter_declaration_node)
+                        type is (parameter_declaration_node)
                         keep_scanning = (mode >= 2)
-                    type is (namelist_statement_node)
+                        type is (namelist_statement_node)
                         keep_scanning = (mode >= 2)
                     class default
                         keep_scanning = .false.
@@ -335,7 +335,7 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (declaration_node)
+                        type is (declaration_node)
                         if (stmt%type_name == "real" .and. &
                             type_standardization_enabled) then
                             stmt%type_name = "real"
@@ -350,7 +350,7 @@ contains
     end subroutine standardize_declarations
 
     subroutine generate_and_insert_declarations(arena, prog, prog_index, &
-                                                declaration_indices)
+            declaration_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         integer, intent(in) :: prog_index
@@ -379,7 +379,7 @@ contains
                     arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (function_def_node)
+                            type is (function_def_node)
                             if (func_count < size(function_names)) then
                                 func_count = func_count + 1
                                 function_names(func_count) = to_lower(trim(stmt%name))
@@ -398,16 +398,16 @@ contains
                     arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
+                            type is (declaration_node)
                             call collect_statement_vars(arena, prog%body_indices(i), &
-                                                        var_names, var_types, &
-                                                        var_declared, var_count, &
-                                                        function_names, func_count)
-                        type is (allocate_statement_node)
+                                var_names, var_types, &
+                                var_declared, var_count, &
+                                function_names, func_count)
+                            type is (allocate_statement_node)
                             call collect_statement_vars(arena, prog%body_indices(i), &
-                                                        var_names, var_types, &
-                                                        var_declared, var_count, &
-                                                        function_names, func_count)
+                                var_names, var_types, &
+                                var_declared, var_count, &
+                                function_names, func_count)
                         end select
                     end if
                 end if
@@ -421,15 +421,15 @@ contains
                     arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
+                            type is (declaration_node)
                             ! Skip: already processed in first pass
-                        type is (allocate_statement_node)
+                            type is (allocate_statement_node)
                             ! Skip: already processed in first pass
                         class default
                             call collect_statement_vars(arena, prog%body_indices(i), &
-                                                        var_names, var_types, &
-                                                        var_declared, var_count, &
-                                                        function_names, func_count)
+                                var_names, var_types, &
+                                var_declared, var_count, &
+                                function_names, func_count)
                         end select
                     end if
                 end if
@@ -453,9 +453,9 @@ contains
                             lowered_type = to_lower(var_types(i))
                             if (index(lowered_type, 'dimension(') > 0) then
                                 call update_existing_declaration_type(arena, &
-                                                                      prog_index, &
-                                                                      var_names(i), &
-                                                                      var_types(i))
+                                    prog_index, &
+                                    var_names(i), &
+                                    var_types(i))
                             end if
                         end block
                     end if
@@ -464,13 +464,13 @@ contains
         end if
 
         call create_declaration_nodes(arena, prog, prog_index, var_names, &
-                                      var_types, var_declared, var_count, &
-                                      declaration_indices)
+            var_types, var_declared, var_count, &
+            declaration_indices)
     end subroutine generate_and_insert_declarations
 
     subroutine create_declaration_nodes(arena, prog, prog_index, var_names, &
-                                        var_types, var_declared, var_count, &
-                                        declaration_indices)
+            var_types, var_declared, var_count, &
+            declaration_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         integer, intent(in) :: prog_index
@@ -504,7 +504,7 @@ contains
                 if (.not. has_explicit_declaration(arena, prog, var_names(i))) then
                     decl_idx = decl_idx + 1
                     call create_single_declaration(arena, prog_index, var_names(i), &
-                                                   var_types(i), decl_node)
+                        var_types(i), decl_node)
                     call arena%push(decl_node, "declaration", prog_index)
                     declaration_indices(decl_idx) = arena%size
                 end if
@@ -513,7 +513,7 @@ contains
     end subroutine create_declaration_nodes
 
     subroutine create_single_declaration(arena, prog_index, var_name, &
-                                         var_type, decl_node)
+            var_type, decl_node)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         character(len=*), intent(in) :: var_name, var_type
@@ -530,7 +530,7 @@ contains
         decl_node%disable_grouping = .false.
 
         call apply_type_string_to_decl(arena, prog_index, var_name, var_type, &
-                                       decl_node)
+            decl_node)
     end subroutine create_single_declaration
 
     logical function has_explicit_declaration(arena, prog, var_name)
@@ -551,7 +551,7 @@ contains
                     prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
+                            type is (declaration_node)
                             candidate_name = to_lower(trim(stmt%var_name))
                             if (trim(candidate_name) == trim(target_name)) then
                                 has_explicit_declaration = .true.

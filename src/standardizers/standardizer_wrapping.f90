@@ -38,8 +38,8 @@ contains
         integer :: prog_index
 
         implicit_none_index = push_implicit_statement(arena, .true., &
-                                                      line=1, column=1, &
-                                                      parent_index=0)
+            line=1, column=1, &
+            parent_index=0)
         contains_stmt%line = 1
         contains_stmt%column = 1
         call arena%push(contains_stmt, "contains", 0)
@@ -47,13 +47,13 @@ contains
 
         call standardize_wrapper_member(arena, member_index, is_function)
         call initialize_wrapper_program(prog, implicit_none_index, &
-                                        contains_index, &
-                                        member_index)
+            contains_index, &
+            member_index)
 
         call arena%push(prog, "program", 0)
         prog_index = arena%size
         call update_wrapper_parents(arena, implicit_none_index, contains_index, &
-                                    member_index, prog_index)
+            member_index, prog_index)
         member_index = prog_index
     end subroutine wrap_subprogram_common
 
@@ -66,20 +66,20 @@ contains
 
         if (is_function) then
             select type (member => arena%entries(member_index)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 call standardize_function_def(arena, member, member_index)
             end select
         else
             select type (member => arena%entries(member_index)%node)
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 call standardize_subroutine_def(arena, member, member_index)
             end select
         end if
     end subroutine standardize_wrapper_member
 
     subroutine initialize_wrapper_program(prog, implicit_none_index, &
-                                          contains_index, &
-                                          member_index)
+            contains_index, &
+            member_index)
         type(program_node), intent(inout) :: prog
         integer, intent(in) :: implicit_none_index
         integer, intent(in) :: contains_index
@@ -97,7 +97,7 @@ contains
     end subroutine initialize_wrapper_program
 
     subroutine update_wrapper_parents(arena, implicit_index, contains_index, &
-                                      member_index, program_index)
+            member_index, program_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: implicit_index
         integer, intent(in) :: contains_index

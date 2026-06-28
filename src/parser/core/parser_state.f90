@@ -15,7 +15,7 @@ module parser_state_module
 
         ! Parser position and error tracking
         integer :: current_token = 1
-        integer :: generation = 1  ! Generation for lifecycle tracking
+        integer :: generation = 1 ! Generation for lifecycle tracking
         type(error_collection_t) :: errors
     contains
         procedure :: peek => parser_peek

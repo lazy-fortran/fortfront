@@ -1,7 +1,7 @@
 module ast_nodes_conditional
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -404,7 +404,7 @@ contains
 
     ! Factory functions
     function create_if(condition_index, then_body_indices, elseif_blocks, &
-                       else_body_indices, line, column) result(node)
+            else_body_indices, line, column) result(node)
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: then_body_indices(:)
         type(elseif_wrapper_t), intent(in), optional :: elseif_blocks(:)
@@ -438,7 +438,7 @@ contains
     end function create_if
 
     function create_select_case(expr_index, case_indices, default_index, &
-                                line, column) result(node)
+            line, column) result(node)
         integer, intent(in) :: expr_index
         integer, intent(in), optional :: case_indices(:)
         integer, intent(in), optional :: default_index
@@ -459,7 +459,7 @@ contains
     end function create_select_case
 
     function create_select_type(selector_index, guard_indices, &
-                                default_index, line, column) result(node)
+            default_index, line, column) result(node)
         integer, intent(in) :: selector_index
         integer, intent(in), optional :: guard_indices(:)
         integer, intent(in), optional :: default_index
@@ -480,7 +480,7 @@ contains
     end function create_select_type
 
     function create_select_rank(selector_index, rank_indices, &
-                                default_index, line, column) result(node)
+            default_index, line, column) result(node)
         integer, intent(in) :: selector_index
         integer, intent(in), optional :: rank_indices(:)
         integer, intent(in), optional :: default_index

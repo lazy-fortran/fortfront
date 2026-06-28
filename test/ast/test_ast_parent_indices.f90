@@ -4,7 +4,7 @@ program test_ast_parent_indices
     use parser_control_flow_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &
-                          TK_NUMBER, TK_STRING, TK_EOF
+        TK_NUMBER, TK_STRING, TK_EOF
     implicit none
 
     integer :: test_count, pass_count
@@ -81,7 +81,7 @@ contains
             ! Check body statements specifically
             if (allocated(arena%entries(if_index)%node)) then
                 select type (node => arena%entries(if_index)%node)
-                type is (if_node)
+                    type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
                             if (node%then_body_indices(i) > 0) then
@@ -161,7 +161,7 @@ contains
             ! Check body statements specifically
             if (allocated(arena%entries(loop_index)%node)) then
                 select type (node => arena%entries(loop_index)%node)
-                type is (do_loop_node)
+                    type is (do_loop_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
                             if (node%body_indices(i) > 0) then
@@ -247,7 +247,7 @@ contains
             ! Check the nested structure
             if (allocated(arena%entries(outer_if_index)%node)) then
                 select type (node => arena%entries(outer_if_index)%node)
-                type is (if_node)
+                    type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
                             if (node%then_body_indices(i) > 0) then

@@ -1,8 +1,8 @@
 module standardizer_pointer_targets
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: pointer_assignment_node, call_or_subscript_node, &
-                              component_access_node, range_subscript_node, &
-                              identifier_node
+        component_access_node, range_subscript_node, &
+        identifier_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use string_utils_mod, only: to_lower
     implicit none
@@ -22,7 +22,7 @@ contains
             if (.not. allocated(arena%entries(i)%node)) cycle
 
             select type (node => arena%entries(i)%node)
-            type is (pointer_assignment_node)
+                type is (pointer_assignment_node)
                 call handle_pointer_target(arena, node%target_index)
             class default
             end select
@@ -61,18 +61,18 @@ contains
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         select type (expr => arena%entries(expr_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             call append_name(names, count, expr%name)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(expr%name)) then
                 call append_name(names, count, expr%name)
             end if
             if (expr%base_expr_index > 0) then
                 call collect_target_names(arena, expr%base_expr_index, names, count)
             end if
-        type is (range_subscript_node)
+            type is (range_subscript_node)
             call collect_target_names(arena, expr%base_expr_index, names, count)
-        type is (component_access_node)
+            type is (component_access_node)
             if (allocated(expr%component_name)) then
                 call append_name(names, count, expr%component_name)
             end if
@@ -98,7 +98,7 @@ contains
             updated = .false.
 
             select type (decl => arena%entries(i)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (allocated(decl%var_name)) then
                     candidate = to_lower(trim(decl%var_name))
                     if (candidate == lowered_name) then
@@ -126,7 +126,7 @@ contains
                 end if
 
                 if (updated) arena%entries(i)%node = decl
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (allocated(decl%name)) then
                     candidate = to_lower(trim(decl%name))
                     if (candidate == lowered_name) then

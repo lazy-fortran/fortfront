@@ -1,6 +1,6 @@
 program test_issue_1972_do_if_hang
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                          iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -34,14 +34,14 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
 
         success = len_trim(error_msg) == 0 .and. &
-                  len_trim(output) > 0 .and. &
-                  index(output, "do i = 1, 6") > 0 .and. &
-                  index(output, "if (a(i) < 0) then") > 0 .and. &
-                  index(output, "sum_neg = sum_neg + a(i)") > 0 .and. &
-                  index(output, "sum_pos = sum_pos + a(i)") > 0 .and. &
-                  index(output, "end if") > 0 .and. &
-                  index(output, "print *, 'Sum negative:'") > 0 .and. &
-                  index(output, "print *, 'Sum positive:'") > 0
+            len_trim(output) > 0 .and. &
+            index(output, "do i = 1, 6") > 0 .and. &
+            index(output, "if (a(i) < 0) then") > 0 .and. &
+            index(output, "sum_neg = sum_neg + a(i)") > 0 .and. &
+            index(output, "sum_pos = sum_pos + a(i)") > 0 .and. &
+            index(output, "end if") > 0 .and. &
+            index(output, "print *, 'Sum negative:'") > 0 .and. &
+            index(output, "print *, 'Sum positive:'") > 0
     end subroutine run_transformation_test
 
 end program test_issue_1972_do_if_hang

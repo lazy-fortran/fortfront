@@ -1,9 +1,9 @@
 program test_fortfront_api_parsing
     ! Test the public API parsing functionality
     use fortfront, only: parse_tokens, ast_arena_t, create_ast_arena, &
-                         lex_source, token_t, ast_node, &
-                         program_node, assignment_node, function_def_node, &
-                         if_node, do_loop_node
+        lex_source, token_t, ast_node, &
+        program_node, assignment_node, function_def_node, &
+        if_node, do_loop_node
     use ast_nodes_data, only: mixed_construct_container_node
     implicit none
 
@@ -82,7 +82,7 @@ contains
             end if
 
             select type (node => arena%entries(prog_index)%node)
-            type is (program_node)
+                type is (program_node)
                 if (size(node%body_indices) == 0) then
                     print *, '  FAIL: Program has no body'
                     test_basic_parsing = .false.
@@ -101,7 +101,7 @@ contains
                     end if
 
                     select type (stmt => arena%entries(stmt_index)%node)
-                    type is (assignment_node)
+                        type is (assignment_node)
                         ! Success
                     class default
                         print *, '  FAIL: Expected assignment node'
@@ -181,9 +181,9 @@ contains
 
             ! Simple function
             source = 'real function square(x)' // new_line('A') // &
-                     '    real :: x' // new_line('A') // &
-                     '    square = x * x' // new_line('A') // &
-                     'end function square'
+                '    real :: x' // new_line('A') // &
+                '    square = x * x' // new_line('A') // &
+                'end function square'
 
             call lex_source(source, tokens, error_msg)
             if (error_msg /= "") then
@@ -215,7 +215,7 @@ contains
             end if
 
             select type (node => arena%entries(prog_index)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (node%name /= 'square') then
                     print *, '  FAIL: Expected function name "square", got "', node%name, '"'
                     test_function_parsing = .false.
@@ -228,13 +228,13 @@ contains
                     return
                 end if
 
-            type is (mixed_construct_container_node)
+                type is (mixed_construct_container_node)
                 ! Mixed construct container is also valid for complex function definitions
                 ! The function should be contained within the mixed construct
                 if ((allocated(node%implicit_declaration_indices) .and. &
-                     size(node%implicit_declaration_indices) > 0) .or. &
+                    size(node%implicit_declaration_indices) > 0) .or. &
                     (allocated(node%explicit_program_indices) .and. &
-                     size(node%explicit_program_indices) > 0)) then
+                    size(node%explicit_program_indices) > 0)) then
                     ! Has content - assume function is parsed correctly within the container
                     ! This is expected behavior for complex function definitions
                 else
@@ -265,8 +265,8 @@ contains
 
             ! If statement
             source = 'if (x > 0) then' // new_line('A') // &
-                     '    y = 1' // new_line('A') // &
-                     'end if'
+                '    y = 1' // new_line('A') // &
+                'end if'
 
             call lex_source(source, tokens, error_msg)
             if (error_msg /= "") then
@@ -286,8 +286,8 @@ contains
 
             ! Do loop
             source = 'do i = 1, 10' // new_line('A') // &
-                     '    print *, i' // new_line('A') // &
-                     'end do'
+                '    print *, i' // new_line('A') // &
+                'end do'
 
             call lex_source(source, tokens, error_msg)
             if (error_msg /= "") then

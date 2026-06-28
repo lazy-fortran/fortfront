@@ -2,34 +2,34 @@ program test_docs_examples_ci_verified
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
         & iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t, &
-                                  INPUT_MODE_LAZY, OPERATING_MODE_INFER
+        INPUT_MODE_LAZY, OPERATING_MODE_INFER
     implicit none
 
     logical :: all_passed
     character(len=*), parameter :: EXAMPLES_F90_DIR = 'examples/f90/'
     character(len=*), parameter :: EXPECTED_CHARACTER_LENGTH = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_character_length_inference_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_character_length_inference_out.f90'
     character(len=*), parameter :: EXPECTED_STRING_CONCAT = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_string_concatenation_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_string_concatenation_out.f90'
     character(len=*), parameter :: EXPECTED_VARIABLE_LENGTH_STRINGS = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_variable_length_strings_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_variable_length_strings_out.f90'
     character(len=*), parameter :: EXPECTED_FIXED_LENGTH_REASSIGNMENT = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_fixed_length_reassignment_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_fixed_length_reassignment_out.f90'
     character(len=*), parameter :: EXPECTED_CHARACTER_ARRAYS = &
-                                   EXAMPLES_F90_DIR // 'docs_character_arrays_out.f90'
+        EXAMPLES_F90_DIR // 'docs_character_arrays_out.f90'
     character(len=*), parameter :: EXPECTED_TYPE_VALIDATION_CALC = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_type_validation_calculate_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_type_validation_calculate_out.f90'
     character(len=*), parameter :: EXPECTED_MIXED_TYPE_OPERATIONS = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_mixed_type_operations_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_mixed_type_operations_out.f90'
     character(len=*), parameter :: EXPECTED_UNSIGNED_INTEGERS = &
-                                   EXAMPLES_F90_DIR // &
-                                   'docs_unsigned_integers_out.f90'
+        EXAMPLES_F90_DIR // &
+        'docs_unsigned_integers_out.f90'
 
     all_passed = .true.
 
@@ -80,19 +80,19 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_character_length_inference', output, &
-                                 error_msg, test_character_length_inference)
+            error_msg, test_character_length_inference)
         if (.not. test_character_length_inference) return
 
         call assert_output_matches_example('docs_character_length_inference', output, &
-                                           EXPECTED_CHARACTER_LENGTH, &
-                                           test_character_length_inference)
+            EXPECTED_CHARACTER_LENGTH, &
+            test_character_length_inference)
         if (.not. test_character_length_inference) return
 
         call assert_contains('docs_character_length_inference', output, &
-                             'character(len=5) :: name', &
-                             test_character_length_inference)
+            'character(len=5) :: name', &
+            test_character_length_inference)
         call assert_contains('docs_character_length_inference', output, &
-                             'name = "hello"', test_character_length_inference)
+            'name = "hello"', test_character_length_inference)
     end function test_character_length_inference
 
     logical function test_string_concatenation()
@@ -111,20 +111,20 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_string_concatenation', output, error_msg, &
-                                 test_string_concatenation)
+            test_string_concatenation)
         if (.not. test_string_concatenation) return
 
         call assert_output_matches_example('docs_string_concatenation', output, &
-                                           EXPECTED_STRING_CONCAT, &
-                                           test_string_concatenation)
+            EXPECTED_STRING_CONCAT, &
+            test_string_concatenation)
         if (.not. test_string_concatenation) return
 
         call assert_contains('docs_string_concatenation', output, &
-                             'character(len=11) :: message', &
-                             test_string_concatenation)
+            'character(len=11) :: message', &
+            test_string_concatenation)
         call assert_contains('docs_string_concatenation', output, &
-                             'message = "hello" //" world"', &
-                             test_string_concatenation)
+            'message = "hello" //" world"', &
+            test_string_concatenation)
     end function test_string_concatenation
 
     logical function test_variable_length_strings()
@@ -143,21 +143,21 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_variable_length_strings', output, error_msg, &
-                                 test_variable_length_strings)
+            test_variable_length_strings)
         if (.not. test_variable_length_strings) return
 
         call assert_output_matches_example('docs_variable_length_strings', output, &
-                                           EXPECTED_VARIABLE_LENGTH_STRINGS, &
-                                           test_variable_length_strings)
+            EXPECTED_VARIABLE_LENGTH_STRINGS, &
+            test_variable_length_strings)
         if (.not. test_variable_length_strings) return
 
         call assert_contains('docs_variable_length_strings', output, &
-                             'character(len=5) :: message', &
-                             test_variable_length_strings)
+            'character(len=5) :: message', &
+            test_variable_length_strings)
         call assert_contains('docs_variable_length_strings', output, &
-                             'message = "hello"', test_variable_length_strings)
+            'message = "hello"', test_variable_length_strings)
         call assert_contains('docs_variable_length_strings', output, &
-                             'message = "hi"', test_variable_length_strings)
+            'message = "hi"', test_variable_length_strings)
     end function test_variable_length_strings
 
     logical function test_fixed_length_reassignment()
@@ -176,21 +176,21 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_fixed_length_reassignment', output, &
-                                 error_msg, test_fixed_length_reassignment)
+            error_msg, test_fixed_length_reassignment)
         if (.not. test_fixed_length_reassignment) return
 
         call assert_output_matches_example('docs_fixed_length_reassignment', output, &
-                                           EXPECTED_FIXED_LENGTH_REASSIGNMENT, &
-                                           test_fixed_length_reassignment)
+            EXPECTED_FIXED_LENGTH_REASSIGNMENT, &
+            test_fixed_length_reassignment)
         if (.not. test_fixed_length_reassignment) return
 
         call assert_contains('docs_fixed_length_reassignment', output, &
-                             'character(len=3) :: code', &
-                             test_fixed_length_reassignment)
+            'character(len=3) :: code', &
+            test_fixed_length_reassignment)
         call assert_contains('docs_fixed_length_reassignment', output, &
-                             'code = "ABC"', test_fixed_length_reassignment)
+            'code = "ABC"', test_fixed_length_reassignment)
         call assert_contains('docs_fixed_length_reassignment', output, &
-                             'code = "XYZ"', test_fixed_length_reassignment)
+            'code = "XYZ"', test_fixed_length_reassignment)
     end function test_fixed_length_reassignment
 
     logical function test_character_arrays()
@@ -209,19 +209,19 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_character_arrays', output, error_msg, &
-                                 test_character_arrays)
+            test_character_arrays)
         if (.not. test_character_arrays) return
 
         call assert_output_matches_example('docs_character_arrays', output, &
-                                           EXPECTED_CHARACTER_ARRAYS, &
-                                           test_character_arrays)
+            EXPECTED_CHARACTER_ARRAYS, &
+            test_character_arrays)
         if (.not. test_character_arrays) return
 
         call assert_contains('docs_character_arrays', output, &
-                             'character(len=7) :: names(3)', test_character_arrays)
+            'character(len=7) :: names(3)', test_character_arrays)
         call assert_contains('docs_character_arrays', output, &
-                             'names = ["alice  ", "bob    ", "charlie"]', &
-                             test_character_arrays)
+            'names = ["alice  ", "bob    ", "charlie"]', &
+            test_character_arrays)
     end function test_character_arrays
 
     logical function test_type_validation_calculate()
@@ -240,28 +240,28 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_type_validation_calculate', output, &
-                                 error_msg, test_type_validation_calculate)
+            error_msg, test_type_validation_calculate)
         if (.not. test_type_validation_calculate) return
 
         call assert_output_matches_example('docs_type_validation_calculate', output, &
-                                           EXPECTED_TYPE_VALIDATION_CALC, &
-                                           test_type_validation_calculate)
+            EXPECTED_TYPE_VALIDATION_CALC, &
+            test_type_validation_calculate)
         if (.not. test_type_validation_calculate) return
 
         call assert_contains('docs_type_validation_calculate', output, &
-                             'program main', &
-                             test_type_validation_calculate)
+            'program main', &
+            test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real(dp) :: val', test_type_validation_calculate)
+            'real(dp) :: val', test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real(dp) function calculate(a, b) result(res)', &
-                             test_type_validation_calculate)
+            'real(dp) function calculate(a, b) result(res)', &
+            test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real(dp), intent(in) :: a', test_type_validation_calculate)
+            'real(dp), intent(in) :: a', test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real(dp), intent(in) :: b', test_type_validation_calculate)
+            'real(dp), intent(in) :: b', test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'res = a + b', test_type_validation_calculate)
+            'res = a + b', test_type_validation_calculate)
     end function test_type_validation_calculate
 
     logical function test_mixed_type_operations()
@@ -280,28 +280,28 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_mixed_type_operations', output, error_msg, &
-                                 test_mixed_type_operations)
+            test_mixed_type_operations)
         if (.not. test_mixed_type_operations) return
 
         call assert_output_matches_example('docs_mixed_type_operations', output, &
-                                           EXPECTED_MIXED_TYPE_OPERATIONS, &
-                                           test_mixed_type_operations)
+            EXPECTED_MIXED_TYPE_OPERATIONS, &
+            test_mixed_type_operations)
         if (.not. test_mixed_type_operations) return
 
         call assert_contains('docs_mixed_type_operations', output, &
-                             'program main', &
-                             test_mixed_type_operations)
+            'program main', &
+            test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'real(dp) :: value', test_mixed_type_operations)
+            'real(dp) :: value', test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'real(dp) function mixed_calc(i, x) result(y)', &
-                             test_mixed_type_operations)
+            'real(dp) function mixed_calc(i, x) result(y)', &
+            test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'integer, intent(in) :: i', test_mixed_type_operations)
+            'integer, intent(in) :: i', test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'real(dp), intent(in) :: x', test_mixed_type_operations)
+            'real(dp), intent(in) :: x', test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'y = i + x', test_mixed_type_operations)
+            'y = i + x', test_mixed_type_operations)
     end function test_mixed_type_operations
 
     logical function test_unsigned_integers()
@@ -320,24 +320,24 @@ contains
         call transform_with_context(input, output, error_msg, context)
 
         call assert_transform_ok('docs_unsigned_integers', output, error_msg, &
-                                 test_unsigned_integers)
+            test_unsigned_integers)
         if (.not. test_unsigned_integers) return
 
         call assert_output_matches_example('docs_unsigned_integers', output, &
-                                           EXPECTED_UNSIGNED_INTEGERS, &
-                                           test_unsigned_integers)
+            EXPECTED_UNSIGNED_INTEGERS, &
+            test_unsigned_integers)
         if (.not. test_unsigned_integers) return
 
         call assert_contains('docs_unsigned_integers', output, &
-                             'integer :: i', &
-                             test_unsigned_integers)
+            'integer :: i', &
+            test_unsigned_integers)
         call assert_contains('docs_unsigned_integers', output, &
-                             'integer, unsigned :: sum, u, v', &
-                             test_unsigned_integers)
+            'integer, unsigned :: sum, u, v', &
+            test_unsigned_integers)
         call assert_contains('docs_unsigned_integers', output, 'u = uint(i)', &
-                             test_unsigned_integers)
+            test_unsigned_integers)
         call assert_contains('docs_unsigned_integers', output, 'sum = wrap_add(u, v)', &
-                             test_unsigned_integers)
+            test_unsigned_integers)
     end function test_unsigned_integers
 
     subroutine assert_transform_ok(test_name, output, error_msg, passed)

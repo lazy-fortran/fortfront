@@ -2,22 +2,22 @@ module parser_procedure_definition_bodies_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, &
-                          TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
+        TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
-                                               parse_select_rank
+        parse_select_rank
     use parser_array_constructs_module, only: parse_associate, parse_block_construct
     use parser_block_statement_utils_module, only: is_if_statement_start, &
-                                                   locate_block_statement_end, &
-                                                   locate_single_line_end
+        locate_block_statement_end, &
+        locate_single_line_end
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
-                                                 parse_comment_or_directive, &
-                                                 get_stmt_util_additional_indices, &
-                                                 clear_stmt_util_additional_indices
+        parse_comment_or_directive, &
+        get_stmt_util_additional_indices, &
+        clear_stmt_util_additional_indices
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
-                                           append_prefix_token
+        append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_interface_blocks_module, only: parse_interface_block
     use ast_nodes_misc, only: contains_node
@@ -33,7 +33,7 @@ module parser_procedure_definition_bodies_module
 
     abstract interface
         function parse_function_definition_iface(parser, arena, prefix_buffer, &
-                                                 prefix_list) result(func_index)
+                prefix_list) result(func_index)
             import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
@@ -43,8 +43,8 @@ module parser_procedure_definition_bodies_module
         end function parse_function_definition_iface
 
         function parse_subroutine_definition_iface(parser, arena, prefix_buffer, &
-                                                   prefix_list) &
-            result(sub_index)
+                prefix_list) &
+                result(sub_index)
             import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
@@ -60,8 +60,8 @@ module parser_procedure_definition_bodies_module
 contains
 
     subroutine parse_procedure_body(parser, arena, procedure_name, end_keyword, &
-                                    body_indices, infer_recursive_flag, &
-                                    parse_function_proc, parse_subroutine_proc)
+            body_indices, infer_recursive_flag, &
+            parse_function_proc, parse_subroutine_proc)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: procedure_name
@@ -95,9 +95,9 @@ contains
             end if
 
             if (handle_structural_contains(parser, arena, token, procedure_name, &
-                                           end_keyword, body_indices, &
-                                           parse_function_proc, &
-                                           parse_subroutine_proc)) then
+                end_keyword, body_indices, &
+                parse_function_proc, &
+                parse_subroutine_proc)) then
                 exit
             end if
 
@@ -107,14 +107,14 @@ contains
             ! Lazy fortran: detect nested internal procedures (not supported)
             if (token%kind == TK_KEYWORD .and. &
                 (to_lower(token%text) == "function" .or. &
-                 to_lower(token%text) == "subroutine")) then
+                to_lower(token%text) == "subroutine")) then
                 call record_nested_internal_procedure_error(token, procedure_name)
                 call skip_nested_internal_procedure(parser)
                 cycle
             end if
 
             call parse_body_statement(parser, arena, token, procedure_name, &
-                                      infer_recursive_flag, stmt_index)
+                infer_recursive_flag, stmt_index)
 
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
@@ -131,9 +131,9 @@ contains
     end subroutine parse_procedure_body
 
     logical function handle_structural_contains(parser, arena, token, &
-                                                procedure_name, end_keyword, &
-                                                body_indices, parse_function_proc, &
-                                                parse_subroutine_proc) result(handled)
+            procedure_name, end_keyword, &
+            body_indices, parse_function_proc, &
+            parse_subroutine_proc) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -189,13 +189,13 @@ contains
 
         consumed_token = parser%consume()
         call parse_contains_section(parser, arena, procedure_name, end_keyword, &
-                                    body_indices, parse_function_proc, &
-                                    parse_subroutine_proc)
+            body_indices, parse_function_proc, &
+            parse_subroutine_proc)
         handled = .true.
     end function handle_structural_contains
 
     logical function handle_interface_block_in_body(parser, arena, token, &
-                                                    body_indices) result(handled)
+            body_indices) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -250,7 +250,7 @@ contains
         consumed_token = parser%consume()
         call iface_prefix_buffer%clear()
         stmt_index = parse_interface_block(parser, arena, iface_prefix_buffer, &
-                                           is_abstract=.true.)
+            is_abstract=.true.)
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
@@ -291,16 +291,16 @@ contains
         lowered_keyword = to_lower(trim(token%text))
 
         call write_nested_procedure_error(lowered_keyword, procedure_name, &
-                                          trim(line_str), trim(column_str))
+            trim(line_str), trim(column_str))
 
         message = 'Nested internal procedures are not supported.' // &
-                  new_line('a') // 'Found "' // trim(lowered_keyword) // &
-                  '" inside procedure "' // trim(procedure_name) // '" at line ' // &
-                  trim(line_str) // ', column ' // trim(column_str) // '.' // &
-                  new_line('a') // 'Internal procedures cannot contain other ' // &
-                  'internal procedures.' // new_line('a') // 'Move the inner ' // &
-                  'procedure to the same contains section as the outer ' // &
-                  'procedure.'
+            new_line('a') // 'Found "' // trim(lowered_keyword) // &
+            '" inside procedure "' // trim(procedure_name) // '" at line ' // &
+            trim(line_str) // ', column ' // trim(column_str) // '.' // &
+            new_line('a') // 'Internal procedures cannot contain other ' // &
+            'internal procedures.' // new_line('a') // 'Move the inner ' // &
+            'procedure to the same contains section as the outer ' // &
+            'procedure.'
 
         if (.not. nested_internal_procedure_error) then
             nested_internal_procedure_message = message
@@ -309,7 +309,7 @@ contains
     end subroutine record_nested_internal_procedure_error
 
     subroutine write_nested_procedure_error(keyword, procedure_name, line_str, &
-                                            column_str)
+            column_str)
         character(len=*), intent(in) :: keyword
         character(len=*), intent(in) :: procedure_name
         character(len=*), intent(in) :: line_str
@@ -361,7 +361,7 @@ contains
         next_token = parser%peek()
         if (next_token%kind == TK_KEYWORD .and. &
             (to_lower(next_token%text) == "function" .or. &
-             to_lower(next_token%text) == "subroutine")) then
+            to_lower(next_token%text) == "subroutine")) then
             next_token = parser%consume()
             depth = depth - 1
             call consume_optional_identifier_token(parser)
@@ -381,7 +381,7 @@ contains
     end subroutine consume_optional_identifier_token
 
     logical function check_procedure_end(parser, first_token, end_keyword, &
-                                         procedure_name) result(is_end)
+            procedure_name) result(is_end)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: first_token
         character(len=*), intent(in) :: end_keyword
@@ -429,7 +429,7 @@ contains
                 if (.not. parser%is_at_end()) then
                     token_local = parser%peek()
                     if ((token_local%kind == TK_IDENTIFIER .or. &
-                         token_local%kind == TK_KEYWORD) .and. &
+                        token_local%kind == TK_KEYWORD) .and. &
                         token_local%text == procedure_name) then
                         token_local = parser%consume()
                     end if
@@ -449,7 +449,7 @@ contains
     end function check_procedure_end
 
     subroutine parse_body_statement(parser, arena, first_token, procedure_name, &
-                                    infer_recursive_flag, stmt_index)
+            infer_recursive_flag, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
@@ -462,7 +462,7 @@ contains
         integer :: stmt_end
 
         call collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
-                                      stmt_end)
+            stmt_end)
 
         if (stmt_size <= 0) then
             stmt_index = 0
@@ -470,7 +470,7 @@ contains
         end if
 
         call maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
-                                            infer_recursive_flag)
+            infer_recursive_flag)
 
         stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena)
 
@@ -478,7 +478,7 @@ contains
     end subroutine parse_body_statement
 
     subroutine collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
-                                        stmt_end)
+            stmt_end)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: first_token
         type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
@@ -492,10 +492,10 @@ contains
         stmt_start = parser%current_token
         if (is_if_statement_start(first_token)) then
             stmt_end = locate_block_statement_end(parser%tokens, stmt_start, &
-                                                  first_token%text)
+                first_token%text)
         else
             stmt_end = locate_single_line_end(parser%tokens, stmt_start, &
-                                              first_token%line)
+                first_token%line)
         end if
 
         stmt_size = stmt_end - stmt_start + 1
@@ -505,11 +505,11 @@ contains
         end if
 
         call copy_statement_slice(parser%tokens, stmt_start, stmt_end, first_token, &
-                                  stmt_tokens)
+            stmt_tokens)
     end subroutine collect_statement_tokens
 
     subroutine copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
-                                    stmt_tokens)
+            stmt_tokens)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(token_t), intent(in) :: first_token
@@ -527,7 +527,7 @@ contains
     end subroutine copy_statement_slice
 
     subroutine maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
-                                              infer_recursive_flag)
+            infer_recursive_flag)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: stmt_size
         character(len=*), intent(in) :: procedure_name
@@ -553,7 +553,7 @@ contains
     end subroutine maybe_mark_recursive_from_body
 
     integer function parse_body_statement_tokens(stmt_tokens, stmt_size, arena) &
-        result(stmt_index)
+            result(stmt_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: stmt_size
         type(ast_arena_t), intent(inout) :: arena
@@ -595,13 +595,13 @@ contains
         if (stmt_index <= 0) then
             block_parser = create_parser_state(stmt_tokens)
             do while (block_parser%current_token < first_token .and. &
-                      .not. block_parser%is_at_end())
+                    .not. block_parser%is_at_end())
                 token = block_parser%consume()
             end do
             if (.not. block_parser%is_at_end()) then
                 stmt_index = parse_statement_in_if_block(block_parser, arena, &
-                                                         stmt_tokens(max(1, &
-                                                                         first_token)))
+                    stmt_tokens(max(1, &
+                    first_token)))
             else
                 stmt_index = 0
             end if
@@ -621,7 +621,7 @@ contains
     end function parse_do_statement_tokens
 
     integer function parse_select_statement_tokens(stmt_tokens, arena) &
-        result(select_index)
+            result(select_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t) :: select_parser
@@ -674,8 +674,8 @@ contains
     end function parse_select_statement_tokens
 
     logical function handle_contains_procedure(parser, arena, token, prefix_buffer, &
-                                               body_indices, parse_function_proc, &
-                                               parse_subroutine_proc) result(handled)
+            body_indices, parse_function_proc, &
+            parse_subroutine_proc) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -719,7 +719,7 @@ contains
     end function handle_contains_procedure
 
     logical function handle_contains_prefix(parser, prefix_buffer, token) &
-        result(handled)
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         type(token_t), intent(in) :: token
@@ -737,7 +737,7 @@ contains
         lowered = to_lower(token%text)
         select case (trim(lowered))
         case ("pure", "elemental", "impure", "recursive", "nonrecursive", &
-              "non_recursive", "module")
+                "non_recursive", "module")
             call prefix_buffer%get_all(stored)
             call append_prefix_token(stored, trim(lowered))
             call prefix_buffer%set(stored)
@@ -745,7 +745,7 @@ contains
             consumed_token = parser%consume()
             handled = .true.
         case ("integer", "real", "logical", "character", "complex", "double", &
-              "procedure")
+                "procedure")
             call prefix_buffer%get_all(stored)
             if (trim(lowered) == "double") then
                 lookahead = parser%get_token_at_index(parser%current_token + 1)
@@ -787,8 +787,8 @@ contains
     end function handle_contains_prefix
 
     subroutine parse_contains_section(parser, arena, procedure_name, end_keyword, &
-                                      body_indices, parse_function_proc, &
-                                      parse_subroutine_proc)
+            body_indices, parse_function_proc, &
+            parse_subroutine_proc)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: procedure_name
@@ -819,8 +819,8 @@ contains
 
             if (token%kind == TK_KEYWORD .and. &
                 handle_contains_procedure(parser, arena, token, prefix_buffer, &
-                                          body_indices, parse_function_proc, &
-                                          parse_subroutine_proc)) then
+                body_indices, parse_function_proc, &
+                parse_subroutine_proc)) then
                 cycle
             end if
 
@@ -833,7 +833,7 @@ contains
     end subroutine parse_contains_section
 
     subroutine parse_interface_body(parser, arena, procedure_name, end_keyword, &
-                                    body_indices)
+            body_indices)
         use parser_declarations_core_module, only: parse_declaration
         use parser_import_resolution_module, only: parse_use_statement
         use parser_interface_import_module, only: parse_import_statement
@@ -853,7 +853,7 @@ contains
             token = parser%peek()
 
             if (check_interface_body_end(parser, token, end_keyword, &
-                                         procedure_name)) exit
+                procedure_name)) exit
 
             if (token%kind == TK_NEWLINE) then
                 token = parser%consume()
@@ -890,7 +890,7 @@ contains
     end subroutine parse_interface_body
 
     logical function check_interface_body_end(parser, first_token, end_keyword, &
-                                              procedure_name) result(is_end)
+            procedure_name) result(is_end)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: first_token
         character(len=*), intent(in) :: end_keyword
@@ -922,8 +922,8 @@ contains
                         return
                     end if
                 else if (token_local%kind == TK_NEWLINE .or. &
-                         token_local%kind == TK_COMMENT .or. &
-                         token_local%kind == TK_EOF) then
+                        token_local%kind == TK_COMMENT .or. &
+                        token_local%kind == TK_EOF) then
                     token_local = parser%consume()
                     is_end = .true.
                     return
@@ -960,8 +960,8 @@ contains
                     return
                 end if
             else if (token_local%kind == TK_NEWLINE .or. &
-                     token_local%kind == TK_COMMENT .or. &
-                     token_local%kind == TK_EOF) then
+                    token_local%kind == TK_COMMENT .or. &
+                    token_local%kind == TK_EOF) then
                 token_local = parser%consume()
                 token_local = parser%consume()
                 is_end = .true.
@@ -981,13 +981,13 @@ contains
         is_decl = .false.
         select case (trim(keyword))
         case ("integer", "real", "logical", "character", "complex", &
-              "double", "type", "class", "dimension", "intent", &
-              "optional", "pointer", "target", "allocatable", &
-              "parameter", "save", "external", "intrinsic", &
-              "common", "equivalence", "data", "implicit", &
-              "import", "procedure", "value", "volatile", &
-              "asynchronous", "contiguous", "codimension", &
-              "protected", "sequence", "bind", "use")
+                "double", "type", "class", "dimension", "intent", &
+                "optional", "pointer", "target", "allocatable", &
+                "parameter", "save", "external", "intrinsic", &
+                "common", "equivalence", "data", "implicit", &
+                "import", "procedure", "value", "volatile", &
+                "asynchronous", "contiguous", "codimension", &
+                "protected", "sequence", "bind", "use")
             is_decl = .true.
         end select
     end function is_interface_body_declaration

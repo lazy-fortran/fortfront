@@ -3,8 +3,8 @@ module parser_utilities
     ! Contains helper functions for identifier lists, letter ranges, and type specs
 
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
 
     implicit none
@@ -12,8 +12,8 @@ module parser_utilities
 
     ! Public utility functions
     public :: parse_identifier_list, parse_letter_ranges, parse_character_type_spec, &
-              parse_kind_specification, is_type_specification, skip_to_end_of_line, &
-              peek_next_nontrivial_token, consume_token
+        parse_kind_specification, is_type_specification, skip_to_end_of_line, &
+        peek_next_nontrivial_token, consume_token
 
 contains
 
@@ -164,7 +164,7 @@ contains
                         len_trim(token%text) == 1) then
                         token = parser%consume() ! consume second letter
                         letter_ranges(i) = trim(letter_ranges(i))//"-"// &
-                                           trim(token%text)
+                            trim(token%text)
                     end if
                 end if
 
@@ -263,7 +263,7 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             select case (trim(token%text))
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "byte", "procedure")
+                    "double", "byte", "procedure")
                 is_type_spec = .true.
                 type_name = token%text
 

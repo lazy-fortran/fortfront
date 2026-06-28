@@ -20,7 +20,7 @@ program test_issue_354_crash
 contains
 
     subroutine test_uninitialized_substitution()
-        type(substitution_t) :: subs(10)  ! Array of uninitialized types
+        type(substitution_t) :: subs(10) ! Array of uninitialized types
         type(substitution_t) :: target
         type(type_var_t) :: var
         type(mono_type_t) :: mono
@@ -36,14 +36,14 @@ contains
         ! This loop would crash with GCC 15.2.1 bug
         ! The uninitialized subs(i) has undefined allocatable components
         do i = 1, 10
-            subs(i) = target  ! Assignment checks allocated() on undefined memory
+            subs(i) = target ! Assignment checks allocated() on undefined memory
         end do
 
         print *, "  PASS: No crash on uninitialized assignment"
     end subroutine test_uninitialized_substitution
 
     subroutine test_uninitialized_type_env()
-        type(type_env_t) :: envs(5)  ! Array of uninitialized environments
+        type(type_env_t) :: envs(5) ! Array of uninitialized environments
         type(type_env_t) :: source_env
         type(identifier_table_t), target :: table
         type(poly_type_t) :: scheme
@@ -69,7 +69,7 @@ contains
     end subroutine test_uninitialized_type_env
 
     subroutine test_array_of_poly_types()
-        type(poly_type_t) :: poly_array(100)  ! Large array
+        type(poly_type_t) :: poly_array(100) ! Large array
         type(poly_type_t) :: source
         type(mono_type_t) :: mono
         type(type_var_t) :: var

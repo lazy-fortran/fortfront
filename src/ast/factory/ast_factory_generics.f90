@@ -2,10 +2,10 @@ module ast_factory_generics
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use uid_generator, only: generate_uid
     use ast_nodes_generics, only: template_block_node, instantiate_statement_node, &
-                                  trait_block_node, requirement_block_node, &
-                                  implements_block_node, create_template_block, &
-                                  create_instantiate_statement, create_trait_block, &
-                                  create_requirement_block, create_implements_block
+        trait_block_node, requirement_block_node, &
+        implements_block_node, create_template_block, &
+        create_instantiate_statement, create_trait_block, &
+        create_requirement_block, create_implements_block
     implicit none
     private
 
@@ -18,8 +18,8 @@ module ast_factory_generics
 contains
 
     function push_template_block(arena, name, parameter_names, declaration_indices, &
-                                 procedure_indices, has_contains, line, column, &
-                                 parent_index) result(template_index)
+            procedure_indices, has_contains, line, column, &
+            parent_index) result(template_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
@@ -31,7 +31,7 @@ contains
         type(template_block_node) :: node
 
         node = create_template_block(name, parameter_names, declaration_indices, &
-                                     procedure_indices, has_contains, line, column)
+            procedure_indices, has_contains, line, column)
         node%uid = generate_uid()
 
         call arena%push(node, "template_block_node", parent_index)
@@ -57,7 +57,7 @@ contains
     end function push_template_block
 
     function push_instantiate_statement(arena, template_name, spec_text, line, column, &
-                                        parent_index) result(stmt_index)
+            parent_index) result(stmt_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: template_name
         character(len=*), intent(in) :: spec_text
@@ -77,8 +77,8 @@ contains
     end function push_instantiate_statement
 
     function push_trait_block(arena, name, parameter_names, declaration_indices, &
-                              procedure_indices, has_contains, line, column, &
-                              parent_index) result(trait_index)
+            procedure_indices, has_contains, line, column, &
+            parent_index) result(trait_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
@@ -90,7 +90,7 @@ contains
         type(trait_block_node) :: node
 
         node = create_trait_block(name, parameter_names, declaration_indices, &
-                                  procedure_indices, has_contains, line, column)
+            procedure_indices, has_contains, line, column)
         node%uid = generate_uid()
 
         call arena%push(node, "trait_block_node", parent_index)
@@ -116,8 +116,8 @@ contains
     end function push_trait_block
 
     function push_requirement_block(arena, name, parameter_names, declaration_indices, &
-                                    procedure_indices, has_contains, line, column, &
-                                    parent_index) result(requirement_index)
+            procedure_indices, has_contains, line, column, &
+            parent_index) result(requirement_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
@@ -129,7 +129,7 @@ contains
         type(requirement_block_node) :: node
 
         node = create_requirement_block(name, parameter_names, declaration_indices, &
-                                        procedure_indices, has_contains, line, column)
+            procedure_indices, has_contains, line, column)
         node%uid = generate_uid()
 
         call arena%push(node, "requirement_block_node", parent_index)
@@ -138,14 +138,14 @@ contains
         if (present(declaration_indices)) then
             if (size(declaration_indices) > 0) then
                 call link_children_to_parent(arena, requirement_index, &
-                                             declaration_indices)
+                    declaration_indices)
             end if
         end if
 
         if (present(procedure_indices)) then
             if (size(procedure_indices) > 0) then
                 call link_children_to_parent(arena, requirement_index, &
-                                             procedure_indices)
+                    procedure_indices)
             end if
         end if
 
@@ -157,8 +157,8 @@ contains
     end function push_requirement_block
 
     function push_implements_block(arena, name, parameter_names, declaration_indices, &
-                                   procedure_indices, has_contains, line, column, &
-                                   parent_index) result(implements_index)
+            procedure_indices, has_contains, line, column, &
+            parent_index) result(implements_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
@@ -170,7 +170,7 @@ contains
         type(implements_block_node) :: node
 
         node = create_implements_block(name, parameter_names, declaration_indices, &
-                                       procedure_indices, has_contains, line, column)
+            procedure_indices, has_contains, line, column)
         node%uid = generate_uid()
 
         call arena%push(node, "implements_block_node", parent_index)
@@ -179,7 +179,7 @@ contains
         if (present(declaration_indices)) then
             if (size(declaration_indices) > 0) then
                 call link_children_to_parent(arena, implements_index, &
-                                             declaration_indices)
+                    declaration_indices)
             end if
         end if
 

@@ -9,7 +9,7 @@ program test_io_format
 
     ! Test OPEN with various specifiers
     open(unit=unit_num, file='test.dat', status='unknown', iostat=io_stat, &
-         iomsg=io_msg)
+        iomsg=io_msg)
 
     ! Test WRITE with format
     write(10, *) 42.0_dp

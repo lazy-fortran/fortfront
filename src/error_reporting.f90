@@ -67,7 +67,7 @@ contains
 
     ! Create error context from token
     function create_error_context_from_token(token, filename, source_lines) &
-        result(context)
+            result(context)
         type(token_t), intent(in) :: token
         character(len=*), intent(in), optional :: filename
         character(len=*), intent(in), optional :: source_lines(:)
@@ -123,7 +123,7 @@ contains
 
     ! Add error with token context
     subroutine error_collection_add_error_with_token(self, message, token, severity, &
-                                                     suggestion)
+            suggestion)
         class(error_collection_t), intent(inout) :: self
         character(len=*), intent(in) :: message
         type(token_t), intent(in) :: token
@@ -136,7 +136,7 @@ contains
 
     ! Add error with explicit context
     subroutine error_collection_add_error_with_context(self, message, context, &
-                                                       severity, suggestion)
+            severity, suggestion)
         class(error_collection_t), intent(inout) :: self
         character(len=*), intent(in) :: message
         type(error_context_t), intent(in) :: context
@@ -224,7 +224,7 @@ contains
         ! Build formatted message
         if (len_trim(location_str) > 0) then
             formatted = trim(severity_str) // " at " // trim(location_str) // ": " // &
-                        error%message
+                error%message
         else
             formatted = trim(severity_str) // ": " // error%message
         end if
@@ -234,14 +234,14 @@ contains
             formatted = formatted // new_line('a') // "  " // error%context%source_line
             if (error%context%column <= len(error%context%source_line)) then
                 formatted = formatted // new_line('a') // "  " // &
-                            repeat(" ", error%context%column - 1) // "^"
+                    repeat(" ", error%context%column - 1) // "^"
             end if
         end if
 
         ! Add suggestion if available
         if (allocated(error%suggestion)) then
             formatted = formatted // new_line('a') // "  Suggestion: " // &
-                        error%suggestion
+                error%suggestion
         end if
     end function format_error_message
 

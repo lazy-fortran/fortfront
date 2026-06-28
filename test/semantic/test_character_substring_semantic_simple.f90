@@ -51,7 +51,7 @@ contains
 
         ! Verify flag is preserved
         select type (stored_node => arena%entries(node_idx)%node)
-        type is (array_slice_node)
+            type is (array_slice_node)
             if (stored_node%is_character_substring) then
                 print *, "PASS: is_character_substring flag preserved in arena"
             else

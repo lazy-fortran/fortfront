@@ -9,13 +9,13 @@ program test_cmplx_intrinsic_inference
     status = 0
 
     call run_case('examples/lf/issue_2073_basic_cmplx.lf', &
-                  'basic cmplx assignment', status)
+        'basic cmplx assignment', status)
     call run_case('examples/lf/issue_2073_cmplx_aimag.lf', &
-                  'cmplx with aimag usage', status)
+        'cmplx with aimag usage', status)
     call run_case('examples/lf/issue_2073_cmplx_real.lf', &
-                  'cmplx with real usage', status)
+        'cmplx with real usage', status)
     call run_case('examples/lf/issue_2073_cmplx_abs.lf', &
-                  'cmplx with abs usage', status)
+        'cmplx with abs usage', status)
 
     if (status /= 0) then
         error stop 'cmplx intrinsic inference tests FAILED'

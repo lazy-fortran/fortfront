@@ -14,7 +14,7 @@ module codegen_program_body
 contains
 
     subroutine append_program_body(arena, node, code, non_use_indices, &
-                                   non_use_count, extra_decl_code)
+            non_use_count, extra_decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: code
@@ -26,7 +26,7 @@ contains
         if (non_use_count <= 0) return
 
         body_code = generate_grouped_body( &
-                    arena, non_use_indices(1:non_use_count), 1)
+            arena, non_use_indices(1:non_use_count), 1)
 
         if (index(body_code, 'output_unit') > 0) then
             call ensure_iso_clause(code, 'output_unit')
@@ -63,7 +63,7 @@ contains
             iso_pos = search_pos + iso_pos - 1
 
             call augment_iso_line_at_position(code, iso_pos, search_pos, found_clause, &
-                                              clause)
+                clause)
             if (found_clause) exit
 
             if (search_pos <= 0 .or. search_pos > len(code)) exit
@@ -71,7 +71,7 @@ contains
     end function try_augment_existing_iso_clause
 
     subroutine augment_iso_line_at_position(code, iso_pos, search_pos, found_clause, &
-                                            clause)
+            clause)
         character(len=:), allocatable, intent(inout) :: code
         integer, intent(in) :: iso_pos
         integer, intent(inout) :: search_pos
@@ -114,13 +114,13 @@ contains
 
         line_start = position
         do while (line_start > 1 .and. code(line_start - 1:line_start - 1) /= &
-                  new_line('A'))
+                new_line('A'))
             line_start = line_start - 1
         end do
 
         line_end = position
         do while (line_end <= len(code) .and. code(line_end:line_end) /= &
-                  new_line('A'))
+                new_line('A'))
             line_end = line_end + 1
         end do
     end subroutine find_line_bounds
@@ -211,8 +211,8 @@ contains
         end if
 
         code = prefix // &
-               '    use, intrinsic :: iso_fortran_env, only: ' // trim(clause) // &
-               new_line('A') // suffix
+            '    use, intrinsic :: iso_fortran_env, only: ' // trim(clause) // &
+            new_line('A') // suffix
     end subroutine insert_new_iso_use
 
     pure logical function iso_line_has_clause(iso_line, clause) result(has_clause)
@@ -341,7 +341,7 @@ contains
 
         code = iachar(ch)
         is_valid = (ch == '.') .or. (ch == 'e') .or. (ch == 'E') .or. &
-                   (code >= iachar('0') .and. code <= iachar('9'))
+            (code >= iachar('0') .and. code <= iachar('9'))
     end function is_real_literal_tail
 
     pure logical function has_user_dp_variable(code) result(found)
@@ -381,7 +381,7 @@ contains
         if (i + 2 > n) return
         ! Must be followed (after optional whitespace) by '=>'
         if (.not. (code(i + 2:i + 2) == ' ' .or. &
-                   code(i + 2:i + 2) == '=')) return
+            code(i + 2:i + 2) == '=')) return
         ! Require previous non-identifier character (e.g. `: ` after only:)
         if (i == 1) then
             prev = ' '
@@ -584,7 +584,7 @@ contains
 
         code = iachar(ch)
         is_valid = (ch == '.') .or. &
-                   (code >= iachar('0') .and. code <= iachar('9'))
+            (code >= iachar('0') .and. code <= iachar('9'))
     end function is_dp_literal_lead
 
     pure logical function is_identifier_char(ch) result(is_ident)
@@ -593,8 +593,8 @@ contains
 
         code = iachar(ch)
         is_ident = (code >= iachar('a') .and. code <= iachar('z')) .or. &
-                   (code >= iachar('0') .and. code <= iachar('9')) .or. &
-                   ch == '_'
+            (code >= iachar('0') .and. code <= iachar('9')) .or. &
+            ch == '_'
     end function is_identifier_char
 
 end module codegen_program_body

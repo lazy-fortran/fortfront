@@ -7,11 +7,11 @@ program test_issue_1405_data_statement
     print *, "=== Codegen: DATA statements preserved ==="
 
     call check_case("implicit-array-init", &
-                    'examples/f90/data_statement_array_literal.f90', &
-                    'integer, dimension(3) :: common_array', &
-                    'data common_array/1, 2, 3 /', &
-                    '', &
-                    'integer :: common_array(3)')
+        'examples/f90/data_statement_array_literal.f90', &
+        'integer, dimension(3) :: common_array', &
+        'data common_array/1, 2, 3 /', &
+        '', &
+        'integer :: common_array(3)')
 
     print *, "PASSED"
 
@@ -20,7 +20,7 @@ contains
     include '../common/read_example.inc'
 
     subroutine check_case(name, source_path, expect_decl, expect_assign, forbidden, &
-                          alt_decl)
+            alt_decl)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: source_path
         character(len=*), intent(in) :: expect_decl

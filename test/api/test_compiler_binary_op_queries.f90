@@ -1,9 +1,9 @@
 program test_compiler_binary_op_queries
     use fortfront, only: compiler_frontend_options_t, &
-                         compiler_frontend_result_t, &
-                         compile_frontend_from_string, &
-                         is_binary_op, get_binary_op_info, &
-                         INPUT_MODE_STANDARD
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        is_binary_op, get_binary_op_info, &
+        INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -40,7 +40,7 @@ program test_compiler_binary_op_queries
     end if
 
     call get_binary_op_info(result%arena, top_index, operator, left_index, &
-                            right_index, line, column, error_msg)
+        right_index, line, column, error_msg)
     if (len_trim(error_msg) > 0) then
         print *, 'FAIL: get_binary_op_info: ', trim(error_msg)
         stop 1
@@ -60,7 +60,7 @@ program test_compiler_binary_op_queries
         stop 1
     end if
     call get_binary_op_info(result%arena, right_index, operator, nested_left, &
-                            nested_right, line, column, error_msg)
+        nested_right, line, column, error_msg)
     if (trim(operator) /= '*') then
         print *, 'FAIL: expected nested operator *, got ', trim(operator)
         stop 1
@@ -68,7 +68,7 @@ program test_compiler_binary_op_queries
 
     ! A non-binary-op node (a leaf operand) is rejected.
     call get_binary_op_info(result%arena, nested_left, operator, left_index, &
-                            right_index, line, column, error_msg)
+        right_index, line, column, error_msg)
     if (len_trim(error_msg) == 0) then
         print *, 'FAIL: leaf operand wrongly reported as a binary op'
         stop 1
@@ -79,7 +79,7 @@ program test_compiler_binary_op_queries
 contains
 
     integer function find_binary_op_with_operator(frontend_result, want) &
-        result(node_index)
+            result(node_index)
         type(compiler_frontend_result_t), intent(in) :: frontend_result
         character(len=*), intent(in) :: want
         character(len=:), allocatable :: op, msg
@@ -89,7 +89,7 @@ contains
         do i = 1, frontend_result%arena%size
             if (is_binary_op(frontend_result%arena, i)) then
                 call get_binary_op_info(frontend_result%arena, i, op, li, ri, &
-                                        ln, col, msg)
+                    ln, col, msg)
                 if (len_trim(msg) == 0 .and. trim(op) == want) then
                     node_index = i
                     return

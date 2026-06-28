@@ -7,12 +7,12 @@ program test_type_contains_bindings
     implicit none
 
     character(len=*), parameter :: source = &
-                                   "type :: atype"//new_line('A')// &
-                                   "   integer :: field"//new_line('A')// &
-                                   "contains"//new_line('A')// &
-                              "   procedure :: method => impl_method"//new_line('A')// &
-                                   "   procedure :: another"//new_line('A')// &
-                                   "end type atype"
+        "type :: atype"//new_line('A')// &
+        "   integer :: field"//new_line('A')// &
+        "contains"//new_line('A')// &
+        "   procedure :: method => impl_method"//new_line('A')// &
+        "   procedure :: another"//new_line('A')// &
+        "end type atype"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
@@ -51,7 +51,7 @@ program test_type_contains_bindings
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (derived_type_node)
+                type is (derived_type_node)
                 dtype = node
                 found_dtype = .true.
                 exit
@@ -81,7 +81,7 @@ program test_type_contains_bindings
         end if
 
         select type (b1 => arena%entries(dtype%binding_indices(1))%node)
-        type is (type_binding_node)
+            type is (type_binding_node)
             binding = b1
             if (binding%binding_name /= "method") then
                 print *, "FAIL: first binding name should be method, got", &
@@ -102,7 +102,7 @@ program test_type_contains_bindings
         end select
 
         select type (b2 => arena%entries(dtype%binding_indices(2))%node)
-        type is (type_binding_node)
+            type is (type_binding_node)
             binding = b2
             if (binding%binding_name /= "another") then
                 print *, "FAIL: second binding name should be another"

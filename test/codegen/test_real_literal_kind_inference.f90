@@ -18,10 +18,10 @@ program test_real_literal_kind_inference
     end if
 
     all_passed = (index(output, 'double precision :: c, d') > 0 .or. &
-                  (index(output, 'double precision :: c') > 0 .and. &
-                   index(output, 'double precision :: d') > 0)) .and. &
-                 index(output, 'c = 1.0d0') > 0 .and. &
-                 index(output, 'd = 3.14159_8') > 0
+        (index(output, 'double precision :: c') > 0 .and. &
+        index(output, 'double precision :: d') > 0)) .and. &
+        index(output, 'c = 1.0d0') > 0 .and. &
+        index(output, 'd = 3.14159_8') > 0
 
     if (all_passed) then
         print *, 'PASS: real literal kind inference retains double precision'
@@ -40,8 +40,8 @@ contains
         character(len=*), intent(in) :: assignment
 
         check_output = index(buffer, declaration) > 0 .and. &
-                       index(buffer, assignment) > 0 .and. &
-                       index(buffer, '!ERROR:') == 0
+            index(buffer, assignment) > 0 .and. &
+            index(buffer, '!ERROR:') == 0
         if (.not. check_output) then
             write (error_unit, '(A)') 'Generated output:'
             write (error_unit, '(A)') trim(buffer)

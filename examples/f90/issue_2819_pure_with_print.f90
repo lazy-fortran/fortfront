@@ -11,7 +11,7 @@ contains
 
     pure integer function noisy(a)
         integer, intent(in) :: a
-        print *, a               ! INVALID: I/O not allowed in PURE procedure
+        print *, a ! INVALID: I/O not allowed in PURE procedure
         noisy = a + 1
     end function noisy
 

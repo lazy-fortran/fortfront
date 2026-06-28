@@ -1,11 +1,11 @@
 program test_fortfront_api_arena
     ! Test the public API AST arena functionality
     use fortfront, only: ast_arena_t, create_ast_arena, node_exists, get_node_type_at, &
-                         get_node_location, get_parent, &
-                         get_children, get_arena_stats, traverse_ast, &
-                         get_node_range, source_range_t, &
-                         ast_node, program_node, assignment_node, identifier_node, &
-                         literal_node, LITERAL_INTEGER
+        get_node_location, get_parent, &
+        get_children, get_arena_stats, traverse_ast, &
+        get_node_range, source_range_t, &
+        ast_node, program_node, assignment_node, identifier_node, &
+        literal_node, LITERAL_INTEGER
     use ast_factory, only: push_program, push_assignment, push_identifier, push_literal
     implicit none
 
@@ -158,7 +158,7 @@ contains
                 end if
 
                 select type (prog_node => arena%entries(prog_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     if (size(prog_node%body_indices) /= 1) then
                         print *, '  FAIL: Expected 1 body index, got', &
                             size(prog_node%body_indices)

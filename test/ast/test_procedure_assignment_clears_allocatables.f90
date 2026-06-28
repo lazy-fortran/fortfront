@@ -1,14 +1,14 @@
 program test_procedure_assignment_clears_allocatables
     use ast_nodes_core, only: array_literal_node, assignment_node, binary_op_node, &
-                              call_or_subscript_node, identifier_node, &
-                              literal_node, program_node
+        call_or_subscript_node, identifier_node, &
+        literal_node, program_node
     use ast_nodes_data, only: declaration_node, mixed_construct_container_node, &
-                              parameter_declaration_node, &
-                              create_mixed_construct_container
+        parameter_declaration_node, &
+        create_mixed_construct_container
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
-                                   subroutine_def_node, create_function_def, &
-                                   create_subroutine_def
+        subroutine_def_node, create_function_def, &
+        create_subroutine_def
     implicit none
 
     call test_core_assignment()
@@ -154,8 +154,8 @@ contains
         type(function_def_node) :: rhs
 
         lhs = create_function_def('old', param_indices=[1], return_type='integer', &
-                                  body_indices=[2], result_variable='res', &
-                                  prefix_keywords=[character(len=16) :: 'pure'])
+            body_indices=[2], result_variable='res', &
+            prefix_keywords=[character(len=16) :: 'pure'])
         lhs%param_intents = [character(len=16) :: 'in']
         lhs%bind_c_clause = 'bind(c)'
 
@@ -175,9 +175,9 @@ contains
         type(subroutine_def_node) :: rhs
 
         lhs = create_subroutine_def('old', param_indices=[1], body_indices=[2], &
-                                    prefix_keywords=[character(len=16) :: &
-                                                     'recursive'], &
-                                    is_recursive=.true.)
+            prefix_keywords=[character(len=16) :: &
+            'recursive'], &
+            is_recursive=.true.)
         lhs%param_intents = [character(len=16) :: 'out']
         lhs%bind_c_clause = 'bind(c)'
 
@@ -210,7 +210,7 @@ contains
         type(mixed_construct_container_node) :: rhs
 
         lhs = create_mixed_construct_container('old', implicit_indices=[1], &
-                                               explicit_indices=[2])
+            explicit_indices=[2])
 
         rhs%line = 3
         lhs = rhs

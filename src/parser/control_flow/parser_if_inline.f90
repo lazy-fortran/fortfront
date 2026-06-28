@@ -9,12 +9,12 @@ module parser_if_inline_module
     !   IF (scalar-logical-expr) action-stmt
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_statement_core_module, only: statement_callbacks_t, &
-                                            find_statement_end, &
-                                            allocate_stmt_tokens_with_eof, &
-                                            parse_basic_statement_core
+        find_statement_end, &
+        allocate_stmt_tokens_with_eof, &
+        parse_basic_statement_core
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_if
     implicit none
@@ -31,7 +31,7 @@ contains
 
     ! Parse inline IF (no THEN keyword)
     function parse_inline_if(parser, arena, condition_index, if_token, &
-                             then_token, parent_index, callbacks) result(if_index)
+            then_token, parent_index, callbacks) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
@@ -67,16 +67,16 @@ contains
         allocate (then_body_indices(1))
         then_body_indices(1) = 0
         call parse_inline_if_body(parser, arena, inline_has_continuation, &
-                                  then_body_indices, callbacks)
+            then_body_indices, callbacks)
 
         ! Create if node with no elseif/else blocks
         allocate (elseif_indices(0))
         allocate (else_body_indices(0))
         if_index = push_if(arena, condition_index, then_body_indices, &
-                           elseif_indices=elseif_indices, &
-                           else_body_indices=else_body_indices, &
-                           line=if_token%line, column=if_token%column, &
-                           parent_index=parent_index)
+            elseif_indices=elseif_indices, &
+            else_body_indices=else_body_indices, &
+            line=if_token%line, column=if_token%column, &
+            parent_index=parent_index)
     end function parse_inline_if
 
     ! Handle EOF case for inline IF
@@ -97,7 +97,7 @@ contains
 
     ! Detect if current position looks like a malformed block IF
     function detect_malformed_block_if(parser, inline_has_continuation) &
-        result(is_malformed)
+            result(is_malformed)
         type(parser_state_t), intent(in) :: parser
         logical, intent(inout) :: inline_has_continuation
         logical :: is_malformed
@@ -121,7 +121,7 @@ contains
             ! If we hit a newline, peek ahead to see if there's code after it
             if (check_tok%kind == TK_NEWLINE) then
                 is_malformed = check_newline_continuation(parser%tokens, check_idx, &
-                                                          inline_has_continuation)
+                    inline_has_continuation)
                 exit
             end if
 
@@ -148,7 +148,7 @@ contains
 
     ! Check if code after newline indicates continuation or block IF
     function check_newline_continuation(tokens, check_idx, inline_has_continuation) &
-        result(looks_like_block_if)
+            result(looks_like_block_if)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: check_idx
         logical, intent(inout) :: inline_has_continuation
@@ -191,7 +191,7 @@ contains
 
     ! Parse the body of an inline IF statement
     subroutine parse_inline_if_body(parser, arena, inline_has_continuation, &
-                                    then_body_indices, callbacks)
+            then_body_indices, callbacks)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: inline_has_continuation
@@ -209,10 +209,10 @@ contains
             stmt_end = find_statement_end(parser%tokens, stmt_start)
             if (stmt_end < stmt_start) stmt_end = stmt_start
             call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
-                                               stmt_start, stmt_end)
+                stmt_start, stmt_end)
 
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                      callbacks=callbacks)
+                callbacks=callbacks)
             if (allocated(stmt_indices)) then
                 if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
                     then_body_indices(1) = stmt_indices(1)

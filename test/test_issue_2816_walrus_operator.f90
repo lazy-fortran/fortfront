@@ -29,23 +29,23 @@ contains
         lowered = to_lower(output_code)
 
         call require(index(lowered, 'integer :: x') > 0, &
-                     'integer x not inferred from x := 42', output_code)
+            'integer x not inferred from x := 42', output_code)
         call require(index(lowered, 'double precision :: y') > 0, &
-                     'double precision y not inferred from y := 3.14d0', output_code)
+            'double precision y not inferred from y := 3.14d0', output_code)
         call require(index(lowered, 'logical :: flag') > 0, &
-                     'logical flag not inferred from flag := .true.', output_code)
+            'logical flag not inferred from flag := .true.', output_code)
         call require(index(lowered, 'character(len=5) :: s') > 0, &
-                     'character s not inferred from s := "hello"', output_code)
+            'character s not inferred from s := "hello"', output_code)
         call require(index(lowered, 'integer') > 0 .and. &
-                     index(lowered, 'nums') > 0, &
-                     'array nums not declared from nums := [1, 2, 3]', output_code)
+            index(lowered, 'nums') > 0, &
+            'array nums not declared from nums := [1, 2, 3]', output_code)
         call require(index(lowered, 'x = 42') > 0, &
-                     'walrus did not emit assignment x = 42', output_code)
+            'walrus did not emit assignment x = 42', output_code)
     end subroutine test_walrus_declaration_inference
 
     subroutine test_walrus_redeclaration_error()
         call read_example('examples/lf/issue_2816_walrus_redeclaration.lf', &
-                          input_code)
+            input_code)
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
         if (len_trim(error_msg) == 0) then

@@ -1,7 +1,7 @@
 module parser_block_statement_utils_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_WHITESPACE, TK_COMMENT
+        TK_WHITESPACE, TK_COMMENT
     implicit none
     private
 
@@ -19,15 +19,15 @@ contains
         if (is_if_start) then
             token_lower = to_lower(first_token%text)
             is_if_start = trim(token_lower) == "if" .or. &
-                          trim(token_lower) == "do" .or. &
-                          trim(token_lower) == "select" .or. &
-                          trim(token_lower) == "associate" .or. &
-                          trim(token_lower) == "block"
+                trim(token_lower) == "do" .or. &
+                trim(token_lower) == "select" .or. &
+                trim(token_lower) == "associate" .or. &
+                trim(token_lower) == "block"
         end if
     end function is_if_statement_start
 
     logical function handle_if_block_keyword(all_tokens, pos, depth, stmt_end) &
-        result(completed)
+            result(completed)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: pos
         integer, intent(inout) :: depth
@@ -66,7 +66,7 @@ contains
     end function handle_if_block_keyword
 
     logical function handle_do_block_keyword(all_tokens, pos, depth, stmt_end) &
-        result(completed)
+            result(completed)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: pos
         integer, intent(inout) :: depth
@@ -97,7 +97,7 @@ contains
     end function handle_do_block_keyword
 
     logical function handle_select_block_keyword(all_tokens, pos, depth, stmt_end) &
-        result(completed)
+            result(completed)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: pos
         integer, intent(inout) :: depth
@@ -122,7 +122,7 @@ contains
     end function handle_select_block_keyword
 
     logical function handle_associate_block_keyword(all_tokens, pos, depth, &
-                                                    stmt_end) result(completed)
+            stmt_end) result(completed)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: pos
         integer, intent(inout) :: depth
@@ -147,7 +147,7 @@ contains
     end function handle_associate_block_keyword
 
     logical function handle_block_construct_keyword(all_tokens, pos, depth, &
-                                                    stmt_end) result(completed)
+            stmt_end) result(completed)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: pos
         integer, intent(inout) :: depth
@@ -178,7 +178,7 @@ contains
     end function handle_block_construct_keyword
 
     integer function locate_block_statement_end(all_tokens, stmt_start, &
-                                                stmt_type) result(stmt_end)
+            stmt_type) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
         character(len=*), intent(in) :: stmt_type
@@ -192,7 +192,7 @@ contains
         if (stmt_type == "if") then
             if (is_single_line_if_statement(all_tokens, stmt_start)) then
                 stmt_end = locate_single_line_end(all_tokens, stmt_start, &
-                                                  all_tokens(stmt_start)%line)
+                    all_tokens(stmt_start)%line)
                 return
             end if
         end if
@@ -218,13 +218,13 @@ contains
                         return
                 case ("select")
                     if (handle_select_block_keyword(all_tokens, pos, depth, &
-                                                    stmt_end)) return
+                        stmt_end)) return
                 case ("associate")
                     if (handle_associate_block_keyword(all_tokens, pos, depth, &
-                                                       stmt_end)) return
+                        stmt_end)) return
                 case ("block")
                     if (handle_block_construct_keyword(all_tokens, pos, depth, &
-                                                       stmt_end)) return
+                        stmt_end)) return
                 end select
             end if
             stmt_end = pos
@@ -233,7 +233,7 @@ contains
     end function locate_block_statement_end
 
     logical function is_single_line_if_statement(all_tokens, stmt_start) &
-        result(is_single_line)
+            result(is_single_line)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
 
@@ -282,7 +282,7 @@ contains
     end function is_single_line_if_statement
 
     integer function locate_single_line_end(all_tokens, stmt_start, stmt_line) &
-        result(stmt_end)
+            result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
         integer, intent(in) :: stmt_line

@@ -146,9 +146,9 @@ contains
     end function find_index
 
     logical function variable_requires_allocatable(name, assigned_vars, &
-                                                   assignment_counts, var_count, &
-                                                   is_parameter, is_array) &
-        result(needs_alloc)
+            assignment_counts, var_count, &
+            is_parameter, is_array) &
+            result(needs_alloc)
         character(len=*), intent(in) :: name
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
@@ -172,7 +172,7 @@ contains
     end function variable_requires_allocatable
 
     subroutine record_assignment(arena, stmt, assigned_vars, assignment_counts, &
-                                 var_count)
+            var_count)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
         character(len=64), intent(inout) :: assigned_vars(:)
@@ -187,10 +187,10 @@ contains
 
         ! Extract variable name from different target types
         select type (target => arena%entries(stmt%target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             ! Simple assignment: x = value
             var_name = target%name
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             ! Element assignments like arr(0)=... should not trigger allocatable
             ! handling. Whole-array reassignments use identifier targets.
             var_name = ""
@@ -232,8 +232,8 @@ contains
     end subroutine record_string_variable
 
     subroutine append_split_declaration(arena, template_decl, var_name, &
-                                        needs_allocatable, prog_index, new_indices, &
-                                        new_count)
+            needs_allocatable, prog_index, new_indices, &
+            new_count)
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_node), intent(in) :: template_decl
         character(len=*), intent(in) :: var_name
@@ -246,14 +246,14 @@ contains
 
         names(1) = trim(var_name)
         call create_split_declaration(template_decl, names, 1, needs_allocatable, &
-                                      single_decl)
+            single_decl)
         call arena%push(single_decl, "declaration", prog_index)
         new_count = new_count + 1
         new_indices(new_count) = arena%size
     end subroutine append_split_declaration
 
     subroutine replace_declaration_with_list(arena, prog_index, old_index, &
-                                             new_indices, new_count)
+            new_indices, new_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         integer, intent(in) :: old_index
@@ -265,7 +265,7 @@ contains
         if (.not. node_is_active(arena, prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
 
             pos = 0
@@ -321,8 +321,8 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     call count_variable_assignments(arena, prog%body_indices(i), &
-                                                    assigned_vars, &
-                                                    assignment_counts, var_count)
+                        assigned_vars, &
+                        assignment_counts, var_count)
                 end if
             end if
         end do
@@ -340,9 +340,9 @@ contains
             if (local_indices(i) > 0 .and. local_indices(i) <= arena%size) then
                 if (allocated(arena%entries(local_indices(i))%node)) then
                     call mark_declarations_allocatable(arena, local_indices(i), &
-                                                       assigned_vars, &
-                                                       assignment_counts, &
-                                                       var_count, prog_index)
+                        assigned_vars, &
+                        assignment_counts, &
+                        var_count, prog_index)
                 end if
             end if
         end do
@@ -354,7 +354,7 @@ contains
 
     ! Count assignments to variables (helper for array reassignment detection)
     subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
-                                          assignment_counts, var_count)
+            assignment_counts, var_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: assigned_vars(:)
@@ -371,14 +371,14 @@ contains
             if (.not. node_is_active(arena, current_index)) cycle
 
             select type (stmt => arena%entries(current_index)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 call record_assignment(arena, stmt, assigned_vars, &
-                                       assignment_counts, var_count)
-            type is (do_loop_node)
+                    assignment_counts, var_count)
+                type is (do_loop_node)
                 if (allocated(stmt%body_indices)) then
                     call stack_push_many(stack, stmt%body_indices)
                 end if
-            type is (if_node)
+                type is (if_node)
                 if (allocated(stmt%else_body_indices)) then
                     call stack_push_many(stack, stmt%else_body_indices)
                 end if
@@ -393,7 +393,7 @@ contains
 
     ! Mark declarations as allocatable for variables with multiple array assignments
     subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
-                                             assignment_counts, var_count, prog_index)
+            assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -411,16 +411,16 @@ contains
             if (.not. node_is_active(arena, current_index)) cycle
 
             select type (stmt => arena%entries(current_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 call process_declaration_allocatable(arena, current_index, stmt, &
-                                                     assigned_vars, &
-                                                     assignment_counts, var_count, &
-                                                     prog_index)
-            type is (do_loop_node)
+                    assigned_vars, &
+                    assignment_counts, var_count, &
+                    prog_index)
+                type is (do_loop_node)
                 if (allocated(stmt%body_indices)) then
                     call stack_push_many(stack, stmt%body_indices)
                 end if
-            type is (if_node)
+                type is (if_node)
                 if (allocated(stmt%else_body_indices)) then
                     call stack_push_many(stack, stmt%else_body_indices)
                 end if
@@ -434,8 +434,8 @@ contains
     end subroutine mark_declarations_allocatable
 
     subroutine process_declaration_allocatable(arena, decl_index, stmt, &
-                                               assigned_vars, assignment_counts, &
-                                               var_count, prog_index)
+            assigned_vars, assignment_counts, &
+            var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         type(declaration_node), intent(inout) :: stmt
@@ -461,16 +461,16 @@ contains
 
             if (needs_split) then
                 call split_multi_variable_declaration(arena, decl_index, &
-                                                      assigned_vars, &
-                                                      assignment_counts, var_count, &
-                                                      prog_index)
+                    assigned_vars, &
+                    assignment_counts, var_count, &
+                    prog_index)
             end if
         else
             is_parameter = is_procedure_parameter(arena, decl_index)
             needs_alloc = variable_requires_allocatable(stmt%var_name, &
-                                                        assigned_vars, &
-                                                        assignment_counts, var_count, &
-                                                        is_parameter, stmt%is_array)
+                assigned_vars, &
+                assignment_counts, var_count, &
+                is_parameter, stmt%is_array)
             if (needs_alloc) then
                 if (apply_allocatable_attributes(stmt)) then
                     arena%entries(decl_index)%node = stmt
@@ -481,10 +481,10 @@ contains
 
     ! Handle multi-variable declarations for allocatable marking
     subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
-                                                             assigned_vars, &
-                                                             assignment_counts, &
-                                                             var_count, prog_index, &
-                                                             needs_split)
+            assigned_vars, &
+            assignment_counts, &
+            var_count, prog_index, &
+            needs_split)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -502,9 +502,9 @@ contains
         if (.not. node_is_active(arena, decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. (decl%is_multi_declaration .and. &
-                       allocated(decl%var_names))) return
+                allocated(decl%var_names))) return
 
             is_parameter = is_procedure_parameter(arena, decl_index)
             do i = 1, size(decl%var_names)
@@ -533,8 +533,8 @@ contains
 
     ! Split multi-variable declaration when some variables need allocatable
     subroutine split_multi_variable_declaration(arena, decl_index, &
-                                                assigned_vars, assignment_counts, &
-                                                var_count, prog_index)
+            assigned_vars, assignment_counts, &
+            var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -551,9 +551,9 @@ contains
         if (.not. node_is_active(arena, decl_index)) return
 
         select type (decl_orig => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. (decl_orig%is_multi_declaration .and. &
-                       allocated(decl_orig%var_names))) return
+                allocated(decl_orig%var_names))) return
 
             ! CRITICAL: Copy declaration to the stack before arena pushes to avoid a
             ! dangling selector if the arena reallocates during split declaration.
@@ -566,24 +566,24 @@ contains
             ! Safe: template_decl is a stack copy, not an arena pointer
             do i = 1, size(template_decl%var_names)
                 needs_allocatable = variable_requires_allocatable( &
-                                    template_decl%var_names(i), assigned_vars, &
-                                    assignment_counts, &
-                                    var_count, is_parameter, template_decl%is_array)
+                    template_decl%var_names(i), assigned_vars, &
+                    assignment_counts, &
+                    var_count, is_parameter, template_decl%is_array)
                 call append_split_declaration(arena, template_decl, &
-                                              template_decl%var_names(i), &
-                                              needs_allocatable, prog_index, &
-                                              new_indices, new_count)
+                    template_decl%var_names(i), &
+                    needs_allocatable, prog_index, &
+                    new_indices, new_count)
             end do
 
             call replace_declaration_with_list(arena, prog_index, decl_index, &
-                                               new_indices, new_count)
+                new_indices, new_count)
             deallocate (new_indices)
         end select
     end subroutine split_multi_variable_declaration
 
     ! Create a split declaration from original with specified variables
     subroutine create_split_declaration(orig_decl, var_names, var_count, &
-                                        is_allocatable, new_decl)
+            is_allocatable, new_decl)
         type(declaration_node), intent(in) :: orig_decl
         character(len=64), intent(in) :: var_names(:)
         integer, intent(in) :: var_count
@@ -623,7 +623,7 @@ contains
 
     ! Update program body indices to replace old declaration with new ones
     subroutine update_program_body_indices(arena, prog_index, old_decl_index, &
-                                           new_alloc_index, new_non_alloc_index)
+            new_alloc_index, new_non_alloc_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index, old_decl_index
         integer, intent(in) :: new_alloc_index, new_non_alloc_index
@@ -633,7 +633,7 @@ contains
         if (.not. node_is_active(arena, prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
 
             old_pos = find_index(prog%body_indices, old_decl_index)
@@ -680,9 +680,9 @@ contains
         if (.not. arena%has_node_at(value_index)) return
 
         select type (value => arena%entries(value_index)%node)
-        type is (array_literal_node)
+            type is (array_literal_node)
             is_array = .true.
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             ! Check if this is an array slice
             is_array = has_array_slice_args(arena, value)
         end select
@@ -703,9 +703,9 @@ contains
         if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             is_param = .true.
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             is_param = .true.
         end select
     end function is_procedure_parameter
@@ -726,7 +726,7 @@ contains
         if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             is_component = .true.
         end select
     end function is_type_component
@@ -744,21 +744,21 @@ contains
 
         if (allocated(prog%body_indices)) then
             call collect_program_string_targets(arena, prog%body_indices, &
-                                                string_vars_needing_allocatable, &
-                                                var_count)
+                string_vars_needing_allocatable, &
+                var_count)
         end if
 
         if (var_count > 0 .and. allocated(prog%body_indices)) then
             call apply_string_allocatable_marks(arena, prog%body_indices, &
-                                                string_vars_needing_allocatable, &
-                                                var_count)
+                string_vars_needing_allocatable, &
+                var_count)
         end if
 
         deallocate (string_vars_needing_allocatable)
     end subroutine mark_allocatable_for_string_length_changes
 
     subroutine collect_program_string_targets(arena, body_indices, targets, &
-                                              target_count)
+            target_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
         character(len=64), intent(inout) :: targets(:)
@@ -768,12 +768,12 @@ contains
         do i = 1, size(body_indices)
             if (.not. node_is_active(arena, body_indices(i))) cycle
             call collect_string_vars_needing_allocatable(arena, body_indices(i), &
-                                                         targets, target_count)
+                targets, target_count)
         end do
     end subroutine collect_program_string_targets
 
     subroutine apply_string_allocatable_marks(arena, body_indices, targets, &
-                                              target_count)
+            target_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
         character(len=64), intent(in) :: targets(:)
@@ -783,7 +783,7 @@ contains
         do i = 1, size(body_indices)
             if (.not. node_is_active(arena, body_indices(i))) cycle
             select type (stmt => arena%entries(body_indices(i))%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 call mark_string_declaration(stmt, targets, target_count)
             end select
         end do
@@ -812,7 +812,7 @@ contains
         end if
 
         is_character_decl = (type_name_trim == 'character' .or. &
-                             stmt%inferred_type%kind == TCHAR)
+            stmt%inferred_type%kind == TCHAR)
         if (.not. is_character_decl) return
 
         if (stmt%inferred_type%kind > 0) then
@@ -828,7 +828,7 @@ contains
 
     ! Recursively collect variables that need allocatable strings
     subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
-                                                       var_list, var_count)
+            var_list, var_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: var_list(:)
@@ -844,17 +844,17 @@ contains
             if (.not. node_is_active(arena, current_index)) cycle
 
             select type (stmt => arena%entries(current_index)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 if (.not. node_is_active(arena, stmt%target_index)) cycle
                 select type (target => arena%entries(stmt%target_index)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     call record_string_variable(target, var_list, var_count)
                 end select
-            type is (do_loop_node)
+                type is (do_loop_node)
                 if (allocated(stmt%body_indices)) then
                     call stack_push_many(stack, stmt%body_indices)
                 end if
-            type is (if_node)
+                type is (if_node)
                 if (allocated(stmt%else_body_indices)) then
                     call stack_push_many(stack, stmt%else_body_indices)
                 end if

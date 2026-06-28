@@ -1,8 +1,8 @@
 module type_string_utils
     use type_system_unified, only: mono_type_t, type_args_allocated, &
-                                   type_args_size, type_args_element, TVAR, &
-                                   TINT, TREAL, TCHAR, TLOGICAL, TARRAY, &
-                                   TCOMPLEX, TDOUBLE, TFUN, TDERIVED
+        type_args_size, type_args_element, TVAR, &
+        TINT, TREAL, TCHAR, TLOGICAL, TARRAY, &
+        TCOMPLEX, TDOUBLE, TFUN, TDERIVED
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -28,9 +28,9 @@ contains
     end function is_character_type_string
 
     recursive function mono_type_to_string(mono_type, include_shape, &
-                                           prefer_len_zero_char, &
-                                           standardize_real, fallback, &
-                                           success) result(type_str)
+            prefer_len_zero_char, &
+            standardize_real, fallback, &
+            success) result(type_str)
         type(mono_type_t), intent(in) :: mono_type
         logical, intent(in), optional :: include_shape
         logical, intent(in), optional :: prefer_len_zero_char
@@ -56,9 +56,9 @@ contains
         if (present(standardize_real)) standardize_real_local = standardize_real
 
         call resolve_mono_type_string(mono_type, include_shape_local, &
-                                      prefer_len_zero_local, &
-                                      standardize_real_local, computed_string, &
-                                      success_local)
+            prefer_len_zero_local, &
+            standardize_real_local, computed_string, &
+            success_local)
 
         if (success_local) then
             type_str = computed_string
@@ -72,9 +72,9 @@ contains
     end function mono_type_to_string
 
     recursive subroutine resolve_mono_type_string(mono_type, include_shape, &
-                                                  prefer_len_zero_char, &
-                                                  standardize_real, &
-                                                  type_str, success)
+            prefer_len_zero_char, &
+            standardize_real, &
+            type_str, success)
         type(mono_type_t), intent(in) :: mono_type
         logical, intent(in) :: include_shape
         logical, intent(in) :: prefer_len_zero_char
@@ -104,11 +104,11 @@ contains
             type_str = "logical"
         case (TCHAR)
             call resolve_character_string(mono_type, prefer_len_zero_char, &
-                                          type_str)
+                type_str)
         case (TARRAY)
             call resolve_array_string(mono_type, include_shape, &
-                                      prefer_len_zero_char, standardize_real, &
-                                      array_string, success)
+                prefer_len_zero_char, standardize_real, &
+                array_string, success)
             if (success) type_str = array_string
         case (TCOMPLEX)
             type_str = "complex"
@@ -119,8 +119,8 @@ contains
             if (type_args_allocated(mono_type) .and. &
                 type_args_size(mono_type) >= 2) then
                 call resolve_mono_type_string(type_args_element(mono_type, 2), &
-                                              include_shape, prefer_len_zero_char, &
-                                              standardize_real, type_str, success)
+                    include_shape, prefer_len_zero_char, &
+                    standardize_real, type_str, success)
                 if (.not. success) type_str = ""
             else
                 type_str = ""
@@ -158,9 +158,9 @@ contains
     end subroutine resolve_character_string
 
     recursive subroutine resolve_array_string(mono_type, include_shape, &
-                                              prefer_len_zero_char, &
-                                              standardize_real, type_str, &
-                                              success)
+            prefer_len_zero_char, &
+            standardize_real, type_str, &
+            success)
         type(mono_type_t), intent(in) :: mono_type
         logical, intent(in) :: include_shape
         logical, intent(in) :: prefer_len_zero_char
@@ -184,10 +184,10 @@ contains
         inner_element = type_args_element(mono_type, 1)
 
         element_str = mono_type_to_string(inner_element, &
-                                          include_shape=.false., &
-                                          prefer_len_zero_char=prefer_len_zero_char, &
-                                          standardize_real=standardize_real, &
-                                          success=success)
+            include_shape=.false., &
+            prefer_len_zero_char=prefer_len_zero_char, &
+            standardize_real=standardize_real, &
+            success=success)
         if (.not. success) return
 
         if (.not. include_shape) then
@@ -206,7 +206,7 @@ contains
                 type_str = type_str // ", allocatable"
             end if
         else if (mono_type%alloc_info%is_allocatable .or. &
-                 mono_type%alloc_info%needs_allocatable_string) then
+                mono_type%alloc_info%needs_allocatable_string) then
             type_str = type_str // ", dimension(:), allocatable"
         else
             type_str = type_str // ", dimension(:)"
@@ -223,12 +223,12 @@ contains
         visited_count = 0
         depth = 0
         call collect_array_dimensions_impl(mono_type, dim_spec, &
-                                           visited_ids, visited_count, depth)
+            visited_ids, visited_count, depth)
     end subroutine collect_array_dimensions
 
     recursive subroutine collect_array_dimensions_impl(mono_type, dim_spec, &
-                                                       visited_ids, &
-                                                       visited_count, depth)
+            visited_ids, &
+            visited_count, depth)
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable, intent(inout) :: dim_spec
         integer, intent(inout) :: visited_ids(100)
@@ -266,7 +266,7 @@ contains
             inner_element = type_args_element(mono_type, 1)
             if (inner_element%kind == TARRAY) then
                 call collect_array_dimensions_impl(inner_element, dim_spec, &
-                                                   visited_ids, visited_count, depth)
+                    visited_ids, visited_count, depth)
             end if
         end if
 

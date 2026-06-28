@@ -1,7 +1,7 @@
 module codegen_type_inference_utils
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
-                              array_literal_node
+        array_literal_node
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_type_utils, only: get_type_standardization
@@ -14,8 +14,8 @@ module codegen_type_inference_utils
 contains
 
     function infer_function_return_type_from_rhs(arena, stmt, defined_names, &
-                                                 defined_types, defined_count) &
-        result(type_name)
+            defined_types, defined_count) &
+            result(type_name)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
         character(len=*), intent(in) :: defined_names(:)
@@ -32,14 +32,14 @@ contains
         if (.not. arena%has_node_at(value_idx)) return
 
         select type (rhs => arena%entries(value_idx)%node)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (len_trim(rhs%name) == 0) return
             type_name = lookup_function_return_type(defined_names, defined_types, &
-                                                    defined_count, rhs%name)
+                defined_count, rhs%name)
             type_name = canonicalize_type(type_name)
             if (len_trim(type_name) == 0) then
                 type_name = deduce_type_from_arguments(arena, rhs, &
-                                                       standardize_types_enabled)
+                    standardize_types_enabled)
             else
                 block
                     character(len=:), allocatable :: inferred_type
@@ -49,7 +49,7 @@ contains
                     current_lower = to_lower(trim(type_name))
                     if (current_lower == 'integer') then
                         inferred_type = deduce_type_from_arguments( &
-                                        arena, rhs, standardize_types_enabled)
+                            arena, rhs, standardize_types_enabled)
                         inferred_lower = to_lower(trim(inferred_type))
                         if (len_trim(inferred_lower) > 0 .and. &
                             inferred_lower /= 'integer') then
@@ -58,7 +58,7 @@ contains
                     end if
                 end block
             end if
-        type is (array_literal_node)
+            type is (array_literal_node)
             type_name = mono_type_to_string( &
                 rhs%inferred_type, &
                 include_shape=.true., &
@@ -87,7 +87,7 @@ contains
     end function canonicalize_type
 
     function deduce_type_from_arguments(arena, call_node, standardize_real) &
-        result(type_str)
+            result(type_str)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         logical, intent(in) :: standardize_real
@@ -119,10 +119,10 @@ contains
             select type (arg_node => arena%entries(arg_idx)%node)
             class default
                 arg_type = canonicalize_type(mono_type_to_string( &
-                                             arg_node%inferred_type, &
-                                             include_shape=.false., &
-                                             standardize_real=standardize_real, &
-                                             fallback=''))
+                    arg_node%inferred_type, &
+                    include_shape=.false., &
+                    standardize_real=standardize_real, &
+                    fallback=''))
             end select
 
             lowered = to_lower(trim(arg_type))
@@ -160,7 +160,7 @@ contains
     end function deduce_type_from_arguments
 
     function lookup_function_return_type(func_names, func_types, count, &
-                                         func_name) result(type_name)
+            func_name) result(type_name)
         character(len=*), intent(in) :: func_names(:)
         character(len=*), intent(in) :: func_types(:)
         integer, intent(in) :: count

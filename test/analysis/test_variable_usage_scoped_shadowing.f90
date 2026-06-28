@@ -1,8 +1,8 @@
 program test_variable_usage_scoped_shadowing
     use fortfront, only: ast_arena_t, create_ast_arena, lex_source, parse_tokens, &
-                         token_t
+        token_t
     use variable_usage_tracker_module, only: get_scoped_variable_usages, &
-                                             scoped_variable_usage_t
+        scoped_variable_usage_t
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
@@ -27,7 +27,7 @@ program test_variable_usage_scoped_shadowing
 
     usages = get_scoped_variable_usages(arena, root_index)
     call find_shadowed_declarations(usages, outer_scope_id, inner_scope_id, &
-                                    outer_depth, inner_depth)
+        outer_depth, inner_depth)
 
     if (outer_scope_id == inner_scope_id) then
         call fail('shadowed value declarations share a scope id')
@@ -49,7 +49,7 @@ contains
     include '../common/read_example.inc'
 
     subroutine find_shadowed_declarations(usages, outer_scope_id, inner_scope_id, &
-                                          outer_depth, inner_depth)
+            outer_depth, inner_depth)
         type(scoped_variable_usage_t), intent(in) :: usages(:)
         integer, intent(out) :: outer_scope_id
         integer, intent(out) :: inner_scope_id

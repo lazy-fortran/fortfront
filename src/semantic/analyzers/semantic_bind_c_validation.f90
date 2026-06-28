@@ -6,7 +6,7 @@ module semantic_bind_c_validation
     ! arguments. Non-interoperable constructs are reported as semantic errors.
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                              parameter_declaration_node
+        parameter_declaration_node
     use ast_nodes_bounds, only: array_bounds_node, range_expression_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
     use string_utils_mod, only: int_to_string, to_lower
@@ -58,16 +58,16 @@ contains
         type(error_collection_t), intent(inout) :: errors
 
         select type (comp => arena%entries(comp_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (comp%is_allocatable) then
                 call report_component(errors, type_name, comp%var_name, &
-                                      'allocatable', comp%line, comp%column)
+                    'allocatable', comp%line, comp%column)
             else if (is_procedure_declaration(comp)) then
                 call report_component(errors, type_name, comp%var_name, &
-                                      'procedure', comp%line, comp%column)
+                    'procedure', comp%line, comp%column)
             else if (comp%is_pointer) then
                 call report_component(errors, type_name, comp%var_name, &
-                                      'pointer', comp%line, comp%column)
+                    'pointer', comp%line, comp%column)
             end if
         end select
     end subroutine check_bind_c_component
@@ -77,7 +77,7 @@ contains
     ! attributes live on the body declarations, matched to the dummy names
     ! carried by the procedure's parameter placeholders.
     subroutine validate_bind_c_procedure(arena, param_indices, body_indices, &
-                                         bind_c_clause, proc_name, errors)
+            bind_c_clause, proc_name, errors)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: param_indices(:)
         integer, allocatable, intent(in) :: body_indices(:)
@@ -95,14 +95,14 @@ contains
             if (decl_index <= 0) cycle
             if (.not. arena%has_node_at(decl_index)) cycle
             call check_bind_c_dummy(arena, decl_index, param_indices, &
-                                    proc_name, errors)
+                proc_name, errors)
         end do
     end subroutine validate_bind_c_procedure
 
     ! Inspect a body declaration of a BIND(C) procedure. Only declarations
     ! that name a dummy argument are checked.
     subroutine check_bind_c_dummy(arena, decl_index, param_indices, &
-                                  proc_name, errors)
+            proc_name, errors)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: decl_index
         integer, allocatable, intent(in) :: param_indices(:)
@@ -110,21 +110,21 @@ contains
         type(error_collection_t), intent(inout) :: errors
 
         select type (decl => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. allocated(decl%var_name)) return
             if (.not. is_dummy_name(arena, param_indices, decl%var_name)) return
             if (is_procedure_declaration(decl)) then
                 call report_dummy(errors, proc_name, decl%var_name, &
-                                  'a procedure dummy argument', &
-                                  decl%line, decl%column)
+                    'a procedure dummy argument', &
+                    decl%line, decl%column)
             else if (has_assumed_size_dummy(arena, decl)) then
                 call report_dummy(errors, proc_name, decl%var_name, &
-                                  'an assumed-size array dummy argument', &
-                                  decl%line, decl%column)
+                    'an assumed-size array dummy argument', &
+                    decl%line, decl%column)
             else if (has_assumed_shape_dummy(arena, decl)) then
                 call report_dummy(errors, proc_name, decl%var_name, &
-                                  'an assumed-shape array dummy argument', &
-                                  decl%line, decl%column)
+                    'an assumed-shape array dummy argument', &
+                    decl%line, decl%column)
             end if
         end select
     end subroutine check_bind_c_dummy
@@ -145,11 +145,11 @@ contains
             if (param_index <= 0) cycle
             if (.not. arena%has_node_at(param_index)) cycle
             select type (param => arena%entries(param_index)%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (allocated(param%name)) then
                     if (trim(param%name) == trim(name)) is_dummy = .true.
                 end if
-            type is (declaration_node)
+                type is (declaration_node)
                 if (allocated(param%var_name)) then
                     if (trim(param%var_name) == trim(name)) is_dummy = .true.
                 end if
@@ -185,7 +185,7 @@ contains
             if (dim_index <= 0) cycle
             if (.not. arena%has_node_at(dim_index)) cycle
             select type (dim => arena%entries(dim_index)%node)
-            type is (array_bounds_node)
+                type is (array_bounds_node)
                 if (dim%is_assumed_size) is_assumed_size = .true.
             end select
         end do
@@ -210,7 +210,7 @@ contains
             if (dim_index <= 0) cycle
             if (.not. arena%has_node_at(dim_index)) cycle
             select type (dim => arena%entries(dim_index)%node)
-            type is (range_expression_node)
+                type is (range_expression_node)
                 if (dim%start_index <= 0 .and. dim%end_index <= 0) &
                     is_assumed_shape = .true.
             end select

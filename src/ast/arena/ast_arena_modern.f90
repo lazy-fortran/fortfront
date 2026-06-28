@@ -10,11 +10,11 @@ module ast_arena_modern
 
     use ast_base, only: ast_node
     use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
-                              ast_arena_stats_t, ast_free_result_t, &
-                              create_ast_arena_core, destroy_ast_arena_core, &
-                              is_valid_ast_handle, null_ast_handle
+        ast_arena_stats_t, ast_free_result_t, &
+        create_ast_arena_core, destroy_ast_arena_core, &
+        is_valid_ast_handle, null_ast_handle
     use ast_arena_compat, only: ast_arena_compat_t, ast_entry_t, &
-                                create_ast_arena_compat
+        create_ast_arena_compat
     implicit none
 
     ! Re-export core types and functions
@@ -98,7 +98,7 @@ contains
         integer :: capacity
 
         ! Set default capacity first - PERFORMANCE FIX: Start small for simple programs
-        capacity = 16  ! Minimal starting size, will grow as needed
+        capacity = 16 ! Minimal starting size, will grow as needed
         if (present(initial_capacity)) capacity = initial_capacity
 
         ! Create compatibility layer with explicit capacity
@@ -108,8 +108,8 @@ contains
         ! at the ast_arena_t level. This is needed because the parent
         ! assignment may not properly propagate all base fields.
         arena%capacity = capacity
-        arena%size = 0  ! Initialize size from base_arena_t
-        arena%generation = 1  ! Initialize generation from base_arena_t
+        arena%size = 0 ! Initialize size from base_arena_t
+        arena%generation = 1 ! Initialize generation from base_arena_t
     end function create_ast_arena
 
     ! Push with size synchronization for backward compatibility
@@ -279,7 +279,7 @@ contains
     end function get_inferred_kind_at
 
     subroutine get_inferred_details_at(this, index, kind, type_size, &
-                                       is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
         class(ast_arena_t), intent(in) :: this
         integer, intent(in) :: index
         integer, intent(out) :: kind, type_size
@@ -364,7 +364,7 @@ contains
         if (count < 0) count = 0
         if (count >= size(arena%entries(parent_index)%child_indices)) then
             new_cap = max(2 * &
-                          size(arena%entries(parent_index)%child_indices), count + 1)
+                size(arena%entries(parent_index)%child_indices), count + 1)
             allocate (tmp(new_cap))
             if (count > 0) then
                 tmp(1:count) = arena%entries(parent_index)%child_indices(1:count)
@@ -378,7 +378,7 @@ contains
 
     ! Check if child is already present in parent's children list
     pure logical function is_child_present(arena, parent_index, child_index) &
-        result(present)
+            result(present)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: parent_index, child_index
         integer :: i, count, arr_size, valid_size

@@ -74,8 +74,8 @@ module ast_nodes_generics
 contains
 
     function create_template_block(name, parameter_names, declaration_indices, &
-                                   procedure_indices, has_contains, line, column) &
-        result(node)
+            procedure_indices, has_contains, line, column) &
+            result(node)
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
         integer, intent(in), optional :: declaration_indices(:)
@@ -101,7 +101,7 @@ contains
     end function create_template_block
 
     function create_instantiate_statement(template_name, spec_text, line, column) &
-        result(node)
+            result(node)
         character(len=*), intent(in) :: template_name
         character(len=*), intent(in) :: spec_text
         integer, intent(in), optional :: line, column
@@ -114,8 +114,8 @@ contains
     end function create_instantiate_statement
 
     function create_trait_block(name, parameter_names, declaration_indices, &
-                                procedure_indices, has_contains, line, column) &
-        result(node)
+            procedure_indices, has_contains, line, column) &
+            result(node)
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
         integer, intent(in), optional :: declaration_indices(:)
@@ -141,8 +141,8 @@ contains
     end function create_trait_block
 
     function create_requirement_block(name, parameter_names, declaration_indices, &
-                                      procedure_indices, has_contains, line, column) &
-        result(node)
+            procedure_indices, has_contains, line, column) &
+            result(node)
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
         integer, intent(in), optional :: declaration_indices(:)
@@ -168,8 +168,8 @@ contains
     end function create_requirement_block
 
     function create_implements_block(name, parameter_names, declaration_indices, &
-                                     procedure_indices, has_contains, line, column) &
-        result(node)
+            procedure_indices, has_contains, line, column) &
+            result(node)
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: parameter_names(:)
         integer, intent(in), optional :: declaration_indices(:)

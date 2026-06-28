@@ -21,7 +21,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (allocated(node%var_name)) then
                     if (trim(node%var_name) == trim(name)) then
                         call process_declaration_variables(node, decl_type)

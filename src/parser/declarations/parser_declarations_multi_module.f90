@@ -4,12 +4,12 @@ module parser_declarations_multi_module
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_core_module, only: skip_declaration_separator
     use parser_declarations_construction_module, only: handle_complex_initializer, &
-                                                       add_single_declaration, &
-                                                       emit_multi_declaration
+        add_single_declaration, &
+        emit_multi_declaration
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_declarations_type_spec_module, only: parse_type_specifier
     use parser_declaration_attributes_module, only: parse_declaration_attributes, &
-                                                    parse_array_dimensions
+        parse_array_dimensions
     use parser_expressions_module, only: parse_comparison
     use declaration_attribute_utils, only: declaration_attribute_info_t
     implicit none
@@ -43,17 +43,17 @@ contains
         call skip_declaration_separator(parser)
 
         call initialize_multi_state(var_names, per_var_dims, has_dims, &
-                                    init_indices)
+            init_indices)
         call collect_multi_variable_data(parser, arena, type_spec, var_names, &
-                                         per_var_dims, has_dims, init_indices, &
-                                         var_count, has_any_initializer)
+            per_var_dims, has_dims, init_indices, &
+            var_count, has_any_initializer)
         call finalize_multi_declaration( &
             arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
             init_indices, var_count, has_any_initializer, decl_indices)
     end function parse_multi_declaration
 
     subroutine initialize_multi_state(var_names, per_var_dims, has_dims, &
-                                      init_indices)
+            init_indices)
         character(len=64), allocatable, intent(out) :: var_names(:)
         integer, allocatable, intent(out) :: per_var_dims(:, :)
         logical, allocatable, intent(out) :: has_dims(:)
@@ -72,9 +72,9 @@ contains
     end subroutine initialize_multi_state
 
     subroutine collect_multi_variable_data(parser, arena, type_spec, var_names, &
-                                           per_var_dims, has_dims, &
-                                           init_indices, var_count, &
-                                           has_any_initializer)
+            per_var_dims, has_dims, &
+            init_indices, var_count, &
+            has_any_initializer)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
@@ -100,7 +100,7 @@ contains
             var_count = var_count + 1
             if (var_count > capacity) then
                 call expand_multi_state(var_names, per_var_dims, has_dims, &
-                                        init_indices, capacity)
+                    init_indices, capacity)
             end if
 
             var_names(var_count) = token%text
@@ -109,10 +109,10 @@ contains
             per_var_dims(var_count, :) = 0
 
             call parse_multi_variable_dimensions(parser, arena, per_var_dims, &
-                                                 has_dims, var_count)
+                has_dims, var_count)
             call parse_multi_variable_initializer(parser, arena, type_spec, &
-                                                  init_indices(var_count), &
-                                                  has_any_initializer)
+                init_indices(var_count), &
+                has_any_initializer)
             if (.not. continue_multi_variable(parser)) then
                 exit
             end if
@@ -120,7 +120,7 @@ contains
     end subroutine collect_multi_variable_data
 
     subroutine expand_multi_state(var_names, per_var_dims, has_dims, &
-                                  init_indices, capacity)
+            init_indices, capacity)
         character(len=64), allocatable, intent(inout) :: var_names(:)
         integer, allocatable, intent(inout) :: per_var_dims(:, :)
         logical, allocatable, intent(inout) :: has_dims(:)
@@ -160,7 +160,7 @@ contains
     end subroutine expand_multi_state
 
     subroutine parse_multi_variable_dimensions(parser, arena, per_var_dims, &
-                                               has_dims, index)
+            has_dims, index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: per_var_dims(:, :)
@@ -210,7 +210,7 @@ contains
     end subroutine parse_multi_variable_dimensions
 
     subroutine parse_multi_variable_initializer(parser, arena, type_spec, &
-                                                init_index, has_any_initializer)
+            init_index, has_any_initializer)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
@@ -227,7 +227,7 @@ contains
             token = parser%consume()
             if (type_spec%base_keyword == "complex") then
                 init_index = handle_complex_initializer( &
-                             parser, arena, type_spec%base_keyword)
+                    parser, arena, type_spec%base_keyword)
             else
                 init_index = parse_comparison(parser, arena)
             end if
@@ -254,9 +254,9 @@ contains
     end function continue_multi_variable
 
     subroutine finalize_multi_declaration(arena, type_spec, attr_info, &
-                                          var_names, per_var_dims, has_dims, &
-                                          init_indices, var_count, &
-                                          has_any_initializer, decl_indices)
+            var_names, per_var_dims, has_dims, &
+            init_indices, var_count, &
+            has_any_initializer, decl_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -275,13 +275,13 @@ contains
         end if
 
         if (requires_individual_declarations(has_dims, has_any_initializer, &
-                                             var_count)) then
+            var_count)) then
             call emit_individual_declarations( &
                 arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
                 init_indices, var_count, decl_indices)
         else
             decl_index = emit_multi_declaration( &
-                         arena, type_spec, attr_info, var_names(1:var_count))
+                arena, type_spec, attr_info, var_names(1:var_count))
             if (decl_index > 0) then
                 allocate (decl_indices(1))
                 decl_indices(1) = decl_index
@@ -292,8 +292,8 @@ contains
     end subroutine finalize_multi_declaration
 
     subroutine emit_individual_declarations(arena, type_spec, attr_info, &
-                                            var_names, per_var_dims, has_dims, &
-                                            init_indices, var_count, decl_indices)
+            var_names, per_var_dims, has_dims, &
+            init_indices, var_count, decl_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -312,8 +312,8 @@ contains
             if (has_dims(i)) then
                 call extract_variable_dimensions(per_var_dims, i, var_dims)
                 decl_indices(i) = add_single_declaration( &
-                                  arena, type_spec, attr_info, var_names(i), &
-                                  init_indices(i), .true., var_dims)
+                    arena, type_spec, attr_info, var_names(i), &
+                    init_indices(i), .true., var_dims)
                 if (allocated(var_dims)) then
                     block
                         integer, allocatable :: temp(:)
@@ -322,14 +322,14 @@ contains
                 end if
             else
                 decl_indices(i) = add_single_declaration( &
-                                  arena, type_spec, attr_info, var_names(i), &
-                                  init_indices(i), .false.)
+                    arena, type_spec, attr_info, var_names(i), &
+                    init_indices(i), .false.)
             end if
         end do
     end subroutine emit_individual_declarations
 
     logical function requires_individual_declarations( &
-        has_dims, has_any_initializer, var_count) result(needs_split)
+            has_dims, has_any_initializer, var_count) result(needs_split)
         logical, intent(in) :: has_dims(:)
         logical, intent(in) :: has_any_initializer
         integer, intent(in) :: var_count
