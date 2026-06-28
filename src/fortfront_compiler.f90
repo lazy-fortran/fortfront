@@ -21,7 +21,9 @@ module fortfront_compiler
                                          get_program_body_info, &
                                          get_module_body_info, &
                                          get_function_body_info, &
-                                         get_subroutine_body_info
+                                         get_subroutine_body_info, &
+                                         get_used_modules, get_defined_module, &
+                                         used_module_t, defined_module_t
     use fortfront_semantic, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
                                   OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use fortfront_ast, only: ast_arena_t
