@@ -24,7 +24,7 @@ module standardizer_core
     public :: standardize_ast, standardize_multi_unit_children
     ! JSON-based API removed
     public :: set_standardizer_type_standardization, &
-              get_standardizer_type_standardization
+        get_standardizer_type_standardization
     public :: set_standardizer_input_mode
 
 contains
@@ -59,7 +59,7 @@ contains
         use ast_nodes_data, only: multi_unit_container_node
         use ast_nodes_procedure, only: subroutine_def_node, function_def_node
         use standardizer_subprograms, only: standardize_subroutine_def, &
-                                            standardize_function_def
+            standardize_function_def
         use standardizer_program, only: standardize_program
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
@@ -68,7 +68,7 @@ contains
         if (.not. arena%has_node_at(root_index)) return
 
         select type (node => arena%entries(root_index)%node)
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             if (.not. allocated(node%body_indices)) return
 
             ! CRITICAL: Copy indices before the loop to avoid a dangling selector if
@@ -83,11 +83,11 @@ contains
                     if (.not. arena%has_node_at(child_index)) cycle
 
                     select type (child => arena%entries(child_index)%node)
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         call standardize_subroutine_def(arena, child, child_index)
-                    type is (function_def_node)
+                        type is (function_def_node)
                         call standardize_function_def(arena, child, child_index)
-                    type is (program_node)
+                        type is (program_node)
                         call standardize_program(arena, child, child_index)
                     end select
                 end do

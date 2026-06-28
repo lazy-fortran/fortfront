@@ -4,7 +4,7 @@ module test_roundtrip_core
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     use test_filesystem_helpers, only: create_temp_directory, &
-                                       cleanup_temp_directory
+        cleanup_temp_directory
     use test_shell_commands, only: build_compile_command
     implicit none
     private
@@ -120,7 +120,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(temp_filename), status='replace', &
-              action='write', iostat=ios)
+            action='write', iostat=ios)
         if (ios /= 0) then
             call cleanup_temp_directory(temp_dir, is_windows)
             return
@@ -135,7 +135,7 @@ contains
         end if
 
         command = build_compile_command(trim(temp_filename), '', temp_dir, &
-                                        is_windows)
+            is_windows)
         if (len_trim(command) == 0) then
             call cleanup_temp_directory(temp_dir, is_windows)
             return

@@ -21,7 +21,7 @@ program test_issue_2293_legacy_implicit
 
     if (len_trim(error_msg) > 0) then
         write (error_unit, '(A)') 'FAIL: transform_with_context error: ' // &
-     &        trim(error_msg)
+            &        trim(error_msg)
         error stop 1
     end if
 

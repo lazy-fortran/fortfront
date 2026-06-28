@@ -1,11 +1,11 @@
 module parser_expression_helpers_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, &
-                          TK_WHITESPACE, TK_NEWLINE, TK_COMMENT, TK_EOF, to_lower
+        TK_WHITESPACE, TK_NEWLINE, TK_COMMENT, TK_EOF, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_REAL, LITERAL_INTEGER, LITERAL_STRING, LITERAL_LOGICAL
     use ast_factory, only: push_literal, push_component_access, &
-                           push_call_or_subscript, &
-                           push_call_or_subscript_with_slice_detection
+        push_call_or_subscript, &
+        push_call_or_subscript_with_slice_detection
     use parser_state_module, only: parser_state_t
     use parser_utilities, only: peek_next_nontrivial_token
     implicit none
@@ -25,12 +25,12 @@ contains
         if (index(current_token%text, '.') > 0) then
             ! Contains decimal point - classify as real
             expr_index = push_literal(arena, current_token%text, LITERAL_REAL, &
-                                      current_token%line, current_token%column)
+                current_token%line, current_token%column)
         else
             ! No decimal point - classify as integer
             expr_index = push_literal(arena, current_token%text, &
-                                      LITERAL_INTEGER, current_token%line, &
-                                      current_token%column)
+                LITERAL_INTEGER, current_token%line, &
+                current_token%column)
         end if
     end function parse_number_literal
 
@@ -41,7 +41,7 @@ contains
         integer :: expr_index
 
         expr_index = push_literal(arena, current_token%text, LITERAL_STRING, &
-                                  current_token%line, current_token%column)
+            current_token%line, current_token%column)
     end function parse_string_literal
 
     ! Parse boolean literal tokens
@@ -51,12 +51,12 @@ contains
         integer :: expr_index
 
         expr_index = push_literal(arena, current_token%text, LITERAL_LOGICAL, &
-                                  current_token%line, current_token%column)
+            current_token%line, current_token%column)
     end function parse_boolean_literal
 
     ! Parse component access postfix operator (% or LFortran .)
     function parse_component_access_postfix(parser, arena, base_expr, op_token) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -68,14 +68,14 @@ contains
         if (component_token%kind == TK_IDENTIFIER) then
             component_token = parser%consume()
             expr_index = push_component_access(arena, base_expr, &
-                                               component_token%text, &
-                                               op_token%line, op_token%column)
+                component_token%text, &
+                op_token%line, op_token%column)
         else if (component_token%kind == TK_KEYWORD) then
             ! Keywords are valid component names in Fortran
             component_token = parser%consume()
             expr_index = push_component_access(arena, base_expr, &
-                                               component_token%text, &
-                                               op_token%line, op_token%column)
+                component_token%text, &
+                op_token%line, op_token%column)
         else
             call parser%error("Expected identifier after component access operator")
             expr_index = base_expr
@@ -105,9 +105,9 @@ contains
             next_lower = to_lower(trim(next_token%text))
             select case (next_lower)
             case ("type", "module", "subroutine", "function", "program", &
-                  "interface", "procedure", "select", "if", "do", "forall", &
-                  "where", "associate", "block", "team", "critical", &
-                  "blockdata")
+                    "interface", "procedure", "select", "if", "do", "forall", &
+                    "where", "associate", "block", "team", "critical", &
+                    "blockdata")
                 return
             end select
         end if

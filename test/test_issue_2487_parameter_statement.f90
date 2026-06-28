@@ -30,8 +30,8 @@ contains
 
         passed = .true.
         source = "integer :: x" // char(10) // &
-                 "PARAMETER(X = 5)" // char(10) // &
-                 "print *, x"
+            "PARAMETER(X = 5)" // char(10) // &
+            "print *, x"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -92,9 +92,9 @@ contains
 
         passed = .true.
         source = "program main" // char(10) // &
-                 "    integer :: y" // char(10) // &
-                 "    PARAMETER(Y = 42)" // char(10) // &
-                 "end program"
+            "    integer :: y" // char(10) // &
+            "    PARAMETER(Y = 42)" // char(10) // &
+            "end program"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

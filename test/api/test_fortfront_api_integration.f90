@@ -84,15 +84,15 @@ contains
                 if (prog_index > 0 .and. prog_index <= arena%size) then
                     if (allocated(arena%entries(prog_index)%node)) then
                         select type (node => arena%entries(prog_index)%node)
-                        type is (program_node)
+                            type is (program_node)
                             if (allocated(node%body_indices) .and. &
                                 size(node%body_indices) > 0) then
                                 ! Check if types were inferred
                                 block
                                     logical :: type_found
                                     call get_type_for_node(arena, &
-                                                           node%body_indices(1), &
-                                                               node_type, type_found)
+                                        node%body_indices(1), &
+                                        node_type, type_found)
                                     if (type_found .and. allocated(node_type)) then
                                         print *, '  Note: Type inference successful'
                                     end if
@@ -178,7 +178,7 @@ contains
                 end if
 
                 select type (prog_node => arena%entries(prog_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     print *, '  INFO: Program node found with name:', prog_node%name
                     if (allocated(prog_node%body_indices)) then
                         print *, '  INFO: Program has', size(prog_node%body_indices), &
@@ -248,7 +248,7 @@ contains
             type(ast_arena_t) :: arena
             integer :: prog_index
             integer :: assignment_count, identifier_count, literal_count, &
-                       binary_op_count
+                binary_op_count
             integer :: i
 
             call read_example('examples/lf/api_pipeline_do_loop_assignments.lf', source)
@@ -269,13 +269,13 @@ contains
             do i = 1, arena%size
                 if (allocated(arena%entries(i)%node)) then
                     select type (node => arena%entries(i)%node)
-                    type is (assignment_node)
+                        type is (assignment_node)
                         assignment_count = assignment_count + 1
-                    type is (identifier_node)
+                        type is (identifier_node)
                         identifier_count = identifier_count + 1
-                    type is (literal_node)
+                        type is (literal_node)
                         literal_count = literal_count + 1
-                    type is (binary_op_node)
+                        type is (binary_op_node)
                         binary_op_count = binary_op_count + 1
                     end select
                 end if

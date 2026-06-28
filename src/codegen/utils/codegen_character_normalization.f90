@@ -12,7 +12,7 @@ module codegen_character_normalization
 contains
 
     pure subroutine try_extract_length_from_star(trimmed_str, open_paren, has_length, &
-                                                 length_spec)
+            length_spec)
         character(len=*), intent(in) :: trimmed_str
         integer, intent(in) :: open_paren
         logical, intent(inout) :: has_length
@@ -40,7 +40,7 @@ contains
     end subroutine try_extract_length_from_star
 
     pure subroutine try_extract_length_from_parentheses(trimmed_str, open_paren, &
-                                                        has_length, length_spec)
+            has_length, length_spec)
         character(len=*), intent(in) :: trimmed_str
         integer, intent(in) :: open_paren
         logical, intent(inout) :: has_length
@@ -95,15 +95,15 @@ contains
         open_paren = index(trimmed_str, "(")
 
         call try_extract_length_from_star(trimmed_str, open_paren, has_length, &
-                                          length_spec)
+            length_spec)
         if (has_length) return
 
         call try_extract_length_from_parentheses(trimmed_str, open_paren, &
-                                                 has_length, length_spec)
+            has_length, length_spec)
     end subroutine extract_character_length
 
     subroutine preprocess_character_type(raw_type, trimmed, has_length, length_spec, &
-                                         needs_post_process, type_str)
+            needs_post_process, type_str)
         character(len=*), intent(in) :: raw_type
         character(len=:), allocatable, intent(out) :: trimmed
         logical, intent(out) :: has_length
@@ -130,7 +130,7 @@ contains
 
         lowered_trim = to_lower(trimmed)
         if (index(lowered_trim, "kind=") > 0 .and. index(lowered_trim, &
-                                                         "len") == 0) then
+            "len") == 0) then
             type_str = trimmed
             return
         end if
@@ -140,7 +140,7 @@ contains
         if (has_length) then
             lowered_len = to_lower(length_spec)
             if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, &
-                                                            "len=") == 0) then
+                "len=") == 0) then
                 type_str = trimmed
                 return
             end if
@@ -183,7 +183,7 @@ contains
     end subroutine ensure_character_length_from_node
 
     subroutine ensure_character_length_from_kind(has_kind, kind_value, has_length, &
-                                                 length_spec)
+            length_spec)
         logical, intent(in) :: has_kind
         integer, intent(in) :: kind_value
         logical, intent(inout) :: has_length
@@ -247,7 +247,7 @@ contains
         logical :: needs_post_process
 
         call preprocess_character_type(raw_type, trimmed, has_length, length_spec, &
-                                       needs_post_process, type_str)
+            needs_post_process, type_str)
         if (.not. needs_post_process) return
 
         call ensure_character_length_from_node(node, has_length, length_spec)
@@ -255,7 +255,7 @@ contains
     end function normalize_character_type
 
     function normalize_character_type_param(raw_type, has_kind, kind_value, &
-                                            character_length_expr) result(type_str)
+            character_length_expr) result(type_str)
         character(len=*), intent(in) :: raw_type
         logical, intent(in) :: has_kind
         integer, intent(in) :: kind_value
@@ -267,7 +267,7 @@ contains
         logical :: needs_post_process
 
         call preprocess_character_type(raw_type, trimmed, has_length, length_spec, &
-                                       needs_post_process, type_str)
+            needs_post_process, type_str)
         if (.not. needs_post_process) return
 
         if (present(character_length_expr)) then
@@ -278,7 +278,7 @@ contains
         end if
 
         call ensure_character_length_from_kind(has_kind, kind_value, has_length, &
-                                               length_spec)
+            length_spec)
         call finalize_character_type(has_length, length_spec, type_str)
     end function normalize_character_type_param
 

@@ -2,18 +2,18 @@ program test_module_parsing_bug_red
     use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed
-    
+
     all_passed = .true.
-    
+
     print *, '=== Module Parsing Bug RED Tests (Issue #253) ==='
     print *, 'These tests demonstrate the bug where functions inside modules'
     print *, 'are incorrectly moved outside and wrapped in programs'
     print *
-    
+
     if (.not. test_simple_module_function_stays_inside()) all_passed = .false.
     if (.not. test_module_with_multiple_procedures()) all_passed = .false.
     if (.not. test_module_with_declarations_and_procedures()) all_passed = .false.
-    
+
     print *
     if (all_passed) then
         print *, 'SUCCESS: All tests pass - Issue #253 has been fixed!'
@@ -36,20 +36,20 @@ contains
             '        sum = a + b' // new_line('a') // &
             '    end function add_numbers' // new_line('a') // &
             'end module test_mod'
-        
+
         character(len=:), allocatable :: output, error_msg
-        
+
         print *, 'Test 1: Simple module with function should keep function inside'
-        
+
         ! Transform (standardization is automatic in the pipeline)
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, 'Compilation error: ', trim(error_msg)
             test_simple_module_function_stays_inside = .false.
             return
         end if
-        
+
         ! Check if function is incorrectly wrapped in program (the bug)
         if (index(output, 'program main') > 0) then
             print *, 'BUG CONFIRMED: Function incorrectly wrapped in program'
@@ -57,7 +57,7 @@ contains
             test_simple_module_function_stays_inside = .false.
             return
         end if
-        
+
         ! Check if function is still inside module
         if (index(output, 'contains') > 0 .and. &
             index(output, 'function add_numbers') > 0 .and. &
@@ -85,27 +85,27 @@ contains
             '        print *, a + b' // new_line('a') // &
             '    end subroutine print_sum' // new_line('a') // &
             'end module math_mod'
-        
+
         character(len=:), allocatable :: output, error_msg
-        
+
         print *, 'Test 2: Module with multiple procedures'
-        
+
         ! Transform (standardization is automatic in the pipeline)
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, 'Compilation error: ', trim(error_msg)
             test_module_with_multiple_procedures = .false.
             return
         end if
-        
+
         ! Check if procedures are incorrectly wrapped in programs (the bug)
         if (index(output, 'program main') > 0) then
             print *, 'BUG CONFIRMED: Procedures incorrectly wrapped in program'
             test_module_with_multiple_procedures = .false.
             return
         end if
-        
+
         ! Check if all procedures stay inside module
         if (index(output, 'contains') > 0 .and. &
             index(output, 'function add') > 0 .and. &
@@ -132,27 +132,27 @@ contains
             '        result_n = n' // new_line('a') // &
             '    end function get_n' // new_line('a') // &
             'end module data_mod'
-        
+
         character(len=:), allocatable :: output, error_msg
-        
+
         print *, 'Test 3: Module with declarations and procedures'
-        
+
         ! Transform (standardization is automatic in the pipeline)
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, 'Compilation error: ', trim(error_msg)
             test_module_with_declarations_and_procedures = .false.
             return
         end if
-        
+
         ! Check if function is incorrectly wrapped in program (the bug)
         if (index(output, 'program main') > 0) then
             print *, 'BUG CONFIRMED: Function incorrectly wrapped in program'
             test_module_with_declarations_and_procedures = .false.
             return
         end if
-        
+
         ! Check if module structure is preserved (declarations + procedures)
         if (index(output, 'n = 10') > 0 .and. &
             index(output, 'x = 1.0') > 0 .and. &

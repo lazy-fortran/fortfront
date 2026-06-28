@@ -1,7 +1,7 @@
 program test_frontend_diagnostics
     use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
-                                    DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
-                                   DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO
+        DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
+        DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO
     use fortfront_types, only: diagnostic_t, source_range_t
     implicit none
 
@@ -96,7 +96,7 @@ contains
         character(len=:), allocatable :: formatted
 
         diag = make_diagnostic(DIAG_BINARY_DATA, DIAGNOSTIC_ERROR, &
-                               "Input appears to be binary data")
+            "Input appears to be binary data")
         formatted = format_diagnostic(diag)
 
         if (index(formatted, "[F002]") == 0) then

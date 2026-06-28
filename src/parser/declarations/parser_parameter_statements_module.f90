@@ -156,7 +156,7 @@ contains
     end function token_is_identifier
 
     logical function apply_parameter_to_variable(arena, name, value_index) &
-        result(applied)
+            result(applied)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: value_index
@@ -169,10 +169,10 @@ contains
         do idx = arena%size, 1, -1
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     if (apply_parameter_multi(arena, idx, decl, target, &
-                                              value_index)) then
+                        value_index)) then
                         applied = .true.
                         return
                     end if
@@ -193,7 +193,7 @@ contains
     end function apply_parameter_to_variable
 
     logical function apply_parameter_multi(arena, decl_index, decl, target, &
-                                           value_index) result(updated)
+            value_index) result(updated)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         type(declaration_node), intent(inout) :: decl
@@ -219,7 +219,7 @@ contains
     end function apply_parameter_multi
 
     logical function create_parameter_declaration(arena, name, value_index) &
-        result(created)
+            result(created)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: value_index
@@ -229,8 +229,8 @@ contains
         created = .false.
         names(1) = name
         decl_index = push_declaration(arena, type_name="", names=names, &
-                                      is_parameter=.true., &
-                                      initializer_index=value_index)
+            is_parameter=.true., &
+            initializer_index=value_index)
         if (decl_index > 0) created = .true.
     end function create_parameter_declaration
 

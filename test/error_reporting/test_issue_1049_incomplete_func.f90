@@ -10,13 +10,13 @@ program test_issue_1049_incomplete_func
     ! Trailing newline avoids a gfortran 16 bug where a 64-character literal
     ! concat assigned to a deferred-length allocatable yields all-zero bytes.
     source = 'func incomplete_function(x: int)' // new_line('a') // &
-             'result = incomplete_function(5)' // new_line('a')
+        'result = incomplete_function(5)' // new_line('a')
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
     passed = (index(error_msg, 'Incomplete function-like definition') > 0 .and. &
-              index(error_msg, 'func') > 0 .and. &
-              index(output, 'COMPILATION FAILED') > 0)
+        index(error_msg, 'func') > 0 .and. &
+        index(output, 'COMPILATION FAILED') > 0)
 
     if (passed) then
         print *, '  PASS: Detected incomplete func definition with clear diagnostic'

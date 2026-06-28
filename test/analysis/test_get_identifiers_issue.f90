@@ -103,7 +103,7 @@ contains
 
         call &
             read_example('examples/f90/issue_104_assignment_identifiers.f90', &
-                         test_code)
+            test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -130,7 +130,7 @@ contains
         block
             use ast_nodes_core, only: assignment_node
             select type (node => arena%entries(assignment_nodes(1))%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 identifiers = get_identifiers_in_subtree(arena, node%value_index)
             end select
         end block
@@ -165,7 +165,7 @@ contains
         print '(a)', "Testing identifiers in if conditions..."
 
         call read_example('examples/f90/issue_104_if_condition_identifiers.f90', &
-                          test_code)
+            test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -191,7 +191,7 @@ contains
         block
             use ast_nodes_control, only: if_node
             select type (node => arena%entries(if_nodes(1))%node)
-            type is (if_node)
+                type is (if_node)
                 identifiers = get_identifiers_in_subtree(arena, node%condition_index)
                 print '(a,i0)', "Condition index: ", node%condition_index
             end select
@@ -281,11 +281,11 @@ contains
             block
                 use ast_nodes_core, only: program_node
                 select type (node => arena%entries(node_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
                             call find_print_nodes(arena, node%body_indices(i), &
-                                                  found_nodes)
+                                found_nodes)
                         end do
                     end if
                 end select
@@ -294,11 +294,11 @@ contains
             block
                 use ast_nodes_control, only: if_node
                 select type (node => arena%entries(node_index)%node)
-                type is (if_node)
+                    type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
                             call find_print_nodes(arena, node%then_body_indices(i), &
-                                                  found_nodes)
+                                found_nodes)
                         end do
                     end if
                 end select
@@ -332,11 +332,11 @@ contains
             block
                 use ast_nodes_core, only: program_node
                 select type (node => arena%entries(node_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
                             call find_assignment_nodes(arena, node%body_indices(i), &
-                                                       found_nodes)
+                                found_nodes)
                         end do
                     end if
                 end select
@@ -370,7 +370,7 @@ contains
             block
                 use ast_nodes_core, only: program_node
                 select type (node => arena%entries(node_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
                             call find_if_nodes(arena, node%body_indices(i), found_nodes)

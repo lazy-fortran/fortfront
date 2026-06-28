@@ -18,13 +18,13 @@ program test_associate_nested_select_case
     print *, '=== Test: parse_associate handles nested SELECT CASE blocks ==='
 
     source = 'associate (foo => bar)' // new_line('a') // &
-             '  select case(kind)' // new_line('a') // &
-             '  case (1)' // new_line('a') // &
-             '    print *, 1' // new_line('a') // &
-             '  case default' // new_line('a') // &
-             '    print *, 2' // new_line('a') // &
-             '  end select' // new_line('a') // &
-             'end associate'
+        '  select case(kind)' // new_line('a') // &
+        '  case (1)' // new_line('a') // &
+        '    print *, 1' // new_line('a') // &
+        '  case default' // new_line('a') // &
+        '    print *, 2' // new_line('a') // &
+        '  end select' // new_line('a') // &
+        'end associate'
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -42,13 +42,13 @@ program test_associate_nested_select_case
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (select_case_node)
+            type is (select_case_node)
             has_select_case = .true.
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) then
                 if (index(node%value, '! Unparsed') > 0) has_unparsed = .true.
             end if
-        type is (associate_node)
+            type is (associate_node)
             cycle
         class default
             cycle

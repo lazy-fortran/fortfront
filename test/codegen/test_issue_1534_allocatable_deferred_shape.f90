@@ -49,7 +49,7 @@ contains
         end if
 
         ok = index(output, 'allocatable :: vec(:)') > 0 .and. &
-             index(output, ':: vec(3)') == 0
+            index(output, ':: vec(3)') == 0
 
         if (.not. ok) then
             print *, '  FAIL: Deferred shape not preserved'
@@ -93,7 +93,7 @@ contains
         end if
 
         ok = index(output, 'allocatable :: grid(:,:)') > 0 .and. &
-             index(output, ':: grid(2,3)') == 0
+            index(output, ':: grid(2,3)') == 0
 
         if (.not. ok) then
             print *, '  FAIL: Deferred shape not preserved for grid'
@@ -115,7 +115,7 @@ contains
         character(len=*), intent(in) :: output
 
         has_iso_dp_import = index(output, 'iso_fortran_env') > 0 .and. &
-                            index(output, 'dp => real64') > 0
+            index(output, 'dp => real64') > 0
     end function has_iso_dp_import
 
 

@@ -151,7 +151,7 @@ contains
     end subroutine split_module_and_base
 
     subroutine find_identifier_reference(name_tokens, line_ref, column_ref, &
-                                         found_identifier)
+            found_identifier)
         type(token_t), intent(in) :: name_tokens(:)
         integer, intent(inout) :: line_ref
         integer, intent(inout) :: column_ref
@@ -198,7 +198,7 @@ contains
 
         call split_module_and_base(name_text, module_name, base_name)
         call find_identifier_reference(name_tokens, line_ref, column_ref, &
-                                       found_identifier)
+            found_identifier)
 
         if (len_trim(base_name) > 0) then
             if (trim(adjustl(base_name)) == "*") then

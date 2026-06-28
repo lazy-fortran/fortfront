@@ -10,19 +10,19 @@ module cst_arena
 
     ! CST arena handle for safe node access
     type :: cst_handle_t
-        integer :: index  ! Node index in arena
-        integer(int64) :: generation  ! Generation for safety
+        integer :: index ! Node index in arena
+        integer(int64) :: generation ! Generation for safety
     end type cst_handle_t
 
     ! CST-specific arena implementation
     type :: cst_arena_t
-        type(cst_node_t), allocatable :: nodes(:)  ! CST nodes storage
-        integer(int64), allocatable :: generations(:)  ! Generation tracking
-        integer, allocatable :: ast_to_cst(:)  ! AST index -> CST index lookup
-        integer :: size  ! Current arena size
-        integer :: capacity  ! Arena capacity
-        integer(int64) :: next_uid  ! Next UID to assign
-        integer(int64) :: global_generation  ! Global generation counter
+        type(cst_node_t), allocatable :: nodes(:) ! CST nodes storage
+        integer(int64), allocatable :: generations(:) ! Generation tracking
+        integer, allocatable :: ast_to_cst(:) ! AST index -> CST index lookup
+        integer :: size ! Current arena size
+        integer :: capacity ! Arena capacity
+        integer(int64) :: next_uid ! Next UID to assign
+        integer(int64) :: global_generation ! Global generation counter
     contains
         procedure :: push => push_cst_node
         procedure :: get => get_cst_node

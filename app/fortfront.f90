@@ -10,10 +10,10 @@ program fortfront_cli
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
     use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, &
-                         TK_IDENTIFIER, to_lower
+        TK_IDENTIFIER, to_lower
     use stdout_sanitizer, only: sanitize_redirected_stdout
     use frontend_core, only: normalize_fixed_form_source_text, &
-                             is_fixed_form_file
+        is_fixed_form_file
     use frontend_program_unit_detection, only: detect_explicit_program_unit
     use frontend_tooling_api, only: read_file_contents, message_has_error
     implicit none
@@ -77,7 +77,7 @@ program fortfront_cli
                     deallocate (arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
                         call report_deallocation_failure('command argument', &
-                                                         alloc_stat)
+                            alloc_stat)
                     end if
                     i = i + 1
                     cycle
@@ -86,7 +86,7 @@ program fortfront_cli
                     deallocate (arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
                         call report_deallocation_failure('command argument', &
-                                                         alloc_stat)
+                            alloc_stat)
                     end if
                     i = i + 1
                     cycle
@@ -95,7 +95,7 @@ program fortfront_cli
                     deallocate (arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
                         call report_deallocation_failure('command argument', &
-                                                         alloc_stat)
+                            alloc_stat)
                     end if
                     i = i + 1
                     cycle
@@ -104,7 +104,7 @@ program fortfront_cli
                     deallocate (arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
                         call report_deallocation_failure('command argument', &
-                                                         alloc_stat)
+                            alloc_stat)
                     end if
                     i = i + 1
                     cycle
@@ -113,7 +113,7 @@ program fortfront_cli
                     deallocate (arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
                         call report_deallocation_failure('command argument', &
-                                                         alloc_stat)
+                            alloc_stat)
                     end if
                     i = i + 1
                     cycle
@@ -144,7 +144,7 @@ program fortfront_cli
                         deallocate (arg_str, stat=alloc_stat)
                         if (alloc_stat /= 0) then
                             call report_deallocation_failure('command argument', &
-                                                             alloc_stat)
+                                alloc_stat)
                         end if
                         i = i + 2
                         cycle
@@ -161,10 +161,10 @@ program fortfront_cli
                                 if (len_trim(optval) == 0) then
                                     if (i < num_args) then
                                         call get_command_argument(i + 1, &
-                                                                  length=next_len)
+                                            length=next_len)
                                         allocate (character(len=next_len) :: next_arg)
                                         call get_command_argument(i + 1, &
-                                                                  value=next_arg)
+                                            value=next_arg)
                                         if (len_trim(next_arg) == 0) then
                                             write (error_unit, '(A)') &
                                                 'Error: --trace-file requires a path'
@@ -196,7 +196,7 @@ program fortfront_cli
                             deallocate (arg_str, stat=alloc_stat)
                             if (alloc_stat /= 0) then
                                 call report_deallocation_failure('command argument', &
-                                                                 alloc_stat)
+                                    alloc_stat)
                             end if
                             i = i + 1
                             cycle
@@ -337,9 +337,9 @@ program fortfront_cli
     block
         type(transform_context_t) :: context
         call create_transform_context(from_file, filename, input_text, &
-                                      operating_mode, context)
+            operating_mode, context)
         call enforce_strict_mode_input_rules(operating_mode, input_text, &
-                                             context%input_mode)
+            context%input_mode)
         call transform_with_context(input_text, output_text, error_msg, context)
     end block
     call trace_leave('cli:transform')
@@ -350,13 +350,13 @@ program fortfront_cli
         if (len_trim(error_msg) > 0) then
             write (error_unit, '(A)') trim(error_msg)
             has_fatal_error = index(error_msg, 'ERROR') > 0 .or. &
-                              index(error_msg, 'FATAL') > 0 .or. &
-                              index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
-                              index(error_msg, '[VALIDATION') > 0 .or. &
-                              index(error_msg, '[PARSER_') > 0 .or. &
-                              index(error_msg, '[UNRECOGNIZED_INPUT]') > 0 .or. &
-                              index(error_msg, '[INVALID_INPUT]') > 0 .or. &
-                              index(error_msg, ' semantic error(s):') > 0
+                index(error_msg, 'FATAL') > 0 .or. &
+                index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
+                index(error_msg, '[VALIDATION') > 0 .or. &
+                index(error_msg, '[PARSER_') > 0 .or. &
+                index(error_msg, '[UNRECOGNIZED_INPUT]') > 0 .or. &
+                index(error_msg, '[INVALID_INPUT]') > 0 .or. &
+                index(error_msg, ' semantic error(s):') > 0
             if (has_fatal_error) then
                 call exit_quiet(EXIT_FAILURE)
             end if
@@ -422,7 +422,7 @@ contains
     end function extract_module_name_from_source
 
     subroutine create_transform_context(from_file, filename, input_text, &
-                                        operating_mode, context)
+            operating_mode, context)
         logical, intent(in) :: from_file
         character(len=:), allocatable, intent(in) :: filename
         character(len=*), intent(in) :: input_text
@@ -551,7 +551,7 @@ contains
 
         basename = trim(filename)
         slash_pos = max(index(basename, '/', back=.true.), &
-                        index(basename, '\', back=.true.))
+            index(basename, '\', back=.true.))
         if (slash_pos > 0) basename = basename(slash_pos + 1:)
 
         dot_pos = index(basename, '.', back=.true.)
@@ -569,8 +569,8 @@ contains
         if (.not. trace_enabled) return
         if (.not. allocated(trace_file_path)) return
         open (newunit=unit_id, file=trace_file_path, status='unknown', &
-              position='append', &
-              action='write', iostat=ios)
+            position='append', &
+            action='write', iostat=ios)
         if (ios /= 0) return
         write (unit_id, '(A)') trim(message)
         flush (unit_id)
@@ -652,10 +652,10 @@ contains
         do
             do
                 read (unit_num, '(A)', advance='no', iostat=ios, &
-                      size=chunk_size) buffer
+                    size=chunk_size) buffer
                 call process_read_result(ios, chunk_size, buffer, text, total_size, &
-                                         capacity, status, exit_inner_loop, &
-                                         reached_end)
+                    capacity, status, exit_inner_loop, &
+                    reached_end)
                 if (status /= 0) return
                 if (exit_inner_loop) exit
             end do
@@ -691,7 +691,7 @@ contains
     end subroutine append_when_data
 
     subroutine process_read_result(ios, chunk_size, buffer, text, total_size, &
-                                   capacity, status, exit_inner_loop, reached_end)
+            capacity, status, exit_inner_loop, reached_end)
         integer, intent(in) :: ios
         integer, intent(in) :: chunk_size
         character(len=*), intent(in) :: buffer
@@ -709,16 +709,16 @@ contains
             exit_inner_loop = .true.
             reached_end = .true.
             call append_when_data(buffer, chunk_size, text, total_size, &
-                                  capacity, status)
+                capacity, status)
         case (iostat_eor)
             exit_inner_loop = .true.
             call append_when_data(buffer, chunk_size, text, total_size, &
-                                  capacity, status)
+                capacity, status)
             if (status /= 0) return
             call append_newline(text, total_size, capacity, status)
         case (0)
             call append_when_data(buffer, chunk_size, text, total_size, &
-                                  capacity, status)
+                capacity, status)
         case default
             write (error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
             status = 3

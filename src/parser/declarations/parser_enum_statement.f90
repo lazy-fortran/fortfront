@@ -6,7 +6,7 @@ module parser_enum_statement_module
     ! Enumerator values follow F2003 4.6: an explicit value sets the counter;
     ! an implicit value is the previous value plus one, starting at zero.
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, TK_NUMBER, to_lower
+        TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, TK_NUMBER, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
@@ -56,7 +56,7 @@ contains
         end do
 
         stmt_index = push_enum(arena, names, values, is_bind_c, &
-                               line=line, column=column)
+            line=line, column=column)
     end function parse_enum_construct
 
     logical function consume_enum_header(parser) result(is_bind_c)

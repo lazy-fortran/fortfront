@@ -1,8 +1,8 @@
 program test_issue_1739_program_prefixes
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -34,9 +34,9 @@ program test_issue_1739_program_prefixes
     sep = path_separator_for(temp_dir)
 
     input_file = join_path(temp_dir, 'test_issue_1739_program_prefixes_input.f90', &
-                           sep)
+        sep)
     output_file = join_path(temp_dir, &
-                            'test_issue_1739_program_prefixes_output.f90', sep)
+        'test_issue_1739_program_prefixes_output.f90', sep)
 
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'program test_issue_1739'
@@ -142,7 +142,7 @@ program test_issue_1739_program_prefixes
     end if
 
     print *, 'PASS: Program-contained prefixes preserved'
-999 continue
+    999 continue
     call cleanup_temp_directory(temp_dir, is_windows)
     stop exit_code
 end program test_issue_1739_program_prefixes

@@ -56,9 +56,9 @@ contains
 
         call assert_edge(graph, '__MULTI_UNIT__::driver', '__MULTI_UNIT__::outer')
         call assert_edge(graph, '__MULTI_UNIT__::outer', &
-                         '__MULTI_UNIT__::outer::helper')
+            '__MULTI_UNIT__::outer::helper')
         call assert_edge(graph, '__MULTI_UNIT__::outer::helper', &
-                         '__MULTI_UNIT__::outer::inner')
+            '__MULTI_UNIT__::outer::inner')
     end subroutine test_internal_procedures
 
     subroutine test_module_and_program_scopes()
@@ -110,7 +110,7 @@ contains
         character(len=*), intent(in) :: callee
         if (.not. edge_exists(graph, caller, callee)) then
             call report_failure('Missing call edge in call graph', &
-                                caller//' -> '//callee)
+                caller//' -> '//callee)
         end if
     end subroutine assert_edge
 
@@ -167,7 +167,7 @@ contains
                 if (trim(graph%procedures(i)%name) == &
                     trim(graph%procedures(j)%name)) then
                     call report_failure('Duplicate procedure detected', &
-                                        trim(graph%procedures(i)%name))
+                        trim(graph%procedures(i)%name))
                     return
                 end if
             end do

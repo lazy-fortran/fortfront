@@ -1,12 +1,12 @@
 submodule(semantic_analyzer) semantic_analyzer_type_ops_impl
-    use semantic_type_operations, only: instantiate_type_scheme_op, &
-                                        generalize_type_op, &
-                                        generate_fresh_type_var_op, &
-                                        apply_substitution_to_type
-    use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   substitution_t, create_fun_type, create_mono_type, &
-                                   compose_substitutions, TREAL
-    implicit none
+use semantic_type_operations, only: instantiate_type_scheme_op, &
+    generalize_type_op, &
+    generate_fresh_type_var_op, &
+    apply_substitution_to_type
+use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
+    substitution_t, create_fun_type, create_mono_type, &
+    compose_substitutions, TREAL
+implicit none
 contains
 
     module subroutine unify_types(this, t1, t2)

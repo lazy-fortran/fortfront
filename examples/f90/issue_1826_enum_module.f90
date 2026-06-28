@@ -1,9 +1,9 @@
 ! Issue #1826: enum construct inside a module body
 module colors_enum
     enum, bind(c)
-        enumerator :: RED = 1
-        enumerator :: GREEN = 2
-        enumerator :: BLUE = 3
+    enumerator :: RED = 1
+    enumerator :: GREEN = 2
+    enumerator :: BLUE = 3
     end enum
 contains
     subroutine report()

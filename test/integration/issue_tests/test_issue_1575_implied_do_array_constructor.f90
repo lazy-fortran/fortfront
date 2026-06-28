@@ -9,7 +9,7 @@ program test_issue_1575_implied_do_array_constructor
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/f90/issue_1575_implied_do_array_constructor.f90', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 

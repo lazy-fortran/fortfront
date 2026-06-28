@@ -1,6 +1,6 @@
 program test_array_slicing_codegen
     use fortfront, only: analyze_semantics, ast_arena_t, create_ast_arena, &
-                         emit_fortran, lex_source, parse_tokens, token_t
+        emit_fortran, lex_source, parse_tokens, token_t
     implicit none
 
     logical :: all_passed

@@ -6,7 +6,7 @@ module semantic_call_signature_collector
     use ast_nodes_procedure, only: subroutine_call_node
     use call_graph_signatures_mod, only: add_signature, signatures_map_t
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
-                                   TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE, TARRAY
+        TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE, TARRAY
     use type_string_utils, only: mono_type_to_string
     use string_utils_mod, only: to_lower
     use semantic_validation_utils, only: int_to_str
@@ -18,7 +18,7 @@ module semantic_call_signature_collector
 contains
 
     subroutine collect_call_signature(signatures, arena, call_node, return_type, &
-                                      node_index)
+            node_index)
         type(signatures_map_t), intent(inout) :: signatures
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
@@ -36,13 +36,13 @@ contains
         if (.not. allocated(call_node%name)) return
 
         call extract_parameter_info(arena, call_node%arg_indices, param_kinds, &
-                                    param_type_strings, n_args)
+            param_type_strings, n_args)
 
         return_kind = return_type%get_kind()
         return_type_copy = return_type
         call return_type_copy%sync_from_arena()
         return_type_tmp = mono_type_to_string(return_type_copy, &
-                                              include_shape=.true., fallback='')
+            include_shape=.true., fallback='')
         if (len_trim(return_type_tmp) == 0) then
             return_type_tmp = kind_to_type_string(return_kind)
         end if
@@ -77,27 +77,27 @@ contains
         if (n_args > 0) then
             if (len(return_type_tmp) > 0) then
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   deduced_kind, node_index, 0, 0, &
-                                   param_type_strings, return_type_tmp)
+                    deduced_kind, node_index, 0, 0, &
+                    param_type_strings, return_type_tmp)
             else
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   deduced_kind, node_index, 0, 0, &
-                                   param_type_strings=param_type_strings)
+                    deduced_kind, node_index, 0, 0, &
+                    param_type_strings=param_type_strings)
             end if
         else
             if (len(return_type_tmp) > 0) then
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   deduced_kind, node_index, 0, 0, &
-                                   return_type_string=return_type_tmp)
+                    deduced_kind, node_index, 0, 0, &
+                    return_type_string=return_type_tmp)
             else
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   deduced_kind, node_index, 0, 0)
+                    deduced_kind, node_index, 0, 0)
             end if
         end if
     end subroutine collect_call_signature
 
     subroutine collect_subroutine_signature(signatures, arena, call_node, &
-                                            node_index)
+            node_index)
         type(signatures_map_t), intent(inout) :: signatures
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_call_node), intent(in) :: call_node
@@ -109,7 +109,7 @@ contains
         if (.not. allocated(call_node%name)) return
 
         call extract_parameter_info(arena, call_node%arg_indices, param_kinds, &
-                                    param_type_strings, n_args)
+            param_type_strings, n_args)
 
         if (trace_is_enabled()) then
             write (error_unit, '(A,1X,A,1X,I0)') &
@@ -129,16 +129,16 @@ contains
 
         if (n_args > 0) then
             call add_signature(signatures, call_node%name, param_kinds, 0, &
-                               node_index, 0, 0, &
-                               param_type_strings=param_type_strings)
+                node_index, 0, 0, &
+                param_type_strings=param_type_strings)
         else
             call add_signature(signatures, call_node%name, param_kinds, 0, &
-                               node_index, 0, 0)
+                node_index, 0, 0)
         end if
     end subroutine collect_subroutine_signature
 
     subroutine extract_parameter_info(arena, arg_indices, param_kinds, &
-                                      param_type_strings, n_args)
+            param_type_strings, n_args)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(in) :: arg_indices(:)
         integer, allocatable, intent(out) :: param_kinds(:)
@@ -165,7 +165,7 @@ contains
             call arg_type%sync_from_arena()
             param_kinds(i) = arg_type%get_kind()
             param_type_tmp = mono_type_to_string(arg_type, include_shape=.true., &
-                                                 fallback='')
+                fallback='')
             if (len_trim(param_type_tmp) == 0) then
                 param_type_tmp = kind_to_type_string(param_kinds(i))
             end if
@@ -187,7 +187,7 @@ contains
         typ = a%entries(index)%node%inferred_type
         if (typ%kind == 1) then
             if (len_trim(typ%var%name) == 0) typ%var%name = "v" // &
-                                                            int_to_str(typ%var%id)
+                int_to_str(typ%var%id)
         end if
         a%entries(index)%node%inferred_type = typ
     end function get_inferred_type_from_arena_local
@@ -236,7 +236,7 @@ contains
             if (index(lowered, 'character') == 1) then
                 kind_value = TCHAR
             else if (index(lowered, 'real(8)') == 1 .or. &
-                     index(lowered, 'real(dp)') == 1) then
+                    index(lowered, 'real(dp)') == 1) then
                 kind_value = TDOUBLE
             else if (index(lowered, 'real(') == 1) then
                 kind_value = TREAL

@@ -7,8 +7,8 @@ program test_constant_folding
     use ast_base, only: LITERAL_LOGICAL
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program
- use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+        analyze_program
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -193,50 +193,50 @@ contains
 
         associate (unused_prog_index => prog_index); end associate
 
-        found = .false.
+            found = .false.
 
-        if (debug) print *, "DEBUG: Checking arena with", arena%size, "nodes"
+            if (debug) print *, "DEBUG: Checking arena with", arena%size, "nodes"
 
-        ! Check all nodes in the arena for if_node with constant false condition
-        do i = 1, arena%size
-            if (debug .and. i <= 10) then
-                print *, "DEBUG: Node", i, "type=", arena%entries(i)%node_type
-            end if
-            select type (node => arena%entries(i)%node)
-            type is (if_node)
-                if (debug) print *, "DEBUG: Found if_node at index", i
-                ! Check if condition is marked as constant false
-                if (node%condition_index > 0 .and. &
-                    node%condition_index <= arena%size) then
-                   if (debug) print *, "DEBUG: Condition index is", node%condition_index
-                    select type (cond => arena%entries(node%condition_index)%node)
-                    type is (literal_node)
-                        if (debug) then
-                            print *, "DEBUG: Condition is literal_node"
-                            print *, "  value=", trim(cond%value)
-                            print *, "  is_constant=", cond%is_constant
-                            print *, "  constant_type=", cond%constant_type
-                            print *, "  constant_logical=", cond%constant_logical
-                        end if
-                        ! Check if it's marked as a constant with value false
-                        if (cond%is_constant .and. &
-                            cond%constant_type == LITERAL_LOGICAL .and. &
-                            .not. cond%constant_logical) then
-                            found = .true.
-                            return
-                        end if
-                    type is (binary_op_node)
-                        ! Check if binary op was evaluated as constant false
-                        if (cond%is_constant .and. &
-                            cond%constant_type == LITERAL_LOGICAL .and. &
-                            .not. cond%constant_logical) then
-                            found = .true.
-                            return
-                        end if
-                    end select
+            ! Check all nodes in the arena for if_node with constant false condition
+            do i = 1, arena%size
+                if (debug .and. i <= 10) then
+                    print *, "DEBUG: Node", i, "type=", arena%entries(i)%node_type
                 end if
-            end select
-        end do
-    end subroutine check_constant_false_in_arena
+                select type (node => arena%entries(i)%node)
+                    type is (if_node)
+                    if (debug) print *, "DEBUG: Found if_node at index", i
+                    ! Check if condition is marked as constant false
+                    if (node%condition_index > 0 .and. &
+                        node%condition_index <= arena%size) then
+                        if (debug) print *, "DEBUG: Condition index is", node%condition_index
+                        select type (cond => arena%entries(node%condition_index)%node)
+                            type is (literal_node)
+                            if (debug) then
+                                print *, "DEBUG: Condition is literal_node"
+                                print *, "  value=", trim(cond%value)
+                                print *, "  is_constant=", cond%is_constant
+                                print *, "  constant_type=", cond%constant_type
+                                print *, "  constant_logical=", cond%constant_logical
+                            end if
+                            ! Check if it's marked as a constant with value false
+                            if (cond%is_constant .and. &
+                                cond%constant_type == LITERAL_LOGICAL .and. &
+                                .not. cond%constant_logical) then
+                                found = .true.
+                                return
+                            end if
+                            type is (binary_op_node)
+                            ! Check if binary op was evaluated as constant false
+                            if (cond%is_constant .and. &
+                                cond%constant_type == LITERAL_LOGICAL .and. &
+                                .not. cond%constant_logical) then
+                                found = .true.
+                                return
+                            end if
+                        end select
+                    end if
+                end select
+            end do
+        end subroutine check_constant_false_in_arena
 
-end program test_constant_folding
+    end program test_constant_folding

@@ -5,9 +5,9 @@ module ast_nodes_bounds
     private
 
     public :: array_bounds_node, array_slice_node, range_expression_node, &
-              array_operation_node
+        array_operation_node
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
-              get_array_operation_node
+        get_array_operation_node
     public :: array_bounds_t, array_spec_t
     ! Constructors migrated from ast_core
     public :: create_array_bounds, create_array_slice, create_range_expression
@@ -21,42 +21,42 @@ module ast_nodes_bounds
 
     ! Type to represent bounds for a single dimension
     type :: array_bounds_t
-        integer :: lower_bound_expr = -1  ! Expression index for lower bound
-        integer :: upper_bound_expr = -1  ! Expression index for upper bound
-        integer :: stride_expr = -1  ! Expression index for stride
+        integer :: lower_bound_expr = -1 ! Expression index for lower bound
+        integer :: upper_bound_expr = -1 ! Expression index for upper bound
+        integer :: stride_expr = -1 ! Expression index for stride
         logical :: is_constant_lower = .false.
         logical :: is_constant_upper = .false.
         logical :: is_constant_stride = .false.
-        integer :: const_lower = 1  ! Constant value if is_constant_lower
-        integer :: const_upper = 1  ! Constant value if is_constant_upper
-        integer :: const_stride = 1  ! Constant value if is_constant_stride
-        logical :: is_assumed = .false.  ! True for assumed shape (:)
-        logical :: is_deferred = .false.  ! True for deferred shape (:)
-        logical :: is_assumed_size = .false.  ! True for assumed size (*)
+        integer :: const_lower = 1 ! Constant value if is_constant_lower
+        integer :: const_upper = 1 ! Constant value if is_constant_upper
+        integer :: const_stride = 1 ! Constant value if is_constant_stride
+        logical :: is_assumed = .false. ! True for assumed shape (:)
+        logical :: is_deferred = .false. ! True for deferred shape (:)
+        logical :: is_assumed_size = .false. ! True for assumed size (*)
     end type array_bounds_t
 
     ! Type to represent complete array specification
     type :: array_spec_t
-        integer :: rank = 0  ! Number of dimensions
-        type(array_bounds_t), allocatable :: bounds(:)  ! Bounds for each dimension
+        integer :: rank = 0 ! Number of dimensions
+        type(array_bounds_t), allocatable :: bounds(:) ! Bounds for each dimension
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
-        logical :: is_fixed_size = .true.  ! True if all bounds are constant
+        logical :: is_fixed_size = .true. ! True if all bounds are constant
     end type array_spec_t
 
     ! Represents array bounds information (lower:upper:stride)
     type, extends(ast_node) :: array_bounds_node
         integer :: node_type = NODE_ARRAY_BOUNDS
-        integer :: lower_bound_index = -1  ! Index to lower bound expression
+        integer :: lower_bound_index = -1 ! Index to lower bound expression
         ! (-1 if implicit)
-        integer :: upper_bound_index = -1  ! Index to upper bound expression
+        integer :: upper_bound_index = -1 ! Index to upper bound expression
         ! (-1 if implicit)
-        integer :: stride_index = -1  ! Index to stride expression
+        integer :: stride_index = -1 ! Index to stride expression
         ! (-1 if no stride)
-        logical :: is_assumed_shape = .false.  ! True for (:) bounds
-        logical :: is_deferred_shape = .false.  ! True for allocatable/pointer arrays
-        logical :: is_assumed_size = .false.  ! True for (*) last dimension
-        logical :: is_assumed_rank = .false.  ! True for (..) assumed-rank arrays
+        logical :: is_assumed_shape = .false. ! True for (:) bounds
+        logical :: is_deferred_shape = .false. ! True for allocatable/pointer arrays
+        logical :: is_assumed_size = .false. ! True for (*) last dimension
+        logical :: is_assumed_rank = .false. ! True for (..) assumed-rank arrays
     contains
         procedure :: accept => array_bounds_accept
     end type array_bounds_node
@@ -66,12 +66,12 @@ module ast_nodes_bounds
     ! a character substring operation rather than array slicing
     type, extends(ast_node) :: array_slice_node
         integer :: node_type = NODE_ARRAY_SLICE
-        integer :: array_index  ! Index to array expression being sliced
-        integer :: bounds_indices(10)  ! Indices to array_bounds_node
+        integer :: array_index ! Index to array expression being sliced
+        integer :: bounds_indices(10) ! Indices to array_bounds_node
         ! for each dimension
-        integer :: num_dimensions = 0  ! Number of dimensions in slice
+        integer :: num_dimensions = 0 ! Number of dimensions in slice
         ! Resolution flag (set during semantic analysis)
-        logical :: is_character_substring = .false.  ! true if substring
+        logical :: is_character_substring = .false. ! true if substring
     contains
         procedure :: accept => array_slice_accept
     end type array_slice_node
@@ -79,9 +79,9 @@ module ast_nodes_bounds
     ! Represents range expression start:end or start:end:stride
     type, extends(ast_node) :: range_expression_node
         integer :: node_type = NODE_RANGE_EXPRESSION
-        integer :: start_index = -1  ! Index to start expression (-1 if implicit)
-        integer :: end_index = -1  ! Index to end expression (-1 if implicit)
-        integer :: stride_index = -1  ! Index to stride expression (-1 if no stride)
+        integer :: start_index = -1 ! Index to start expression (-1 if implicit)
+        integer :: end_index = -1 ! Index to end expression (-1 if implicit)
+        integer :: stride_index = -1 ! Index to stride expression (-1 if no stride)
     contains
         procedure :: accept => range_expression_accept
     end type range_expression_node
@@ -89,13 +89,13 @@ module ast_nodes_bounds
     ! Represents array operations (assignment, arithmetic, etc.) with bounds info
     type, extends(ast_node) :: array_operation_node
         integer :: node_type = NODE_ARRAY_OPERATION
-        character(len=32) :: operation = ""  ! Operation type (=, +, -, *, etc.)
-        integer :: left_operand_index = -1  ! Left operand (array)
-        integer :: right_operand_index = -1  ! Right operand (array or scalar)
-        type(array_spec_t) :: array_spec  ! Array specification with bounds
-        type(array_spec_t) :: result_spec  ! Result specification
-        logical :: bounds_checked = .false.  ! Whether bounds have been validated
-        logical :: shape_conformant = .false.  ! Whether operands are conformant
+        character(len=32) :: operation = "" ! Operation type (=, +, -, *, etc.)
+        integer :: left_operand_index = -1 ! Left operand (array)
+        integer :: right_operand_index = -1 ! Right operand (array or scalar)
+        type(array_spec_t) :: array_spec ! Array specification with bounds
+        type(array_spec_t) :: result_spec ! Result specification
+        logical :: bounds_checked = .false. ! Whether bounds have been validated
+        logical :: shape_conformant = .false. ! Whether operands are conformant
     contains
         procedure :: accept => array_operation_accept
     end type array_operation_node
@@ -110,7 +110,7 @@ contains
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
-            type is (array_bounds_node)
+                type is (array_bounds_node)
                 node => p
             end select
         end if
@@ -124,7 +124,7 @@ contains
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
-            type is (array_slice_node)
+                type is (array_slice_node)
                 node => p
             end select
         end if
@@ -138,7 +138,7 @@ contains
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
-            type is (range_expression_node)
+                type is (range_expression_node)
                 node => p
             end select
         end if
@@ -152,7 +152,7 @@ contains
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
-            type is (array_operation_node)
+                type is (array_operation_node)
                 node => p
             end select
         end if
@@ -216,7 +216,7 @@ contains
     end function create_range_expression
 
     function create_array_operation(operation, left_index, right_index, &
-                                    array_spec, result_spec) result(node)
+            array_spec, result_spec) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: operation
         integer, intent(in) :: left_index, right_index

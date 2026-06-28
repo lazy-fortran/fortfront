@@ -1,6 +1,6 @@
 program test_node_position_api
     use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
-                         tooling_parse_options_t, get_node_line, get_node_column
+        tooling_parse_options_t, get_node_line, get_node_column
     implicit none
 
     logical :: all_passed
@@ -30,9 +30,9 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: root_index, line, col
         character(len=*), parameter :: source = &
-                                       'program test' // new_line('a') // &
-                                       '  x = 5' // new_line('a') // &
-                                       'end program'
+            'program test' // new_line('a') // &
+            '  x = 5' // new_line('a') // &
+            'end program'
 
         test_get_node_line_column = .true.
         print *, 'Testing get_node_line/get_node_column...'
@@ -41,7 +41,7 @@ contains
         options%run_semantics = .false.
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options)
+            options)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, '  FAIL: parse error ->', trim(error_msg)
@@ -79,7 +79,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: root_index, line, col
         character(len=*), parameter :: source = 'program test' // new_line('a') // &
-                                       'end program'
+            'end program'
 
         test_invalid_index = .true.
         print *, 'Testing invalid index handling...'
@@ -88,7 +88,7 @@ contains
         options%run_semantics = .false.
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options)
+            options)
 
         line = get_node_line(arena, -1)
         col = get_node_column(arena, 999999)
@@ -115,7 +115,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: root_index, line1, line2, col1, col2
         character(len=*), parameter :: source = 'program test' // new_line('a') // &
-                                       'end program'
+            'end program'
 
         test_type_bound_consistency = .true.
         print *, 'Testing consistency with type-bound procedures...'
@@ -124,7 +124,7 @@ contains
         options%run_semantics = .false.
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options)
+            options)
 
         line1 = get_node_line(arena, root_index)
         line2 = arena%get_node_line(root_index)

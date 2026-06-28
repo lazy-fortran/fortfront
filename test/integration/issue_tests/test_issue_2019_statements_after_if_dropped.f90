@@ -1,6 +1,6 @@
 program test_issue_2019_statements_after_if_dropped
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                              iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none
@@ -11,7 +11,7 @@ program test_issue_2019_statements_after_if_dropped
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/lf/issue_2019_statements_after_if_dropped.lf', &
-                      input_text)
+        input_text)
 
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
 

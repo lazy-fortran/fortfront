@@ -1,12 +1,12 @@
 module frontend_analysis_helpers
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, identifier_node, &
-                              call_or_subscript_node, assignment_node, &
-                              component_access_node
+        call_or_subscript_node, assignment_node, &
+        component_access_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
-                                   subroutine_call_node
+        subroutine_call_node
     use ast_nodes_data, only: module_node, submodule_node, &
-                              multi_unit_container_node
+        multi_unit_container_node
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -61,14 +61,14 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (proc => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (allocated(proc%body_indices)) then
                     do j = 1, size(proc%body_indices)
                         body_idx = proc%body_indices(j)
                         call mark_procedure_subtree(arena, body_idx, membership)
                     end do
                 end if
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (allocated(proc%body_indices)) then
                     do j = 1, size(proc%body_indices)
                         body_idx = proc%body_indices(j)
@@ -80,7 +80,7 @@ contains
     end subroutine build_procedure_membership
 
     subroutine analyze_ast_content(arena, root_index, has_functions, &
-                                   has_subroutines, has_main_code)
+            has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
         use ast_nodes_control, only: if_node, do_loop_node
         use ast_nodes_procedure, only: subroutine_call_node
@@ -97,14 +97,14 @@ contains
         if (root_index > 0 .and. root_index <= arena%size) then
             if (allocated(arena%entries(root_index)%node)) then
                 select type (root => arena%entries(root_index)%node)
-                type is (module_node)
+                    type is (module_node)
                     return
-                type is (multi_unit_container_node)
+                    type is (multi_unit_container_node)
                     if (allocated(root%body_indices)) then
                         do j = 1, size(root%body_indices)
                             call analyze_single_unit(arena, root%body_indices(j), &
-                                                     has_functions, has_subroutines, &
-                                                     has_main_code)
+                                has_functions, has_subroutines, &
+                                has_main_code)
                         end do
                         return
                     end if
@@ -118,27 +118,27 @@ contains
             if (.not. allocated(arena%entries(i)%node)) cycle
 
             select type (node => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 has_functions = .true.
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 has_subroutines = .true.
-            type is (assignment_node)
+                type is (assignment_node)
                 if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
-            type is (print_statement_node)
+                type is (print_statement_node)
                 if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
-            type is (if_node)
+                type is (if_node)
                 if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
-            type is (do_loop_node)
+                type is (do_loop_node)
                 if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
-            type is (subroutine_call_node)
+                type is (subroutine_call_node)
                 if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
@@ -147,7 +147,7 @@ contains
     end subroutine analyze_ast_content
 
     subroutine analyze_single_unit(arena, unit_index, has_functions, &
-                                   has_subroutines, has_main_code)
+            has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
         use ast_nodes_control, only: if_node, do_loop_node
         use ast_nodes_procedure, only: subroutine_call_node
@@ -159,11 +159,11 @@ contains
         if (.not. arena%has_node_at(unit_index)) return
 
         select type (unit => arena%entries(unit_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             has_functions = .true.
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             has_subroutines = .true.
-        type is (program_node)
+            type is (program_node)
             if (allocated(unit%body_indices)) then
                 do i = 1, size(unit%body_indices)
                     if (unit%body_indices(i) <= 0 .or. &
@@ -172,19 +172,19 @@ contains
                         cycle
 
                     select type (stmt => arena%entries(unit%body_indices(i))%node)
-                    type is (assignment_node)
+                        type is (assignment_node)
                         has_main_code = .true.
-                    type is (print_statement_node)
+                        type is (print_statement_node)
                         has_main_code = .true.
-                    type is (if_node)
+                        type is (if_node)
                         has_main_code = .true.
-                    type is (do_loop_node)
+                        type is (do_loop_node)
                         has_main_code = .true.
-                    type is (subroutine_call_node)
+                        type is (subroutine_call_node)
                         has_main_code = .true.
-                    type is (function_def_node)
+                        type is (function_def_node)
                         has_functions = .true.
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         has_subroutines = .true.
                     end select
                 end do
@@ -202,10 +202,10 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (module_node)
+                type is (module_node)
                 has_module = .true.
                 exit
-            type is (submodule_node)
+                type is (submodule_node)
                 has_module = .true.
                 exit
             end select
@@ -213,7 +213,7 @@ contains
     end function has_existing_module_in_ast
 
     logical function requires_lazy_internalization(arena, prog_index) &
-        result(needs_wrapping)
+            result(needs_wrapping)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         integer :: i, idx
@@ -224,7 +224,7 @@ contains
         if (.not. arena%has_node_at(prog_index)) return
 
         select type (root => arena%entries(prog_index)%node)
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             if (.not. allocated(root%body_indices)) return
 
             needs_wrapping = .true.
@@ -233,15 +233,15 @@ contains
                 idx = root%body_indices(i)
                 if (.not. arena%has_node_at(idx)) cycle
                 select type (child => arena%entries(idx)%node)
-                type is (program_node)
+                    type is (program_node)
                     if (.not. is_implicit_program_name(child%name)) then
                         needs_wrapping = .false.
                         return
                     end if
-                type is (function_def_node)
+                    type is (function_def_node)
                     call collect_procedure_assignment_names(arena, idx, proc_names)
                     if (has_name_intersection(host_names, proc_names)) return
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     call collect_procedure_assignment_names(arena, idx, proc_names)
                     if (has_name_intersection(host_names, proc_names)) return
                 class default
@@ -278,10 +278,10 @@ contains
             child_idx = root_prog%body_indices(i)
             if (.not. arena%has_node_at(child_idx)) cycle
             select type (child => arena%entries(child_idx)%node)
-            type is (program_node)
+                type is (program_node)
                 if (is_implicit_program_name(child%name)) then
                     call collect_program_assignment_names(arena, child_idx, &
-                                                          host_names)
+                        host_names)
                 end if
             end select
         end do
@@ -295,12 +295,12 @@ contains
 
         if (.not. arena%has_node_at(prog_idx)) return
         select type (prog => arena%entries(prog_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do i = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(i)
                 call collect_assignment_from_node(arena, stmt_idx, names, &
-                                                  skip_procedures=.true.)
+                    skip_procedures=.true.)
             end do
         end select
     end subroutine collect_program_assignment_names
@@ -314,25 +314,25 @@ contains
         if (.not. arena%has_node_at(proc_idx)) return
 
         select type (proc => arena%entries(proc_idx)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(proc%body_indices)) return
             do i = 1, size(proc%body_indices)
                 stmt_idx = proc%body_indices(i)
                 call collect_assignment_from_node(arena, stmt_idx, names, &
-                                                  skip_procedures=.false.)
+                    skip_procedures=.false.)
             end do
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (.not. allocated(proc%body_indices)) return
             do i = 1, size(proc%body_indices)
                 stmt_idx = proc%body_indices(i)
                 call collect_assignment_from_node(arena, stmt_idx, names, &
-                                                  skip_procedures=.false.)
+                    skip_procedures=.false.)
             end do
         end select
     end subroutine collect_procedure_assignment_names
 
     subroutine collect_assignment_from_node(arena, node_index, names, &
-                                            skip_procedures)
+            skip_procedures)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
@@ -341,11 +341,11 @@ contains
 
         call allocate_visit_mask(arena, visited)
         call collect_assignment_from_node_impl(arena, node_index, names, &
-                                               skip_procedures, visited)
+            skip_procedures, visited)
     end subroutine collect_assignment_from_node
 
     recursive subroutine collect_assignment_from_node_impl(arena, node_index, names, &
-                                                           skip_procedures, visited)
+            skip_procedures, visited)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
@@ -360,19 +360,19 @@ contains
         visited(node_index) = .true.
 
         select type (node => arena%entries(node_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             call record_identifier_name(arena, node%target_index, names)
             return
-        type is (function_def_node)
+            type is (function_def_node)
             if (skip_procedures) return
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (skip_procedures) return
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(node%body_indices)) return
             do child_i = 1, size(node%body_indices)
                 child_target = node%body_indices(child_i)
                 call collect_assignment_from_node_impl(arena, child_target, names, &
-                                                       skip_procedures, visited)
+                    skip_procedures, visited)
             end do
             return
         end select
@@ -382,7 +382,7 @@ contains
             do child_i = 1, child_count
                 child_target = arena%entries(node_index)%child_indices(child_i)
                 call collect_assignment_from_node_impl(arena, child_target, names, &
-                                                       skip_procedures, visited)
+                    skip_procedures, visited)
             end do
         end if
     end subroutine collect_assignment_from_node_impl
@@ -398,7 +398,7 @@ contains
     end subroutine record_identifier_name
 
     recursive subroutine record_identifier_name_impl(arena, node_index, names, &
-                                                     visited)
+            visited)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
@@ -410,17 +410,17 @@ contains
         visited(node_index) = .true.
 
         select type (id => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             call append_unique_name(names, trim(to_lower(id%name)))
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (id%base_expr_index > 0) then
                 call record_identifier_name_impl(arena, id%base_expr_index, names, &
-                                                 visited)
+                    visited)
             end if
-        type is (component_access_node)
+            type is (component_access_node)
             if (id%base_expr_index > 0) then
                 call record_identifier_name_impl(arena, id%base_expr_index, names, &
-                                                 visited)
+                    visited)
             end if
         end select
     end subroutine record_identifier_name_impl

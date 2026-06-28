@@ -2,7 +2,7 @@ module parser_expression_tokens_module
     use lexer_core, only: token_t, TK_OPERATOR, to_lower
     use parser_state_module, only: parser_state_t
     use parser_token_views_module, only: token_view_t, view_peek_token, &
-                                         view_lookahead_token
+        view_lookahead_token
     implicit none
     private
 
@@ -29,8 +29,8 @@ contains
 
         lowered = to_lower(token%text)
         token_is_boolean_literal = (lowered == ".true." .or. lowered == &
-                                    ".false." .or. &
-                                    lowered == "true" .or. lowered == "false")
+            ".false." .or. &
+            lowered == "true" .or. lowered == "false")
     end function token_is_boolean_literal
 
     logical function is_prefix_operator_token(token)
@@ -44,7 +44,7 @@ contains
 
         lowered = to_lower(token%text)
         is_prefix_operator_token = (lowered == "+" .or. lowered == "-" .or. lowered &
-                                    == ".not.")
+            == ".not.")
     end function is_prefix_operator_token
 
     ! High-precedence prefix operators that bind immediately to their operand
@@ -104,8 +104,8 @@ contains
 
         select case (lowered)
         case (".and.", ".or.", ".not.", ".eqv.", ".neqv.", &
-              ".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.", &
-              ".true.", ".false.")
+                ".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.", &
+                ".true.", ".false.")
             return
         end select
 

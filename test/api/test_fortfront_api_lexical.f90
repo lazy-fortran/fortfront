@@ -123,9 +123,9 @@ contains
 
             ! Multi-line function
             source = 'real function add(a, b)' // new_line('A') // &
-                     '    real :: a, b' // new_line('A') // &
-                     '    add = a + b' // new_line('A') // &
-                     'end function add'
+                '    real :: a, b' // new_line('A') // &
+                '    add = a + b' // new_line('A') // &
+                'end function add'
 
             call lex_source(source, tokens, error_msg)
 
@@ -220,7 +220,7 @@ contains
 
             ! Multi-line source with specific positions
             source = 'x = 1' // new_line('A') // &
-                     'y = 2'
+                'y = 2'
 
             call lex_source(source, tokens, error_msg)
 

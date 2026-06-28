@@ -1,7 +1,7 @@
 program test_cst_ast_lookup
     use fortfront, only: cst_arena_t, cst_handle_t, cst_node_t, &
-                         create_cst_arena, create_cst_node, get_cst_node_for_ast, &
-                         CST_IDENTIFIER
+        create_cst_arena, create_cst_node, get_cst_node_for_ast, &
+        CST_IDENTIFIER
     implicit none
 
     logical :: all_passed

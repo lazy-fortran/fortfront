@@ -19,10 +19,10 @@ program test_parse_if_nested_do_direct
     print *, '=== Test: direct parse_if handles nested DO without preregistration ==='
 
     source = 'if (flag) then' // new_line('a') // &
-             '  do i = 1, 3' // new_line('a') // &
-             '    print *, i' // new_line('a') // &
-             '  end do' // new_line('a') // &
-             'end if'
+        '  do i = 1, 3' // new_line('a') // &
+        '    print *, i' // new_line('a') // &
+        '  end do' // new_line('a') // &
+        'end if'
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -40,13 +40,13 @@ program test_parse_if_nested_do_direct
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             has_do_loop = .true.
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) then
                 if (index(node%value, '! Unparsed') > 0) has_unparsed = .true.
             end if
-        type is (if_node)
+            type is (if_node)
             cycle
         class default
             cycle

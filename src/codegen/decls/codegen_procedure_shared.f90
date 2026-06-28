@@ -2,10 +2,10 @@ module codegen_procedure_shared
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, literal_node, program_node
     use ast_nodes_data, only: declaration_node, module_node, &
-                              parameter_declaration_node, intent_type_to_string
+        parameter_declaration_node, intent_type_to_string
     use ast_nodes_misc, only: implicit_statement_node
     use codegen_declarations_core, only: build_parameter_dimensions, &
-                                         fix_character_len_placeholder
+        fix_character_len_placeholder
     use codegen_parameter_info, only: parameter_info_t
     use codegen_type_utils, only: get_type_standardization
     use string_utils_mod, only: int_to_string, to_lower
@@ -64,11 +64,11 @@ contains
         if (.not. arena%has_node_at(param_index)) return
 
         select type (param_node => arena%entries(param_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             name = param_node%name
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             name = param_node%name
-        type is (declaration_node)
+            type is (declaration_node)
             name = param_node%var_name
         end select
     end function derive_parameter_name
@@ -86,7 +86,7 @@ contains
             if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                 if (allocated(arena%entries(body_indices(j))%node)) then
                     select type (body_node => arena%entries(body_indices(j))%node)
-                    type is (implicit_statement_node)
+                        type is (implicit_statement_node)
                         is_implicit_none = body_node%is_none
                     end select
                 end if
@@ -101,7 +101,7 @@ contains
             if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                 if (allocated(arena%entries(body_indices(j))%node)) then
                     select type (body_node => arena%entries(body_indices(j))%node)
-                    type is (implicit_statement_node)
+                        type is (implicit_statement_node)
                         is_implicit_none = body_node%is_none
                     end select
                 end if
@@ -114,7 +114,7 @@ contains
     end subroutine filter_implicit_statements
 
     function maybe_add_procedure_implicit_none(arena, body_indices, &
-                                               procedure_index) result(prolog)
+            procedure_index) result(prolog)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: procedure_index
@@ -130,7 +130,7 @@ contains
         do j = 1, size(body_indices)
             if (.not. arena%has_node_at(body_indices(j))) cycle
             select type (body_node => arena%entries(body_indices(j))%node)
-            type is (implicit_statement_node)
+                type is (implicit_statement_node)
                 if (body_node%is_none) then
                     has_implicit_none = .true.
                 else
@@ -148,7 +148,7 @@ contains
     end function maybe_add_procedure_implicit_none
 
     logical function enclosing_has_implicit(arena, procedure_index) &
-        result(has_implicit)
+            result(has_implicit)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: procedure_index
         integer :: parent_index
@@ -160,9 +160,9 @@ contains
         if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
-        type is (module_node)
+            type is (module_node)
             has_implicit = module_scope_has_implicit(arena, parent)
-        type is (program_node)
+            type is (program_node)
             has_implicit = program_scope_has_implicit(arena, parent)
         class default
             has_implicit = .false.
@@ -202,7 +202,7 @@ contains
     end function program_scope_has_implicit
 
     logical function node_index_has_implicit(arena, node_index) &
-        result(has_implicit)
+            result(has_implicit)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: lowered_text
@@ -211,9 +211,9 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (stmt => arena%entries(node_index)%node)
-        type is (implicit_statement_node)
+            type is (implicit_statement_node)
             has_implicit = .true.
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(stmt%value)) then
                 lowered_text = to_lower(adjustl(stmt%value))
                 if (index(lowered_text, "implicit") == 1) has_implicit = .true.
@@ -261,11 +261,11 @@ contains
                         idx = body_indices(j)
                         if (.not. arena%has_node_at(idx)) cycle
                         select type (node => arena%entries(idx)%node)
-                        type is (declaration_node)
+                            type is (declaration_node)
                             if (trim(node%var_name) == trim(param_map(i)%name)) then
                                 if (allocated(node%type_name)) then
                                     if (index(to_lower(trim(node%type_name)), &
-                                              'procedure(') == 1) then
+                                        'procedure(') == 1) then
                                         is_procedure_param = .true.
                                         exit
                                     end if
@@ -329,8 +329,8 @@ contains
         if (len_trim(param_info%name) == 0) return
 
         call build_param_type_with_attrs(arena, param_idx, param_info, param_type, &
-                                         has_intent_attr, has_optional_attr, &
-                                         has_target_attr)
+            has_intent_attr, has_optional_attr, &
+            has_target_attr)
 
         decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
 
@@ -341,8 +341,8 @@ contains
     end subroutine append_parameter_declaration
 
     subroutine build_param_type_with_attrs(arena, param_idx, param_info, &
-                                           param_type, has_intent_attr, &
-                                           has_optional_attr, has_target_attr)
+            param_type, has_intent_attr, &
+            has_optional_attr, has_target_attr)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_idx
         type(parameter_info_t), intent(in) :: param_info
@@ -357,9 +357,9 @@ contains
         has_target_attr = .false.
 
         select type (param_node => arena%entries(param_idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             param_type = get_param_type_from_identifier(param_node)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             param_type = get_param_type_from_param_decl(param_node)
             intent_str = intent_type_to_string(param_node%intent_type)
             if (len_trim(intent_str) > 0) then
@@ -379,11 +379,11 @@ contains
         end select
 
         call apply_param_info_attrs(param_info, param_type, has_intent_attr, &
-                                    has_optional_attr, has_target_attr)
+            has_optional_attr, has_target_attr)
     end subroutine build_param_type_with_attrs
 
     subroutine apply_param_info_attrs(param_info, param_type, has_intent_attr, &
-                                      has_optional_attr, has_target_attr)
+            has_optional_attr, has_target_attr)
         type(parameter_info_t), intent(in) :: param_info
         character(len=:), allocatable, intent(inout) :: param_type
         logical, intent(inout) :: has_intent_attr
@@ -394,7 +394,7 @@ contains
             if (allocated(param_info%intent_str)) then
                 if (len_trim(param_info%intent_str) > 0) then
                     param_type = trim(param_type) // ", intent(" // &
-                                 trim(param_info%intent_str) // ")"
+                        trim(param_info%intent_str) // ")"
                     has_intent_attr = .true.
                 end if
             end if
@@ -423,7 +423,7 @@ contains
 
         is_procedure_parameter = .false.
         select type (param_node => arena%entries(param_idx)%node)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (allocated(param_node%type_name)) then
                 is_procedure_parameter = is_procedure_type(param_node%type_name)
             end if
@@ -434,13 +434,13 @@ contains
 
         if (.not. is_procedure_parameter) then
             select type (param_node => arena%entries(param_idx)%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (param_node%is_array .or. &
                     param_node%inferred_type%kind == TARRAY) then
                     dim_clause = build_parameter_dimensions(arena, param_node)
                     if (len(dim_clause) == 0) then
                         dim_clause = build_assumed_shape_dimensions( &
-                                     param_node%inferred_type)
+                            param_node%inferred_type)
                     end if
                     decl_line = trim(decl_line) // trim(dim_clause)
                 end if
@@ -459,14 +459,14 @@ contains
         pos_char = index(decl_line, 'character(len=:)')
         if (pos_char > 0) then
             decl_line = decl_line(1:pos_char + 13) // '*)' // &
-                        decl_line(pos_char + 17:)
+                decl_line(pos_char + 17:)
         end if
 
         intent_pos = index(decl_line, ' intent(')
         has_comma = index(decl_line, ', intent(') > 0
         if (intent_pos > 0 .and. .not. has_comma) then
             decl_line = decl_line(:intent_pos - 1) // ', intent(' // &
-                        decl_line(intent_pos + 8:)
+                decl_line(intent_pos + 8:)
         end if
     end subroutine fix_declaration_formatting
 
@@ -476,9 +476,9 @@ contains
         integer :: pos
 
         param_type = mono_type_to_string(param_node%inferred_type, &
-                                         include_shape=.true., &
-                                         standardize_real=.true., &
-                                         fallback='real')
+            include_shape=.true., &
+            standardize_real=.true., &
+            fallback='real')
         if (len_trim(param_type) == 0) param_type = 'real'
 
         pos = index(param_type, 'character(len=:)')
@@ -499,9 +499,9 @@ contains
         else
             call get_type_standardization(standardize)
             param_type = mono_type_to_string(param_node%inferred_type, &
-                                             include_shape=.false., &
-                                             standardize_real=standardize, &
-                                             fallback='real')
+                include_shape=.false., &
+                standardize_real=standardize, &
+                fallback='real')
             if (len_trim(param_type) == 0) param_type = 'real'
         end if
 
@@ -511,7 +511,7 @@ contains
                 param_type = 'real(dp)'
             else if (lowered == 'real') then
                 param_type = trim(param_type) // '(' // &
-                             trim(adjustl(int_to_string(param_node%kind_value))) // ')'
+                    trim(adjustl(int_to_string(param_node%kind_value))) // ')'
             end if
             return
         end if
@@ -605,9 +605,9 @@ contains
         do i = 1, size(var_names)
             if (len_trim(var_names(i)) == 0) cycle
             if (.not. is_local_var_collected(trim(var_names(i)), declared_vars, &
-                                             n_declared)) then
+                n_declared)) then
                 call ensure_local_var_capacity(declared_vars, capacity, &
-                                               n_declared + 1)
+                    n_declared + 1)
                 n_declared = n_declared + 1
                 declared_vars(n_declared) = trim(var_names(i))
             end if

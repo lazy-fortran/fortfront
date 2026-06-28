@@ -1,7 +1,7 @@
 module ast_factory_declarations
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              derived_type_node, type_binding_node
+        derived_type_node, type_binding_node
     use ast_nodes_data, only: INTENT_NONE
     implicit none
     private
@@ -60,7 +60,7 @@ contains
     end subroutine assign_dimension_metadata
 
     pure logical function resolve_optional_flag(optional_value, default_value) &
-        result(flag)
+            result(flag)
         logical, intent(in), optional :: optional_value
         logical, intent(in) :: default_value
 
@@ -69,14 +69,14 @@ contains
     end function resolve_optional_flag
 
     subroutine initialize_declaration_details(decl, kind_value, dimension_indices, &
-                                              initializer_index, is_allocatable, &
-                                              is_pointer, &
-                                              is_target, is_external, intent_value, &
-                                              is_unsigned, &
-                                              is_optional, is_parameter, is_save, &
-                                              is_volatile, is_protected, &
-                                              is_asynchronous, is_contiguous, &
-                                              is_value, line, column)
+            initializer_index, is_allocatable, &
+            is_pointer, &
+            is_target, is_external, intent_value, &
+            is_unsigned, &
+            is_optional, is_parameter, is_save, &
+            is_volatile, is_protected, &
+            is_asynchronous, is_contiguous, &
+            is_value, line, column)
         type(declaration_node), intent(inout) :: decl
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
@@ -113,7 +113,7 @@ contains
         end if
 
         call assign_dimension_metadata(decl%is_array, decl%dimension_indices, &
-                                       dimension_indices)
+            dimension_indices)
 
         decl%is_allocatable = resolve_optional_flag(is_allocatable, .false.)
         decl%is_pointer = resolve_optional_flag(is_pointer, .false.)
@@ -143,8 +143,8 @@ contains
 
     ! Create derived type node and add to stack
     function push_derived_type(arena, name, component_indices, param_indices, &
-                               line, column, parent_index, attribute_clause, &
-                               extends_parent, binding_indices) result(type_index)
+            line, column, parent_index, attribute_clause, &
+            extends_parent, binding_indices) result(type_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
@@ -221,13 +221,13 @@ contains
 
     ! Create declaration node and add to stack
     function push_declaration(arena, type_name, names, kind_value, &
-                              dimension_indices, initializer_index, &
-                              is_allocatable, is_pointer, is_target, &
-                              is_external, is_unsigned, intent_value, is_optional, &
-                              is_parameter, is_save, is_volatile, is_protected, &
-                              is_asynchronous, is_contiguous, is_value, line, column, &
-                              parent_index, character_length_expr, accessibility) &
-        result(decl_index)
+            dimension_indices, initializer_index, &
+            is_allocatable, is_pointer, is_target, &
+            is_external, is_unsigned, intent_value, is_optional, &
+            is_parameter, is_save, is_volatile, is_protected, &
+            is_asynchronous, is_contiguous, is_value, line, column, &
+            parent_index, character_length_expr, accessibility) &
+            result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: names(:)
@@ -276,23 +276,23 @@ contains
         end if
 
         call initialize_declaration_details(decl, kind_value=kind_value, &
-                                            dimension_indices=dimension_indices, &
-                                            initializer_index=initializer_index, &
-                                            is_allocatable=is_allocatable, &
-                                            is_pointer=is_pointer, &
-                                            is_target=is_target, &
-                                            is_external=is_external, &
-                                            is_unsigned=is_unsigned, &
-                                            intent_value=intent_value, &
-                                            is_optional=is_optional, &
-                                            is_parameter=is_parameter, &
-                                            is_save=is_save, &
-                                            is_volatile=is_volatile, &
-                                            is_protected=is_protected, &
-                                            is_asynchronous=is_asynchronous, &
-                                            is_contiguous=is_contiguous, &
-                                            is_value=is_value, line=line, &
-                                            column=column)
+            dimension_indices=dimension_indices, &
+            initializer_index=initializer_index, &
+            is_allocatable=is_allocatable, &
+            is_pointer=is_pointer, &
+            is_target=is_target, &
+            is_external=is_external, &
+            is_unsigned=is_unsigned, &
+            intent_value=intent_value, &
+            is_optional=is_optional, &
+            is_parameter=is_parameter, &
+            is_save=is_save, &
+            is_volatile=is_volatile, &
+            is_protected=is_protected, &
+            is_asynchronous=is_asynchronous, &
+            is_contiguous=is_contiguous, &
+            is_value=is_value, line=line, &
+            column=column)
 
         call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
@@ -300,10 +300,10 @@ contains
 
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
-                                        intent_value, is_optional, is_target, &
-                                        is_unsigned, dimension_indices, line, column, &
-                                        parent_index, character_length_expr) &
-        result(param_index)
+            intent_value, is_optional, is_target, &
+            is_unsigned, dimension_indices, line, column, &
+            parent_index, character_length_expr) &
+            result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value
@@ -345,7 +345,7 @@ contains
         param%is_unsigned = resolve_optional_flag(is_unsigned, .false.)
 
         call assign_dimension_metadata(param%is_array, param%dimension_indices, &
-                                       dimension_indices)
+            dimension_indices)
 
         if (present(line)) param%line = line
         if (present(column)) param%column = column
@@ -356,9 +356,9 @@ contains
 
     ! Create type binding node and add to stack
     function push_type_binding(arena, binding_name, implementation, is_generic, &
-                               is_final, is_deferred, pass_arg, accessibility, &
-                               interface_name, generic_list, line, column, &
-                               parent_index, pass_name) result(binding_index)
+            is_final, is_deferred, pass_arg, accessibility, &
+            interface_name, generic_list, line, column, &
+            parent_index, pass_name) result(binding_index)
         use string_types, only: string_t
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: binding_name

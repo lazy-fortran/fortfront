@@ -1,6 +1,6 @@
 program test_issue_1958_intent_preservation
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_STANDARD
     implicit none
@@ -17,7 +17,7 @@ program test_issue_1958_intent_preservation
     print *, "=== Issue #1958: preserve intents for standard inputs ==="
 
     call read_example('examples/f90/issue_1958_intent_preservation.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.

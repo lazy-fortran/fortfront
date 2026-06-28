@@ -8,11 +8,11 @@ module frontend_compiler_api
     use frontend_tooling_api, only: read_file_contents, message_has_error
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program, has_semantic_errors
+        analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use semantic_operating_mode, only: OPERATING_MODE_INFER
     use standardizer, only: standardize_ast, standardize_multi_unit_children, &
-                            set_standardizer_input_mode
+        set_standardizer_input_mode
     use ast_monomorphization, only: transform_monomorphization
     use ast_nodes_data, only: multi_unit_container_node
     implicit none
@@ -75,7 +75,7 @@ contains
 
         parse_error = ''
         call parse_tokens(local_tokens, result%arena, result%root_index, &
-                          parse_error)
+            parse_error)
         if (len_trim(parse_error) > 0) then
             call set_result_error(result, parse_error)
             if (allocated(local_tokens)) deallocate (local_tokens)
@@ -91,7 +91,7 @@ contains
 
         if (opts%run_semantics) then
             call analyze_program(result%semantic_ctx, result%arena, &
-                                 result%root_index)
+                result%root_index)
             result%semantic_ok = .not. has_semantic_errors(result%semantic_ctx)
             if (.not. result%semantic_ok) then
                 result%diagnostic_text = &
@@ -107,7 +107,7 @@ contains
             ! Mirror the CLI pipeline: monomorphize type-polymorphic calls
             ! before standardization so backends see specialized procedures.
             call transform_monomorphization(result%arena, result%root_index, &
-                                            result%semantic_ctx%signatures)
+                result%semantic_ctx%signatures)
             ! A multi_unit_container is fully standardized by
             ! standardize_multi_unit_children, which sends each child through
             ! standardize_function_def / standardize_subroutine_def /
@@ -120,7 +120,7 @@ contains
             ! every other root (a plain program, a bare procedure, a module).
             if (is_multi_unit_container(result%arena, result%root_index)) then
                 call standardize_multi_unit_children(result%arena, &
-                                                     result%root_index)
+                    result%root_index)
             else
                 call standardize_ast(result%arena, result%root_index)
             end if
@@ -135,7 +135,7 @@ contains
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
         select type (node => arena%entries(root_index)%node)
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             is_container = .true.
         end select
     end function is_multi_unit_container

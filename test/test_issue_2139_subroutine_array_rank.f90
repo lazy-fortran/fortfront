@@ -13,7 +13,7 @@ program test_issue_2139_subroutine_array_rank
     type(transform_context_t) :: context
 
     call read_example('examples/f90/issue_playtest5_array_parameter_rank_lost.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.

@@ -31,11 +31,11 @@ contains
         call initialize_codegen()
 
         source = 'program test_asynchronous_attribute' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, asynchronous :: async_var' // new_line('a') // &
-                 '    async_var = 42' // new_line('a') // &
-                 '    print *, async_var' // new_line('a') // &
-                 'end program test_asynchronous_attribute'
+            '    implicit none' // new_line('a') // &
+            '    integer, asynchronous :: async_var' // new_line('a') // &
+            '    async_var = 42' // new_line('a') // &
+            '    print *, async_var' // new_line('a') // &
+            'end program test_asynchronous_attribute'
 
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) return

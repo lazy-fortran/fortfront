@@ -7,7 +7,7 @@ module standardizer_interface_utils
 contains
 
     logical function function_in_interface_block(arena, func_index) &
-        result(in_iface)
+            result(in_iface)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: func_index
         integer :: parent_index
@@ -23,7 +23,7 @@ contains
                 cycle
             end if
             select type (parent => arena%entries(parent_index)%node)
-            type is (interface_block_node)
+                type is (interface_block_node)
                 in_iface = .true.
                 return
             class default
@@ -34,7 +34,7 @@ contains
         do iface_index = 1, arena%size
             if (.not. arena%has_node_at(iface_index)) cycle
             select type (iface => arena%entries(iface_index)%node)
-            type is (interface_block_node)
+                type is (interface_block_node)
                 if (.not. allocated(iface%procedure_indices)) cycle
                 if (any(iface%procedure_indices == func_index)) then
                     in_iface = .true.

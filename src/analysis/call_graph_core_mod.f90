@@ -54,7 +54,7 @@ contains
     end function create_call_graph
 
     subroutine add_procedure(graph, name, def_node, line, column, is_main, &
-                             is_intrinsic, is_external)
+            is_intrinsic, is_external)
         type(call_graph_t), intent(inout) :: graph
         character(len=*), intent(in) :: name
         integer, intent(in) :: def_node
@@ -90,7 +90,7 @@ contains
 
         if (graph%proc_count >= graph%proc_capacity) then
             graph%proc_capacity = max(graph%proc_capacity + graph%proc_capacity / 2, &
-                                      graph%proc_capacity + 16, 16)
+                graph%proc_capacity + 16, 16)
             allocate (temp_procs(graph%proc_capacity))
             if (graph%proc_count > 0) then
                 temp_procs(1:graph%proc_count) = graph%procedures
@@ -120,7 +120,7 @@ contains
 
         if (graph%call_count >= graph%call_capacity) then
             graph%call_capacity = max(graph%call_capacity + graph%call_capacity / 2, &
-                                      graph%call_capacity + 16, 16)
+                graph%call_capacity + 16, 16)
             allocate (temp_calls(graph%call_capacity))
             if (graph%call_count > 0) then
                 temp_calls(1:graph%call_count) = graph%calls
@@ -133,7 +133,7 @@ contains
     end subroutine add_call
 
     subroutine graph_add_procedure(this, name, def_node, line, column, &
-                                   is_main, is_intrinsic, is_external)
+            is_main, is_intrinsic, is_external)
         class(call_graph_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         integer, intent(in) :: def_node
@@ -141,11 +141,11 @@ contains
         logical, intent(in), optional :: is_main, is_intrinsic, is_external
 
         call add_procedure(this, name, def_node, line, column, &
-                           is_main, is_intrinsic, is_external)
+            is_main, is_intrinsic, is_external)
     end subroutine graph_add_procedure
 
     subroutine graph_add_call(this, caller_name, callee_name, call_node, &
-                              line, column)
+            line, column)
         class(call_graph_t), intent(inout) :: this
         character(len=*), intent(in) :: caller_name
         character(len=*), intent(in) :: callee_name

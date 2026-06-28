@@ -21,7 +21,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
 
         has = allocated(arena%source_text) .and. &
-              allocated(arena%source_line_starts)
+            allocated(arena%source_line_starts)
     end function has_source_text
 
     subroutine get_source_text(arena, text, found)
@@ -67,7 +67,7 @@ contains
     end subroutine get_source_line
 
     subroutine get_source_range(arena, start_line, start_col, end_line, end_col, &
-                                text, found)
+            text, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: start_line, start_col
         integer, intent(in) :: end_line, end_col

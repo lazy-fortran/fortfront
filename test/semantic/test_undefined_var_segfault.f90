@@ -1,6 +1,6 @@
 program test_undefined_var_segfault
     use transformation_api, only: transform_lazy_fortran_string
- use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: test_code

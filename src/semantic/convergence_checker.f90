@@ -62,7 +62,7 @@ contains
         ! iteration_count is expected to increase and converged flag is the result
         if (current_results%changes_made == this%previous_state%changes_made .and. &
             abs(current_results%confidence_score - &
-                this%previous_state%confidence_score) < this%tolerance) then
+            this%previous_state%confidence_score) < this%tolerance) then
             converged = .true.
         end if
     end function checker_has_converged

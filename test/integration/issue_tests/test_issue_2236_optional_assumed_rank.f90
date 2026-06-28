@@ -37,7 +37,7 @@ contains
             'Testing optional assumed-rank parameter parsing and monomorphization...'
 
         call read_example('examples/f90/issue_2236_optional_assumed_rank_bridge.f90', &
-                          source)
+            source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .true.
@@ -46,7 +46,7 @@ contains
         ! Process the source. This should not crash.
         ! Issue #2236 crashed during semantic analysis at line 1657.
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options, tokens)
+            options, tokens)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then

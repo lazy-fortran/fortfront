@@ -14,7 +14,7 @@ program test_issue_2391_fixed_form_continuation
     options%output_file = output_path
 
     call compile_source('examples/f90/issue_2391_fixed_form_allocation.f', &
-                        options, error_msg)
+        options, error_msg)
     if (len_trim(error_msg) > 0) then
         write (error_unit, '(A)') 'FAIL: compile_source error: ' // &
             trim(error_msg)
@@ -25,9 +25,9 @@ program test_issue_2391_fixed_form_continuation
     call read_example(output_path, output_code)
 
     has_bounds = index(output_code, 'allocate(lla(') > 0 .and. &
-                 index(output_code, '2:3') > 0 .and. &
-                 index(output_code, 'nf10:1') > 0 .and. &
-                 index(output_code, '-2:7') > 0
+        index(output_code, '2:3') > 0 .and. &
+        index(output_code, 'nf10:1') > 0 .and. &
+        index(output_code, '-2:7') > 0
 
     call cleanup_output(output_path)
 
@@ -53,7 +53,7 @@ contains
         if (.not. has_file) return
 
         open (newunit=unit, file=path, status='old', action='readwrite', &
-              iostat=ios)
+            iostat=ios)
         if (ios == 0) then
             close (unit, status='delete')
         end if

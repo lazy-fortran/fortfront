@@ -1,15 +1,15 @@
 module semantic_array_intrinsics
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
-                                   TLOGICAL, TARRAY
+        TLOGICAL, TARRAY
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node
     use string_utils_mod, only: to_lower
     use semantic_array_type_builders, only: build_deferred_shape_array, &
-                                            build_fixed_shape_array
+        build_fixed_shape_array
     use semantic_type_operations, only: get_common_type
     use semantic_function_helpers, only: get_type_lookup, &
-                                         gather_call_argument_types
+        gather_call_argument_types
     use semantic_constant_values, only: get_constant_integer_value
     implicit none
     private
@@ -19,7 +19,7 @@ module semantic_array_intrinsics
 contains
 
     function infer_array_intrinsic_type(arena, call_node, get_type_fn) &
-        result(typ)
+            result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         procedure(get_type_lookup) :: get_type_fn
@@ -40,14 +40,14 @@ contains
 
         if (is_reduction_intrinsic(lowered_name)) then
             typ = infer_reduction_intrinsic_result(arena, call_node, &
-                                                   get_type_fn, lowered_name)
+                get_type_fn, lowered_name)
             return
         end if
 
         select case (lowered_name)
         case ("matmul")
             typ = handle_matmul_intrinsic(arena, call_node, get_type_fn, &
-                                          num_args)
+                num_args)
         case ("reshape")
             typ = handle_reshape_intrinsic(arena, call_node, get_type_fn)
         case ("transpose")
@@ -64,7 +64,7 @@ contains
     end function infer_array_intrinsic_type
 
     function handle_matmul_intrinsic(arena, call_node, get_type_fn, num_args) &
-        result(typ)
+            result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         procedure(get_type_lookup) :: get_type_fn
@@ -201,7 +201,7 @@ contains
         if (lhs_rank == 2 .and. rhs_rank == 2) then
             typ = build_deferred_shape_array(result_element, 2)
         else if ((lhs_rank == 2 .and. rhs_rank == 1) .or. &
-                 (lhs_rank == 1 .and. rhs_rank == 2)) then
+                (lhs_rank == 1 .and. rhs_rank == 2)) then
             typ = build_deferred_shape_array(result_element, 1)
         else if (lhs_rank == 1 .and. rhs_rank == 1) then
             typ = result_element
@@ -235,9 +235,9 @@ contains
             end if
             if (size(call_node%arg_indices) >= 2) then
                 call extract_reshape_dimensions(arena, &
-                                                call_node%arg_indices(2), &
-                                                ndims, dimension_sizes, &
-                                                has_literal_dimensions)
+                    call_node%arg_indices(2), &
+                    ndims, dimension_sizes, &
+                    has_literal_dimensions)
             end if
         end if
 
@@ -330,7 +330,7 @@ contains
     end function handle_generic_array_intrinsic
 
     subroutine extract_reshape_dimensions(arena, shape_idx, ndims, &
-                                          dimension_sizes, has_literals)
+            dimension_sizes, has_literals)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: shape_idx
         integer, intent(out) :: ndims
@@ -342,14 +342,14 @@ contains
         if (.not. arena%has_node_at(shape_idx)) return
 
         select type (shape_node => arena%entries(shape_idx)%node)
-        type is (array_literal_node)
+            type is (array_literal_node)
             call populate_literal_dimensions(arena, shape_node, ndims, &
-                                             dimension_sizes, has_literals)
+                dimension_sizes, has_literals)
         end select
     end subroutine extract_reshape_dimensions
 
     subroutine populate_literal_dimensions(arena, shape_node, ndims, &
-                                           dimension_sizes, has_literals)
+            dimension_sizes, has_literals)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: shape_node
         integer, intent(out) :: ndims
@@ -369,8 +369,8 @@ contains
         has_literals = .true.
         do i = 1, ndims
             if (.not. literal_dimension_value(arena, &
-                                              shape_node%element_indices(i), &
-                                              dim_value)) then
+                shape_node%element_indices(i), &
+                dim_value)) then
                 has_literals = .false.
                 exit
             end if
@@ -406,7 +406,7 @@ contains
     end function is_reduction_intrinsic
 
     function infer_reduction_intrinsic_result(arena, call_node, get_type_fn, &
-                                              lowered_name) result(typ)
+            lowered_name) result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         procedure(get_type_lookup) :: get_type_fn

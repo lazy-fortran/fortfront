@@ -29,7 +29,7 @@ contains
             decl_index = func_node%body_indices(i)
             if (.not. arena%has_node_at(decl_index)) cycle
             select type (decl => arena%entries(decl_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (trim(decl%var_name) /= trim(result_name)) cycle
                 if (decl%is_array) then
                     is_scalar = .false.
@@ -69,14 +69,14 @@ contains
         is_same = .false.
 
         select type (n1 => node1)
-        type is (identifier_node)
-            select type (n2 => node2)
             type is (identifier_node)
+            select type (n2 => node2)
+                type is (identifier_node)
                 is_same = (n1%name == n2%name)
             end select
-        type is (literal_node)
-            select type (n2 => node2)
             type is (literal_node)
+            select type (n2 => node2)
+                type is (literal_node)
                 is_same = (n1%literal_type == n2%literal_type)
             end select
         class default

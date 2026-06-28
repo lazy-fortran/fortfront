@@ -7,11 +7,11 @@ program test_type_binding_pass_name
     implicit none
 
     character(len=*), parameter :: source = &
-                                   "type :: atype"//new_line('A')// &
-                                   "   integer :: field"//new_line('A')// &
-                                   "contains"//new_line('A')// &
-                               "   procedure, pass(other) :: m => fn"//new_line('A')// &
-                                   "end type atype"
+        "type :: atype"//new_line('A')// &
+        "   integer :: field"//new_line('A')// &
+        "contains"//new_line('A')// &
+        "   procedure, pass(other) :: m => fn"//new_line('A')// &
+        "end type atype"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
@@ -35,7 +35,7 @@ program test_type_binding_pass_name
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (node => arena%entries(i)%node)
-        type is (type_binding_node)
+            type is (type_binding_node)
             found = .true.
             if (.not. allocated(node%pass_name)) then
                 print *, "FAIL: pass_name not captured"

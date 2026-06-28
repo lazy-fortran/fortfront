@@ -4,11 +4,11 @@ program test_issue_1898_implicit_multi_spec
     character(len=:), allocatable :: source, result_code, error_msg
 
     source = "program test_implicit" // new_line('a') // &
-             "    implicit real(a-h), integer(i-n)" // new_line('a') // &
-             "    x = 3.5" // new_line('a') // &
-             "    i = 10" // new_line('a') // &
-             "    print *, x, i" // new_line('a') // &
-             "end program test_implicit"
+        "    implicit real(a-h), integer(i-n)" // new_line('a') // &
+        "    x = 3.5" // new_line('a') // &
+        "    i = 10" // new_line('a') // &
+        "    print *, x, i" // new_line('a') // &
+        "end program test_implicit"
 
     call transform_lazy_fortran_string(source, result_code, error_msg)
 

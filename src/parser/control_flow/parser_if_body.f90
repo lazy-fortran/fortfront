@@ -7,14 +7,14 @@ module parser_if_body_module
     !
     ! ISO/IEC 1539-1:2018 Section 11.1.8.1 specifies IF construct syntax.
     use lexer_core, only: token_t, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_statement_core_module, only: statement_callbacks_t, &
-                                            find_statement_end, &
-                                            extend_if_statement_end, &
-                                            allocate_stmt_tokens_with_eof, &
-                                            skip_whitespace_and_semicolons, &
-                                            parse_basic_statement_core
+        find_statement_end, &
+        extend_if_statement_end, &
+        allocate_stmt_tokens_with_eof, &
+        skip_whitespace_and_semicolons, &
+        parse_basic_statement_core
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -52,7 +52,7 @@ contains
                 if (is_if_body_terminator(parser, token)) exit
 
                 call parse_if_body_statement(parser, arena, parent_index, &
-                                             body_indices, stmt_count, callbacks)
+                    body_indices, stmt_count, callbacks)
             end do
         end block
 
@@ -99,7 +99,7 @@ contains
     end function is_if_body_terminator
 
     subroutine parse_if_body_statement(parser, arena, parent_index, body_indices, &
-                                       stmt_count, callbacks)
+            stmt_count, callbacks)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -118,8 +118,8 @@ contains
         if (first_stmt_token%kind == TK_KEYWORD) then
             if (first_stmt_token%text == "if") then
                 stmt_end = extend_if_statement_end(parser%tokens, &
-                                                   parser%current_token, &
-                                                   stmt_end)
+                    parser%current_token, &
+                    stmt_end)
             end if
         end if
         if (stmt_end < parser%current_token) then
@@ -129,7 +129,7 @@ contains
         if (stmt_end - parser%current_token + 1 <= 0) return
 
         call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
-                                           parser%current_token, stmt_end)
+            parser%current_token, stmt_end)
         last_token_index = stmt_end
         stmt_tokens(stmt_end - parser%current_token + 2)%line = &
             parser%tokens(last_token_index)%line
@@ -138,13 +138,13 @@ contains
 
         if (present(parent_index)) then
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                      parent_index=parent_index, &
-                                                      callbacks=callbacks, &
-                                                      consumed_count=consumed_tokens)
+                parent_index=parent_index, &
+                callbacks=callbacks, &
+                consumed_count=consumed_tokens)
         else
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                      callbacks=callbacks, &
-                                                      consumed_count=consumed_tokens)
+                callbacks=callbacks, &
+                consumed_count=consumed_tokens)
         end if
 
         if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then

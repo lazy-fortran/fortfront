@@ -9,7 +9,7 @@ program test_intrinsic_reduction_scalars
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/lf/issue_1961_array_reduction_intrinsics.lf', &
-                      input_code)
+        input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

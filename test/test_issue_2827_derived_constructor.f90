@@ -9,7 +9,7 @@ program test_issue_2827_derived_constructor
     character(:), allocatable :: lowered
 
     call read_example('examples/lf/issue_2827_derived_constructor_inference.lf', &
-                      input_code)
+        input_code)
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     if (allocated(error_msg)) then

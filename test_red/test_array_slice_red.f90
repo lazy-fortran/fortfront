@@ -15,7 +15,7 @@ program test_array_slice_red
 
     print *
     print *, 'Array slicing RED tests completed'
-    stop 0  ! Exit 0 since failures are expected
+    stop 0 ! Exit 0 since failures are expected
 
 contains
 

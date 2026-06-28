@@ -3,8 +3,8 @@ program test_issue_2829_poly_forall_vars
     ! into stored handles, recoverable via get_poly_forall_vars, instead of
     ! discarding them as an empty set.
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   create_mono_type, create_type_var, &
-                                   create_poly_type, get_poly_forall_vars, TREAL
+        create_mono_type, create_type_var, &
+        create_poly_type, get_poly_forall_vars, TREAL
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

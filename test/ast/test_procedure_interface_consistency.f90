@@ -148,14 +148,14 @@ contains
         iface_node%kind = "interface"
         ! Procedures would be referenced by indices in procedure_indices array
         allocate (iface_node%procedure_indices(2))
-        iface_node%procedure_indices = [100, 200]  ! Mock indices
+        iface_node%procedure_indices = [100, 200] ! Mock indices
 
         call arena%push(iface_node, "interface_block", 0)
         iface_index = arena%size
 
         ! Test interface block structure
         select type (n => arena%entries(iface_index)%node)
-        type is (interface_block_node)
+            type is (interface_block_node)
             if (.not. allocated(n%procedure_indices)) then
                 print *, "FAILED: Interface block procedure_indices not allocated"
                 all_tests_passed = .false.

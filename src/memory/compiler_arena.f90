@@ -5,32 +5,32 @@ module compiler_arena
     use arena_memory
     use type_system_arena
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, &
-                                destroy_ast_arena
+        destroy_ast_arena
     use, intrinsic :: iso_fortran_env, only: int64, dp => real64, error_unit
     implicit none
     private
 
     public :: compiler_arena_t, compiler_arena_stats_t, create_compiler_arena, &
-              destroy_compiler_arena
+        destroy_compiler_arena
 
     type :: compiler_arena_t
         type(type_arena_t) :: types
         type(ast_arena_t) :: ast
 
         ! Unified management state
-        integer :: generation = 1  ! Global generation counter
-        integer(int64) :: total_bytes = 0  ! Total memory usage across arenas
-        logical :: is_initialized = .false.  ! Initialization state
+        integer :: generation = 1 ! Global generation counter
+        integer(int64) :: total_bytes = 0 ! Total memory usage across arenas
+        logical :: is_initialized = .false. ! Initialization state
 
         ! Performance tracking
-        integer(int64) :: total_allocations = 0  ! Total allocations across arenas
-        integer(int64) :: total_deallocations = 0  ! Total deallocations
-        real(dp) :: total_allocation_time = 0.0_dp  ! Cumulative allocation time
-        integer :: checkpoint_generation = 0  ! Last checkpoint generation
+        integer(int64) :: total_allocations = 0 ! Total allocations across arenas
+        integer(int64) :: total_deallocations = 0 ! Total deallocations
+        real(dp) :: total_allocation_time = 0.0_dp ! Cumulative allocation time
+        integer :: checkpoint_generation = 0 ! Last checkpoint generation
 
         ! Configuration
-        integer :: default_chunk_size = 1048576  ! 1MB default chunk size
-        logical :: enable_stats = .true.  ! Performance statistics tracking
+        integer :: default_chunk_size = 1048576 ! 1MB default chunk size
+        logical :: enable_stats = .true. ! Performance statistics tracking
     contains
         procedure :: init => compiler_arena_init
         procedure :: destroy => compiler_arena_destroy
@@ -85,16 +85,16 @@ contains
 
         size = this%default_chunk_size
 
-     ! PERFORMANCE FIX: Initialize arenas in-place to avoid assignment operator overhead
+        ! PERFORMANCE FIX: Initialize arenas in-place to avoid assignment operator overhead
         ! Initialize type arena directly (avoid assignment operator deep copy)
-        this%types%arena = create_arena(size / 4)  ! Types typically need less memory
+        this%types%arena = create_arena(size / 4) ! Types typically need less memory
         this%types%next_type_id = 1
         this%types%mono_count = 0
         this%types%poly_count = 0
         this%types%args_count = 0
 
         ! Initialize AST arena directly (avoid assignment operator deep copy)
-        this%ast = create_ast_arena(16)  ! Start small, will grow as needed
+        this%ast = create_ast_arena(16) ! Start small, will grow as needed
 
         ! Initialize unified state
         this%generation = 1
@@ -201,13 +201,13 @@ contains
 
             ! Average utilization across arenas (average type and AST utilization)
             stats%average_utilization = (type_stats%utilization + &
-                                         ast_stats%utilization) / 2.0_dp
+                ast_stats%utilization) / 2.0_dp
         end block
 
         ! Calculate allocation rate (allocations per second)
         if (this%total_allocation_time > 0.0_dp) then
             stats%allocation_rate = real(this%total_allocations, dp) / &
-                                    this%total_allocation_time
+                this%total_allocation_time
         end if
 
         stats%active_generations = this%generation
@@ -249,7 +249,7 @@ contains
         if (.not. this%is_initialized) return
 
         call get_environment_variable('FORTFRONT_TRACE_PHASES', trace_phases, &
-                                      status=trace_status)
+            status=trace_status)
         if (trace_status == 0 .and. len_trim(trace_phases) > 0) then
             write (error_unit, '(A,A)') 'PHASE ', trim(phase_name)
             flush (error_unit)
@@ -293,8 +293,8 @@ contains
         type(compiler_arena_t), intent(in) :: rhs
 
         ! Copy sub-arenas (using their assignment operators)
-        lhs%types = rhs%types  ! Uses type_arena_t assignment
-        lhs%ast = rhs%ast  ! Uses ast_arena_t assignment
+        lhs%types = rhs%types ! Uses type_arena_t assignment
+        lhs%ast = rhs%ast ! Uses ast_arena_t assignment
 
         ! Copy scalar members
         lhs%generation = rhs%generation

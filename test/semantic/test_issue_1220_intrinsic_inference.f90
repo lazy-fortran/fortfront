@@ -13,7 +13,7 @@ program test_issue_1220_intrinsic_inference
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
     if (len(error_msg) == 0) then
-     if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
+        if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
             print *, "✓ sqrt(16.0) correctly inferred as real"
         else
             print *, "✗ sqrt(16.0) incorrectly inferred (should be real, not character)"
@@ -31,7 +31,7 @@ program test_issue_1220_intrinsic_inference
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
     if (len(error_msg) == 0) then
-     if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
+        if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
             print *, "✓ sin(3.14) correctly inferred as real"
         else
             print *, "✗ sin(3.14) incorrectly inferred (should be real, not character)"
@@ -49,7 +49,7 @@ program test_issue_1220_intrinsic_inference
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
     if (len(error_msg) == 0) then
-     if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
+        if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
             print *, "✓ cos(1.57) correctly inferred as real"
         else
             print *, "✗ cos(1.57) incorrectly inferred (should be real, not character)"
@@ -67,11 +67,11 @@ program test_issue_1220_intrinsic_inference
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
     if (len(error_msg) == 0) then
-  if (index(output_code, "integer") > 0 .and. index(output_code, "character") == 0) then
+        if (index(output_code, "integer") > 0 .and. index(output_code, "character") == 0) then
             print *, "✓ len(""hello"") correctly inferred as integer"
         else if (index(output_code, 'character(len=:), allocatable :: length') > 0) then
             ! Special case: variable name "length" might be confused
-     print *, "✗ len(""hello"") incorrectly inferred (should be integer, not character)"
+            print *, "✗ len(""hello"") incorrectly inferred (should be integer, not character)"
             print *, "Generated code:", trim(output_code)
             test_failed = .true.
         end if
@@ -86,7 +86,7 @@ program test_issue_1220_intrinsic_inference
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
     if (len(error_msg) == 0) then
-     if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
+        if (index(output_code, "real") > 0 .and. index(output_code, "character") == 0) then
             print *, "✓ exp(1.0) correctly inferred as real"
         else
             print *, "✗ exp(1.0) incorrectly inferred (should be real, not character)"

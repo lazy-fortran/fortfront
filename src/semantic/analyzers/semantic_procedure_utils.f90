@@ -1,6 +1,6 @@
 module semantic_procedure_utils
     use type_system_unified, only: mono_type_t, create_mono_type, TDOUBLE, TINT, &
-                                   TLOGICAL, TREAL, TCHAR
+        TLOGICAL, TREAL, TCHAR
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
@@ -112,11 +112,11 @@ contains
             stmt_index = func_node%body_indices(i)
             if (.not. arena%has_node_at(stmt_index)) cycle
             select type (stmt => arena%entries(stmt_index)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 target_index = stmt%target_index
                 if (.not. arena%has_node_at(target_index)) cycle
                 select type (target => arena%entries(target_index)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     if (.not. allocated(target%name)) cycle
                     target_name = trim(target%name)
                     if (len_trim(target_name) == 0) cycle

@@ -29,8 +29,8 @@ contains
         print *, 'Testing exponentiation precedence...'
 
         source = 'r = 10' // new_line('a') // &
-                 'area = 3.14 * r**2' // new_line('a') // &
-                 'print*,area'
+            'area = 3.14 * r**2' // new_line('a') // &
+            'print*,area'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

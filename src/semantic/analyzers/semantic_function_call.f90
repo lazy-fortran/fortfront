@@ -1,21 +1,21 @@
 module semantic_function_call
     use type_system_unified, only: mono_type_t, poly_type_t, create_mono_type, &
-                                   TREAL, TINT, TCHAR, TLOGICAL, TFUN, TARRAY, &
-                                   TCOMPLEX, type_args_allocated, type_args_size, &
-                                   type_args_element
+        TREAL, TINT, TCHAR, TLOGICAL, TFUN, TARRAY, &
+        TCOMPLEX, type_args_allocated, type_args_size, &
+        type_args_element
     use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
     use intrinsic_registry, only: get_intrinsic_signature, &
-                                  is_intrinsic_function
+        is_intrinsic_function
     use string_utils_mod, only: to_lower
     use semantic_array_type_builders, only: collapse_array_rank
     use semantic_array_intrinsics, only: infer_array_intrinsic_type
     use semantic_function_helpers, only: get_type_lookup, &
-                                         gather_call_argument_types, &
-                                         refine_type_from_arguments, &
-                                         refine_character_intrinsic_result, &
-                                         find_return_type
+        gather_call_argument_types, &
+        refine_type_from_arguments, &
+        refine_character_intrinsic_result, &
+        find_return_type
     implicit none
     private
 
@@ -24,7 +24,7 @@ module semantic_function_call
 contains
 
     function infer_function_call_type(arena, call_node, scopes, get_type_fn) &
-        result(typ)
+            result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(inout) :: call_node
         type(scope_stack_t), intent(inout) :: scopes
@@ -41,7 +41,7 @@ contains
         has_function_scheme = .false.
 
         call gather_call_argument_types(arena, call_node, get_type_fn, &
-                                        arg_types)
+            arg_types)
 
         if (allocated(call_node%name)) then
             lowered_name = to_lower(trim(call_node%name))
@@ -50,20 +50,20 @@ contains
         end if
 
         call resolve_function_call_type(arena, call_node, scopes, get_type_fn, &
-                                        typ, is_intrinsic_func, &
-                                        has_function_scheme, &
-                                        return_type_locked)
+            typ, is_intrinsic_func, &
+            has_function_scheme, &
+            return_type_locked)
 
         if (is_intrinsic_func) then
             call refine_character_intrinsic_result(lowered_name, &
-                                                   arg_types, typ)
+                arg_types, typ)
         end if
 
         call apply_array_access_rules(call_node, has_function_scheme, &
-                                      is_intrinsic_func, typ)
+            is_intrinsic_func, typ)
 
         call refine_type_from_arguments(arg_types, typ, return_type_locked, &
-                                        is_intrinsic_func)
+            is_intrinsic_func)
 
         if (is_intrinsic_func) then
             select case (lowered_name)
@@ -76,10 +76,10 @@ contains
     end function infer_function_call_type
 
     subroutine resolve_function_call_type(arena, call_node, scopes, &
-                                          get_type_fn, typ, &
-                                          is_intrinsic_func, &
-                                          has_function_scheme, &
-                                          return_type_locked)
+            get_type_fn, typ, &
+            is_intrinsic_func, &
+            has_function_scheme, &
+            return_type_locked)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(inout) :: call_node
         type(scope_stack_t), intent(inout) :: scopes
@@ -166,7 +166,7 @@ contains
     end subroutine resolve_function_call_type
 
     subroutine apply_array_access_rules(call_node, has_function_scheme, &
-                                        is_intrinsic_func, typ)
+            is_intrinsic_func, typ)
         type(call_or_subscript_node), intent(inout) :: call_node
         logical, intent(in) :: has_function_scheme
         logical, intent(in) :: is_intrinsic_func
@@ -182,8 +182,8 @@ contains
         treat_as_array_access = call_node%is_array_access
         if (.not. treat_as_array_access) then
             treat_as_array_access = subscript_rank > 0 .and. &
-                                    .not. has_function_scheme .and. &
-                                    .not. is_intrinsic_func
+                .not. has_function_scheme .and. &
+                .not. is_intrinsic_func
         end if
 
         if (treat_as_array_access .and. typ%kind == TARRAY) then

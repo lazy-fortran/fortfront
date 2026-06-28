@@ -16,10 +16,10 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: node" // new_line('A') // &
-                     "  integer :: value" // new_line('A') // &
-                     "  type(node), pointer :: left => null()" // new_line('A') // &
-                     "  type(node), pointer :: right => null()" // new_line('A') // &
-                     "end type node"
+            "  integer :: value" // new_line('A') // &
+            "  type(node), pointer :: left => null()" // new_line('A') // &
+            "  type(node), pointer :: right => null()" // new_line('A') // &
+            "end type node"
 
         print *, ""
         print *, "=== Test 1: Binary tree with recursive pointers ==="
@@ -50,10 +50,10 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: list_node" // new_line('A') // &
-                     "  real :: data" // new_line('A') // &
-                     "  type(list_node), pointer :: next => " // &
-                     "null()" // new_line('A') // &
-                     "end type list_node"
+            "  real :: data" // new_line('A') // &
+            "  type(list_node), pointer :: next => " // &
+            "null()" // new_line('A') // &
+            "end type list_node"
 
         print *, ""
         print *, "=== Test 2: Linked list with recursive pointer ==="
@@ -79,10 +79,10 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: t_node" // new_line('A') // &
-                     "  integer :: id" // new_line('A') // &
-                     "  type(t_node), dimension(:), allocatable :: " // &
-                     "children" // new_line('A') // &
-                     "end type t_node"
+            "  integer :: id" // new_line('A') // &
+            "  type(t_node), dimension(:), allocatable :: " // &
+            "children" // new_line('A') // &
+            "end type t_node"
 
         print *, ""
         print *, "=== Test 3: Tree with recursive allocatable array ==="
@@ -113,14 +113,14 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: graph_node" // new_line('A') // &
-                     "  character(len=32) :: label" // new_line('A') // &
-                     "  type(graph_node), pointer :: parent => " // &
-                     "null()" // new_line('A') // &
-                     "  type(graph_node), pointer :: first_child => " // &
-                     "null()" // new_line('A') // &
-                     "  type(graph_node), pointer :: next_sibling => " // &
-                     "null()" // new_line('A') // &
-                     "end type graph_node"
+            "  character(len=32) :: label" // new_line('A') // &
+            "  type(graph_node), pointer :: parent => " // &
+            "null()" // new_line('A') // &
+            "  type(graph_node), pointer :: first_child => " // &
+            "null()" // new_line('A') // &
+            "  type(graph_node), pointer :: next_sibling => " // &
+            "null()" // new_line('A') // &
+            "end type graph_node"
 
         print *, ""
         print *, "=== Test 4: Graph node with multiple recursive pointers ==="

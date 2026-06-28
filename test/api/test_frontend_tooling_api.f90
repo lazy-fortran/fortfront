@@ -1,8 +1,8 @@
 program test_frontend_tooling_api
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-                         tooling_load_ast_from_file, ast_arena_t, token_t, &
-                         get_node_type_at, ast_to_json
+        tooling_load_ast_from_file, ast_arena_t, token_t, &
+        get_node_type_at, ast_to_json
     implicit none
 
     logical :: all_passed
@@ -37,11 +37,11 @@ contains
         integer :: clock_rate
         real(dp) :: elapsed_seconds
         character(len=*), parameter :: source = &
-                                       'program sample' // new_line('a') // &
-                                       '  implicit none' // new_line('a') // &
-                                       '  integer :: x' // new_line('a') // &
-                                       '  x = 3' // new_line('a') // &
-                                       'end program sample'
+            'program sample' // new_line('a') // &
+            '  implicit none' // new_line('a') // &
+            '  integer :: x' // new_line('a') // &
+            '  x = 3' // new_line('a') // &
+            'end program sample'
 
         test_parse_string = .true.
         print *, 'Testing tooling_load_ast_from_string...'
@@ -51,7 +51,7 @@ contains
 
         call system_clock(start_clock, clock_rate)
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          options, tokens)
+            options, tokens)
         call system_clock(end_clock)
 
         if (has_error(error_msg)) then
@@ -85,7 +85,7 @@ contains
 
         if (clock_rate > 0) then
             elapsed_seconds = real(end_clock - start_clock, dp) / &
-                              real(clock_rate, dp)
+                real(clock_rate, dp)
             print *, '  INFO: string parse time (s) =', elapsed_seconds
         end if
 
@@ -115,7 +115,7 @@ contains
         print *, 'Testing tooling_load_ast_from_file...'
 
         open (newunit=unit, file=file_path, status='replace', action='write', &
-              iostat=io_stat)
+            iostat=io_stat)
         if (io_stat /= 0) then
             print *, '  FAIL: unable to create sample file'
             test_parse_file = .false.
@@ -130,12 +130,12 @@ contains
         options = tooling_parse_options_t()
         call system_clock(start_clock, clock_rate)
         call tooling_load_ast_from_file(file_path, arena, root_index, error_msg, &
-                                        options)
+            options)
         call system_clock(end_clock)
 
         if (clock_rate > 0) then
             elapsed_seconds = real(end_clock - start_clock, dp) / &
-                              real(clock_rate, dp)
+                real(clock_rate, dp)
             print *, '  INFO: file parse time (s) =', elapsed_seconds
         end if
 

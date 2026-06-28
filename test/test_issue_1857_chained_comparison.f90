@@ -23,7 +23,7 @@ contains
         test_chained_comparison_output = .true.
 
         call read_example('examples/lf/chained_comparison.lf', &
-                          source)
+            source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

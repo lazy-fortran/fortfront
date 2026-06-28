@@ -1,7 +1,7 @@
 program test_issue_2013_nested_implied_do
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_with_context, transform_context_t, &
-                                  INPUT_MODE_STANDARD
+        INPUT_MODE_STANDARD
     implicit none
 
     type(transform_context_t) :: context
@@ -10,7 +10,7 @@ program test_issue_2013_nested_implied_do
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/f90/issue_2013_nested_implied_do_duplicate_var.f90', &
-                      source)
+        source)
 
     context%input_mode = INPUT_MODE_STANDARD
     call transform_with_context(source, transformed, error_msg, context)

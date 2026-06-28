@@ -36,7 +36,7 @@ contains
 
         call initialize_codegen()
         call read_example('examples/lf/issue_1775_intent_in_preserved.lf', &
-                          source)
+            source)
 
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) then

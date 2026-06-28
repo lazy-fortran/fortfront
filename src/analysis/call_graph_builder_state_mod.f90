@@ -60,7 +60,7 @@ contains
     end function create_call_graph_builder
 
     subroutine add_symbol_entry(builder, simple_name, full_name, parent_symbol, &
-                                node_index, is_procedure, symbol_id)
+            node_index, is_procedure, symbol_id)
         type(call_graph_builder_t), intent(inout) :: builder
         character(len=*), intent(in) :: simple_name
         character(len=*), intent(in) :: full_name
@@ -98,8 +98,8 @@ contains
     end subroutine add_symbol_entry
 
     subroutine add_call_with_resolution(builder, scope_symbol, caller_name, &
-                                        callee_simple, resolved_symbol, call_node, &
-                                        line, column)
+            callee_simple, resolved_symbol, call_node, &
+            line, column)
         type(call_graph_builder_t), intent(inout) :: builder
         integer, intent(in) :: scope_symbol
         character(len=*), intent(in) :: caller_name
@@ -120,18 +120,18 @@ contains
         end if
 
         call builder%graph%add_call_edge(trim(caller_name), trim(callee_name), &
-                                         call_node, line, column)
+            call_node, line, column)
 
         call_index = builder%graph%call_count
 
         if (resolved_symbol <= 0) then
             call register_unresolved_call(builder, call_index, callee_simple, &
-                                          scope_symbol)
+                scope_symbol)
         end if
     end subroutine add_call_with_resolution
 
     subroutine register_unresolved_call(builder, call_index, callee_simple, &
-                                        scope_symbol)
+            scope_symbol)
         type(call_graph_builder_t), intent(inout) :: builder
         integer, intent(in) :: call_index
         character(len=*), intent(in) :: callee_simple
@@ -211,7 +211,7 @@ contains
     end function compute_full_name
 
     integer function resolve_procedure_symbol(builder, simple_name, scope_symbol) &
-        result(symbol_id)
+            result(symbol_id)
         type(call_graph_builder_t), intent(in) :: builder
         character(len=*), intent(in) :: simple_name
         integer, intent(in) :: scope_symbol
@@ -235,7 +235,7 @@ contains
     end function resolve_procedure_symbol
 
     integer function find_symbol_with_parent(builder, simple_name, parent_symbol) &
-        result(symbol_id)
+            result(symbol_id)
         type(call_graph_builder_t), intent(in) :: builder
         character(len=*), intent(in) :: simple_name
         integer, intent(in) :: parent_symbol

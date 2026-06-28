@@ -8,7 +8,7 @@ program test_type_hierarchy_resolution
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program
+        analyze_program
     use iso_fortran_env, only: error_unit
     implicit none
 
@@ -37,7 +37,7 @@ contains
         integer :: unit, iostat, filesize
 
         open (newunit=unit, file=filepath, access='stream', form='unformatted', &
-              status='old', iostat=iostat)
+            status='old', iostat=iostat)
         if (iostat /= 0) then
             content = ''
             return
@@ -82,7 +82,7 @@ contains
 
         passed = .true.
         call read_example('examples/f90/issue_2819_type_hierarchy_chain.f90', &
-                          source)
+            source)
         if (len_trim(source) == 0) then
             write (error_unit, '(A)') 'FAIL: could not read hierarchy example'
             passed = .false.
@@ -110,7 +110,7 @@ contains
 
         passed = .true.
         call read_example('examples/f90/issue_2819_type_hierarchy_chain.f90', &
-                          source)
+            source)
         call analyze_source(source, ctx, ok)
         if (.not. ok) then
             passed = .false.
@@ -131,7 +131,7 @@ contains
 
         passed = .true.
         call read_example('examples/f90/issue_2819_type_hierarchy_chain.f90', &
-                          source)
+            source)
         call analyze_source(source, ctx, ok)
         if (.not. ok) then
             passed = .false.
@@ -153,13 +153,13 @@ contains
         passed = .true.
         ! Focused negative unit input: extends a type that is never defined.
         source = 'program p'//new_line('a')// &
-                 '    implicit none'//new_line('a')// &
-                 '    type, extends(missing_t) :: child_t'//new_line('a')// &
-                 '        integer :: v'//new_line('a')// &
-                 '    end type child_t'//new_line('a')// &
-                 '    type(child_t) :: c'//new_line('a')// &
-                 '    c%v = 1'//new_line('a')// &
-                 'end program p'
+            '    implicit none'//new_line('a')// &
+            '    type, extends(missing_t) :: child_t'//new_line('a')// &
+            '        integer :: v'//new_line('a')// &
+            '    end type child_t'//new_line('a')// &
+            '    type(child_t) :: c'//new_line('a')// &
+            '    c%v = 1'//new_line('a')// &
+            'end program p'
 
         call analyze_source(source, ctx, ok)
         if (.not. ok) then

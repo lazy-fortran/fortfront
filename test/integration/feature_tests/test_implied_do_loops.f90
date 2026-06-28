@@ -29,7 +29,7 @@ contains
             print *, "  PASS: Simple implied do loop"
         else
             print *, "  FAIL: Simple implied do loop - Expected" // &
-                     " [(i, i=1, 5)] syntax"
+                " [(i, i=1, 5)] syntax"
             print *, "  Got:", trim(output)
             error stop 1
         end if
@@ -42,7 +42,7 @@ contains
 
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "FAIL: Implied do with expression - Transform failed:", &
-                     trim(error_msg)
+                trim(error_msg)
             error stop 1
         end if
 
@@ -50,7 +50,7 @@ contains
             print *, "  PASS: Implied do with expression"
         else
             print *, "  FAIL: Implied do with expression - Expected" // &
-                     " sum([(i*2, i=1, 10)])"
+                " sum([(i*2, i=1, 10)])"
             print *, "  Got:", trim(output)
             error stop 1
         end if
@@ -73,7 +73,7 @@ contains
 
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "FAIL: Nested implied do - Transform failed:", &
-                     trim(error_msg)
+                trim(error_msg)
             error stop 1
         end if
 
@@ -86,12 +86,12 @@ contains
         end if
 
         input = 'cube = reshape([(((i*100 + j*10 + k, k=1,3), j=1,3), i=1,3)], ' // &
-                 '[3,3,3])'
+            '[3,3,3])'
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "FAIL: Nested implied do (3 levels) - Transform failed:", &
-                     trim(error_msg)
+                trim(error_msg)
             error stop 1
         end if
 
@@ -111,7 +111,7 @@ contains
 
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "FAIL: Nested functions with implied do - Transform failed:", &
-                     trim(error_msg)
+                trim(error_msg)
             error stop 1
         end if
 

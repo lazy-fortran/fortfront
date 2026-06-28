@@ -5,16 +5,16 @@ program test_all_examples
     use test_example_lists, only: is_expected_diagnostic, is_expected_failure
     use test_example_lists, only: is_skipped_example
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-                                       cleanup_temp_directory
+        cleanup_temp_directory
     use test_filesystem_helpers, only: create_temp_directory, &
-                                       ensure_directory_exists, &
-                                       extract_example_basename
+        ensure_directory_exists, &
+        extract_example_basename
     use test_filesystem_helpers, only: extract_relative_example_path
     use test_filesystem_helpers, only: find_fortfront_executable
     use test_filesystem_helpers, only: path_separator_for
     use test_module_discovery, only: get_module_directory
     use test_shell_commands, only: build_compile_command, quote_for_shell, &
-                                   verify_shell_helpers
+        verify_shell_helpers
     implicit none
 
     integer :: test_count, pass_count, fail_count, skip_count
@@ -92,13 +92,13 @@ program test_all_examples
 
     ! Load expected failures list
     call load_example_list('examples/expected_failures.txt', &
-                           expected_failures, num_expected_failures)
+        expected_failures, num_expected_failures)
     call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
-                            num_skip_examples)
+        num_skip_examples)
     call load_example_list('examples/analysis_only_examples.txt', &
-                           analysis_only_examples, num_analysis_only_examples)
+        analysis_only_examples, num_analysis_only_examples)
     call load_example_list('examples/expected_diagnostics.txt', &
-                           diagnostic_examples, num_diagnostic_examples)
+        diagnostic_examples, num_diagnostic_examples)
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -108,23 +108,23 @@ program test_all_examples
 
     ! Test .lf (lazy fortran) examples
     call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, temp_dir, &
-                                    test_count, pass_count, fail_count, skip_count, &
-                                    xfail_count, xpass_count, is_windows, &
-                                    expected_failures, num_expected_failures, &
-                                    skip_examples, num_skip_examples, &
-                                    analysis_only_examples, &
-                                    num_analysis_only_examples, &
-                                    diagnostic_examples, num_diagnostic_examples)
+        test_count, pass_count, fail_count, skip_count, &
+        xfail_count, xpass_count, is_windows, &
+        expected_failures, num_expected_failures, &
+        skip_examples, num_skip_examples, &
+        analysis_only_examples, &
+        num_analysis_only_examples, &
+        diagnostic_examples, num_diagnostic_examples)
 
     ! Test .f90 (standard fortran) examples
     call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, temp_dir, &
-                                    test_count, pass_count, fail_count, skip_count, &
-                                    xfail_count, xpass_count, is_windows, &
-                                    expected_failures, num_expected_failures, &
-                                    skip_examples, num_skip_examples, &
-                                    analysis_only_examples, &
-                                    num_analysis_only_examples, &
-                                    diagnostic_examples, num_diagnostic_examples)
+        test_count, pass_count, fail_count, skip_count, &
+        xfail_count, xpass_count, is_windows, &
+        expected_failures, num_expected_failures, &
+        skip_examples, num_skip_examples, &
+        analysis_only_examples, &
+        num_analysis_only_examples, &
+        diagnostic_examples, num_diagnostic_examples)
 
     call cleanup_temp_directory(temp_dir, is_windows)
 
@@ -139,7 +139,7 @@ program test_all_examples
 
     if (test_count > 0) then
         success_rate = real(pass_count + xfail_count, kind=dp) * 100.0_dp / &
-                       real(test_count, kind=dp)
+            real(test_count, kind=dp)
         write (*, '(A,F6.1,A)') "Success rate: ", success_rate, "%"
     end if
 
@@ -209,14 +209,14 @@ contains
     end subroutine print_env_diagnostics
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                          temp_dir, test_count, pass_count, &
-                                          fail_count, &
-                                          skip_count, xfail_count, xpass_count, &
-                                          is_windows, expected_failures, &
-                                          num_expected_failures, skip_examples, &
-                                          num_skip_examples, analysis_only_examples, &
-                                          num_analysis_only_examples, &
-                                          diagnostic_examples, num_diagnostic_examples)
+            temp_dir, test_count, pass_count, &
+            fail_count, &
+            skip_count, xfail_count, xpass_count, &
+            is_windows, expected_failures, &
+            num_expected_failures, skip_examples, &
+            num_skip_examples, analysis_only_examples, &
+            num_analysis_only_examples, &
+            diagnostic_examples, num_diagnostic_examples)
         character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
         character(len=*), intent(in) :: temp_dir
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
@@ -241,18 +241,18 @@ contains
         ! List files with this extension (recursively search subdirectories)
         if (is_windows) then
             list_command = 'cmd /C "dir /B /S '//trim(examples_dir)//'\*'// &
-                           trim(extension)//' > '//trim(list_file)//' 2>nul"'
+                trim(extension)//' > '//trim(list_file)//' 2>nul"'
         else
             list_command = 'find '//trim(examples_dir)//' -name "*'// &
-                           trim(extension)//'" -type f > '//trim(list_file)// &
-                               & ' 2>/dev/null || true'
+                trim(extension)//'" -type f > '//trim(list_file)// &
+                & ' 2>/dev/null || true'
         end if
 
         call execute_command_line(trim(list_command), exitstat=ios)
 
         ! Read and test each example file
         open (newunit=unit_num, file=trim(list_file), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
 
         if (ios /= 0) then
             ! No files found with this extension, that's ok
@@ -268,14 +268,14 @@ contains
 
             ! On both Windows (dir /S) and Unix (find), we get full paths
             call test_single_example(trim(line), fortfront_exe, temp_dir, &
-                                     test_count, pass_count, fail_count, &
-                                     skip_count, &
-                                     xfail_count, xpass_count, is_windows, &
-                                     expected_failures, num_expected_failures, &
-                                     skip_examples, num_skip_examples, &
-                                     analysis_only_examples, &
-                                     num_analysis_only_examples, &
-                                     diagnostic_examples, num_diagnostic_examples)
+                test_count, pass_count, fail_count, &
+                skip_count, &
+                xfail_count, xpass_count, is_windows, &
+                expected_failures, num_expected_failures, &
+                skip_examples, num_skip_examples, &
+                analysis_only_examples, &
+                num_analysis_only_examples, &
+                diagnostic_examples, num_diagnostic_examples)
         end do
 
         close (unit_num)
@@ -284,12 +284,12 @@ contains
     end subroutine test_examples_by_extension
 
     subroutine test_single_example(filepath, fortfront_exe, temp_dir, test_count, &
-                                   pass_count, fail_count, skip_count, xfail_count, &
-                                   xpass_count, is_windows, expected_failures, &
-                                   num_expected_failures, skip_examples, &
-                                   num_skip_examples, analysis_only_examples, &
-                                   num_analysis_only_examples, diagnostic_examples, &
-                                   num_diagnostic_examples)
+            pass_count, fail_count, skip_count, xfail_count, &
+            xpass_count, is_windows, expected_failures, &
+            num_expected_failures, skip_examples, &
+            num_skip_examples, analysis_only_examples, &
+            num_analysis_only_examples, diagnostic_examples, &
+            num_diagnostic_examples)
         character(len=*), intent(in) :: filepath, fortfront_exe, temp_dir
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
@@ -318,9 +318,9 @@ contains
         basename_str = extract_example_basename(filepath)
         sep = path_separator_for(temp_dir)
         output_file = trim(temp_dir)//sep//'test_example_'// &
-                      trim(basename_str)//'_output.f90'
+            trim(basename_str)//'_output.f90'
         error_file = trim(temp_dir)//sep//'test_example_'// &
-                     trim(basename_str)//'.err'
+            trim(basename_str)//'.err'
         is_f90_roundtrip = (index(filepath, '.f90') > 0)
         write (*, '(A)', advance='no') "Testing "//trim(basename_str)//" ... "
 
@@ -333,26 +333,26 @@ contains
 
         relative_path = extract_relative_example_path(filepath)
         if (is_skipped_example(relative_path, trim(basename_str), skip_examples, &
-                               num_skip_examples)) then
+            num_skip_examples)) then
             print *, "SKIP (covered by targeted regression)"
             skip_count = skip_count + 1
             return
         end if
 
         analysis_only = is_analysis_only_example(relative_path, &
-                                                 trim(basename_str), &
-                                                 analysis_only_examples, &
-                                                 num_analysis_only_examples)
+            trim(basename_str), &
+            analysis_only_examples, &
+            num_analysis_only_examples)
         expect_diagnostic = is_expected_diagnostic(relative_path, &
-                                                   trim(basename_str), &
-                                                   diagnostic_examples, &
-                                                   num_diagnostic_examples)
+            trim(basename_str), &
+            diagnostic_examples, &
+            num_diagnostic_examples)
 
         module_dir = get_module_directory(fortfront_exe)
 
         call run_transform_and_scan(filepath, fortfront_exe, output_file, &
-                                    error_file, is_windows, is_f90_roundtrip, &
-                                    has_error, has_unparsed, has_warning)
+            error_file, is_windows, is_f90_roundtrip, &
+            has_error, has_unparsed, has_warning)
 
         if (.not. has_error .and. .not. has_unparsed .and. &
             .not. analysis_only) then
@@ -361,22 +361,22 @@ contains
                 has_error = .true.
             else
                 if (.not. compile_generated_output(output_file, module_dir, &
-                                                   module_cache_dir, &
-                                                   is_windows)) then
+                    module_cache_dir, &
+                    is_windows)) then
                     has_error = .true.
                 end if
             end if
         end if
 
         expect_fail = is_expected_failure(trim(basename_str), expected_failures, &
-                                          num_expected_failures)
+            num_expected_failures)
         test_count = test_count + 1
 
         call finalize_example_result(trim(basename_str), output_file, error_file, &
-                                     has_error, has_unparsed, has_warning, &
-                                     expect_fail, expect_diagnostic, analysis_only, &
-                                     pass_count, fail_count, xfail_count, &
-                                     xpass_count, is_f90_roundtrip)
+            has_error, has_unparsed, has_warning, &
+            expect_fail, expect_diagnostic, analysis_only, &
+            pass_count, fail_count, xfail_count, &
+            xpass_count, is_f90_roundtrip)
 
         if (allocated(module_cache_dir)) then
             call cleanup_temp_directory(module_cache_dir, is_windows)
@@ -389,9 +389,9 @@ contains
     end subroutine test_single_example
 
     subroutine run_transform_and_scan(filepath, fortfront_exe, output_file, &
-                                      error_file, is_windows, is_f90_roundtrip, &
-                                      has_error, has_unparsed, &
-                                      has_warning)
+            error_file, is_windows, is_f90_roundtrip, &
+            has_error, has_unparsed, &
+            has_warning)
         character(len=*), intent(in) :: filepath, fortfront_exe
         character(len=*), intent(in) :: output_file, error_file
         logical, intent(in) :: is_windows, is_f90_roundtrip
@@ -402,13 +402,13 @@ contains
         logical :: stderr_has_error, stderr_has_warning
 
         input_arg = quote_for_shell(filepath, is_windows, &
-                                    escape_for_cmd=.true.)
+            escape_for_cmd=.true.)
         exe_arg = quote_for_shell(fortfront_exe, is_windows, &
-                                  escape_for_cmd=.true.)
+            escape_for_cmd=.true.)
         output_arg = quote_for_shell(output_file, is_windows, &
-                                     escape_for_cmd=.true.)
+            escape_for_cmd=.true.)
         error_arg = quote_for_shell(error_file, is_windows, &
-                                    escape_for_cmd=.true.)
+            escape_for_cmd=.true.)
 
         if (len_trim(input_arg) == 0 .or. len_trim(exe_arg) == 0 .or. &
             len_trim(output_arg) == 0 .or. len_trim(error_arg) == 0) then
@@ -419,7 +419,7 @@ contains
         end if
 
         raw_command = trim(exe_arg)//' '//trim(input_arg)//' > '// &
-                      trim(output_arg)//' 2> '//trim(error_arg)
+            trim(output_arg)//' 2> '//trim(error_arg)
 
         timed_command = build_timed_command(raw_command, example_timeout_seconds)
 
@@ -430,7 +430,7 @@ contains
         has_warning = .false.
 
         call scan_stderr_for_status(error_file, stderr_has_error, &
-                                    stderr_has_warning)
+            stderr_has_warning)
         if (stderr_has_error) has_error = .true.
         if (stderr_has_warning) has_warning = .true.
 
@@ -452,7 +452,7 @@ contains
         if (.not. exists) return
 
         open (newunit=unit_num, file=trim(filepath), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) return
 
         lines_read = 0
@@ -491,7 +491,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(error_file), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) then
             has_error = .true.
             return
@@ -525,7 +525,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(output_file), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) then
             has_error = .true.
             return
@@ -545,7 +545,7 @@ contains
     end subroutine scan_output_file
 
     logical function compile_generated_output(output_file, module_dir, &
-                                              module_cache_dir, is_windows)
+            module_cache_dir, is_windows)
         character(len=*), intent(in) :: output_file
         character(len=*), intent(in) :: module_dir, module_cache_dir
         logical, intent(in) :: is_windows
@@ -567,14 +567,14 @@ contains
         module_dir_abs = to_absolute_path(module_dir, is_windows)
 
         command = build_compile_command(output_file, module_dir_abs, &
-                                        module_cache_dir, is_windows)
+            module_cache_dir, is_windows)
         if (len_trim(command) == 0) then
             compile_generated_output = .false.
             return
         end if
 
         command_with_workdir = prepend_workdir(command, module_cache_dir, &
-                                               is_windows)
+            is_windows)
         if (len_trim(command_with_workdir) == 0) then
             compile_generated_output = .false.
             return
@@ -600,7 +600,7 @@ contains
         if (len_trim(command) == 0 .or. len_trim(workdir) == 0) return
 
         quoted_dir = quote_for_shell(workdir, is_windows, &
-                                     escape_for_cmd=is_windows)
+            escape_for_cmd=is_windows)
         if (len_trim(quoted_dir) == 0) return
 
         if (is_windows) then
@@ -656,7 +656,7 @@ contains
         if (exit_code /= 0) return
 
         open (newunit=unit_num, file=trim(tmp_file), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) then
             call cleanup_file(tmp_file)
             return
@@ -678,7 +678,7 @@ contains
 
         env_value = ''
         call get_environment_variable('FORTFRONT_SHOW_COMPILE_OUTPUT', env_value, &
-                                      status=status)
+            status=status)
         if (status == 0) then
             if (len_trim(env_value) > 0 .and. env_value(1:1) /= '0') then
                 write (*, '(A)') 'DEBUG compile command: '//trim(command)
@@ -738,11 +738,11 @@ contains
     end function is_absolute_path
 
     subroutine finalize_example_result(name, output_file, error_file, has_error, &
-                                       has_unparsed, has_warning, expect_fail, &
-                                       expect_diagnostic, is_analysis_only, &
-                                       pass_count, fail_count, xfail_count, &
-                                       xpass_count, &
-                                       is_roundtrip)
+            has_unparsed, has_warning, expect_fail, &
+            expect_diagnostic, is_analysis_only, &
+            pass_count, fail_count, xfail_count, &
+            xpass_count, &
+            is_roundtrip)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: output_file, error_file
         logical, intent(in) :: has_error, has_unparsed, has_warning, expect_fail
@@ -817,7 +817,7 @@ contains
         if (exists) then
             print *, "---- stderr for ", trim(name)
             open (newunit=unit_num, file=trim(error_file), status='old', &
-                  action='read', iostat=ios)
+                action='read', iostat=ios)
             if (ios == 0) then
                 printed = 0
                 do
@@ -840,7 +840,7 @@ contains
         if (exists) then
             print *, "---- generated output preview for ", trim(name)
             open (newunit=unit_num, file=trim(output_file), status='old', &
-                  action='read', iostat=ios)
+                action='read', iostat=ios)
             if (ios == 0) then
                 printed = 0
                 do
@@ -898,7 +898,7 @@ contains
         if (is_windows) then
             inquire (file='scripts\with_timeout.ps1', exist=exists)
             if (.not. exists) then
-  print *, 'ERROR: scripts\with_timeout.ps1 is required for example timeouts on Windows'
+                print *, 'ERROR: scripts\with_timeout.ps1 is required for example timeouts on Windows'
                 stop 1
             end if
             launcher = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\with_timeout.ps1'
@@ -914,7 +914,7 @@ contains
                 return
             end if
             call execute_command_line('sh -c "command -v timeout >/dev/null 2>&1"', &
-                                      exitstat=ec)
+                exitstat=ec)
             if (ec == 0) then
                 example_timeout_launcher = 'timeout'
                 timeout_requires_command_string = .false.
@@ -944,12 +944,12 @@ contains
         write (timeout_buffer, '(I0)') effective_timeout
         timeout_arg = trim(timeout_buffer)
         launcher_prefix = trim(example_timeout_launcher)//' '// &
-                          trim(timeout_arg)//' '
+            trim(timeout_arg)//' '
 
         if (timeout_requires_command_string) then
             if (timeout_string_needs_quotes) then
                 quoted_cmd = quote_for_shell(trim(raw_command), .true., &
-                                             escape_for_cmd=.true.)
+                    escape_for_cmd=.true.)
                 full_command = launcher_prefix//trim(quoted_cmd)
             else
                 full_command = launcher_prefix//trim(raw_command)

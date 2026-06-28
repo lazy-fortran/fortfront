@@ -5,7 +5,7 @@ program test_issue_2836_io_statement_forms
     ! round-trip through the standardization pipeline.
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_with_context, transform_context_t, &
-                                  INPUT_MODE_STANDARD
+        INPUT_MODE_STANDARD
     implicit none
 
     logical :: all_passed
@@ -13,15 +13,15 @@ program test_issue_2836_io_statement_forms
     all_passed = .true.
 
     call check_contains('examples/f90/issue_2836_io_keyword_unit_format.f90', &
-                        'read(10', 'keyword unit=/fmt= control items', all_passed)
+        'read(10', 'keyword unit=/fmt= control items', all_passed)
     call check_contains('examples/f90/issue_2836_io_expression_format.f90', &
-                        'iostat=stat', 'expression format with iostat', all_passed)
+        'iostat=stat', 'expression format with iostat', all_passed)
     call check_contains('examples/f90/issue_2836_io_expression_format.f90', &
-                        '//fmt', 'expression format kept as expression', all_passed)
+        '//fmt', 'expression format kept as expression', all_passed)
     call check_contains('examples/f90/issue_2836_io_keyword_variable_names.f90', &
-                        'read = ', 'read used as a variable name', all_passed)
+        'read = ', 'read used as a variable name', all_passed)
     call check_contains('examples/f90/issue_2836_io_keyword_variable_names.f90', &
-                        'write = ', 'write used as a variable name', all_passed)
+        'write = ', 'write used as a variable name', all_passed)
 
     if (all_passed) then
         write (*, '(a)') 'PASS: issue 2836 IO statement forms parse and round-trip'

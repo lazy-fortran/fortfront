@@ -29,7 +29,7 @@ program test_issue_2809_block_data
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (n => arena%entries(i)%node)
-        type is (block_data_node)
+            type is (block_data_node)
             bd_count = bd_count + 1
             call check_body(arena, n)
         end select
@@ -65,13 +65,13 @@ contains
             if (idx < 1 .or. idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (s => arena%entries(idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 saw_decl = .true.
-            type is (common_block_node)
+                type is (common_block_node)
                 saw_common = .true.
-            type is (data_statement_node)
+                type is (data_statement_node)
                 saw_data = .true.
-            type is (literal_node)
+                type is (literal_node)
                 saw_literal = .true.
             end select
         end do

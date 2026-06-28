@@ -1,17 +1,17 @@
 module ast_factory_core
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, &
-                              identifier_node, literal_node, binary_op_node, &
-                              call_or_subscript_node, array_literal_node, &
-                              component_access_node, range_subscript_node, &
-                              create_array_literal, create_component_access, &
-                              create_range_subscript, &
-                              create_pointer_assignment
+        identifier_node, literal_node, binary_op_node, &
+        call_or_subscript_node, array_literal_node, &
+        component_access_node, range_subscript_node, &
+        create_array_literal, create_component_access, &
+        create_range_subscript, &
+        create_pointer_assignment
     use ast_nodes_misc, only: complex_literal_node
     use uid_generator, only: generate_uid
     use error_handling, only: result_t, success_result, create_error_result, &
-                              critical_result, &
-                              ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
+        critical_result, &
+        ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
     implicit none
     private
 
@@ -20,7 +20,7 @@ module ast_factory_core
 
     ! Public core node creation functions
     public :: push_program, push_multi_unit_container, push_identifier, &
-              push_literal, push_binary_op
+        push_literal, push_binary_op
     public :: push_assignment, push_pointer_assignment
     public :: push_array_literal, push_complex_literal, push_component_access
     public :: push_range_subscript, push_type_constructor
@@ -35,23 +35,23 @@ contains
 
         if (.not. allocated(arena%entries)) then
             validation_result = critical_result( &
-                                "Arena entries not allocated", &
-                                ERROR_MEMORY, &
-                                component="ast_factory_core", &
-                                context=context, &
-                      suggestion="Initialize arena with create_ast_arena() before use" &
-                                )
+                "Arena entries not allocated", &
+                ERROR_MEMORY, &
+                component="ast_factory_core", &
+                context=context, &
+                suggestion="Initialize arena with create_ast_arena() before use" &
+                )
             return
         end if
 
         if (arena%size < 0 .or. arena%size > arena%capacity) then
             validation_result = critical_result( &
-                                "Arena size inconsistent with capacity", &
-                                ERROR_INTERNAL, &
-                                component="ast_factory_core", &
-                                context=context, &
-                  suggestion="Check for memory corruption or incorrect initialization" &
-                                )
+                "Arena size inconsistent with capacity", &
+                ERROR_INTERNAL, &
+                component="ast_factory_core", &
+                context=context, &
+                suggestion="Check for memory corruption or incorrect initialization" &
+                )
             return
         end if
 
@@ -60,7 +60,7 @@ contains
 
     ! Node index validation utility
     function validate_node_index(arena, node_index, context, allow_zero) &
-        result(validation_result)
+            result(validation_result)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: context
@@ -78,34 +78,34 @@ contains
 
         if (node_index <= 0) then
             validation_result = create_error_result( &
-                                "Invalid node index: must be positive", &
-                                ERROR_VALIDATION, &
-                                component="ast_factory_core", &
-                                context=context, &
-                      suggestion="Ensure node index comes from valid push_* operation" &
-                                )
+                "Invalid node index: must be positive", &
+                ERROR_VALIDATION, &
+                component="ast_factory_core", &
+                context=context, &
+                suggestion="Ensure node index comes from valid push_* operation" &
+                )
             return
         end if
 
         if (node_index > arena%size) then
             validation_result = create_error_result( &
-                                "Node index out of bounds", &
-                                ERROR_VALIDATION, &
-                                component="ast_factory_core", &
-                                context=context, &
-                     suggestion="Check that referenced node was created in this arena" &
-                                )
+                "Node index out of bounds", &
+                ERROR_VALIDATION, &
+                component="ast_factory_core", &
+                context=context, &
+                suggestion="Check that referenced node was created in this arena" &
+                )
             return
         end if
 
         if (.not. allocated(arena%entries(node_index)%node)) then
             validation_result = create_error_result( &
-                                "Node index references unallocated node", &
-                                ERROR_VALIDATION, &
-                                component="ast_factory_core", &
-                                context=context, &
+                "Node index references unallocated node", &
+                ERROR_VALIDATION, &
+                component="ast_factory_core", &
+                context=context, &
                 suggestion="Ensure referenced node is still valid and not deallocated" &
-                                )
+                )
             return
         end if
 
@@ -136,9 +136,9 @@ contains
     end function push_program
 
     function push_multi_unit_container(arena, body_indices, line, column) &
-        result(container_index)
+            result(container_index)
         use ast_nodes_data, only: multi_unit_container_node, &
-                                  create_multi_unit_container
+            create_multi_unit_container
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in), optional :: line, column
@@ -146,7 +146,7 @@ contains
         type(multi_unit_container_node) :: container
 
         container = create_multi_unit_container(body_indices, line=line, &
-                                                column=column)
+            column=column)
         call arena%push(container, "multi_unit_container", 0)
         container_index = arena%size
 
@@ -157,9 +157,9 @@ contains
 
     ! Create assignment node and add to stack
     function push_assignment(arena, target_index, value_index, line, column, &
-                             parent_index, operator_text, suppress_codegen, &
-                             is_walrus) &
-        result(assign_index)
+            parent_index, operator_text, suppress_codegen, &
+            is_walrus) &
+            result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column, parent_index
@@ -199,8 +199,8 @@ contains
 
     ! Create pointer assignment node and add to stack
     function push_pointer_assignment(arena, pointer_index, target_index, &
-                                     line, column, parent_index) &
-        result(assign_index)
+            line, column, parent_index) &
+            result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: pointer_index
         integer, intent(in) :: target_index
@@ -209,7 +209,7 @@ contains
         type(pointer_assignment_node) :: ptr_assign
 
         ptr_assign = create_pointer_assignment(pointer_index, target_index, &
-                                               line, column)
+            line, column)
         call arena%push(ptr_assign, "pointer_assignment", parent_index)
         assign_index = arena%size
 
@@ -224,7 +224,7 @@ contains
 
     ! Create binary operation node and add to stack
     function push_binary_op(arena, left_index, right_index, operator, &
-                            line, column, parent_index) result(binop_index)
+            line, column, parent_index) result(binop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
@@ -268,7 +268,7 @@ contains
 
     ! Create literal node and add to stack
     function push_literal(arena, value, kind, line, column, parent_index) &
-        result(lit_index)
+            result(lit_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: value
         integer, intent(in) :: kind
@@ -287,8 +287,8 @@ contains
 
     ! Create array literal node and add to stack
     function push_array_literal(arena, element_indices, line, column, &
-                                parent_index, syntax_style, type_spec) &
-        result(array_index)
+            parent_index, syntax_style, type_spec) &
+            result(array_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column, parent_index
@@ -299,10 +299,10 @@ contains
 
         if (present(type_spec)) then
             array_lit = create_array_literal(element_indices, line, column, &
-                                             syntax_style, type_spec)
+                syntax_style, type_spec)
         else
             array_lit = create_array_literal(element_indices, line, column, &
-                                             syntax_style)
+                syntax_style)
         end if
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
@@ -315,7 +315,7 @@ contains
 
     ! Create complex literal node and add to stack
     function push_complex_literal(arena, real_index, imag_index, line, column, &
-                                  parent_index) result(complex_index)
+            parent_index) result(complex_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: real_index, imag_index
         integer, intent(in), optional :: line, column, parent_index
@@ -342,7 +342,7 @@ contains
 
     ! Create component access node and add to stack
     function push_component_access(arena, object_index, component_name, &
-                                   line, column, parent_index) result(access_index)
+            line, column, parent_index) result(access_index)
         use ast_nodes_core, only: component_access_node, create_component_access
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: object_index
@@ -364,7 +364,7 @@ contains
 
         ! Create proper component access node
         access_node = create_component_access(object_index, component_name, &
-                                              line, column)
+            line, column)
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size
@@ -377,7 +377,7 @@ contains
 
     ! Create range subscript node (for array slices or character substrings)
     function push_range_subscript(arena, base_expr_index, start_index, end_index, &
-                                  line, column, parent_index) result(subscript_index)
+            line, column, parent_index) result(subscript_index)
         use ast_nodes_core, only: range_subscript_node, create_range_subscript
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr_index
@@ -394,8 +394,8 @@ contains
 
         ! Create range subscript node
         subscript_node = create_range_subscript(base_expr_index, start_index, &
-                                                end_index, &
-                                                line, column)
+            end_index, &
+            line, column)
 
         call arena%push(subscript_node, "range_subscript", parent_index)
         subscript_index = arena%size
@@ -418,7 +418,7 @@ contains
 
     ! Create type constructor node and add to stack
     function push_type_constructor(arena, type_name, arg_indices, line, &
-                                   column, parent_index) result(constructor_index)
+            column, parent_index) result(constructor_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         integer, intent(in), optional :: arg_indices(:)

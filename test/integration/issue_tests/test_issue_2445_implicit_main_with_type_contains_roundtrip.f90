@@ -18,7 +18,7 @@ program test_issue_2445_implicit_main_with_type_contains_roundtrip
     integer :: prog_index
 
     call read_example('examples/f90/issue_2445_implicit_main_with_type_contains.f90', &
-                      source)
+        source)
 
     arena = create_ast_arena()
     call lex_source(source, tokens, error_msg)
@@ -74,8 +74,8 @@ contains
 
     subroutine assert_compiles(text, basename)
         use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                           cleanup_temp_directory, join_path, &
-                                           path_separator_for
+            cleanup_temp_directory, join_path, &
+            path_separator_for
         use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: basename
@@ -95,7 +95,7 @@ contains
         filename = join_path(temp_dir, trim(basename)//'.f90', sep)
 
         open (newunit=unit, file=filename, status='replace', action='write', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) then
             write (error_unit, '(A)') 'FAIL: could not create ' // trim(filename)
             error stop 1

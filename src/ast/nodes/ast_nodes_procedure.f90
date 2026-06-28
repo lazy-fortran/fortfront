@@ -1,7 +1,7 @@
 module ast_nodes_procedure
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_visitor_base_t, copy_ast_node_base
+        ast_visitor_base_t, copy_ast_node_base
     implicit none
     private
 
@@ -10,7 +10,7 @@ module ast_nodes_procedure
 
     ! Public interface helpers
     public :: is_procedure_node, get_procedure_name, get_procedure_params, &
-              get_procedure_body
+        get_procedure_body
     public :: procedure_has_return_type, get_procedure_return_type
 
     ! Procedure-related AST nodes
@@ -184,8 +184,8 @@ contains
 
     ! Factory functions
     function create_function_def(name, param_indices, return_type, &
-                                 body_indices, line, column, result_variable, &
-                                 prefix_keywords) result(node)
+            body_indices, line, column, result_variable, &
+            prefix_keywords) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in) :: return_type
@@ -222,8 +222,8 @@ contains
     end function create_function_def
 
     function create_subroutine_def(name, param_indices, body_indices, &
-                                   line, column, prefix_keywords, is_recursive) &
-        result(node)
+            line, column, prefix_keywords, is_recursive) &
+            result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
@@ -265,9 +265,9 @@ contains
 
         is_proc = .false.
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             is_proc = .true.
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             is_proc = .true.
         end select
     end function is_procedure_node
@@ -279,13 +279,13 @@ contains
         character(len=:), allocatable :: name
 
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(n%name)) then
                 name = n%name
             else
                 name = ""
             end if
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(n%name)) then
                 name = n%name
             else
@@ -303,13 +303,13 @@ contains
         integer, allocatable :: param_indices(:)
 
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(n%param_indices)) then
                 param_indices = n%param_indices
             else
                 allocate (param_indices(0))
             end if
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(n%param_indices)) then
                 param_indices = n%param_indices
             else
@@ -327,13 +327,13 @@ contains
         integer, allocatable :: body_indices(:)
 
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(n%body_indices)) then
                 body_indices = n%body_indices
             else
                 allocate (body_indices(0))
             end if
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(n%body_indices)) then
                 body_indices = n%body_indices
             else
@@ -351,7 +351,7 @@ contains
 
         has_return = .false.
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             has_return = .true.
         end select
     end function procedure_has_return_type
@@ -363,7 +363,7 @@ contains
         character(len=:), allocatable :: return_type
 
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(n%return_type)) then
                 return_type = n%return_type
             else

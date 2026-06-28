@@ -24,7 +24,7 @@ contains
         integer :: prog_index
 
         call read_example('examples/f90/issue_1787_continue_in_if.f90', &
-                          input_code)
+            input_code)
         print *, ""
         print *, "Test: CONTINUE preserved inside IF block"
         print *, "Input:"

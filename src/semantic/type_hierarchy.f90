@@ -82,8 +82,8 @@ contains
     end subroutine hierarchy_ensure_capacity
 
     subroutine hierarchy_register_type(this, type_name, parent_name, &
-                                       is_abstract, deferred_proc_names, &
-                                       error_msg)
+            is_abstract, deferred_proc_names, &
+            error_msg)
         class(type_hierarchy_t), intent(inout) :: this
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in), optional :: parent_name
@@ -244,7 +244,7 @@ contains
     end subroutine hierarchy_get_inheritance_chain
 
     function hierarchy_validate_no_cycles(this, type_name, error_msg) &
-        result(is_valid)
+            result(is_valid)
         class(type_hierarchy_t), intent(in) :: this
         character(len=*), intent(in) :: type_name
         character(len=:), allocatable, intent(out), optional :: error_msg
@@ -263,7 +263,7 @@ contains
                 is_valid = .false.
                 if (present(error_msg)) then
                     error_msg = 'Circular inheritance detected for type: '// &
-                                trim(type_name)
+                        trim(type_name)
                 end if
                 return
             end if
@@ -279,7 +279,7 @@ contains
             is_valid = .false.
             if (present(error_msg)) then
                 error_msg = 'Inheritance chain too deep for type: '// &
-                            trim(type_name)
+                    trim(type_name)
             end if
         end if
     end function hierarchy_validate_no_cycles

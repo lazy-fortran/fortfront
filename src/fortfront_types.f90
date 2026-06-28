@@ -28,16 +28,16 @@ module fortfront_types
 
     ! Symbol reference information for cross-reference analysis
     type :: symbol_reference_t
-        integer :: node_index = 0  ! Where symbol is referenced
-        integer :: scope_level = 0  ! Scope level of reference
-        logical :: is_definition = .false.  ! True if this is the declaration
-        logical :: is_assignment = .false.  ! True if symbol is being assigned
+        integer :: node_index = 0 ! Where symbol is referenced
+        integer :: scope_level = 0 ! Scope level of reference
+        logical :: is_definition = .false. ! True if this is the declaration
+        logical :: is_assignment = .false. ! True if symbol is being assigned
     end type symbol_reference_t
 
     ! Scope information type
     type :: scope_info_t
         integer :: level = 0
-        integer :: scope_type = 0  ! SCOPE_GLOBAL, SCOPE_MODULE, etc.
+        integer :: scope_type = 0 ! SCOPE_GLOBAL, SCOPE_MODULE, etc.
         character(len=:), allocatable :: name
         integer :: symbol_count = 0
     end type scope_info_t
@@ -124,53 +124,53 @@ module fortfront_types
     integer, parameter :: NODE_DATA_STATEMENT = 80
     integer, parameter :: NODE_IMPORT_STATEMENT = 81
     integer, parameter :: NODE_STATEMENT_FUNCTION = 82
-    integer, parameter :: NODE_MODULE_PROCEDURE = 83
-    integer, parameter :: NODE_UNKNOWN = 99
+        integer, parameter :: NODE_MODULE_PROCEDURE = 83
+        integer, parameter :: NODE_UNKNOWN = 99
 
-    ! Source location tracking
-    type :: source_location_t
-        integer :: line = 1
-        integer :: column = 1
-        integer :: byte_offset = 0  ! For efficient text manipulation
-    end type source_location_t
+        ! Source location tracking
+        type :: source_location_t
+            integer :: line = 1
+            integer :: column = 1
+            integer :: byte_offset = 0 ! For efficient text manipulation
+        end type source_location_t
 
-    type :: source_range_t
-        type(source_location_t) :: start
-        type(source_location_t) :: end
-    end type source_range_t
+        type :: source_range_t
+            type(source_location_t) :: start
+            type(source_location_t) :: end
+        end type source_range_t
 
-    ! Diagnostic information
-    integer, parameter :: DIAGNOSTIC_ERROR = 1
-    integer, parameter :: DIAGNOSTIC_WARNING = 2
-    integer, parameter :: DIAGNOSTIC_INFO = 3
-    integer, parameter :: DIAGNOSTIC_HINT = 4
+        ! Diagnostic information
+        integer, parameter :: DIAGNOSTIC_ERROR = 1
+        integer, parameter :: DIAGNOSTIC_WARNING = 2
+        integer, parameter :: DIAGNOSTIC_INFO = 3
+        integer, parameter :: DIAGNOSTIC_HINT = 4
 
-    ! Type information
-    type :: type_info_t
-        integer :: base_type = TVAR  ! TINT, TREAL, etc.
-        integer :: bit_width = 32  ! 32, 64, etc.
-        logical :: is_signed = .true.  ! For integers
-        integer :: array_rank = 0  ! 0 for scalars
-        integer, allocatable :: array_dims(:)  ! Shape if known
-        logical :: is_allocatable = .false.
-        logical :: is_pointer = .false.
-        character(len=:), allocatable :: derived_type_name
-    end type type_info_t
+        ! Type information
+        type :: type_info_t
+            integer :: base_type = TVAR ! TINT, TREAL, etc.
+            integer :: bit_width = 32 ! 32, 64, etc.
+            logical :: is_signed = .true. ! For integers
+            integer :: array_rank = 0 ! 0 for scalars
+            integer, allocatable :: array_dims(:) ! Shape if known
+            logical :: is_allocatable = .false.
+            logical :: is_pointer = .false.
+            character(len=:), allocatable :: derived_type_name
+        end type type_info_t
 
-    type :: diagnostic_t
-        integer :: severity = DIAGNOSTIC_INFO
-        character(len=:), allocatable :: message
-        type(source_range_t) :: location
-        character(len=:), allocatable :: code  ! Error code (e.g., "F001")
-        character(len=:), allocatable :: category  ! Error category
-    end type diagnostic_t
+        type :: diagnostic_t
+            integer :: severity = DIAGNOSTIC_INFO
+            character(len=:), allocatable :: message
+            type(source_range_t) :: location
+            character(len=:), allocatable :: code ! Error code (e.g., "F001")
+            character(len=:), allocatable :: category ! Error category
+        end type diagnostic_t
 
-    ! Function signature type
-    type :: function_signature_t
-        type(type_info_t), allocatable :: param_types(:)
-        type(type_info_t) :: return_type
-        logical :: is_elemental = .false.
-        logical :: is_pure = .false.
-    end type function_signature_t
+        ! Function signature type
+        type :: function_signature_t
+            type(type_info_t), allocatable :: param_types(:)
+            type(type_info_t) :: return_type
+            logical :: is_elemental = .false.
+            logical :: is_pure = .false.
+        end type function_signature_t
 
-end module fortfront_types
+    end module fortfront_types

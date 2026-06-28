@@ -3,7 +3,7 @@ program test_issue_2829_diagnostics
     ! semantic context error collection instead of always returning empty.
     use fortfront_utils, only: get_diagnostics
     use fortfront_types, only: diagnostic_t, DIAGNOSTIC_ERROR, &
-                               DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO
+        DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use error_handling, only: ERROR_ERROR, ERROR_WARNING, ERROR_INFO, result_t
     use, intrinsic :: iso_fortran_env, only: error_unit
@@ -50,7 +50,7 @@ contains
         test_count = test_count + 1
         call create_semantic_context(ctx)
         call ctx%errors%add_error("boom", severity=ERROR_ERROR, &
-                                  component="semantic_analyzer")
+            component="semantic_analyzer")
         call ctx%errors%add_error("careful", severity=ERROR_WARNING)
         info%success = .true.
         info%severity = ERROR_INFO

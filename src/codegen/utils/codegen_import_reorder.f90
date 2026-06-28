@@ -26,11 +26,11 @@ contains
         if (total_lines == 0) return
 
         call partition_import_lines(lines, total_lines, imports, import_count, &
-                                    others, other_count)
+            others, other_count)
         if (import_count == 0) return
 
         call rebuild_lines_with_imports(text, imports, import_count, others, &
-                                        other_count, has_trailing_newline)
+            other_count, has_trailing_newline)
     end subroutine reorder_import_lines
 
     subroutine split_text_lines(text, lines, total_lines, has_trailing_newline)
@@ -78,7 +78,7 @@ contains
     end subroutine split_text_lines
 
     subroutine partition_import_lines(lines, total_lines, imports, import_count, &
-                                      others, other_count)
+            others, other_count)
         type(string_t), intent(in) :: lines(:)
         integer, intent(in) :: total_lines
         type(string_t), allocatable, intent(out) :: imports(:)
@@ -143,7 +143,7 @@ contains
     end function is_import_statement_line
 
     subroutine rebuild_lines_with_imports(text, imports, import_count, others, &
-                                          other_count, has_trailing_newline)
+            other_count, has_trailing_newline)
         character(len=:), allocatable, intent(inout) :: text
         type(string_t), intent(in) :: imports(:)
         type(string_t), intent(in) :: others(:)

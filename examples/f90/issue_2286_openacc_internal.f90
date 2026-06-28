@@ -4,11 +4,11 @@ program issue_2286_openacc_internal
 contains
     subroutine run_parallel_loop()
         integer :: i
-!$acc parallel loop
+        !$acc parallel loop
         do i = 1, 3
             call emit_value(i)
         end do
-!$acc end parallel loop
+        !$acc end parallel loop
     end subroutine run_parallel_loop
 
     subroutine emit_value(value)

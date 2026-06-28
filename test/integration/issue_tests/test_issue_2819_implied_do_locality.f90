@@ -4,7 +4,7 @@ program test_issue_2819_implied_do_locality
     ! index reference and a shadowing nested index are reported as errors.
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_with_context, transform_context_t, &
-                                  INPUT_MODE_STANDARD
+        INPUT_MODE_STANDARD
     implicit none
 
     logical :: all_passed
@@ -13,9 +13,9 @@ program test_issue_2819_implied_do_locality
 
     call check_valid(all_passed)
     call check_rejected('examples/f90/issue_2819_implied_do_index_out_of_scope.f90', &
-                        'out-of-scope index reference', all_passed)
+        'out-of-scope index reference', all_passed)
     call check_rejected('examples/f90/issue_2819_implied_do_index_shadow.f90', &
-                        'shadowing nested index', all_passed)
+        'shadowing nested index', all_passed)
 
     if (all_passed) then
         write (*, '(a)') 'PASS: implied-DO index locality enforced'

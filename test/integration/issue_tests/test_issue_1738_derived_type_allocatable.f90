@@ -8,7 +8,7 @@ program test_issue_1738_derived_type_allocatable
     character(len=:), allocatable :: error_message
 
     call read_example('examples/f90/issue_1738_derived_type_allocatable.f90', &
-                      input_code)
+        input_code)
 
     ! Transform the code
     call transform_lazy_fortran_string(input_code, output_code, error_message)

@@ -1,8 +1,8 @@
 module codegen_generics
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_generics, only: template_block_node, instantiate_statement_node, &
-                                  trait_block_node, requirement_block_node, &
-                                  implements_block_node
+        trait_block_node, requirement_block_node, &
+        implements_block_node
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
@@ -56,8 +56,8 @@ contains
     end subroutine append_node_code_lines
 
     subroutine generate_code_named_block(arena, keyword, name, parameter_names, &
-                                         declaration_indices, procedure_indices, &
-                                         has_contains, code)
+            declaration_indices, procedure_indices, &
+            has_contains, code)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: keyword
         character(len=*), intent(in) :: name
@@ -78,12 +78,12 @@ contains
         code = header
 
         call append_node_code_lines(arena, declaration_indices, code, &
-                                    add_blank_lines=.false.)
+            add_blank_lines=.false.)
 
         if (has_contains) then
             code = code // "contains" // new_line('A')
             call append_node_code_lines(arena, procedure_indices, code, &
-                                        add_blank_lines=.true.)
+                add_blank_lines=.true.)
         end if
 
         code = code // "end " // keyword // " " // name
@@ -94,11 +94,11 @@ contains
         type(template_block_node), intent(in) :: node
         character(len=:), allocatable :: code
         call generate_code_named_block(arena, "template", node%name, &
-                                       parameter_names=node%parameter_names, &
-                                       declaration_indices=node%declaration_indices, &
-                                       procedure_indices=node%procedure_indices, &
-                                       has_contains=node%has_contains, &
-                                       code=code)
+            parameter_names=node%parameter_names, &
+            declaration_indices=node%declaration_indices, &
+            procedure_indices=node%procedure_indices, &
+            has_contains=node%has_contains, &
+            code=code)
     end function generate_code_template_block
 
     function generate_code_instantiate_statement(node) result(code)
@@ -119,11 +119,11 @@ contains
         type(trait_block_node), intent(in) :: node
         character(len=:), allocatable :: code
         call generate_code_named_block(arena, "trait", node%name, &
-                                       parameter_names=node%parameter_names, &
-                                       declaration_indices=node%declaration_indices, &
-                                       procedure_indices=node%procedure_indices, &
-                                       has_contains=node%has_contains, &
-                                       code=code)
+            parameter_names=node%parameter_names, &
+            declaration_indices=node%declaration_indices, &
+            procedure_indices=node%procedure_indices, &
+            has_contains=node%has_contains, &
+            code=code)
     end function generate_code_trait_block
 
     function generate_code_requirement_block(arena, node) result(code)
@@ -131,11 +131,11 @@ contains
         type(requirement_block_node), intent(in) :: node
         character(len=:), allocatable :: code
         call generate_code_named_block(arena, "requirement", node%name, &
-                                       parameter_names=node%parameter_names, &
-                                       declaration_indices=node%declaration_indices, &
-                                       procedure_indices=node%procedure_indices, &
-                                       has_contains=node%has_contains, &
-                                       code=code)
+            parameter_names=node%parameter_names, &
+            declaration_indices=node%declaration_indices, &
+            procedure_indices=node%procedure_indices, &
+            has_contains=node%has_contains, &
+            code=code)
     end function generate_code_requirement_block
 
     function generate_code_implements_block(arena, node) result(code)
@@ -143,11 +143,11 @@ contains
         type(implements_block_node), intent(in) :: node
         character(len=:), allocatable :: code
         call generate_code_named_block(arena, "implements", node%name, &
-                                       parameter_names=node%parameter_names, &
-                                       declaration_indices=node%declaration_indices, &
-                                       procedure_indices=node%procedure_indices, &
-                                       has_contains=node%has_contains, &
-                                       code=code)
+            parameter_names=node%parameter_names, &
+            declaration_indices=node%declaration_indices, &
+            procedure_indices=node%procedure_indices, &
+            has_contains=node%has_contains, &
+            code=code)
     end function generate_code_implements_block
 
 end module codegen_generics

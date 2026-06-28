@@ -1,6 +1,6 @@
 program test_issue_1860_print_undeclared
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 

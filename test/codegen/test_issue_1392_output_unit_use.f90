@@ -3,7 +3,7 @@ program test_issue_1392_output_unit_use
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal, push_write_statement, &
-                            push_use_statement
+        push_use_statement
     implicit none
 
     print *, "=== Issue #1392: ensure iso output unit use is retained ==="
@@ -56,20 +56,20 @@ contains
         call require(allocated(code), 'Code generation failed for hello program')
 
         call ensure_contains(code, 'write(output_unit', &
-                             'Missing write to output_unit')
+            'Missing write to output_unit')
         call ensure_contains(code, '"HELLO: start"', &
-                             'Missing first write literal')
+            'Missing first write literal')
         call ensure_contains(code, '"HELLO: ok"', &
-                             'Missing second write literal')
+            'Missing second write literal')
         call ensure_contains(code, iso_line, &
-                             'Missing iso_fortran_env use for output_unit')
+            'Missing iso_fortran_env use for output_unit')
 
         pos = index(code, iso_line)
         len_iso = len(iso_line)
         if (pos > 0) then
             if (pos + len_iso <= len(code)) then
                 call require(index(code(pos + len_iso:), iso_line) == 0, &
-                             'Duplicate iso_fortran_env use inserted')
+                    'Duplicate iso_fortran_env use inserted')
             end if
         end if
     end subroutine test_inserts_use_when_missing
@@ -87,8 +87,8 @@ contains
         arena = create_ast_arena()
 
         use_idx = push_use_statement(arena, 'iso_fortran_env', &
-                                     only_list=[character(len=11) :: 'error_unit'], &
-                                     has_only=.true.)
+            only_list=[character(len=11) :: 'error_unit'], &
+            has_only=.true.)
 
         lit_idx = push_literal(arena, '"done"', LITERAL_STRING)
         write_idx = push_write_statement(arena, 'output_unit', [lit_idx], '(A)')
@@ -99,9 +99,9 @@ contains
         call require(allocated(code), 'Code generation failed for program with use')
 
         call ensure_contains(code, 'write(output_unit', &
-                             'Missing write to output_unit in augmented scenario')
+            'Missing write to output_unit in augmented scenario')
         call ensure_contains(code, iso_extended, &
-                             'Missing appended output_unit in existing use statement')
+            'Missing appended output_unit in existing use statement')
         block
             integer :: pos
             integer :: len_token
@@ -112,11 +112,11 @@ contains
             len_token = len(token)
             if (pos > 0 .and. pos + len_token <= len(code)) then
                 call require(index(code(pos + len_token:), token) == 0, &
-                             'Duplicate iso_fortran_env use statements detected')
+                    'Duplicate iso_fortran_env use statements detected')
             end if
         end block
         call ensure_contains(code, 'output_unit', &
-                             'Missing output_unit reference in generated code')
+            'Missing output_unit reference in generated code')
     end subroutine test_augments_existing_only_clause
 
 end program test_issue_1392_output_unit_use

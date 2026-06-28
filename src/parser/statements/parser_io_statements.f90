@@ -2,8 +2,8 @@ module parser_io_statements_module
     ! Parser module for I/O statement types (print, write, read)
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
@@ -11,11 +11,11 @@ module parser_io_statements_module
         inquire_statement_node, backspace_statement_node, &
         rewind_statement_node, endfile_statement_node
     use ast_factory, only: push_print_statement, push_write_statement, &
-                           push_read_statement, push_format_statement, &
-                           push_open_statement, push_close_statement, &
-                           push_inquire_statement, push_backspace_statement, &
-                           push_rewind_statement, push_endfile_statement, &
-                           push_io_implied_do
+        push_read_statement, push_format_statement, &
+        push_open_statement, push_close_statement, &
+        push_inquire_statement, push_backspace_statement, &
+        push_rewind_statement, push_endfile_statement, &
+        push_io_implied_do
     implicit none
     private
 

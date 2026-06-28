@@ -10,7 +10,7 @@ module ast_factory_errors
 contains
 
     function push_error_node(arena, message, original_data, line, column, &
-                             parent_index) result(error_index)
+            parent_index) result(error_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: message
         character(len=*), intent(in), optional :: original_data

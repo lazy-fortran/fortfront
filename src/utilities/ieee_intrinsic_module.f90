@@ -14,36 +14,36 @@ module ieee_intrinsic_module
     integer, parameter :: NAME_LEN = 32
 
     character(len=NAME_LEN), parameter :: ieee_module_names(3) = &
-                                          [character(len=NAME_LEN) :: &
-                                  "ieee_arithmetic", "ieee_exceptions", "ieee_features"]
+        [character(len=NAME_LEN) :: &
+        "ieee_arithmetic", "ieee_exceptions", "ieee_features"]
 
     ! Functions returning a real value.
     character(len=NAME_LEN), parameter :: ieee_real_functions(12) = &
-                                          [character(len=NAME_LEN) :: &
-                                "ieee_copy_sign", "ieee_fma", "ieee_logb", "ieee_max", &
-                        "ieee_max_num", "ieee_min", "ieee_min_num", "ieee_next_after", &
-                                    "ieee_rem", "ieee_rint", "ieee_scalb", "ieee_value"]
+        [character(len=NAME_LEN) :: &
+        "ieee_copy_sign", "ieee_fma", "ieee_logb", "ieee_max", &
+        "ieee_max_num", "ieee_min", "ieee_min_num", "ieee_next_after", &
+        "ieee_rem", "ieee_rint", "ieee_scalb", "ieee_value"]
 
     ! Functions returning a logical value.
     character(len=NAME_LEN), parameter :: ieee_logical_functions(15) = &
-                                          [character(len=NAME_LEN) :: &
-                                  "ieee_is_finite", "ieee_is_nan", "ieee_is_negative", &
-                                   "ieee_is_normal", "ieee_signbit", "ieee_unordered", &
-                                     "ieee_support_datatype", "ieee_support_denormal", &
-                   "ieee_support_divide", "ieee_support_flag", "ieee_support_halting", &
-                      "ieee_support_inf", "ieee_support_nan", "ieee_support_rounding", &
-                                           "ieee_support_standard"]
+        [character(len=NAME_LEN) :: &
+        "ieee_is_finite", "ieee_is_nan", "ieee_is_negative", &
+        "ieee_is_normal", "ieee_signbit", "ieee_unordered", &
+        "ieee_support_datatype", "ieee_support_denormal", &
+        "ieee_support_divide", "ieee_support_flag", "ieee_support_halting", &
+        "ieee_support_inf", "ieee_support_nan", "ieee_support_rounding", &
+        "ieee_support_standard"]
 
     ! Functions returning a derived type (ieee_class_type / ieee_round_type).
     character(len=NAME_LEN), parameter :: ieee_derived_functions(2) = &
-               [character(len=NAME_LEN) :: "ieee_class", "ieee_get_rounding_mode_value"]
+        [character(len=NAME_LEN) :: "ieee_class", "ieee_get_rounding_mode_value"]
 
     ! Subroutines (IEEE_GET_*/IEEE_SET_* state manipulation).
     character(len=NAME_LEN), parameter :: ieee_subroutines(8) = &
-                                          [character(len=NAME_LEN) :: &
-                   "ieee_get_flag", "ieee_get_halting_mode", "ieee_get_rounding_mode", &
-                          "ieee_get_status", "ieee_set_flag", "ieee_set_halting_mode", &
-                                           "ieee_set_rounding_mode", "ieee_set_status"]
+        [character(len=NAME_LEN) :: &
+        "ieee_get_flag", "ieee_get_halting_mode", "ieee_get_rounding_mode", &
+        "ieee_get_status", "ieee_set_flag", "ieee_set_halting_mode", &
+        "ieee_set_rounding_mode", "ieee_set_status"]
 
 contains
 
@@ -57,8 +57,8 @@ contains
         character(len=*), intent(in) :: name
 
         is_func = name_in_list(name, ieee_real_functions) .or. &
-                  name_in_list(name, ieee_logical_functions) .or. &
-                  name_in_list(name, ieee_derived_functions)
+            name_in_list(name, ieee_logical_functions) .or. &
+            name_in_list(name, ieee_derived_functions)
     end function is_ieee_function
 
     logical function is_ieee_subroutine(name) result(is_sub)

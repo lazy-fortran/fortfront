@@ -1,7 +1,7 @@
 module parser_statement_core_module
     use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
-                          TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression
     use parser_io_statements_module, only: parse_print_statement, &
@@ -15,24 +15,24 @@ module parser_statement_core_module
         parse_stop_statement, parse_goto_statement, parse_error_stop_statement, &
         parse_pause_statement, parse_nullify_statement, parse_continue_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
-                                               parse_deallocate_statement
+        parse_deallocate_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, push_identifier
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
-                                                 null_statement_callbacks
+        null_statement_callbacks
     use parser_statement_data_module, only: parse_data_statement, &
-                                            parse_namelist_statement
+        parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_allocatable_statements_module, only: parse_allocatable_statement
     use parser_statement_detection_module, only: find_statement_end, &
-                                                 extend_if_statement_end
+        extend_if_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_statement_utilities_module, only: parse_if_from_definition, &
-                                                 parse_associate_from_definition
+        parse_associate_from_definition
     implicit none
     private
 
@@ -47,8 +47,8 @@ module parser_statement_core_module
 
 contains
     recursive function parse_basic_statement_core(tokens, arena, parent_index, &
-                                                  callbacks, consumed_count) &
-        result(stmt_indices)
+            callbacks, consumed_count) &
+            result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -97,15 +97,15 @@ contains
         case (TK_KEYWORD)
             if (keyword_should_parse_as_identifier(first_token, parser)) then
                 stmt_index = parse_identifier_statement(parser, arena, &
-                                                        parent_index, tokens, &
-                                                        local_callbacks)
+                    parent_index, tokens, &
+                    local_callbacks)
             else
                 stmt_index = parse_keyword_statement(first_token, parser, arena, &
-                                                     parent_index, local_callbacks)
+                    parent_index, local_callbacks)
             end if
         case (TK_IDENTIFIER)
             stmt_index = parse_identifier_statement(parser, arena, parent_index, &
-                                                    tokens, local_callbacks)
+                tokens, local_callbacks)
         end select
 
         if (stmt_index == STATEMENT_NO_NODE) then
@@ -134,7 +134,7 @@ contains
     end function parse_basic_statement_core
 
     logical function try_handle_declaration(parser, arena, first_token, stmt_indices) &
-        result(handled)
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
@@ -162,13 +162,13 @@ contains
         character(len=*), intent(in) :: text
 
         matches = (text == "real" .or. text == "integer" .or. text == "logical" .or. &
-                   text == "character" .or. text == "type" .or. text == "class" .or. &
-                   text == "complex" .or. text == "double" .or. text == "procedure")
+            text == "character" .or. text == "type" .or. text == "class" .or. &
+            text == "complex" .or. text == "double" .or. text == "procedure")
     end function is_declaration_keyword
 
     recursive integer function parse_keyword_statement(first_token, parser, arena, &
-                                                       parent_index, &
-                                                       callbacks) result(stmt_index)
+            parent_index, &
+            callbacks) result(stmt_index)
         type(token_t), intent(in) :: first_token
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -181,7 +181,7 @@ contains
             lowered = to_lower(first_token%text)
 
             stmt_index = handle_control_keyword(lowered, parser, arena, &
-                                                parent_index, callbacks)
+                parent_index, callbacks)
             if (stmt_index /= 0) return
 
             stmt_index = handle_io_keyword(lowered, parser, arena)
@@ -194,7 +194,7 @@ contains
             if (stmt_index /= 0) return
 
             stmt_index = handle_flow_keyword(lowered, parser, arena, parent_index, &
-                                             callbacks)
+                callbacks)
             if (stmt_index /= 0) return
 
             if (lowered == "dimension") then
@@ -224,7 +224,7 @@ contains
     end function parse_keyword_statement
 
     integer function handle_control_keyword(keyword, parser, arena, parent_index, &
-                                            callbacks) result(stmt_index)
+            callbacks) result(stmt_index)
         character(len=*), intent(in) :: keyword
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -243,7 +243,7 @@ contains
             if (parser%current_token >= 2) then
                 ! Look back for previous non-whitespace token
                 do prev_idx = parser%current_token - 2, max(1, &
-                                                           parser%current_token - 5), -1
+                        parser%current_token - 5), -1
                     if (prev_idx >= 1 .and. prev_idx <= size(parser%tokens)) then
                         prev_token = parser%tokens(prev_idx)
                         ! Skip whitespace/newlines/comments
@@ -366,7 +366,7 @@ contains
     end function handle_memory_keyword
 
     integer function handle_data_keyword(keyword, parser, arena, parent_index) &
-        result(stmt_index)
+            result(stmt_index)
         character(len=*), intent(in) :: keyword
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -420,7 +420,7 @@ contains
     end function looks_like_data_statement_local
 
     integer function handle_flow_keyword(keyword, parser, arena, parent_index, &
-                                         callbacks) result(stmt_index)
+            callbacks) result(stmt_index)
         character(len=*), intent(in) :: keyword
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -457,8 +457,8 @@ contains
     end function handle_flow_keyword
 
     integer function parse_identifier_statement(parser, arena, parent_index, tokens, &
-                                                callbacks) &
-        result(stmt_index)
+            callbacks) &
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -488,8 +488,8 @@ contains
                     ! Rewind to before the label so the keyword parser handles it
                     parser%current_token = parser%current_token - 2
                     stmt_index = parse_keyword_statement(keyword_token, &
-                                                         parser, arena, &
-                                                         parent_index, callbacks)
+                        parser, arena, &
+                        parent_index, callbacks)
                     return
                 end if
             case ("(", "%")
@@ -498,18 +498,18 @@ contains
                 ! route through parse_complex_assignment which parses the
                 ! full LHS expression up to '=' / '=>'.
                 stmt_index = parse_complex_assignment(parser, arena, &
-                                                      parent_index, tokens, &
-                                                      id_token)
+                    parent_index, tokens, &
+                    id_token)
             case ("=", "=>")
                 stmt_index = parse_simple_assignment(parser, arena, &
-                                                     parent_index, tokens, &
-                                                     id_token)
+                    parent_index, tokens, &
+                    id_token)
             end select
         end if
     end function parse_identifier_statement
 
     integer function parse_simple_assignment(parser, arena, parent_index, tokens, &
-                                             id_token) result(stmt_index)
+            id_token) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -533,14 +533,14 @@ contains
 
         if (present(parent_index)) then
             target_index = push_identifier(arena, id_token%text, id_token%line, &
-                                           id_token%column, parent_index)
+                id_token%column, parent_index)
         else
             target_index = push_identifier(arena, id_token%text, id_token%line, &
-                                           id_token%column)
+                id_token%column)
         end if
 
         stmt_index = create_assignment_node(arena, parent_index, target_index, &
-                                            value_index, id_token, operator_text)
+            value_index, id_token, operator_text)
     end function parse_simple_assignment
 
     integer function find_assignment_operator(parser, paren_depth) result(left_end)
@@ -592,8 +592,8 @@ contains
     end subroutine build_lhs_tokens
 
     integer function create_assignment_node(arena, parent_index, target_index, &
-                                            value_index, id_token, assignment_op) &
-        result(stmt_index)
+            value_index, id_token, assignment_op) &
+            result(stmt_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         integer, intent(in) :: target_index
@@ -604,28 +604,28 @@ contains
         if (assignment_op == "=>") then
             if (present(parent_index)) then
                 stmt_index = push_pointer_assignment(arena, target_index, &
-                                                     value_index, id_token%line, &
-                                                     id_token%column, parent_index)
+                    value_index, id_token%line, &
+                    id_token%column, parent_index)
             else
                 stmt_index = push_pointer_assignment(arena, target_index, &
-                                                     value_index, id_token%line, &
-                                                     id_token%column)
+                    value_index, id_token%line, &
+                    id_token%column)
             end if
         else
             if (present(parent_index)) then
                 stmt_index = push_assignment(arena, target_index, value_index, &
-                                             id_token%line, id_token%column, &
-                                             parent_index, assignment_op)
+                    id_token%line, id_token%column, &
+                    parent_index, assignment_op)
             else
                 stmt_index = push_assignment(arena, target_index, value_index, &
-                                             id_token%line, id_token%column, &
-                                             operator_text=assignment_op)
+                    id_token%line, id_token%column, &
+                    operator_text=assignment_op)
             end if
         end if
     end function create_assignment_node
 
     integer function parse_complex_assignment(parser, arena, parent_index, tokens, &
-                                              id_token) result(stmt_index)
+            id_token) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -669,7 +669,7 @@ contains
         if (value_index <= 0) return
 
         stmt_index = create_assignment_node(arena, parent_index, target_index, &
-                                            value_index, id_token, assignment_op)
+            value_index, id_token, assignment_op)
     end function parse_complex_assignment
 
     logical function is_terminator_statement(first_token, tokens) result(is_terminator)
@@ -692,7 +692,7 @@ contains
                 is_terminator = .true.
             end if
         case ("else", "elseif", "contains", "case", "endselect", "enddo", &
-              "endif", "endwhere", "endforall", "elsewhere")
+                "endif", "endwhere", "endforall", "elsewhere")
             is_terminator = .true.
         end select
     end function is_terminator_statement
@@ -727,7 +727,7 @@ contains
     end subroutine report_unparsed_statement
 
     subroutine allocate_stmt_tokens_with_eof(stmt_tokens, source_tokens, &
-                                             current_token, stmt_end)
+            current_token, stmt_end)
         type(token_t), allocatable, intent(out) :: stmt_tokens(:)
         type(token_t), intent(in) :: source_tokens(:)
         integer, intent(in) :: current_token, stmt_end

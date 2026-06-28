@@ -157,7 +157,7 @@ contains
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
 
-        this%success = .true.  ! Warnings don't fail the operation
+        this%success = .true. ! Warnings don't fail the operation
         this%severity = ERROR_WARNING
         this%error_message = trim(message)
 
@@ -245,7 +245,7 @@ contains
     end function success_result
 
     function create_error_result(message, code, component, context, suggestion) &
-        result(res)
+            result(res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -303,10 +303,10 @@ contains
             error_result = warning_result(message, code, component, context, suggestion)
         case (ERROR_CRITICAL)
             error_result = critical_result(message, code, component, context, &
-                                           suggestion)
+                suggestion)
         case default
             error_result = create_error_result(message, code, component, context, &
-                                               suggestion)
+                suggestion)
         end select
 
         call this%add_result(error_result)
@@ -401,54 +401,54 @@ contains
         errors = 0
         critical = 0
 
-        do i = 1, this%count
-            select case (this%errors(i)%severity)
-            case (ERROR_WARNING)
-                warnings = warnings + 1
-            case (ERROR_ERROR)
-                errors = errors + 1
-            case (ERROR_CRITICAL)
-                critical = critical + 1
-            end select
-        end do
+            do i = 1, this%count
+                select case (this%errors(i)%severity)
+                case (ERROR_WARNING)
+                    warnings = warnings + 1
+                case (ERROR_ERROR)
+                    errors = errors + 1
+                case (ERROR_CRITICAL)
+                    critical = critical + 1
+                    end select
+                end do
 
-        count_str = int_to_string(this%count)
-        summary = "Total: " // trim(count_str)
+                count_str = int_to_string(this%count)
+                summary = "Total: " // trim(count_str)
 
-        if (critical > 0) then
-            count_str = int_to_string(critical)
-            summary = summary // ", Critical: " // trim(count_str)
-        end if
+                if (critical > 0) then
+                    count_str = int_to_string(critical)
+                    summary = summary // ", Critical: " // trim(count_str)
+                end if
 
-        if (errors > 0) then
-            count_str = int_to_string(errors)
-            summary = summary // ", Errors: " // trim(count_str)
-        end if
+                if (errors > 0) then
+                    count_str = int_to_string(errors)
+                    summary = summary // ", Errors: " // trim(count_str)
+                end if
 
-        if (warnings > 0) then
-            count_str = int_to_string(warnings)
-            summary = summary // ", Warnings: " // trim(count_str)
-        end if
-    end function get_summary
+                if (warnings > 0) then
+                    count_str = int_to_string(warnings)
+                    summary = summary // ", Warnings: " // trim(count_str)
+                end if
+            end function get_summary
 
-    subroutine cleanup_collection(this)
-        type(error_collection_t), intent(inout) :: this
+            subroutine cleanup_collection(this)
+                type(error_collection_t), intent(inout) :: this
 
-        call this%clear_errors()
-        if (allocated(this%errors)) deallocate (this%errors)
-    end subroutine cleanup_collection
+                call this%clear_errors()
+                if (allocated(this%errors)) deallocate (this%errors)
+            end subroutine cleanup_collection
 
-    ! Utility function for combining multiple results
-    function combine_results(results) result(combined)
-        type(result_t), intent(in) :: results(:)
-        type(result_t) :: combined
-        integer :: i
+            ! Utility function for combining multiple results
+            function combine_results(results) result(combined)
+                type(result_t), intent(in) :: results(:)
+                type(result_t) :: combined
+                integer :: i
 
-        combined = success_result()
+                combined = success_result()
 
-        do i = 1, size(results)
-            combined = combined%combine_result(results(i))
-        end do
-    end function combine_results
+                do i = 1, size(results)
+                    combined = combined%combine_result(results(i))
+                end do
+            end function combine_results
 
-end module error_handling
+        end module error_handling

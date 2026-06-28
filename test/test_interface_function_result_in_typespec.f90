@@ -23,7 +23,7 @@ contains
 
     subroutine test_function_result_in_character_length()
         call read_example('examples/f90/issue_2413_interface_function_result_valid.f90', &
-                         source)
+            source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

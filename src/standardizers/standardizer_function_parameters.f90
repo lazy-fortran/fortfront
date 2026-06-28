@@ -118,11 +118,11 @@ contains
             end if
 
             select type (param => arena%entries(idx)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 call update_metadata_from_identifier(metadata, i, param)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 call update_metadata_from_parameter_decl(metadata, i, param)
-            type is (declaration_node)
+                type is (declaration_node)
                 call update_metadata_from_declaration(metadata, i, param)
             class default
                 call assign_default_param_name(metadata, i, i)
@@ -141,7 +141,7 @@ contains
 
         metadata%names(slot) = param%name
         metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
-                                     param%inferred_type%is_unsigned
+            param%inferred_type%is_unsigned
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
@@ -149,11 +149,11 @@ contains
             ! the type arena, which may be stale after reset_type_system, yielding
             ! garbage. The cached kind/size/is_unsigned survive on the AST node.
             inferred_text = mono_type_cached_string(param%inferred_type, &
-                                                    fallback="")
+                fallback="")
         end if
         call apply_function_type(metadata, slot, .false., "", .false., 0, &
-                                 param%inferred_type%kind > 0, inferred_text, &
-                                 .false., .false.)
+            param%inferred_type%kind > 0, inferred_text, &
+            .false., .false.)
     end subroutine update_metadata_from_identifier
 
     subroutine update_metadata_from_parameter_decl(metadata, slot, param)
@@ -168,26 +168,26 @@ contains
         metadata%names(slot) = param%name
         metadata%optional(slot) = param%is_optional
         has_explicit_type = allocated(param%type_name) .and. &
-                            len_trim(param%type_name) > 0
+            len_trim(param%type_name) > 0
         if (has_explicit_type) then
             explicit_type = trim(param%type_name)
             metadata%is_unsigned(slot) = .false.
         else
             explicit_type = ""
             metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
-                                         param%inferred_type%is_unsigned
+                param%inferred_type%is_unsigned
         end if
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
             inferred_text = mono_type_cached_string(param%inferred_type, &
-                                                    fallback="")
+                fallback="")
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
-                                 explicit_type, &
-                                 param%has_kind, param%kind_value, &
-                                 param%inferred_type%kind > 0, inferred_text, &
-                                 param%is_array, .false.)
+            explicit_type, &
+            param%has_kind, param%kind_value, &
+            param%inferred_type%kind > 0, inferred_text, &
+            param%is_array, .false.)
         call copy_parameter_intent(metadata, slot, param%intent_type)
     end subroutine update_metadata_from_parameter_decl
 
@@ -202,26 +202,26 @@ contains
 
         metadata%names(slot) = param%var_name
         has_explicit_type = allocated(param%type_name) .and. &
-                            len_trim(param%type_name) > 0
+            len_trim(param%type_name) > 0
         if (has_explicit_type) then
             explicit_type = trim(param%type_name)
             metadata%is_unsigned(slot) = param%is_unsigned
         else
             explicit_type = ""
             metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
-                                         param%inferred_type%is_unsigned
+                param%inferred_type%is_unsigned
         end if
         if (metadata%is_unsigned(slot)) then
             inferred_text = "integer"
         else
             inferred_text = mono_type_cached_string(param%inferred_type, &
-                                                    fallback="")
+                fallback="")
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
-                                 explicit_type, &
-                                 param%has_kind, param%kind_value, &
-                                 param%inferred_type%kind > 0, inferred_text, &
-                                 param%is_array, param%is_allocatable)
+            explicit_type, &
+            param%has_kind, param%kind_value, &
+            param%inferred_type%kind > 0, inferred_text, &
+            param%is_array, param%is_allocatable)
         if (param%has_intent .and. allocated(param%intent)) then
             metadata%intent(slot) = trim(param%intent)
         end if
@@ -279,7 +279,7 @@ contains
         do i = 1, size(metadata%names)
             if (is_type_variable_str(metadata%type_name(i))) then
                 call infer_parameter_type(metadata%names(i), inferred_type, &
-                                          has_kind_local, kind_value_local)
+                    has_kind_local, kind_value_local)
                 metadata%type_name(i) = trim(inferred_type)
                 metadata%has_kind(i) = has_kind_local
                 metadata%kind_value(i) = kind_value_local
@@ -311,8 +311,8 @@ contains
     end subroutine set_function_param_intents
 
     subroutine apply_function_type(metadata, idx, type_present, type_text, &
-                                   has_kind_flag, kind_value, inferred_present, &
-                                   inferred_text, is_array_flag, is_alloc_flag)
+            has_kind_flag, kind_value, inferred_present, &
+            inferred_text, is_array_flag, is_alloc_flag)
         type(param_metadata_t), intent(inout) :: metadata
         integer, intent(in) :: idx
         logical, intent(in) :: type_present
@@ -330,7 +330,7 @@ contains
             metadata%type_name(idx) = trim(type_text)
             metadata%type_inferred(idx) = .false.
         else if (inferred_present .and. len_trim(inferred_text) > 0 .and. &
-                 .not. is_type_variable_str(inferred_text)) then
+                .not. is_type_variable_str(inferred_text)) then
             metadata%type_name(idx) = trim(inferred_text)
             metadata%type_inferred(idx) = .false.
         end if

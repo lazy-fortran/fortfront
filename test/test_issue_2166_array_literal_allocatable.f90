@@ -9,7 +9,7 @@ program test_issue_2166_array_literal_allocatable
     print *, "=== Issue #2166: literal slice destination must be fixed size ==="
 
     call read_example('examples/lf/issue_2166_array_literal_allocatable.lf', &
-                      input_code)
+        input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

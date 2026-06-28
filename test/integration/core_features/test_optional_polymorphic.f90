@@ -157,9 +157,9 @@ contains
 
         if (present(optional_data)) then
             select type (optional_data)
-            type is (real(dp))
+                type is (real(dp))
                 output = 100
-            type is (character(len=*))
+                type is (character(len=*))
                 output = 200
             class default
                 output = 999

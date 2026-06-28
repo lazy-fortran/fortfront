@@ -25,8 +25,8 @@ module uid_generator
 
     ! UID type with generation tracking
     type :: uid_t
-        integer(int64) :: value = 0_int64  ! Unique identifier value
-        integer :: generation = 1  ! Generation for arena resets
+        integer(int64) :: value = 0_int64 ! Unique identifier value
+        integer :: generation = 1 ! Generation for arena resets
     contains
         procedure :: is_valid => uid_is_valid
         procedure :: assign => uid_assign
@@ -116,7 +116,7 @@ contains
         logical :: equal
 
         equal = (uid1%value == uid2%value) .and. &
-                (uid1%generation == uid2%generation)
+            (uid1%generation == uid2%generation)
     end function uid_equal
 
     ! Convert UID to string representation

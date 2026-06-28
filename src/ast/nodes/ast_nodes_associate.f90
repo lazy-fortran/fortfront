@@ -1,7 +1,7 @@
 module ast_nodes_associate
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 

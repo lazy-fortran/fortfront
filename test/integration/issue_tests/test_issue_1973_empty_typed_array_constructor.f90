@@ -1,6 +1,6 @@
 program test_issue_1973_empty_typed_array_constructor
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                              iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -9,7 +9,7 @@ program test_issue_1973_empty_typed_array_constructor
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/lf/issue_1973_empty_typed_array_constructor.lf', &
-                      source)
+        source)
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
     if (allocated(error_msg)) then

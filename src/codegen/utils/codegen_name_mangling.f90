@@ -1,7 +1,7 @@
 module codegen_name_mangling
     use string_utils_mod, only: int_to_string, to_lower
     use type_constants, only: TINT, TREAL, TCHAR, TLOGICAL, TARRAY, &
-                              TCOMPLEX, TDOUBLE
+        TCOMPLEX, TDOUBLE
     implicit none
     private
 
@@ -11,7 +11,7 @@ module codegen_name_mangling
 contains
 
     function mangle_procedure_name(base_name, signature, param_types) &
-        result(mangled_name)
+            result(mangled_name)
         character(len=*), intent(in) :: base_name
         integer, intent(in) :: signature(:)
         character(len=*), intent(in), optional :: param_types(:)
@@ -131,8 +131,8 @@ contains
         else if (index(type_desc, 'integer') > 0) then
             base = 'i32'
         else if (index(type_desc, 'complex(16)') > 0 .or. &
-                 index(type_desc, 'complex(8)') > 0 .or. &
-                 index(type_desc, 'double complex') > 0) then
+                index(type_desc, 'complex(8)') > 0 .or. &
+                index(type_desc, 'double complex') > 0) then
             base = 'c128'
         else if (index(type_desc, 'complex') > 0) then
             base = 'c64'
@@ -190,7 +190,7 @@ contains
         len_pos = index(type_desc, 'len=')
         if (len_pos > 0) then
             ! Extract the length value after "len="
-            equals_pos = len_pos + 4  ! Position after "len="
+            equals_pos = len_pos + 4 ! Position after "len="
             end_pos = equals_pos
 
             ! Find the end of the number (either ')', ',' or end of string)
@@ -212,7 +212,7 @@ contains
             ! Look for character(N) pattern without "len="
             paren_pos = index(type_desc, 'character(')
             if (paren_pos > 0) then
-                equals_pos = paren_pos + 10  ! Position after "character("
+                equals_pos = paren_pos + 10 ! Position after "character("
                 end_pos = equals_pos
 
                 do while (end_pos <= len(type_desc))

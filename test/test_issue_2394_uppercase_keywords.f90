@@ -16,25 +16,25 @@ program test_issue_2394_uppercase_keywords
 
     ! Test 1: Uppercase FUNCTION in interface
     call run_case("Uppercase FUNCTION in interface", &
-                  "interface" // new_line('a') // &
-                  "    FUNCTION foo()" // new_line('a') // &
-                  "    END FUNCTION" // new_line('a') // &
-                  "end interface", test_passed)
+        "interface" // new_line('a') // &
+        "    FUNCTION foo()" // new_line('a') // &
+        "    END FUNCTION" // new_line('a') // &
+        "end interface", test_passed)
 
     ! Test 2: Uppercase SUBROUTINE in interface
     call run_case("Uppercase SUBROUTINE in interface", &
-                  "interface" // new_line('a') // &
-                  "    SUBROUTINE bar()" // new_line('a') // &
-                  "    END SUBROUTINE" // new_line('a') // &
-                  "end interface", test_passed)
+        "interface" // new_line('a') // &
+        "    SUBROUTINE bar()" // new_line('a') // &
+        "    END SUBROUTINE" // new_line('a') // &
+        "end interface", test_passed)
 
     ! Test 3: Mixed case
     call run_case("Mixed case FUNCTION in interface", &
-                  "interface" // new_line('a') // &
-                  "    Function baz(x)" // new_line('a') // &
-                  "        INTEGER :: x" // new_line('a') // &
-                  "    End Function" // new_line('a') // &
-                  "end interface", test_passed)
+        "interface" // new_line('a') // &
+        "    Function baz(x)" // new_line('a') // &
+        "        INTEGER :: x" // new_line('a') // &
+        "    End Function" // new_line('a') // &
+        "end interface", test_passed)
 
     if (test_passed) then
         print *, "All tests passed!"

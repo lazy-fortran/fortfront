@@ -1,8 +1,8 @@
 program test_intrinsic_coverage
     use fortfront
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
-                                  registry_get_signature => get_intrinsic_signature, &
-                                  get_intrinsic_info, initialize_intrinsic_registry
+        registry_get_signature => get_intrinsic_signature, &
+        get_intrinsic_info, initialize_intrinsic_registry
     implicit none
 
     logical :: all_tests_passed
@@ -72,11 +72,11 @@ contains
 
     logical function test_json_serialization()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    real :: x, y" // new_line('A') // &
-                                       "    x = 3.14" // new_line('A') // &
-                                       "    y = abs(x)" // new_line('A') // &
-                                       "end program test"
+            "program test" // new_line('A') // &
+            "    real :: x, y" // new_line('A') // &
+            "    x = 3.14" // new_line('A') // &
+            "    y = abs(x)" // new_line('A') // &
+            "end program test"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -108,7 +108,7 @@ contains
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     if (allocated(node%name) .and. node%name == "abs") then
                         found_abs_call = .true.
 

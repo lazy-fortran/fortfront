@@ -9,9 +9,9 @@ program test_program_unit_detection
     call check_case('module m'//new_line('A')//'end module m', .true., 'm')
     call check_case('module', .false., '')
     call check_case('subroutine s()'//new_line('A')//'end subroutine s', &
-                    .true., 's')
+        .true., 's')
     call check_case('function f() result(r)'//new_line('A')//'end function f', &
-                    .true., 'f')
+        .true., 'f')
     call check_case('block data'//new_line('A')//'end block data', .true., '')
     call check_case('module procedure foo', .false., '')
 

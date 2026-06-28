@@ -11,9 +11,9 @@ program test_issue_2837_interface_body
     all_passed = .true.
 
     call check_example('examples/f90/issue_2837_interface_semicolon.f90', &
-                       'procedure get_scalar_i', all_passed)
+        'procedure get_scalar_i', all_passed)
     call check_example('examples/f90/issue_2837_interface_type_return.f90', &
-                       'type(point_t) function make_point', all_passed)
+        'type(point_t) function make_point', all_passed)
 
     if (all_passed) then
         write (output_unit, '(A)') &

@@ -9,7 +9,7 @@ program test_issue_1900_block_data_after_program
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/f90/issue_1900_block_data_after_program.f90', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 

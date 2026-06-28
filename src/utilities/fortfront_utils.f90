@@ -9,22 +9,22 @@ module fortfront_utils
     use ast_arena_modern, only: ast_arena_t, ast_arena_stats_t
     use ast_base, only: ast_node
     use ast_nodes_core, only: program_node, assignment_node, identifier_node, &
-                              literal_node, call_or_subscript_node, &
-                              pointer_assignment_node
+        literal_node, call_or_subscript_node, &
+        pointer_assignment_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                              parameter_declaration_node
+        parameter_declaration_node
     use ast_nodes_core, only: array_literal_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
-                                     case_default_node, case_range_node, &
-                                     select_type_node, type_guard_block_node
+        case_default_node, case_range_node, &
+        select_type_node, type_guard_block_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
     use fortfront_types, only: source_range_t, diagnostic_t, &
-                               DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, &
-                               DIAGNOSTIC_INFO
+        DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, &
+        DIAGNOSTIC_INFO
     use error_handling, only: ERROR_WARNING, ERROR_ERROR, ERROR_CRITICAL
     use fortfront_node_constants
     use string_utils_mod, only: int_to_string
@@ -34,15 +34,15 @@ module fortfront_utils
 
     ! Public utility functions
     public :: node_exists, get_node_type_at, get_node_location, &
-              get_node_line, get_node_column, &
-              get_parent, get_next_sibling, get_previous_sibling, &
-              get_block_statements, is_last_in_block, is_block_node, &
-              get_node_type, get_children, traverse_ast, traverse_node, &
-              get_node_range, get_arena_stats, analyze_program, &
-              get_type_for_node, get_diagnostics, ast_to_json, &
-              semantic_info_to_json, find_nodes_by_type, get_max_depth, &
-              get_node_as_program, get_node_as_assignment, &
-              get_node_as_function_def, get_node_as_subroutine_def
+        get_node_line, get_node_column, &
+        get_parent, get_next_sibling, get_previous_sibling, &
+        get_block_statements, is_last_in_block, is_block_node, &
+        get_node_type, get_children, traverse_ast, traverse_node, &
+        get_node_range, get_arena_stats, analyze_program, &
+        get_type_for_node, get_diagnostics, ast_to_json, &
+        semantic_info_to_json, find_nodes_by_type, get_max_depth, &
+        get_node_as_program, get_node_as_assignment, &
+        get_node_as_function_def, get_node_as_subroutine_def
 
 contains
 
@@ -125,7 +125,7 @@ contains
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%child_indices)) then
                 child_indices = arena%entries(node_index)%child_indices( &
-                                1:arena%entries(node_index)%child_count)
+                    1:arena%entries(node_index)%child_count)
             end if
         end if
     end function get_children
@@ -292,7 +292,7 @@ contains
                     allocate (node_type)
                     ! Manual deep copy to avoid issues with assignment operator
                     associate (src_type => &
-                               arena%entries(node_index)%node%inferred_type)
+                            arena%entries(node_index)%node%inferred_type)
                         node_type%kind = src_type%kind
                         node_type%size = src_type%size
                         node_type%var%id = src_type%var%id
@@ -319,7 +319,7 @@ contains
         allocate (diagnostics(count))
         do i = 1, count
             diagnostics(i)%severity = error_severity_to_diagnostic( &
-                                      ctx%errors%errors(i)%severity)
+                ctx%errors%errors(i)%severity)
             if (allocated(ctx%errors%errors(i)%error_message)) then
                 diagnostics(i)%message = ctx%errors%errors(i)%error_message
             else
@@ -386,8 +386,8 @@ contains
         end do
 
         json_string = '{"root":'//trim(int_to_string(root_index))// &
-                      ',"node_count":'//trim(int_to_string(node_count))// &
-                      ',"nodes":['//nodes_json//']}'
+            ',"node_count":'//trim(int_to_string(node_count))// &
+            ',"nodes":['//nodes_json//']}'
     end subroutine ast_to_json
 
     pure function build_node_json(arena, node_index) result(json)
@@ -409,12 +409,12 @@ contains
         end if
 
         json = '{"index":'//trim(int_to_string(node_index))// &
-               ',"type":"'//escape_json(node_type)//'"'
+            ',"type":"'//escape_json(node_type)//'"'
 
         json = json//',"line":'// &
-               trim(int_to_string(arena%entries(node_index)%node%line))
+            trim(int_to_string(arena%entries(node_index)%node%line))
         json = json//',"column":'// &
-               trim(int_to_string(arena%entries(node_index)%node%column))
+            trim(int_to_string(arena%entries(node_index)%node%column))
 
         parent_index = arena%entries(node_index)%parent_index
         json = json//',"parent":'//trim(int_to_string(parent_index))
@@ -426,7 +426,7 @@ contains
                 do j = 1, child_count
                     if (j > 1) child_list = child_list//","
                     child_value = trim(int_to_string( &
-                                       arena%entries(node_index)%child_indices(j)))
+                        arena%entries(node_index)%child_indices(j)))
                     child_list = child_list//child_value
                 end do
             end if
@@ -435,31 +435,31 @@ contains
         json = json//',"children":'//child_list
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
                     json = json//',"name":"'//escape_json(node%name)//'"'
                 end if
             end if
-        type is (assignment_node)
+            type is (assignment_node)
             json = json//',"kind":"assignment"'
             json = json//',"target_index":'// &
-                   trim(int_to_string(node%target_index))
+                trim(int_to_string(node%target_index))
             json = json//',"value_index":'// &
-                   trim(int_to_string(node%value_index))
+                trim(int_to_string(node%value_index))
             if (allocated(node%operator)) then
                 if (len_trim(node%operator) > 0) then
                     json = json//',"operator":"'// &
-                           escape_json(node%operator)//'"'
+                        escape_json(node%operator)//'"'
                 end if
             end if
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
                     json = json//',"name":"'//escape_json(node%name)//'"'
                 end if
             end if
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) then
                 if (len_trim(node%value) > 0) then
                     json = json//',"value":"'//escape_json(node%value)//'"'
@@ -468,10 +468,10 @@ contains
             if (allocated(node%literal_type)) then
                 if (len_trim(node%literal_type) > 0) then
                     json = json//',"literal_type":"'// &
-                           escape_json(node%literal_type)//'"'
+                        escape_json(node%literal_type)//'"'
                 end if
             end if
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
                     json = json//',"name":"'//escape_json(node%name)//'"'
@@ -482,7 +482,7 @@ contains
                 if (allocated(node%intrinsic_signature)) then
                     if (len_trim(node%intrinsic_signature) > 0) then
                         json = json//',"intrinsic_signature":"'// &
-                               escape_json(node%intrinsic_signature)//'"'
+                            escape_json(node%intrinsic_signature)//'"'
                     end if
                 end if
             else
@@ -619,10 +619,10 @@ contains
 
         ! Build proper JSON from semantic context
         json_string = '{"semantic_context": {'// &
-                      '"type_registry": {"initialized": true}, '// &
-                      '"has_errors": '//merge('true ', 'false', ctx%has_errors()) &
-                      //', '// &
-                      '"phase": "complete"}}'
+            '"type_registry": {"initialized": true}, '// &
+            '"has_errors": '//merge('true ', 'false', ctx%has_errors()) &
+            //', '// &
+            '"phase": "complete"}}'
     end subroutine semantic_info_to_json
 
     ! Find nodes by type name
@@ -645,7 +645,7 @@ contains
 
     ! Recursively compute depth
     recursive function compute_depth(arena, node_index, current_depth) &
-        result(max_depth)
+            result(max_depth)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(in) :: current_depth
@@ -788,7 +788,7 @@ contains
         if (index > 0 .and. index <= arena%size) then
             if (allocated(arena%entries(index)%node)) then
                 select type (p => arena%entries(index)%node)
-                type is (program_node)
+                    type is (program_node)
                     node => p
                 end select
             end if
@@ -804,7 +804,7 @@ contains
         if (index > 0 .and. index <= arena%size) then
             if (allocated(arena%entries(index)%node)) then
                 select type (p => arena%entries(index)%node)
-                type is (assignment_node)
+                    type is (assignment_node)
                     node => p
                 end select
             end if
@@ -820,7 +820,7 @@ contains
         if (index > 0 .and. index <= arena%size) then
             if (allocated(arena%entries(index)%node)) then
                 select type (p => arena%entries(index)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     node => p
                 end select
             end if
@@ -836,7 +836,7 @@ contains
         if (index > 0 .and. index <= arena%size) then
             if (allocated(arena%entries(index)%node)) then
                 select type (p => arena%entries(index)%node)
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     node => p
                 end select
             end if

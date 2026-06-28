@@ -3,15 +3,15 @@ module semantic_explicit_interface_checker
     use ast_nodes_core, only: call_or_subscript_node, program_node
     use ast_nodes_data, only: module_node
     use ast_nodes_misc, only: contains_node, interface_block_node, &
-                              module_procedure_node
+        module_procedure_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
-                              error_collection_t
+        error_collection_t
     use identifier_table, only: identifier_table_t, identifier_table_find, &
-                                identifier_table_intern, &
-                                identifier_table_init, &
-                                identifier_table_reset, identifier_id_kind
+        identifier_table_intern, &
+        identifier_table_init, &
+        identifier_table_reset, identifier_id_kind
     use intrinsic_registry, only: is_intrinsic_function, is_intrinsic_subroutine
     use scope_manager, only: scope_stack_t
     use string_utils_mod, only: to_lower
@@ -26,8 +26,8 @@ module semantic_explicit_interface_checker
 contains
 
     subroutine validate_explicit_interface_for_function_reference(arena, scopes, &
-                                                                  cache, errors, &
-                                                                  expr, expr_index)
+            cache, errors, &
+            expr, expr_index)
         type(ast_arena_t), intent(in) :: arena
         type(scope_stack_t), intent(inout) :: scopes
         type(identifier_table_t), intent(in) :: cache
@@ -50,8 +50,8 @@ contains
     end subroutine validate_explicit_interface_for_function_reference
 
     subroutine validate_explicit_interface_for_subroutine_call(arena, scopes, &
-                                                               cache, errors, &
-                                                               expr, expr_index)
+            cache, errors, &
+            expr, expr_index)
         type(ast_arena_t), intent(in) :: arena
         type(scope_stack_t), intent(inout) :: scopes
         type(identifier_table_t), intent(in) :: cache
@@ -104,23 +104,23 @@ contains
             if (.not. allocated(arena%entries(i)%node)) cycle
 
             select type (node => arena%entries(i)%node)
-            type is (interface_block_node)
+                type is (interface_block_node)
                 call cache_procedure_names_from_indices(arena, &
-                                                        node%procedure_indices, &
-                                                        cache)
-            type is (module_node)
+                    node%procedure_indices, &
+                    cache)
+                type is (module_node)
                 call cache_procedure_names_from_indices(arena, &
-                                                        node%procedure_indices, &
-                                                        cache)
-            type is (program_node)
+                    node%procedure_indices, &
+                    cache)
+                type is (program_node)
                 call cache_internal_procedure_names(arena, node%body_indices, &
-                                                    cache)
-            type is (function_def_node)
+                    cache)
+                type is (function_def_node)
                 call cache_internal_procedure_names(arena, node%body_indices, &
-                                                    cache)
-            type is (subroutine_def_node)
+                    cache)
+                type is (subroutine_def_node)
                 call cache_internal_procedure_names(arena, node%body_indices, &
-                                                    cache)
+                    cache)
             class default
                 cycle
             end select
@@ -153,11 +153,11 @@ contains
             if (.not. arena%has_node_at(body_indices(i))) cycle
 
             select type (node => arena%entries(body_indices(i))%node)
-            type is (contains_node)
+                type is (contains_node)
                 in_contains = .true.
-            type is (function_def_node)
+                type is (function_def_node)
                 if (in_contains) call cache_allocated_name(node%name, cache)
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (in_contains) call cache_allocated_name(node%name, cache)
             class default
                 cycle
@@ -179,11 +179,11 @@ contains
             if (.not. arena%has_node_at(indices(i))) cycle
 
             select type (proc => arena%entries(indices(i))%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 call cache_allocated_name(proc%name, cache)
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 call cache_allocated_name(proc%name, cache)
-            type is (module_procedure_node)
+                type is (module_procedure_node)
                 call cache_module_procedure_names(proc, cache)
             class default
                 cycle
@@ -230,15 +230,15 @@ contains
         character(len=:), allocatable :: suggestion
 
         message = "No explicit interface for procedure '" // trim(original_name) // &
-                  "'"
+            "'"
         suggestion = "Move the procedure into a module or contains block, " // &
-                     "or add an interface block"
+            "or add an interface block"
 
         call errors%add_result(create_error_result( &
-                               message, ERROR_SEMANTIC, &
-                               component="semantic_analyzer", &
-                               context="explicit_interface_requirement", &
-                               suggestion=suggestion))
+            message, ERROR_SEMANTIC, &
+            component="semantic_analyzer", &
+            context="explicit_interface_requirement", &
+            suggestion=suggestion))
     end subroutine emit_missing_explicit_interface
 
 end module semantic_explicit_interface_checker

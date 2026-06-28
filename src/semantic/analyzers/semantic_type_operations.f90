@@ -2,10 +2,10 @@ module semantic_type_operations
     ! Type system operations extracted from semantic_analyzer
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   substitution_t, &
-                                   create_mono_type, create_type_var, &
-                                   create_poly_type, compose_substitutions, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE
+        substitution_t, &
+        create_mono_type, create_type_var, &
+        create_poly_type, compose_substitutions, &
+        TVAR, TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE
     use semantic_validation_utils, only: int_to_str
     implicit none
     private
@@ -106,7 +106,7 @@ contains
         end if
 
         needs_promotion = (target_kind /= left_base_kind) .or. &
-                          (target_kind /= right_base_kind)
+            (target_kind /= right_base_kind)
 
         ! For array operations without promotion, return left array type directly
         if (left_typ%kind == TARRAY .and. .not. needs_promotion) then
@@ -139,7 +139,7 @@ contains
 
     ! Recursively promote element type while preserving array structure
     recursive function promote_array_element_type(array_typ, target_kind) &
-        result(promoted_typ)
+            result(promoted_typ)
         use type_system_unified, only: TARRAY
         type(mono_type_t), intent(in) :: array_typ
         integer, intent(in) :: target_kind
@@ -160,15 +160,15 @@ contains
             allocate (promoted_args(1))
             promoted_args(1) = promoted_inner
             promoted_typ = create_mono_type(TARRAY, &
-                                            args=promoted_args, &
-                                            array_size=array_typ%size)
+                args=promoted_args, &
+                array_size=array_typ%size)
         else
             ! Array without args (shouldn't happen, but handle gracefully)
             allocate (promoted_args(1))
             promoted_args(1) = create_mono_type(target_kind)
             promoted_typ = create_mono_type(TARRAY, &
-                                            args=promoted_args, &
-                                            array_size=array_typ%size)
+                args=promoted_args, &
+                array_size=array_typ%size)
         end if
     end function promote_array_element_type
 

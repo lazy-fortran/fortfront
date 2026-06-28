@@ -32,7 +32,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(filename), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) then
             allocate (entries(0))
             return
@@ -53,7 +53,7 @@ contains
         num_entries = count
 
         open (newunit=unit_num, file=trim(filename), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         i = 0
         do
             read (unit_num, '(A)', iostat=ios) line
@@ -87,7 +87,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(filename), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) then
             allocate (skip_list(0))
             return
@@ -108,7 +108,7 @@ contains
         num_skip = count
 
         open (newunit=unit_num, file=trim(filename), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         i = 0
         do
             read (unit_num, '(A)', iostat=ios) line
@@ -128,7 +128,7 @@ contains
     end subroutine load_skip_examples
 
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
-        result(is_xfail)
+            result(is_xfail)
         character(len=*), intent(in) :: basename
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
@@ -170,7 +170,7 @@ contains
         end if
 
         is_skip = is_skipped_example('lf/api_complex_transform.lf', &
-                                     'api_complex_transform.lf', sample_skip, 1)
+            'api_complex_transform.lf', sample_skip, 1)
         if (.not. is_skip) then
             write (error_unit, '(A)') &
                 'ERROR: Skip list matching failed for normalized path'
@@ -179,7 +179,7 @@ contains
     end subroutine assert_skip_path_handling
 
     pure logical function example_list_contains(relative_path, basename, entries, &
-                                                num_entries) result(is_listed)
+            num_entries) result(is_listed)
         character(len=*), intent(in) :: relative_path, basename
         character(len=256), intent(in) :: entries(:)
         integer, intent(in) :: num_entries
@@ -209,39 +209,39 @@ contains
     end function example_list_contains
 
     logical function is_skipped_example(relative_path, basename, skip_examples, &
-                                        num_skip_examples) result(skip)
+            num_skip_examples) result(skip)
         character(len=*), intent(in) :: relative_path, basename
         character(len=256), intent(in) :: skip_examples(:)
         integer, intent(in) :: num_skip_examples
 
         skip = example_list_contains(relative_path, basename, skip_examples, &
-                                     num_skip_examples)
+            num_skip_examples)
     end function is_skipped_example
 
     logical function is_analysis_only_example(relative_path, basename, &
-                                              analysis_only_examples, &
-                                              num_analysis_only_examples) &
-        result(is_analysis_only)
+            analysis_only_examples, &
+            num_analysis_only_examples) &
+            result(is_analysis_only)
         character(len=*), intent(in) :: relative_path, basename
         character(len=256), intent(in) :: analysis_only_examples(:)
         integer, intent(in) :: num_analysis_only_examples
 
         is_analysis_only = example_list_contains(relative_path, basename, &
-                                                 analysis_only_examples, &
-                                                 num_analysis_only_examples)
+            analysis_only_examples, &
+            num_analysis_only_examples)
     end function is_analysis_only_example
 
     logical function is_expected_diagnostic(relative_path, basename, &
-                                            diagnostic_examples, &
-                                            num_diagnostic_examples) &
-        result(expect_diagnostic)
+            diagnostic_examples, &
+            num_diagnostic_examples) &
+            result(expect_diagnostic)
         character(len=*), intent(in) :: relative_path, basename
         character(len=256), intent(in) :: diagnostic_examples(:)
         integer, intent(in) :: num_diagnostic_examples
 
         expect_diagnostic = example_list_contains(relative_path, basename, &
-                                                  diagnostic_examples, &
-                                                  num_diagnostic_examples)
+            diagnostic_examples, &
+            num_diagnostic_examples)
     end function is_expected_diagnostic
 
 end module test_example_lists

@@ -1,7 +1,7 @@
 program test_intrinsic_identification
     use fortfront
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
-                                  registry_get_signature => get_intrinsic_signature
+        registry_get_signature => get_intrinsic_signature
     implicit none
 
     logical :: all_tests_passed
@@ -84,11 +84,11 @@ contains
 
     logical function test_ast_intrinsic_identification()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    real :: x, y" // new_line('A') // &
-                                       "    x = 3.14" // new_line('A') // &
-                                       "    y = sin(x)" // new_line('A') // &
-                                       "end program test"
+            "program test" // new_line('A') // &
+            "    real :: x, y" // new_line('A') // &
+            "    x = 3.14" // new_line('A') // &
+            "    y = sin(x)" // new_line('A') // &
+            "end program test"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -120,7 +120,7 @@ contains
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     if (allocated(node%name) .and. node%name == "sin") then
                         found_sin_call = .true.
                         if (.not. node%is_intrinsic) then
@@ -151,11 +151,11 @@ contains
 
     logical function test_ast_user_function()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    real :: x, y" // new_line('A') // &
-                                       "    x = 3.14" // new_line('A') // &
-                                       "    y = my_func(x)" // new_line('A') // &
-                                       "end program test"
+            "program test" // new_line('A') // &
+            "    real :: x, y" // new_line('A') // &
+            "    x = 3.14" // new_line('A') // &
+            "    y = my_func(x)" // new_line('A') // &
+            "end program test"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -165,112 +165,112 @@ contains
         logical :: found_user_call
 
         test_ast_user_function = .true.
-        found_user_call = .false.
-        print *, "Testing user function identification..."
+            found_user_call = .false.
+            print *, "Testing user function identification..."
 
-        call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "  FAIL: Lex error"
-            test_ast_user_function = .false.
-            return
-        end if
+            call lex_source(source, tokens, error_msg)
+            if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                print *, "  FAIL: Lex error"
+                test_ast_user_function = .false.
+                    return
+                end if
 
-        arena = create_ast_arena()
-        call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "  FAIL: Parse error"
-            test_ast_user_function = .false.
-            return
-        end if
-
-        ! Search through arena for call_or_subscript_node with my_func
-        do i = 1, arena%size
-            if (allocated(arena%entries(i)%node)) then
-                select type (node => arena%entries(i)%node)
-                type is (call_or_subscript_node)
-                    if (allocated(node%name) .and. node%name == "my_func") then
-                        found_user_call = .true.
-                        if (node%is_intrinsic) then
-                            print *, "  FAIL: my_func incorrectly marked as intrinsic"
-                            test_ast_user_function = .false.
-                        else
-                            print *, "  PASS: my_func correctly not marked as intrinsic"
-                        end if
-
-                        if (allocated(node%intrinsic_signature)) then
-                            print *, "  FAIL: my_func has intrinsic signature"
-                            test_ast_user_function = .false.
-                        else
-                            print *, "  PASS: my_func has no intrinsic signature"
-                        end if
-                        exit
+                arena = create_ast_arena()
+                call parse_tokens(tokens, arena, prog_index, error_msg)
+                if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                    print *, "  FAIL: Parse error"
+                    test_ast_user_function = .false.
+                        return
                     end if
-                end select
-            end if
-        end do
 
-        if (.not. found_user_call) then
-            print *, "  FAIL: my_func call not found in AST"
-            test_ast_user_function = .false.
-        end if
+                    ! Search through arena for call_or_subscript_node with my_func
+                    do i = 1, arena%size
+                        if (allocated(arena%entries(i)%node)) then
+                            select type (node => arena%entries(i)%node)
+                                type is (call_or_subscript_node)
+                                if (allocated(node%name) .and. node%name == "my_func") then
+                                    found_user_call = .true.
+                                    if (node%is_intrinsic) then
+                                        print *, "  FAIL: my_func incorrectly marked as intrinsic"
+                                        test_ast_user_function = .false.
+                                        else
+                                            print *, "  PASS: my_func correctly not marked as intrinsic"
+                                        end if
 
-    end function test_ast_user_function
+                                        if (allocated(node%intrinsic_signature)) then
+                                            print *, "  FAIL: my_func has intrinsic signature"
+                                            test_ast_user_function = .false.
+                                            else
+                                                print *, "  PASS: my_func has no intrinsic signature"
+                                            end if
+                                            exit
+                                        end if
+                                    end select
+                                end if
+                            end do
 
-    logical function test_multiple_intrinsics()
-        character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    real :: x, y, z" // new_line('A') // &
-                                       "    x = 3.14" // new_line('A') // &
-                                       "    y = sin(x)" // new_line('A') // &
-                                       "    z = cos(x) + sqrt(y)" // new_line('A') // &
-                                       "end program test"
+                            if (.not. found_user_call) then
+                                print *, "  FAIL: my_func call not found in AST"
+                                test_ast_user_function = .false.
+                                end if
 
-        type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
-        integer :: prog_index
-        character(len=:), allocatable :: error_msg
-        integer :: i, intrinsic_count
+                            end function test_ast_user_function
 
-        test_multiple_intrinsics = .true.
-        intrinsic_count = 0
-        print *, "Testing multiple intrinsic functions..."
+                            logical function test_multiple_intrinsics()
+                                character(len=*), parameter :: source = &
+                                    "program test" // new_line('A') // &
+                                    "    real :: x, y, z" // new_line('A') // &
+                                    "    x = 3.14" // new_line('A') // &
+                                    "    y = sin(x)" // new_line('A') // &
+                                    "    z = cos(x) + sqrt(y)" // new_line('A') // &
+                                    "end program test"
 
-        call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "  FAIL: Lex error"
-            test_multiple_intrinsics = .false.
-            return
-        end if
+                                type(token_t), allocatable :: tokens(:)
+                                type(ast_arena_t) :: arena
+                                integer :: prog_index
+                                character(len=:), allocatable :: error_msg
+                                integer :: i, intrinsic_count
 
-        arena = create_ast_arena()
-        call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "  FAIL: Parse error"
-            test_multiple_intrinsics = .false.
-            return
-        end if
+                                test_multiple_intrinsics = .true.
+                                intrinsic_count = 0
+                                print *, "Testing multiple intrinsic functions..."
 
-        ! Count intrinsic function calls
-        do i = 1, arena%size
-            if (allocated(arena%entries(i)%node)) then
-                select type (node => arena%entries(i)%node)
-                type is (call_or_subscript_node)
-                    if (node%is_intrinsic) then
-                        intrinsic_count = intrinsic_count + 1
-                        print *, "  Found intrinsic: ", node%name, &
-                            " with signature: ", node%intrinsic_signature
-                    end if
-                end select
-            end if
-        end do
+                                call lex_source(source, tokens, error_msg)
+                                if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                                    print *, "  FAIL: Lex error"
+                                    test_multiple_intrinsics = .false.
+                                    return
+                                end if
 
-        if (intrinsic_count == 3) then
-            print *, "  PASS: Found 3 intrinsic functions (sin, cos, sqrt)"
-        else
-            print *, "  FAIL: Expected 3 intrinsic functions, found ", intrinsic_count
-            test_multiple_intrinsics = .false.
-        end if
+                                arena = create_ast_arena()
+                                call parse_tokens(tokens, arena, prog_index, error_msg)
+                                if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                                    print *, "  FAIL: Parse error"
+                                    test_multiple_intrinsics = .false.
+                                    return
+                                end if
 
-    end function test_multiple_intrinsics
+                                ! Count intrinsic function calls
+                                do i = 1, arena%size
+                                    if (allocated(arena%entries(i)%node)) then
+                                        select type (node => arena%entries(i)%node)
+                                            type is (call_or_subscript_node)
+                                            if (node%is_intrinsic) then
+                                                intrinsic_count = intrinsic_count + 1
+                                                print *, "  Found intrinsic: ", node%name, &
+                                                    " with signature: ", node%intrinsic_signature
+                                            end if
+                                        end select
+                                    end if
+                                end do
 
-end program test_intrinsic_identification
+                                if (intrinsic_count == 3) then
+                                    print *, "  PASS: Found 3 intrinsic functions (sin, cos, sqrt)"
+                                else
+                                    print *, "  FAIL: Expected 3 intrinsic functions, found ", intrinsic_count
+                                    test_multiple_intrinsics = .false.
+                                end if
+
+                            end function test_multiple_intrinsics
+
+                        end program test_intrinsic_identification

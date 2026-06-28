@@ -39,7 +39,7 @@ contains
                 if (arg_index <= arena%size) then
                     if (allocated(arena%entries(arg_index)%node)) then
                         select type (node_ptr => arena%entries(arg_index)%node)
-                        type is (assignment_node)
+                            type is (assignment_node)
                             ! Directly modify the node in place
                             node_ptr%is_keyword_argument = .true.
                         end select
@@ -79,9 +79,9 @@ contains
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER) then
             stmt_index = push_literal(arena, &
-                                      "! Error: expected subroutine name after "// &
-                                      "call", &
-                                      LITERAL_STRING, line, column)
+                "! Error: expected subroutine name after "// &
+                "call", &
+                LITERAL_STRING, line, column)
             return
         end if
 
@@ -114,7 +114,7 @@ contains
                     exit
                 end if
             else if (token%kind == TK_OPERATOR .and. &
-                     (token%text == "{" .or. token%text == "^")) then
+                    (token%text == "{" .or. token%text == "^")) then
                 call consume_inline_instantiation(parser, instantiation_text)
                 if (allocated(instantiation_text)) then
                     subroutine_name = subroutine_name//instantiation_text
@@ -173,7 +173,7 @@ contains
         end if
 
         stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
-                                          line, column)
+            line, column)
     end function parse_call_statement
 
 end module parser_call_module

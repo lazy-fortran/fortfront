@@ -15,7 +15,7 @@ program test_issue_2010_deferred_char_allocatable
     source = ''
     first_line = .true.
     open (newunit=unit, file=example_path, status='old', action='read', &
-          iostat=ios)
+        iostat=ios)
     if (ios /= 0) then
         print *, 'FAIL: could not open example file'
         stop 1

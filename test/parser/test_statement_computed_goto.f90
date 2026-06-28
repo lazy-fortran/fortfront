@@ -33,7 +33,7 @@ program test_statement_computed_goto
         if (stmt_indices(i) <= 0) cycle
         if (.not. arena%has_node_at(stmt_indices(i))) cycle
         select type (node => arena%entries(stmt_indices(i))%node)
-        type is (goto_node)
+            type is (goto_node)
             goto_index = stmt_indices(i)
             found = .true.
             exit
@@ -47,7 +47,7 @@ program test_statement_computed_goto
     end if
 
     select type (stmt => arena%entries(goto_index)%node)
-    type is (goto_node)
+        type is (goto_node)
         if (.not. allocated(stmt%label_list)) then
             write (error_unit, '(a)') 'FAIL: computed goto label list missing'
             stop 1
@@ -73,7 +73,7 @@ program test_statement_computed_goto
     end if
 
     select type (selector => arena%entries(selector_index)%node)
-    type is (identifier_node)
+        type is (identifier_node)
         if (trim(selector%name) /= 'choice') then
             write (error_unit, '(a,1x,a)') 'FAIL: selector identifier mismatch:', &
                 trim(selector%name)

@@ -6,7 +6,7 @@ program test_data_keyword_variable
     character(len=:), allocatable :: source, output, error_msg
 
     call read_example('examples/f90/issue_2419_data_variable_in_allocate.f90', &
-                      source)
+        source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then

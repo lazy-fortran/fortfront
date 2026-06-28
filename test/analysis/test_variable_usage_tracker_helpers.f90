@@ -15,7 +15,7 @@ contains
 
         if (present(user_data)) then
             select type (counter => user_data)
-            type is (integer)
+                type is (integer)
                 counter = counter + 1
             end select
         end if

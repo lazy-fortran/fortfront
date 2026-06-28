@@ -35,7 +35,7 @@ contains
 
         test_passed = (index(output, "nullify(ptr1, ptr2)") > 0)
         test_passed = test_passed .and. &
-                      (index(output, "integer, pointer :: ptr1, ptr2") > 0)
+            (index(output, "integer, pointer :: ptr1, ptr2") > 0)
 
         if (test_passed .and. len_trim(error_msg) == 0) then
             pass_count = pass_count + 1

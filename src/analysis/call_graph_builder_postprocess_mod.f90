@@ -58,12 +58,12 @@ contains
             end if
 
             inferred_full_name = compute_full_name(builder, parent_symbol, &
-                                                   simple_callee)
+                simple_callee)
 
             if (find_symbol_by_full_name(builder, inferred_full_name) > 0) cycle
 
             call add_symbol_entry(builder, simple_callee, inferred_full_name, &
-                                  parent_symbol, 0, .true., new_symbol)
+                parent_symbol, 0, .true., new_symbol)
             call builder%graph%add_proc(inferred_full_name, 0, 0, 0)
         end do
     end subroutine handle_missing_nested_procedures
@@ -94,11 +94,11 @@ contains
 
         if (has_explicit_recursive_call(builder, proc_name, simple_name)) return
         if (.not. should_infer_recursive(builder, arena, proc_index, proc_symbol, &
-                                         proc_name, simple_name)) return
+            proc_name, simple_name)) return
 
         if (proc_symbol > 0) then
             call add_call_with_resolution(builder, proc_symbol, trim(proc_name), &
-                                          trim(simple_name), proc_symbol, 0, 0, 0)
+                trim(simple_name), proc_symbol, 0, 0, 0)
         end if
     end subroutine ensure_recursive_edge
 
@@ -133,7 +133,7 @@ contains
     end function has_explicit_recursive_call
 
     logical function should_infer_recursive(builder, arena, proc_index, &
-                                            proc_symbol, proc_name, simple_name)
+            proc_symbol, proc_name, simple_name)
         type(call_graph_builder_t), intent(in) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_index
@@ -255,7 +255,7 @@ contains
             if (agg_symbol <= 0) call ensure_aggregator()
             old_name = trim(builder%symbol_table(i)%full_name)
             new_name = MULTI_UNIT_NAME//"::"// &
-                       trim(builder%symbol_table(i)%simple_name)
+                trim(builder%symbol_table(i)%simple_name)
             if (old_name == new_name) cycle
 
             builder%symbol_table(i)%parent_symbol = agg_symbol
@@ -312,7 +312,7 @@ contains
         subroutine ensure_aggregator()
             if (agg_symbol <= 0) then
                 call add_symbol_entry(builder, MULTI_UNIT_NAME, MULTI_UNIT_NAME, &
-                                      0, 0, .true., agg_symbol)
+                    0, 0, .true., agg_symbol)
             end if
             agg_proc_index = builder%graph%find_proc_index(MULTI_UNIT_NAME)
             if (agg_proc_index <= 0) then
@@ -366,7 +366,7 @@ contains
     end subroutine normalize_program_scopes
 
     pure logical function procedure_declares_recursive(arena, node_index) &
-        result(is_recursive)
+            result(is_recursive)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer :: i
@@ -377,7 +377,7 @@ contains
         if (.not. allocated(arena%entries(node_index)%node)) return
 
         select type (proc_node => arena%entries(node_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (proc_node%is_recursive) then
                 is_recursive = .true.
                 return
@@ -389,7 +389,7 @@ contains
                     return
                 end if
             end do
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (proc_node%is_recursive) then
                 is_recursive = .true.
                 return

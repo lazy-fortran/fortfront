@@ -142,7 +142,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_exponent_chain = .false.
@@ -212,7 +212,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_unary_minus_chain = .false.
@@ -288,7 +288,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_logical_not_chain = .false.
@@ -356,7 +356,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_not_associated_postfix = .false.
@@ -432,7 +432,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_mixed_precedence_output = .false.
@@ -504,7 +504,7 @@ contains
         end if
 
         open (newunit=unit, file=output_file, status='old', action='read', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file for extreme nesting'
             test_extreme_parentheses_depth = .false.

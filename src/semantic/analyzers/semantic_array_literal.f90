@@ -1,10 +1,10 @@
 module semantic_array_literal
     ! Array literal type inference
     use type_system_unified, only: mono_type_t, &
-                                   create_mono_type, create_poly_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
-                                   TDOUBLE, TFUN, TARRAY, type_args_allocated, &
-                                   type_args_size, type_args_element
+        create_mono_type, create_poly_type, &
+        TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
+        TDOUBLE, TFUN, TARRAY, type_args_allocated, &
+        type_args_size, type_args_element
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: array_literal_node
     use ast_nodes_loops, only: do_loop_node
@@ -46,10 +46,10 @@ contains
                 cycle
 
             select type (elem => arena%entries(array_lit%element_indices(i))%node)
-            type is (do_loop_node)
+                type is (do_loop_node)
                 loop_size = calculate_loop_size(arena, elem%start_expr_index, &
-                                                elem%end_expr_index, &
-                                                elem%step_expr_index)
+                    elem%end_expr_index, &
+                    elem%step_expr_index)
                 if (loop_size < 0) then
                     is_dynamic = .true.
                     return
@@ -59,7 +59,7 @@ contains
     end function check_for_dynamic_implied_do
 
     function infer_array_literal_type(arena, array_lit, get_type_fn) &
-        result(typ)
+            result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
         procedure(get_type_lookup_array_lit) :: get_type_fn
@@ -93,16 +93,16 @@ contains
         has_dynamic_implied_do = check_for_dynamic_implied_do(arena, array_lit)
 
         call promote_array_element_types(arena, array_lit, get_type_fn, &
-                                         first_type, promoted_type, &
-                                         all_arrays, consistent_sizes, &
-                                         has_real, &
-                                         max_char_len, first_array_size)
+            first_type, promoted_type, &
+            all_arrays, consistent_sizes, &
+            has_real, &
+            max_char_len, first_array_size)
 
         typ = build_array_type_from_elements(elem_count, first_type, &
-                                             promoted_type, all_arrays, &
-                                             consistent_sizes, has_real, &
-                                             max_char_len, first_array_size, &
-                                             has_dynamic_implied_do)
+            promoted_type, all_arrays, &
+            consistent_sizes, has_real, &
+            max_char_len, first_array_size, &
+            has_dynamic_implied_do)
     end function infer_array_literal_type
 
     function parse_explicit_element_type(array_lit) result(explicit_type)
@@ -150,7 +150,7 @@ contains
     end function build_empty_array_type
 
     function build_explicit_array_type(explicit_type, element_count) &
-        result(array_type)
+            result(array_type)
         type(mono_type_t), intent(in) :: explicit_type
         integer, intent(in) :: element_count
         type(mono_type_t) :: array_type
@@ -159,14 +159,14 @@ contains
         allocate (args(1))
         args(1) = explicit_type
         array_type = create_mono_type(TARRAY, args=args, &
-                                      array_size=element_count)
+            array_size=element_count)
     end function build_explicit_array_type
 
     subroutine promote_array_element_types(arena, array_lit, get_type_fn, &
-                                           first_type, promoted_type, &
-                                           all_arrays, consistent_sizes, &
-                                           has_real, max_char_len, &
-                                           first_array_size)
+            first_type, promoted_type, &
+            all_arrays, consistent_sizes, &
+            has_real, max_char_len, &
+            first_array_size)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
         procedure(get_type_lookup_array_lit) :: get_type_fn
@@ -182,7 +182,7 @@ contains
         integer :: elem_array_size
 
         first_type = resolve_constructor_element_type( &
-                     arena, array_lit%element_indices(1), get_type_fn)
+            arena, array_lit%element_indices(1), get_type_fn)
         promoted_type = first_type
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
@@ -195,7 +195,7 @@ contains
 
         do i = 2, size(array_lit%element_indices)
             element_type = resolve_constructor_element_type( &
-                           arena, array_lit%element_indices(i), get_type_fn)
+                arena, array_lit%element_indices(i), get_type_fn)
 
             if (all_arrays .and. element_type%kind /= TARRAY) then
                 all_arrays = .false.
@@ -214,7 +214,7 @@ contains
                 has_real = .true.
                 if (.not. all_arrays) promoted_type = create_mono_type(TREAL)
             else if (element_type%kind == TARRAY .and. &
-                     element_type%has_args()) then
+                    element_type%has_args()) then
                 if (element_type%get_args_count() > 0) then
                     promoted_type = element_type%get_arg(1)
                     if (promoted_type%kind == TREAL) then
@@ -226,11 +226,11 @@ contains
     end subroutine promote_array_element_types
 
     function build_array_type_from_elements(element_count, first_type, &
-                                            promoted_type, all_arrays, &
-                                            consistent_sizes, has_real, &
-                                            max_char_len, first_array_size, &
-                                            has_dynamic_implied_do) &
-        result(array_type)
+            promoted_type, all_arrays, &
+            consistent_sizes, has_real, &
+            max_char_len, first_array_size, &
+            has_dynamic_implied_do) &
+            result(array_type)
         integer, intent(in) :: element_count
         type(mono_type_t), intent(in) :: first_type
         type(mono_type_t), intent(in) :: promoted_type
@@ -254,7 +254,7 @@ contains
 
             if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
                 result_promoted = create_mono_type(TCHAR, &
-                                                   char_size=max_char_len)
+                    char_size=max_char_len)
             end if
 
             allocate (args(1))
@@ -281,9 +281,9 @@ contains
 
             allocate (args(1))
             args(1) = create_mono_type(TARRAY, args=inner_args, &
-                                       array_size=first_array_size)
+                array_size=first_array_size)
             array_type = create_mono_type(TARRAY, args=args, &
-                                          array_size=element_count)
+                array_size=element_count)
             deallocate (inner_args)
         else
             if (has_real .and. result_promoted%kind == TINT) then
@@ -292,19 +292,19 @@ contains
 
             if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
                 result_promoted = create_mono_type(TCHAR, &
-                                                   char_size=max_char_len)
+                    char_size=max_char_len)
             end if
 
             allocate (args(1))
             args(1) = result_promoted
             array_type = create_mono_type(TARRAY, args=args, &
-                                          array_size=element_count)
+                array_size=element_count)
         end if
     end function build_array_type_from_elements
 
     recursive function resolve_constructor_element_type(arena, element_index, &
-                                                        get_type_fn) &
-        result(resolved_type)
+            get_type_fn) &
+            result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_index
         procedure(get_type_lookup_array_lit) :: get_type_fn
@@ -317,17 +317,17 @@ contains
         if (.not. allocated(arena%entries(element_index)%node)) return
 
         select type (element_node => arena%entries(element_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             resolved_type = resolve_implied_do_type(arena, element_index, &
-                                                    get_type_fn)
+                get_type_fn)
         class default
             resolved_type = get_type_fn(arena, element_index)
         end select
     end function resolve_constructor_element_type
 
     recursive function resolve_implied_do_type(arena, loop_index, &
-                                               get_type_fn) &
-        result(resolved_type)
+            get_type_fn) &
+            result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: loop_index
         procedure(get_type_lookup_array_lit) :: get_type_fn
@@ -342,17 +342,17 @@ contains
         if (.not. allocated(arena%entries(loop_index)%node)) return
 
         select type (loop_node => arena%entries(loop_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             if (.not. allocated(loop_node%body_indices)) return
             do i = 1, size(loop_node%body_indices)
                 element_type = resolve_constructor_element_type( &
-                               arena, loop_node%body_indices(i), get_type_fn)
+                    arena, loop_node%body_indices(i), get_type_fn)
                 if (element_type%kind == 0) cycle
                 if (resolved_type%kind == 0) then
                     resolved_type = element_type
                 else
                     resolved_type = get_common_type(resolved_type, &
-                                                    element_type)
+                        element_type)
                 end if
             end do
             if (resolved_type%kind == 0) resolved_type = create_mono_type(TINT)

@@ -2,8 +2,8 @@ module parser_import_resolution_module
     use string_utils_mod, only: to_lower
     ! Import resolution module for use, include statements
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_use_statement, push_include_statement, push_literal
@@ -251,9 +251,9 @@ contains
             ! Remove quotes from the URL string
             if (len(url_spec) >= 2) then
                 if ((url_spec(1:1) == '"' .and. &
-                     url_spec(len(url_spec):len(url_spec)) == '"') .or. &
+                    url_spec(len(url_spec):len(url_spec)) == '"') .or. &
                     (url_spec(1:1) == "'" .and. &
-                     url_spec(len(url_spec):len(url_spec)) == "'")) then
+                    url_spec(len(url_spec):len(url_spec)) == "'")) then
                     url_spec = url_spec(2:len(url_spec) - 1)
                 end if
             end if
@@ -264,14 +264,14 @@ contains
             if (.not. is_valid_url) then
                 ! Invalid URL - return placeholder
                 stmt_index = push_literal(arena, &
-                                          "! Invalid URL in use statement", &
-                                          LITERAL_STRING, token%line, token%column)
+                    "! Invalid URL in use statement", &
+                    LITERAL_STRING, token%line, token%column)
                 return
             end if
         else
             ! Invalid use statement - return placeholder
             stmt_index = push_literal(arena, "! Invalid use statement", &
-                                      LITERAL_STRING, token%line, token%column)
+                LITERAL_STRING, token%line, token%column)
             return
         end if
 
@@ -315,19 +315,19 @@ contains
         ! Create use statement node (conditionally include URL spec)
         if (allocated(url_spec)) then
             stmt_index = push_use_statement(arena, module_name, only_list, &
-                                            rename_list, &
-                                            has_only, line, column, &
-                                            url_spec=url_spec, &
-                                            has_double_colon=has_double_colon, &
-                                            is_intrinsic=intrinsic_nature, &
-                                            is_non_intrinsic=non_intrinsic_nature)
+                rename_list, &
+                has_only, line, column, &
+                url_spec=url_spec, &
+                has_double_colon=has_double_colon, &
+                is_intrinsic=intrinsic_nature, &
+                is_non_intrinsic=non_intrinsic_nature)
         else
             stmt_index = push_use_statement(arena, module_name, only_list, &
-                                            rename_list, &
-                                            has_only, line, column, &
-                                            has_double_colon=has_double_colon, &
-                                            is_intrinsic=intrinsic_nature, &
-                                            is_non_intrinsic=non_intrinsic_nature)
+                rename_list, &
+                has_only, line, column, &
+                has_double_colon=has_double_colon, &
+                is_intrinsic=intrinsic_nature, &
+                is_non_intrinsic=non_intrinsic_nature)
         end if
     end function parse_use_statement
 

@@ -1,7 +1,7 @@
 program test_real_type_standardization
     use transformation_api, only: transform_lazy_fortran_string, &
-                                  transform_with_context, transform_context_t, &
-                                  INPUT_MODE_STANDARD
+        transform_with_context, transform_context_t, &
+        INPUT_MODE_STANDARD
     implicit none
 
     logical :: ok
@@ -49,15 +49,15 @@ contains
         type(transform_context_t) :: context
 
         source = 'module m'//new_line('a')// &
-                 '    interface g'//new_line('a')// &
-                 '        module procedure f'//new_line('a')// &
-                 '    end interface g'//new_line('a')// &
-                 'contains'//new_line('a')// &
-                 '    real function f(x)'//new_line('a')// &
-                 '        real, intent(in) :: x'//new_line('a')// &
-                 '        f = x'//new_line('a')// &
-                 '    end function f'//new_line('a')// &
-                 'end module m'
+            '    interface g'//new_line('a')// &
+            '        module procedure f'//new_line('a')// &
+            '    end interface g'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '    real function f(x)'//new_line('a')// &
+            '        real, intent(in) :: x'//new_line('a')// &
+            '        f = x'//new_line('a')// &
+            '    end function f'//new_line('a')// &
+            'end module m'
 
         context%input_mode = INPUT_MODE_STANDARD
 

@@ -24,7 +24,7 @@ contains
         integer :: prog_index
 
         call read_example('examples/f90/issue_1861_nested_do_print.f90', &
-                          input_code)
+            input_code)
 
         print *, ""
         print *, "Test: print survives nested DO loops with whitespace"

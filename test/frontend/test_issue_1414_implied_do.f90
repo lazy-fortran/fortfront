@@ -14,10 +14,10 @@ contains
         integer :: idx
 
         input_code = "program implied" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    integer :: i" // new_line('A') // &
-                     "    print *, (i, i = 1, 3)" // new_line('A') // &
-                     "end program implied"
+            "    implicit none" // new_line('A') // &
+            "    integer :: i" // new_line('A') // &
+            "    print *, (i, i = 1, 3)" // new_line('A') // &
+            "end program implied"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

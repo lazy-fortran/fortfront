@@ -42,13 +42,13 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (module_node)
+                type is (module_node)
                 if (.not. allocated(node%name)) cycle
                 if (to_lower(trim(node%name)) == module_lowered) then
                     module_index = i
                     return
                 end if
-            type is (submodule_node)
+                type is (submodule_node)
                 if (.not. allocated(node%name)) cycle
                 if (to_lower(trim(node%name)) == module_lowered) then
                     module_index = i

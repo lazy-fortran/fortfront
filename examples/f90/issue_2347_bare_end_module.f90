@@ -4,5 +4,5 @@ contains
     subroutine reset_value(value)
         integer, intent(out) :: value
         value = 0
-    end
-end
+        end
+        end

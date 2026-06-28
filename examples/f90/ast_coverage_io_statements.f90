@@ -7,9 +7,9 @@ return
 cycle
 exit
 where (arr > 0)
-  arr = 1
+    arr = 1
 end where
 forall (i = 1:10)
-  arr(i) = i
+    arr(i) = i
 end forall
 ptr => target

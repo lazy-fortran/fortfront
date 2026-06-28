@@ -1,6 +1,6 @@
 program test_issue_2493_char_array_constructor
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                              iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -32,10 +32,10 @@ program test_issue_2493_char_array_constructor
     end if
 
     has_padded_char = index(transformed, "'1    '") /= 0 .or. &
-                      index(transformed, "'2    '") /= 0 .or. &
-                      index(transformed, "'a    '") /= 0 .or. &
-                      index(transformed, "'b    '") /= 0 .or. &
-                      index(transformed, "'c    '") /= 0
+        index(transformed, "'2    '") /= 0 .or. &
+        index(transformed, "'a    '") /= 0 .or. &
+        index(transformed, "'b    '") /= 0 .or. &
+        index(transformed, "'c    '") /= 0
     if (has_padded_char) then
         write (error_unit, '(a)') 'FAIL: string literals were padded with spaces'
         write (error_unit, '(a)') transformed

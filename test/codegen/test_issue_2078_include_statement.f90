@@ -6,7 +6,7 @@ program test_issue_2078_include_statement
     character(len=:), allocatable :: errors
 
     call read_example('examples/f90/issue_2078_include_statement_silently_dropped.f90', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, output, errors)
 

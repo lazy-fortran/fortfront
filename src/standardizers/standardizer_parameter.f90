@@ -56,7 +56,7 @@ contains
         if (effective_length == 0) then
             is_variable = .true.
         else if (effective_length == len("type_variable") .and. &
-                 trim(trimmed) == "type_variable") then
+                trim(trimmed) == "type_variable") then
             is_variable = .true.
         else
             is_variable = trimmed(1:1) == "'"
@@ -80,8 +80,8 @@ contains
     end function is_procedure_type
 
     subroutine synchronize_parameter_declarations(arena, body_indices, metadata, &
-                                                  default_intent, &
-                                                  standardize_types)
+            default_intent, &
+            standardize_types)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
@@ -98,13 +98,13 @@ contains
 
         do i = 1, size(body_indices)
             call sync_process_body_index(arena, body_indices(i), metadata, &
-                                         default_intent, standardize_types)
+                default_intent, standardize_types)
         end do
     end subroutine synchronize_parameter_declarations
 
     subroutine sync_process_body_index(arena, body_index, metadata, &
-                                       default_intent, &
-                                       standardize_types)
+            default_intent, &
+            standardize_types)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_index
@@ -119,7 +119,7 @@ contains
         if (.not. allocated(arena%entries(body_index)%node)) return
 
         select type (node => arena%entries(body_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             stmt = node
             if (stmt%has_intent .and. allocated(stmt%intent)) then
                 stmt_intent = stmt%intent
@@ -127,15 +127,15 @@ contains
                 stmt_intent = ""
             end if
             call sync_handle_declaration(stmt, body_index, metadata, &
-                                         default_intent, &
-                                         stmt_intent, standardize_types)
+                default_intent, &
+                stmt_intent, standardize_types)
             arena%entries(body_index)%node = stmt
         end select
     end subroutine sync_process_body_index
 
     subroutine sync_handle_declaration(stmt, decl_index, metadata, &
-                                       default_intent, &
-                                       stmt_intent, standardize_types)
+            default_intent, &
+            stmt_intent, standardize_types)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         integer, intent(in) :: decl_index
@@ -148,8 +148,8 @@ contains
 
         if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
             call sync_handle_multi_declaration(stmt, decl_index, metadata, &
-                                               default_intent, stmt_intent, &
-                                               standardize_types)
+                default_intent, stmt_intent, &
+                standardize_types)
             return
         end if
 
@@ -157,18 +157,18 @@ contains
         if (param_idx <= 0) return
 
         call sync_process_single_declaration(stmt, decl_index, param_idx, &
-                                             metadata, &
-                                             default_intent, stmt_intent, &
-                                             suppress_intent)
+            metadata, &
+            default_intent, stmt_intent, &
+            suppress_intent)
         call sync_infer_type_if_variable(stmt, metadata%names(param_idx))
         call apply_type_standardization_to_stmt(stmt, standardize_types)
         call sync_finalize_intent(stmt, stmt_intent, default_intent, &
-                                  suppress_intent)
+            suppress_intent)
     end subroutine sync_handle_declaration
 
     subroutine sync_handle_multi_declaration(stmt, decl_index, metadata, &
-                                             default_intent, stmt_intent, &
-                                             standardize_types)
+            default_intent, stmt_intent, &
+            standardize_types)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         integer, intent(in) :: decl_index
@@ -207,9 +207,9 @@ contains
             end if
 
             call sync_process_single_declaration(stmt, decl_index, param_idx, &
-                                                 metadata, &
-                                                 default_intent, stmt_intent, &
-                                                 suppress_intent)
+                metadata, &
+                default_intent, stmt_intent, &
+                suppress_intent)
             contains_procedure = contains_procedure .or. suppress_intent
             matched = .true.
         end do
@@ -227,9 +227,9 @@ contains
     end subroutine sync_handle_multi_declaration
 
     subroutine sync_process_single_declaration(stmt, decl_index, param_idx, &
-                                               metadata, &
-                                               default_intent, stmt_intent, &
-                                               suppress_intent)
+            metadata, &
+            default_intent, stmt_intent, &
+            suppress_intent)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         integer, intent(in) :: decl_index
@@ -247,7 +247,7 @@ contains
             stmt%has_intent = .false.
         else
             call sync_update_intent(metadata%intent(param_idx), stmt_intent, &
-                                    default_intent)
+                default_intent)
         end if
         if (metadata%optional(param_idx)) stmt%is_optional = .true.
         metadata%found(param_idx) = decl_index
@@ -343,7 +343,7 @@ contains
         if (trim(stmt%type_name) /= "type_variable") return
 
         call infer_parameter_type(param_name, inferred_type, has_kind_local, &
-                                  kind_value_local)
+            kind_value_local)
         stmt%type_name = trim(inferred_type)
         if (has_kind_local) then
             stmt%has_kind = .true.
@@ -366,7 +366,7 @@ contains
     end subroutine apply_type_standardization_to_stmt
 
     subroutine sync_finalize_intent(stmt, stmt_intent, default_intent, &
-                                    skip_intent)
+            skip_intent)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         character(len=*), intent(inout) :: stmt_intent
@@ -520,7 +520,7 @@ contains
     end function node_exists
 
     subroutine fill_parameter_declaration(decl, metadata, idx, type_std_enabled, &
-                                          inferred_local)
+            inferred_local)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: decl
         type(param_metadata_t), intent(in) :: metadata
@@ -540,7 +540,7 @@ contains
             inferred_local = metadata%type_inferred(idx)
         else
             call infer_parameter_type(metadata%names(idx), inferred_type, &
-                                      decl%has_kind, decl%kind_value)
+                decl%has_kind, decl%kind_value)
             decl%type_name = trim(inferred_type)
             inferred_local = .true.
         end if
@@ -590,8 +590,8 @@ contains
             case ('i', 'j', 'k', 'l', 'm', 'n')
                 type_name = "integer"
             case ('x', 'y', 'z', 'r', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', &
-                  'o', 'p', &
-                  'q', 's', 't', 'u', 'v', 'w')
+                    'o', 'p', &
+                    'q', 's', 't', 'u', 'v', 'w')
                 type_name = "real"
             case default
                 type_name = "real" ! Default to real

@@ -61,9 +61,9 @@ contains
         real(dp), parameter :: tolerance = 1.0d-6
 
         equal = this%converged .eqv. other%converged .and. &
-                this%iteration_count == other%iteration_count .and. &
-                this%changes_made == other%changes_made .and. &
-                abs(this%confidence_score - other%confidence_score) < tolerance
+            this%iteration_count == other%iteration_count .and. &
+            this%changes_made == other%changes_made .and. &
+            abs(this%confidence_score - other%confidence_score) < tolerance
     end function results_equals
 
     subroutine results_assign(lhs, rhs)

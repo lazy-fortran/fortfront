@@ -1,11 +1,11 @@
 module parser_expression_arrays_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_KEYWORD, &
-                          TK_NEWLINE, TK_COMMENT
+        TK_NEWLINE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: component_access_node, identifier_node
     use ast_factory, only: push_array_literal, push_do_loop, &
-                           push_call_or_subscript_with_slice_detection
+        push_call_or_subscript_with_slice_detection
     implicit none
     private
 
@@ -33,8 +33,8 @@ module parser_expression_arrays_module
 contains
 
     function parse_simple_array_elements(parser, arena, terminator, style, &
-                                         start_token, helpers, type_spec) &
-        result(expr_index)
+            start_token, helpers, type_spec) &
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: terminator
@@ -95,13 +95,13 @@ contains
         element_indices = temp_indices(1:element_count)
         if (present(type_spec)) then
             expr_index = push_array_literal(arena, element_indices, &
-                                            start_token%line, start_token%column, &
-                                            syntax_style=style, &
-                                            type_spec=type_spec)
+                start_token%line, start_token%column, &
+                syntax_style=style, &
+                type_spec=type_spec)
         else
             expr_index = push_array_literal(arena, element_indices, &
-                                            start_token%line, start_token%column, &
-                                            syntax_style=style)
+                start_token%line, start_token%column, &
+                syntax_style=style)
         end if
     end function parse_simple_array_elements
 
@@ -136,9 +136,9 @@ contains
                     current = parser%consume()
                     allocate (element_indices(0))
                     expr_index = push_array_literal(arena, element_indices, &
-                                                    paren_token%line, &
-                                                    paren_token%column, &
-                                                    syntax_style="legacy")
+                        paren_token%line, &
+                        paren_token%column, &
+                        syntax_style="legacy")
                 end if
                 return
             end if
@@ -190,13 +190,13 @@ contains
                 saved_pos = parser%current_token
                 if (has_type_spec) then
                     expr_index = parse_legacy_implied_do_constructor(parser, arena, &
-                                                                     paren_token, &
-                                                                     helpers, &
-                                                                     type_spec_text)
+                        paren_token, &
+                        helpers, &
+                        type_spec_text)
                 else
                     expr_index = parse_legacy_implied_do_constructor(parser, arena, &
-                                                                     paren_token, &
-                                                                     helpers)
+                        paren_token, &
+                        helpers)
                 end if
                 if (expr_index > 0) return
                 parser%current_token = saved_pos
@@ -205,12 +205,12 @@ contains
 
             if (has_type_spec) then
                 expr_index = parse_simple_array_elements(parser, arena, "/", &
-                                                         "legacy", paren_token, &
-                                                         helpers, type_spec_text)
+                    "legacy", paren_token, &
+                    helpers, type_spec_text)
             else
                 expr_index = parse_simple_array_elements(parser, arena, "/", &
-                                                         "legacy", paren_token, &
-                                                         helpers)
+                    "legacy", paren_token, &
+                    helpers)
             end if
             if (expr_index <= 0) return
 
@@ -224,7 +224,7 @@ contains
     end function parse_legacy_array_literal
 
     recursive function parse_modern_array_literal(parser, arena, start_token, &
-                                                  helpers) result(expr_index)
+            helpers) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: start_token
@@ -317,19 +317,19 @@ contains
 
             peek_token = parser%peek()
             if (peek_token%text == "]") then
-                current = parser%consume()  ! Consume the closing bracket
+                current = parser%consume() ! Consume the closing bracket
                 exit
             else if (peek_token%text == "(") then
                 saved_pos = parser%current_token
                 if (has_type_spec) then
                     expr_index = parse_implied_do_constructor(parser, arena, &
-                                                              start_token, &
-                                                              helpers, &
-                                                              type_spec_text)
+                        start_token, &
+                        helpers, &
+                        type_spec_text)
                 else
                     expr_index = parse_implied_do_constructor(parser, arena, &
-                                                              start_token, &
-                                                              helpers)
+                        start_token, &
+                        helpers)
                 end if
                 if (expr_index > 0) return
                 parser%current_token = saved_pos
@@ -337,7 +337,7 @@ contains
             else if (peek_token%text == "[") then
                 current = parser%consume()
                 expr_index = parse_modern_array_literal(parser, arena, &
-                                                        current, helpers)
+                    current, helpers)
                 if (expr_index <= 0) return
             end if
 
@@ -359,15 +359,15 @@ contains
 
             if (has_type_spec) then
                 expr_index = try_parse_implied_do_loop(parser, arena, &
-                                                       temp_indices, &
-                                                       element_count, &
-                                                       start_token, &
-                                                       type_spec_text)
+                    temp_indices, &
+                    element_count, &
+                    start_token, &
+                    type_spec_text)
             else
                 expr_index = try_parse_implied_do_loop(parser, arena, &
-                                                       temp_indices, &
-                                                       element_count, &
-                                                       start_token)
+                    temp_indices, &
+                    element_count, &
+                    start_token)
             end if
             if (expr_index > 0) exit
 
@@ -382,7 +382,7 @@ contains
                     current = parser%consume()
                 end do
             else if (current%text == "]") then
-                current = parser%consume()  ! Consume the closing bracket
+                current = parser%consume() ! Consume the closing bracket
                 exit
             else
                 expr_index = 0
@@ -395,20 +395,20 @@ contains
         element_indices = temp_indices(1:element_count)
         if (has_type_spec) then
             expr_index = push_array_literal(arena, element_indices, &
-                                            start_token%line, &
-                                            start_token%column, &
-                                            syntax_style="modern", &
-                                            type_spec=type_spec_text)
+                start_token%line, &
+                start_token%column, &
+                syntax_style="modern", &
+                type_spec=type_spec_text)
         else
             expr_index = push_array_literal(arena, element_indices, &
-                                            start_token%line, &
-                                            start_token%column, &
-                                            syntax_style="modern")
+                start_token%line, &
+                start_token%column, &
+                syntax_style="modern")
         end if
     end function parse_modern_array_literal
 
     recursive function parse_nested_implied_do(parser, arena, helpers) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(array_parse_helpers_t), intent(in) :: helpers
@@ -491,13 +491,13 @@ contains
         body_indices(1) = expr_elem_index
 
         expr_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                  step_index=step_index, body_indices=body_indices, &
-                                  line=0, column=0)
+            step_index=step_index, body_indices=body_indices, &
+            line=0, column=0)
     end function parse_nested_implied_do
 
     logical function parse_implied_do_header(parser, arena, expr_elem_index, &
-                                             var_name, start_index, end_index, &
-                                             step_index, helpers) result(success)
+            var_name, start_index, end_index, &
+            step_index, helpers) result(success)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: expr_elem_index
@@ -587,8 +587,8 @@ contains
     end function consume_implied_do_closers
 
     integer function build_implied_do_node(arena, bracket_token, expr_elem_index, &
-                                           var_name, start_index, end_index, &
-                                           step_index, type_spec) result(expr_index)
+            var_name, start_index, end_index, &
+            step_index, type_spec) result(expr_index)
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: bracket_token
         integer, intent(in) :: expr_elem_index
@@ -605,25 +605,25 @@ contains
         body_indices(1) = expr_elem_index
 
         do_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                step_index=step_index, body_indices=body_indices, &
-                                line=bracket_token%line, column=bracket_token%column)
+            step_index=step_index, body_indices=body_indices, &
+            line=bracket_token%line, column=bracket_token%column)
 
         allocate (element_indices(1))
         element_indices(1) = do_index
         if (present(type_spec)) then
             expr_index = push_array_literal(arena, element_indices, &
-                                            bracket_token%line, bracket_token%column, &
-                                            syntax_style="implied_do", &
-                                            type_spec=type_spec)
+                bracket_token%line, bracket_token%column, &
+                syntax_style="implied_do", &
+                type_spec=type_spec)
         else
             expr_index = push_array_literal(arena, element_indices, &
-                                            bracket_token%line, bracket_token%column, &
-                                            syntax_style="implied_do")
+                bracket_token%line, bracket_token%column, &
+                syntax_style="implied_do")
         end if
     end function build_implied_do_node
 
     function parse_implied_do_constructor(parser, arena, bracket_token, helpers, &
-                                          type_spec) result(expr_index)
+            type_spec) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: bracket_token
@@ -638,25 +638,25 @@ contains
 
         expr_index = 0
         if (.not. parse_implied_do_header(parser, arena, expr_elem_index, var_name, &
-                                          start_index, end_index, step_index, &
-                                          helpers)) return
+            start_index, end_index, step_index, &
+            helpers)) return
         if (.not. consume_implied_do_closers(parser)) return
 
         if (present(type_spec)) then
             expr_index = build_implied_do_node(arena, bracket_token, &
-                                               expr_elem_index, var_name, &
-                                               start_index, end_index, &
-                                               step_index, type_spec)
+                expr_elem_index, var_name, &
+                start_index, end_index, &
+                step_index, type_spec)
         else
             expr_index = build_implied_do_node(arena, bracket_token, &
-                                               expr_elem_index, var_name, &
-                                               start_index, end_index, &
-                                               step_index)
+                expr_elem_index, var_name, &
+                start_index, end_index, &
+                step_index)
         end if
     end function parse_implied_do_constructor
 
     function parse_legacy_implied_do_constructor(parser, arena, paren_token, &
-                                                 helpers, type_spec) result(expr_index)
+            helpers, type_spec) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: paren_token
@@ -672,8 +672,8 @@ contains
 
         expr_index = 0
         if (.not. parse_implied_do_header(parser, arena, expr_elem_index, var_name, &
-                                          start_index, end_index, step_index, &
-                                          helpers)) return
+            start_index, end_index, step_index, &
+            helpers)) return
 
         current = parser%peek()
         if (current%text /= ")") return
@@ -689,19 +689,19 @@ contains
 
         if (present(type_spec)) then
             expr_index = build_implied_do_node(arena, paren_token, &
-                                               expr_elem_index, var_name, &
-                                               start_index, end_index, &
-                                               step_index, type_spec)
+                expr_elem_index, var_name, &
+                start_index, end_index, &
+                step_index, type_spec)
         else
             expr_index = build_implied_do_node(arena, paren_token, &
-                                               expr_elem_index, var_name, &
-                                               start_index, end_index, &
-                                               step_index)
+                expr_elem_index, var_name, &
+                start_index, end_index, &
+                step_index)
         end if
     end function parse_legacy_implied_do_constructor
 
     function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
-                                       bracket_token, type_spec) result(expr_index)
+            bracket_token, type_spec) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: temp_indices(:)
@@ -726,15 +726,15 @@ contains
                     element_indices = temp_indices(1:element_count)
                     if (present(type_spec)) then
                         expr_index = push_array_literal(arena, element_indices, &
-                                                        bracket_token%line, &
-                                                        bracket_token%column, &
-                                                        syntax_style="modern", &
-                                                        type_spec=type_spec)
+                            bracket_token%line, &
+                            bracket_token%column, &
+                            syntax_style="modern", &
+                            type_spec=type_spec)
                     else
                         expr_index = push_array_literal(arena, element_indices, &
-                                                        bracket_token%line, &
-                                                        bracket_token%column, &
-                                                        syntax_style="modern")
+                            bracket_token%line, &
+                            bracket_token%column, &
+                            syntax_style="modern")
                     end if
                 end block
                 return
@@ -747,7 +747,7 @@ contains
     end function try_parse_implied_do_loop
 
     function parse_array_indexing_postfix(parser, arena, base_expr, helpers) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -757,7 +757,7 @@ contains
     end function parse_array_indexing_postfix
 
     function parse_square_indexing_postfix(parser, arena, base_expr, helpers) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -767,7 +767,7 @@ contains
     end function parse_square_indexing_postfix
 
     function apply_index_postfix(parser, arena, base_expr, helpers, closing_char) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -784,7 +784,7 @@ contains
         open_token = parser%consume()
 
         call collect_index_arguments(parser, arena, helpers, closing_char, &
-                                     arg_indices, close_token)
+            arg_indices, close_token)
         if (.not. allocated(arg_indices)) return
 
         call extract_target_name(arena, expr_index, call_name)
@@ -794,19 +794,19 @@ contains
         if (base_expr > 0 .and. base_expr <= arena%size) then
             if (allocated(arena%entries(base_expr)%node)) then
                 select type (node => arena%entries(base_expr)%node)
-                type is (component_access_node)
+                    type is (component_access_node)
                     base_expr_for_call = base_expr
                 end select
             end if
         end if
 
         expr_index = push_call_or_subscript_with_slice_detection( &
-                     arena, call_name, arg_indices, close_token%line, &
-                     close_token%column, base_expr_index=base_expr_for_call)
+            arena, call_name, arg_indices, close_token%line, &
+            close_token%column, base_expr_index=base_expr_for_call)
     end function apply_index_postfix
 
     subroutine collect_index_arguments(parser, arena, helpers, closing_char, &
-                                       arg_indices, close_token)
+            arg_indices, close_token)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(array_parse_helpers_t), intent(in) :: helpers
@@ -866,11 +866,11 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (component_access_node)
+            type is (component_access_node)
             if (allocated(node%component_name)) then
                 call_name = node%component_name
             end if
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) then
                 call_name = node%name
             end if

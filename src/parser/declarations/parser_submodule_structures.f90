@@ -2,8 +2,8 @@ module parser_submodule_structures_module
     ! Submodule structure parsing for Fortran 2008 submodule definitions
     ! ISO/IEC 1539-1:2008 Section 11.2
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_submodule_structured
@@ -11,8 +11,8 @@ module parser_submodule_structures_module
     use parser_type_specifications_module, only: take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_submodule_helpers_module, only: parse_submodule_declaration_statement, &
-                                               parse_contains_section_item_submodule, &
-                                               handle_submodule_identifier_assignment
+        parse_contains_section_item_submodule, &
+        handle_submodule_identifier_assignment
     implicit none
     private
 
@@ -56,9 +56,9 @@ contains
     end function parse_parent_identifier
 
     function handle_contains_keyword_in_submodule(parser, arena, has_contains, &
-                                                  in_contains_section, &
-                                                  declaration_indices) &
-        result(should_cycle)
+            in_contains_section, &
+            declaration_indices) &
+            result(should_cycle)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(inout) :: has_contains, in_contains_section
@@ -124,8 +124,8 @@ contains
                         end if
                         at_end = .true.
                     else if (lookahead%kind == TK_NEWLINE .or. &
-                             lookahead%kind == TK_COMMENT .or. &
-                             lookahead%kind == TK_EOF) then
+                            lookahead%kind == TK_COMMENT .or. &
+                            lookahead%kind == TK_EOF) then
                         token = parser%consume()
                         at_end = .true.
                     end if
@@ -138,7 +138,7 @@ contains
     end function check_submodule_end
 
     function handle_specification_statement(parser, arena, prefix_buffer, &
-                                            declaration_indices) result(handled)
+            declaration_indices) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -153,13 +153,13 @@ contains
         if (token%kind == TK_KEYWORD) then
             if (keyword_should_parse_as_identifier(token, parser)) then
                 call handle_submodule_identifier_assignment(parser, arena, &
-                                                            declaration_indices)
+                    declaration_indices)
                 handled = .true.
                 return
             end if
 
             stmt_index = parse_submodule_declaration_statement(parser, arena, &
-                                                               prefix_buffer)
+                prefix_buffer)
             if (stmt_index > 0) then
                 declaration_indices = [declaration_indices, stmt_index]
                 handled = .true.
@@ -175,14 +175,14 @@ contains
             end if
         else if (token%kind == TK_IDENTIFIER) then
             call handle_submodule_identifier_assignment(parser, arena, &
-                                                        declaration_indices)
+                declaration_indices)
             handled = .true.
         end if
     end function handle_specification_statement
 
     function handle_contains_section_statement(parser, arena, prefix_buffer, &
-                                               procedure_indices, lowered) &
-        result(handled)
+            procedure_indices, lowered) &
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -196,7 +196,7 @@ contains
         token = parser%peek()
 
         stmt_index = parse_contains_section_item_submodule(parser, arena, &
-                                                           prefix_buffer)
+            prefix_buffer)
         if (stmt_index > 0) then
             procedure_indices = [procedure_indices, stmt_index]
             handled = .true.
@@ -204,8 +204,8 @@ contains
             handled = .true.
         else
             if (.not. (token%kind == TK_KEYWORD .and. &
-                       (trim(lowered) == "function" .or. &
-                        trim(lowered) == "subroutine"))) then
+                (trim(lowered) == "function" .or. &
+                trim(lowered) == "subroutine"))) then
                 token = parser%consume()
                 handled = .true.
             end if
@@ -213,8 +213,8 @@ contains
     end function handle_contains_section_statement
 
     subroutine parse_submodule_body(parser, arena, prefix_buffer, &
-                                    has_contains, in_contains_section, &
-                                    declaration_indices, procedure_indices)
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -238,9 +238,9 @@ contains
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
                 trim(lowered) == "contains") then
                 if (handle_contains_keyword_in_submodule(parser, arena, &
-                                                         has_contains, &
-                                                         in_contains_section, &
-                                                         declaration_indices)) then
+                    has_contains, &
+                    in_contains_section, &
+                    declaration_indices)) then
                     cycle
                 end if
             end if
@@ -252,11 +252,11 @@ contains
 
             if (.not. in_contains_section) then
                 if (handle_specification_statement(parser, arena, prefix_buffer, &
-                                                   declaration_indices)) cycle
+                    declaration_indices)) cycle
                 token = parser%consume()
             else
                 if (handle_contains_section_statement(parser, arena, prefix_buffer, &
-                                                      procedure_indices, lowered)) &
+                    procedure_indices, lowered)) &
                     cycle
             end if
         end do
@@ -294,14 +294,14 @@ contains
         in_contains_section = .false.
 
         call parse_submodule_body(parser, arena, prefix_buffer, &
-                                  has_contains, in_contains_section, &
-                                  declaration_indices, procedure_indices)
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices)
 
         submod_index = push_submodule_structured(arena, submod_name, &
-                                                 parent_id, &
-                                                 declaration_indices, &
-                                                 procedure_indices, has_contains, &
-                                                 line, column)
+            parent_id, &
+            declaration_indices, &
+            procedure_indices, has_contains, &
+            line, column)
     end function parse_submodule
 
 end module parser_submodule_structures_module

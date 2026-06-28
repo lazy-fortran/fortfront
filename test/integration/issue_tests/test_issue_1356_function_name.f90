@@ -43,7 +43,7 @@ program test_issue_1356_function_name
     end if
 
     if (.not. has_integer_declaration(lower_output_text, [character(len=16) :: &
-                                                          'a', 'b'])) then
+        'a', 'b'])) then
         write (error_unit, '(A)') &
             'FAIL: caller variables a/b lack inferred integer declarations'
         write (error_unit, '(A)') trim(output_text)

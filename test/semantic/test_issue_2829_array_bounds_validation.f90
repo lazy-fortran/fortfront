@@ -72,7 +72,7 @@ contains
 
         ok = .true.
         select type (node => arena%entries(slice_idx)%node)
-        type is (array_slice_node)
+            type is (array_slice_node)
             call validate_array_bounds(arena, node, ok)
         end select
     end function slice_valid

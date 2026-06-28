@@ -211,7 +211,7 @@ contains
 
         ctx = create_error_context(5, 10, filename='sample.f90')
         call errors%add_error_with_context('Context error', ctx, &
-                                           severity=ERROR_WARNING)
+            severity=ERROR_WARNING)
 
         if (errors%count /= 1) then
             print *, '  FAIL: add_error_with_context did not add error'
@@ -246,7 +246,7 @@ contains
 
         ctx = create_error_context(5, 10, filename='sample.f90')
         call errors%add_error_with_context('Context error', ctx, &
-                                           severity=ERROR_WARNING)
+            severity=ERROR_WARNING)
         call errors%add_error('Second error', suggestion='Try fixing it')
 
         formatted = errors%format_messages()

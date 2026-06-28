@@ -6,20 +6,20 @@ module frontend_transformation_pipeline
     ! Contains string-based transformation functionality
 
     use lexer_core, only: token_t, tokenize_core, normalize_line_endings, &
-                          TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_UNKNOWN
+        TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
+        TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+        TK_UNKNOWN
     use compiler_arena, only: compiler_arena_t
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program, has_semantic_errors
+        analyze_program, has_semantic_errors
     use type_system_unified, only: reset_type_system
     use standardizer, only: standardize_ast, &
-                            get_standardizer_type_standardization, &
-                            mark_pointer_targets, set_standardizer_input_mode
+        get_standardizer_type_standardization, &
+        mark_pointer_targets, set_standardizer_input_mode
     use ast_monomorphization, only: transform_monomorphization
     use call_graph_signatures_mod, only: signatures_map_t, &
-                                         add_signature, create_signatures_map
+        add_signature, create_signatures_map
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: &
         get_type_standardization
@@ -27,20 +27,20 @@ module frontend_transformation_pipeline
         set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
     use ast_nodes_core, only: program_node, &
-                              identifier_node, call_or_subscript_node, &
-                              component_access_node
+        identifier_node, call_or_subscript_node, &
+        component_access_node
     use ast_nodes_data, only: module_node, &
-                              mixed_construct_container_node, &
-                              multi_unit_container_node
+        mixed_construct_container_node, &
+        multi_unit_container_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use semantic_operating_mode, only: OPERATING_MODE_INFER, &
-                                       OPERATING_MODE_STRICT
+        OPERATING_MODE_STRICT
     use frontend_program_unit_detection, only: tokens_have_explicit_program_unit
     use frontend_transformation_common, only: format_options_t, &
-                                              transform_context_t
+        transform_context_t
     use frontend_transformation_structure, only: &
         filter_hoistable_procedures, &
         remove_procedures_from_body, &
@@ -78,34 +78,34 @@ module frontend_transformation_pipeline
         has_existing_module_in_ast
     use frontend_location_validation, only: validate_ast_locations
     use frontend_transformation_semantics, only: analyze_container_semantics, &
-                                                 merge_signature_maps, &
-                                                 add_signature_from_entry, &
-                                                 get_detailed_semantic_errors
+        merge_signature_maps, &
+        add_signature_from_entry, &
+        get_detailed_semantic_errors
     use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
-                                    DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
-                                    DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR
+        DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
+        DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR
     use fortfront_types, only: diagnostic_t
     use frontend_pass_manager, only: pass_manager_t, pass_context_t, &
-                                     pass_config_t, create_pass_manager, &
-                                     PASS_SEMANTIC, PASS_STANDARDIZATION, &
-                                     PASS_MONOMORPHIZATION, PASS_CODEGEN
+        pass_config_t, create_pass_manager, &
+        PASS_SEMANTIC, PASS_STANDARDIZATION, &
+        PASS_MONOMORPHIZATION, PASS_CODEGEN
     use frontend_final_passes, only: semantic_pass, standardization_pass, &
-                                     monomorphization_pass, codegen_pass
+        monomorphization_pass, codegen_pass
 
     implicit none
     private
 
     public :: transform_lazy_fortran_string, &
-              transform_lazy_fortran_string_with_format, &
-              transform_with_context, &
-              INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
-              pass_config_t, create_pass_manager
+        transform_lazy_fortran_string_with_format, &
+        transform_with_context, &
+        INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
+        pass_config_t, create_pass_manager
 
 contains
     ! String-based transformation function for CLI usage
     subroutine transform_lazy_fortran_string(input, output, error_msg, &
-                                             enable_ast_wrapping, operating_mode, &
-                                             preserve_format_config)
+            enable_ast_wrapping, operating_mode, &
+            preserve_format_config)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
@@ -127,10 +127,10 @@ contains
         error_msg = ""
 
         call resolve_transformation_options(enable_ast_wrapping, operating_mode, &
-                                            preserve_format_config, &
-                                            apply_ast_wrapping, &
-                                            local_operating_mode, &
-                                            apply_default_format)
+            preserve_format_config, &
+            apply_ast_wrapping, &
+            local_operating_mode, &
+            apply_default_format)
 
         call trace_init()
 
@@ -148,14 +148,14 @@ contains
 
         ! Handle empty/whitespace-only or binary input before allocating the arena
         if (handle_preparse_early_exit(source, present(enable_ast_wrapping), &
-                                       output, error_msg)) then
+            output, error_msg)) then
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         call run_arena_pipeline(source, present(enable_ast_wrapping), &
-                                apply_ast_wrapping, local_operating_mode, &
-                                apply_default_format, output, error_msg, pipeline_ok)
+            apply_ast_wrapping, local_operating_mode, &
+            apply_default_format, output, error_msg, pipeline_ok)
         if (.not. pipeline_ok) then
             call trace_leave('transform_lazy_fortran_string')
             return
@@ -171,7 +171,7 @@ contains
 
     ! String-based transformation function with formatting options
     subroutine transform_lazy_fortran_string_with_format(input, output, &
-                                                         error_msg, format_opts)
+            error_msg, format_opts)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
@@ -183,19 +183,19 @@ contains
         logical :: saved_standardize_types, saved_standardizer_types
 
         call save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                        saved_standardize_types, &
-                                        saved_standardizer_types)
+            saved_standardize_types, &
+            saved_standardizer_types)
 
         ! Set new configuration
         call apply_format_options(format_opts)
 
         ! Call the regular transformation function
         call transform_lazy_fortran_string(input, output, error_msg, &
-                                           preserve_format_config=.true.)
+            preserve_format_config=.true.)
 
         ! Restore original configuration
         call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                   saved_standardize_types, saved_standardizer_types)
+            saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
 
     ! Context-aware transformation (wraps functions in modules, respects source names)
@@ -216,8 +216,8 @@ contains
                 block
                     type(diagnostic_t) :: diag
                     diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
-                                           "Failed to tokenize input for strict "// &
-                                           "mode checks")
+                        "Failed to tokenize input for strict "// &
+                        "mode checks")
                     error_msg = format_diagnostic(diag)
                 end block
                 call create_minimal_program(output)
@@ -228,12 +228,12 @@ contains
                 block
                     type(diagnostic_t) :: diag
                     diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
-                                           "Strict mode forbids bare statements "// &
-                                           "without an explicit "// &
-                                           "program/module/procedure unit"// &
-                                           new_line('A')// &
-                                           "Suggestion: use infer mode for "// &
-                                           "top-level statements")
+                        "Strict mode forbids bare statements "// &
+                        "without an explicit "// &
+                        "program/module/procedure unit"// &
+                        new_line('A')// &
+                        "Suggestion: use infer mode for "// &
+                        "top-level statements")
                     error_msg = format_diagnostic(diag)
                 end block
                 call create_minimal_program(output)
@@ -244,8 +244,8 @@ contains
         ! For standard Fortran mode, use simple transformation
         if (context%input_mode == INPUT_MODE_STANDARD) then
             call transform_lazy_fortran_string(input, output, error_msg, &
-                                               enable_ast_wrapping=.false., &
-                                               operating_mode=context%operating_mode)
+                enable_ast_wrapping=.false., &
+                operating_mode=context%operating_mode)
             return
         end if
 
@@ -303,7 +303,7 @@ contains
         end if
 
         call validate_syntax_with_reporting(source, tokens, error_msg, output, &
-                                            arena)
+            arena)
         if (error_msg /= "") then
             call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
@@ -315,12 +315,12 @@ contains
                 block
                     type(diagnostic_t) :: diag
                     diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
-                                           "Strict mode forbids bare statements "// &
-                                           "without an explicit "// &
-                                           "program/module/procedure unit"// &
-                                           new_line('A')// &
-                                           "Suggestion: use infer mode for "// &
-                                           "top-level statements")
+                        "Strict mode forbids bare statements "// &
+                        "without an explicit "// &
+                        "program/module/procedure unit"// &
+                        new_line('A')// &
+                        "Suggestion: use infer mode for "// &
+                        "top-level statements")
                     error_msg = format_diagnostic(diag)
                 end block
                 call create_minimal_program(output)
@@ -345,19 +345,19 @@ contains
         end if
 
         call save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                        saved_standardize_types, &
-                                        saved_standardizer_types)
+            saved_standardize_types, &
+            saved_standardizer_types)
         call apply_format_options(format_options_t())
 
         ! Run semantic analysis and standardization (but not code generation yet)
         call run_semantic_analysis_phase(arena, prog_index, &
-                                         context%operating_mode, error_msg, &
-                                         signatures)
+            context%operating_mode, error_msg, &
+            signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             call run_code_generation_phase(arena, prog_index, output)
             call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                       saved_standardize_types, &
-                                       saved_standardizer_types)
+                saved_standardize_types, &
+                saved_standardizer_types)
             call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
@@ -370,7 +370,7 @@ contains
 
         ! AST-BASED WRAPPING: Analyze and modify AST directly
         call analyze_ast_content(arena%ast, prog_index, has_functions, &
-                                 has_subroutines, has_main_code)
+            has_subroutines, has_main_code)
 
         ! Check if there's already a module in the AST - if so, no wrapping needed
         if (has_existing_module_in_ast(arena%ast)) then
@@ -385,7 +385,7 @@ contains
         ! Generate code from (possibly wrapped) AST
         call run_code_generation_phase(arena, prog_index, output)
         call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                   saved_standardize_types, saved_standardizer_types)
+            saved_standardize_types, saved_standardizer_types)
 
         ! Preserve leading comments
         if (has_leading_comment(source)) then
@@ -430,8 +430,8 @@ contains
         character(len=:), allocatable, intent(out) :: output
 
         output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "end program main"//new_line('A')
+            "    implicit none"//new_line('A')// &
+            "end program main"//new_line('A')
     end subroutine create_minimal_program
 
     ! Run lexical analysis
@@ -455,16 +455,16 @@ contains
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+            "    implicit none"//new_line('A')// &
+            "    ! Original code could not be parsed"//new_line('A')// &
+            "end program main"//new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
 
     ! Validate syntax with reporting
     subroutine validate_syntax_with_reporting(input, tokens, error_msg, output, &
-        & compiler_arena)
+            & compiler_arena)
         character(len=*), intent(in) :: input
         type(token_t), intent(in) :: tokens(:)
         character(len=:), allocatable, intent(inout) :: error_msg
@@ -476,10 +476,10 @@ contains
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
             ! Keep stderr for diagnostics and stdout for usable Fortran output
             output = "program main"//new_line('A')// &
-                     "    implicit none"//new_line('A')// &
-                     "    ! COMPILATION FAILED"//new_line('A')// &
-                     "    ! Original code could not be parsed"//new_line('A')// &
-                     "end program main"//new_line('A')
+                "    implicit none"//new_line('A')// &
+                "    ! COMPILATION FAILED"//new_line('A')// &
+                "    ! Original code could not be parsed"//new_line('A')// &
+                "end program main"//new_line('A')
             ! error_msg already contains the error details for stderr
             ! Reuse shared arena: do not destroy here
         end if
@@ -501,7 +501,7 @@ contains
         end do
 
         not_meaningful = (meaningful_tokens == 0 .or. size(tokens) == 0 .or. &
-                          has_only_meaningless_tokens(tokens))
+            has_only_meaningless_tokens(tokens))
     end function not_meaningful_for_parsing
 
     ! Run parsing phase
@@ -529,7 +529,7 @@ contains
             ! Don't clear error_msg - we need to propagate it to the caller
             ! Even if prog_index > 0 (partial parse), the error must be reported
             call handle_parsing_error(compiler_arena, prog_index, &
-                                      error_msg, output)
+                error_msg, output)
             return
         end if
 
@@ -565,10 +565,10 @@ contains
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+            "    implicit none"//new_line('A')// &
+            "    ! COMPILATION FAILED"//new_line('A')// &
+            "    ! Original code could not be parsed"//new_line('A')// &
+            "end program main"//new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -580,24 +580,24 @@ contains
         type(diagnostic_t) :: diag
 
         diag = make_diagnostic(DIAG_NO_PROGRAM_UNIT, DIAGNOSTIC_ERROR, &
-                               "Parsing succeeded but no valid program unit "// &
-                               "was created")
+            "Parsing succeeded but no valid program unit "// &
+            "was created")
         error_msg = format_diagnostic(diag)
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-                 "    ! Original code could not be structured as a program"// &
-                 new_line('A')// &
-                 "end program main"//new_line('A')
+            "    implicit none"//new_line('A')// &
+            "    ! COMPILATION FAILED"//new_line('A')// &
+            "    ! Original code could not be structured as a program"// &
+            new_line('A')// &
+            "end program main"//new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen) using pass manager
     subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, &
-                                enable_ast_wrapping, operating_mode)
+            enable_ast_wrapping, operating_mode)
         type(compiler_arena_t), target, intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
@@ -612,18 +612,18 @@ contains
 
         ! Register passes in order
         call manager%add_pass(PASS_SEMANTIC, "Semantic Analysis", &
-                              "phase:semantic", .true., semantic_pass)
+            "phase:semantic", .true., semantic_pass)
 
         call manager%add_pass(PASS_STANDARDIZATION, "Standardization", &
-                              "phase:standardization", .true., &
-                              standardization_pass)
+            "phase:standardization", .true., &
+            standardization_pass)
 
         call manager%add_pass(PASS_MONOMORPHIZATION, "Monomorphization", &
-                              "phase:monomorphization", .true., &
-                              monomorphization_pass)
+            "phase:monomorphization", .true., &
+            monomorphization_pass)
 
         call manager%add_pass(PASS_CODEGEN, "Code Generation", &
-                              "phase:codegen", .true., codegen_pass)
+            "phase:codegen", .true., codegen_pass)
 
         ! Initialize pass context
         pass_ctx%compiler_arena => compiler_arena
@@ -662,7 +662,7 @@ contains
 
     ! Run semantic analysis phase
     subroutine run_semantic_analysis_phase(compiler_arena, prog_index, &
-                                           operating_mode, error_msg, signatures)
+            operating_mode, error_msg, signatures)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
         integer, intent(in) :: operating_mode
@@ -685,11 +685,11 @@ contains
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
                     select type (root_node => &
-                                 compiler_arena%ast%entries(prog_index)%node)
-                    type is (mixed_construct_container_node)
+                            compiler_arena%ast%entries(prog_index)%node)
+                        type is (mixed_construct_container_node)
                         call analyze_container_semantics(compiler_arena%ast, &
-                                                         root_node, signatures, &
-                                                         error_msg)
+                            root_node, signatures, &
+                            error_msg)
                         if (len(error_msg) > 0) return
                         handled = .true.
                     class default
@@ -716,7 +716,7 @@ contains
 
     ! Run standardization phase
     subroutine run_standardization_phase(compiler_arena, prog_index, &
-                                         enable_multi_unit_normalization)
+            enable_multi_unit_normalization)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         logical, intent(in) :: enable_multi_unit_normalization
@@ -737,7 +737,7 @@ contains
 
     ! Check if should skip standardization
     function should_skip_standardization(compiler_arena, prog_index) &
-        & result(skip_standardization)
+            & result(skip_standardization)
         type(compiler_arena_t), intent(in) :: compiler_arena
         integer, intent(in) :: prog_index
         logical :: skip_standardization
@@ -746,7 +746,7 @@ contains
         if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
             if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
                 select type (node => compiler_arena%ast%entries(prog_index)%node)
-                type is (multi_unit_container_node)
+                    type is (multi_unit_container_node)
                     skip_standardization = .true.
                 end select
             end if
@@ -774,11 +774,11 @@ contains
                 end if
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
                     select type (root_node => &
-                                 compiler_arena%ast%entries(prog_index)%node)
-                    type is (program_node)
+                            compiler_arena%ast%entries(prog_index)%node)
+                        type is (program_node)
                         write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', &
                             trim(root_node%name)
-                    type is (module_node)
+                        type is (module_node)
                         write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', &
                             trim(root_node%name)
                     class default
@@ -809,7 +809,7 @@ contains
         logical :: strict_mode_enabled
 
         call get_environment_variable('FORTFRONT_VALIDATE_LOCATIONS', &
-                                      env_value, status=status)
+            env_value, status=status)
         if (status /= 0) return
         if (len_trim(env_value) == 0) return
 
@@ -818,7 +818,7 @@ contains
 
         ! Run validation and report violations
         call validate_ast_locations(arena, strict_mode=strict_mode_enabled, &
-                                    violations_count=violations)
+            violations_count=violations)
         if (violations > 0) then
             write (error_unit, '(A,A,A,I0,A)') &
                 'Location validation (', trim(phase_name), '): ', &

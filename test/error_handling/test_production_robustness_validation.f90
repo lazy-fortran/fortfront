@@ -51,12 +51,12 @@ contains
             write (error_msg, '(A,I0)') 'Simulated parser error #', i
 
             parse_result = error_parse_result( &
-                           trim(error_msg), &
-                           ERROR_PARSER, &
-                           component='parser_injection_test', &
-                           context='error_simulation_loop', &
-                           suggestion='Test parser resilience to consecutive errors' &
-                           )
+                trim(error_msg), &
+                ERROR_PARSER, &
+                component='parser_injection_test', &
+                context='error_simulation_loop', &
+                suggestion='Test parser resilience to consecutive errors' &
+                )
 
             ! Parser should handle consecutive errors gracefully
             call assert_robustness_test( &
@@ -86,12 +86,12 @@ contains
 
         ! Test 3: Parser error with critical failure injection
         compile_result = error_compile_result( &
-                         'Critical parser failure simulation', &
-                         ERROR_CRITICAL, &
-                         component='parser_pratt_simulation', &
-                         context='critical_failure_injection', &
-                         suggestion='Verify parser handles critical failures gracefully' &
-                         )
+            'Critical parser failure simulation', &
+            ERROR_CRITICAL, &
+            component='parser_pratt_simulation', &
+            context='critical_failure_injection', &
+            suggestion='Verify parser handles critical failures gracefully' &
+            )
 
         call assert_robustness_test( &
             compile_result%is_failure() .and. compile_result%get_program() == 0, &
@@ -206,7 +206,7 @@ contains
             )
 
         ! Test 3: Error propagation with result clearing mid-chain
-        chain_results(6) = success_result()  ! Clear the critical error
+        chain_results(6) = success_result() ! Clear the critical error
         final_result = combine_results(chain_results)
 
         call assert_robustness_test( &
@@ -227,7 +227,7 @@ contains
         write (*, *) '--- Testing Memory Exhaustion Simulation ---'
 
         ! Test 1: Large error collection with memory pressure
-        large_collection = create_error_collection(5)  ! Small initial capacity
+        large_collection = create_error_collection(5) ! Small initial capacity
 
         ! Create a large error message to stress memory allocation
         large_error_message = repeat('X', 200) // 'END_OF_LARGE_MESSAGE'
@@ -236,12 +236,12 @@ contains
             write (counter, '(I0)') i
 
             temp_result = create_error_result( &
-                          trim(large_error_message) // ' #' // trim(counter), &
-                          ERROR_MEMORY, &
-                          component='memory_exhaustion_simulation', &
-                          context='large_message_stress_test', &
-                          suggestion='Test system behavior under memory pressure' &
-                          )
+                trim(large_error_message) // ' #' // trim(counter), &
+                ERROR_MEMORY, &
+                component='memory_exhaustion_simulation', &
+                context='large_message_stress_test', &
+                suggestion='Test system behavior under memory pressure' &
+                )
 
             call large_collection%add_result(temp_result)
         end do
@@ -256,12 +256,12 @@ contains
             character(len=:), allocatable :: full_message
 
             temp_result = create_error_result( &
-                          repeat('This is a very long error message designed to test memory handling. ', 50), &
-                          ERROR_MEMORY, &
-                          component=repeat('long_component_name_', 10), &
-                          context=repeat('long_context_name_', 8), &
-                          suggestion=repeat('long_suggestion_text_', 12) &
-                          )
+                repeat('This is a very long error message designed to test memory handling. ', 50), &
+                ERROR_MEMORY, &
+                component=repeat('long_component_name_', 10), &
+                context=repeat('long_context_name_', 8), &
+                suggestion=repeat('long_suggestion_text_', 12) &
+                )
 
             full_message = temp_result%get_full_message()
 

@@ -22,8 +22,8 @@ contains
         character(len=*), intent(in) :: name
 
         found = index(segment, "real :: "//name) > 0 .or. &
-                index(segment, "real(dp) :: "//name) > 0 .or. &
-                index(segment, "real(8) :: "//name) > 0
+            index(segment, "real(dp) :: "//name) > 0 .or. &
+            index(segment, "real(8) :: "//name) > 0
     end function has_real_decl
 
     subroutine test_type_definition_inside_program()
@@ -98,7 +98,7 @@ contains
         integer :: header_count
 
         call read_example('examples/f90/issue_1353_type_public_attribute.f90', &
-                          input_code)
+            input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -161,7 +161,7 @@ contains
         integer :: header_count
 
         call read_example('examples/f90/issue_1353_module_type_definition.f90', &
-                          input_code)
+            input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -277,7 +277,7 @@ contains
 
         normalized_output = to_lower(output_code)
         header_count = count_occurrences(normalized_output, &
-                                         "type, extends(base_t) :: point_t")
+            "type, extends(base_t) :: point_t")
         if (header_count /= 1) then
             print *, "FAIL: extends test produced duplicate derived type headers"
             error stop 1
@@ -301,7 +301,7 @@ contains
         logical :: class_token_found
 
         call read_example('examples/f90/issue_1353_class_pointer_declaration.f90', &
-                          input_code)
+            input_code)
 
         call lex_source(input_code, tokens, lex_error)
 

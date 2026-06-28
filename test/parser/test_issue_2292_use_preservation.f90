@@ -56,54 +56,54 @@ contains
         end if
 
         found_subroutine = .false.
-        select type (prog => arena%entries(root_index)%node)
-        type is (program_node)
-            if (.not. allocated(prog%body_indices)) then
-                write (error_unit, '(A)') 'FAIL: program body indices not allocated'
-                error stop 1
-            end if
-            do i = 1, size(prog%body_indices)
-                idx = prog%body_indices(i)
-                if (.not. arena%has_node_at(idx)) cycle
-                select type (sub => arena%entries(idx)%node)
-                type is (subroutine_def_node)
-                    found_subroutine = .true.
-                    call assert_subroutine_has_use(arena, sub)
-                    return
+            select type (prog => arena%entries(root_index)%node)
+                type is (program_node)
+                if (.not. allocated(prog%body_indices)) then
+                    write (error_unit, '(A)') 'FAIL: program body indices not allocated'
+                    error stop 1
+                end if
+                do i = 1, size(prog%body_indices)
+                    idx = prog%body_indices(i)
+                    if (.not. arena%has_node_at(idx)) cycle
+                    select type (sub => arena%entries(idx)%node)
+                        type is (subroutine_def_node)
+                        found_subroutine = .true.
+                            call assert_subroutine_has_use(arena, sub)
+                            return
+                        end select
+                    end do
+                class default
+                    write (error_unit, '(A)') 'FAIL: root node is not a program'
+                    error stop 1
                 end select
-            end do
-        class default
-            write (error_unit, '(A)') 'FAIL: root node is not a program'
-            error stop 1
-        end select
 
-        if (.not. found_subroutine) then
-            write (error_unit, '(A)') 'FAIL: no subroutine definition found'
-            error stop 1
-        end if
-    end subroutine assert_use_survives
+                if (.not. found_subroutine) then
+                    write (error_unit, '(A)') 'FAIL: no subroutine definition found'
+                    error stop 1
+                end if
+            end subroutine assert_use_survives
 
-    subroutine assert_subroutine_has_use(arena, sub_def)
-        type(ast_arena_t), intent(in) :: arena
-        type(subroutine_def_node), intent(in) :: sub_def
-        integer :: i, idx
+            subroutine assert_subroutine_has_use(arena, sub_def)
+                type(ast_arena_t), intent(in) :: arena
+                type(subroutine_def_node), intent(in) :: sub_def
+                integer :: i, idx
 
-        if (.not. allocated(sub_def%body_indices)) then
-            write (error_unit, '(A)') 'FAIL: subroutine body not allocated'
-            error stop 1
-        end if
+                if (.not. allocated(sub_def%body_indices)) then
+                    write (error_unit, '(A)') 'FAIL: subroutine body not allocated'
+                    error stop 1
+                end if
 
-        do i = 1, size(sub_def%body_indices)
-            idx = sub_def%body_indices(i)
-            if (.not. arena%has_node_at(idx)) cycle
-            select type (stmt => arena%entries(idx)%node)
-            type is (use_statement_node)
-                return
-            end select
-        end do
+                do i = 1, size(sub_def%body_indices)
+                    idx = sub_def%body_indices(i)
+                    if (.not. arena%has_node_at(idx)) cycle
+                    select type (stmt => arena%entries(idx)%node)
+                        type is (use_statement_node)
+                        return
+                    end select
+                end do
 
-        write (error_unit, '(A)') 'FAIL: subroutine lost USE statement'
-        error stop 1
-    end subroutine assert_subroutine_has_use
+                write (error_unit, '(A)') 'FAIL: subroutine lost USE statement'
+                error stop 1
+            end subroutine assert_subroutine_has_use
 
-end program test_issue_2292_use_preservation
+        end program test_issue_2292_use_preservation

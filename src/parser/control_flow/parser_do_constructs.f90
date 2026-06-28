@@ -1,7 +1,7 @@
 module parser_do_constructs_module
     ! Parser module for DO constructs (do loops, do while)
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
-                          TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_logical_or
     use ast_arena_modern, only: ast_arena_t
@@ -12,9 +12,9 @@ module parser_do_constructs_module
     use parser_array_constructs_module, only: parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, &
-                                            null_statement_callbacks, &
-                                            find_statement_end
+        statement_callbacks_t, &
+        null_statement_callbacks, &
+        find_statement_end
     implicit none
     private
 

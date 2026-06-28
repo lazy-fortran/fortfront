@@ -39,7 +39,7 @@ contains
                 exit
             else
                 select type (dim_node => arena%entries(dim_idx)%node)
-                type is (range_expression_node)
+                    type is (range_expression_node)
                     if (dim_node%start_index <= 0 .or. &
                         dim_node%end_index <= 0) then
                         valid = .false.
@@ -93,7 +93,7 @@ contains
     end subroutine parse_dim_string_to_array
 
     logical function validate_dimensions_match(arena, decl_node, dimensions) &
-        result(should_return)
+            result(should_return)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: decl_node
         integer, intent(in) :: dimensions(:)
@@ -114,7 +114,7 @@ contains
                 exit
             end if
             select type (dim_node_local => arena%entries(dim_idx_local)%node)
-            type is (literal_node)
+                type is (literal_node)
                 read (dim_node_local%value, *, iostat=iostat) existing_dim
                 if (iostat /= 0) then
                     dimensions_known = .false.
@@ -134,7 +134,7 @@ contains
     end function validate_dimensions_match
 
     subroutine create_dimension_literals(arena, prog_index, dimensions, &
-                                         decl_node)
+            decl_node)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         integer, intent(in) :: dimensions(:)
@@ -167,7 +167,7 @@ contains
     end subroutine create_dimension_literals
 
     subroutine parse_dimension_attribute(arena, prog_index, var_type, &
-                                         dim_pos, decl_node)
+            dim_pos, decl_node)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index, dim_pos
         character(len=*), intent(in) :: var_type
@@ -224,7 +224,7 @@ contains
         end if
 
         call create_dimension_literals(arena, prog_index, dimensions, &
-                                       decl_node)
+            decl_node)
 
         deallocate (dimensions)
     end subroutine parse_dimension_attribute
@@ -276,7 +276,7 @@ contains
     end subroutine extract_dimension_sizes
 
     subroutine set_array_properties_from_type(arena, var_name, prog_index, &
-                                              decl_node)
+            decl_node)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: prog_index
@@ -302,7 +302,7 @@ contains
         do j = 1, arena%size
             if (allocated(arena%entries(j)%node)) then
                 select type (node => arena%entries(j)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     candidate_name = to_lower(trim(node%name))
                     if (trim(candidate_name) == trim(target_name)) then
                         if (node%inferred_type%kind == TARRAY) then
@@ -331,7 +331,7 @@ contains
         do j = 1, arena%size
             if (allocated(arena%entries(j)%node)) then
                 select type (node => arena%entries(j)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     candidate_name = to_lower(trim(node%name))
                     if (trim(candidate_name) == trim(target_name)) then
                         if (node%inferred_type%kind == TARRAY) then
@@ -344,12 +344,12 @@ contains
                             allocate (decl_node%dimension_indices(ndims))
 
                             call extract_dimension_sizes(node%inferred_type, &
-                                                         ndims, dim_sizes)
+                                ndims, dim_sizes)
 
                             do i = 1, ndims
                                 if (dim_sizes(i) > 0 .or. &
                                     (dim_sizes(i) == 0 .and. &
-                                     .not. decl_node%is_allocatable)) then
+                                    .not. decl_node%is_allocatable)) then
                                     write (size_str, '(i0)') dim_sizes(i)
                                     size_literal%uid = generate_uid()
                                     size_literal%value = trim(size_str)
@@ -357,7 +357,7 @@ contains
                                     size_literal%line = 1
                                     size_literal%column = 1
                                     call arena%push(size_literal, "literal", &
-                                                    prog_index)
+                                        prog_index)
                                     decl_node%dimension_indices(i) = arena%size
                                 else
                                     decl_node%dimension_indices(i) = 0

@@ -2,10 +2,10 @@ module semantic_binary_operations
     ! Binary operation inference logic extracted from semantic_analyzer
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, &
-                                   TLOGICAL
+        TLOGICAL
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
-                              identifier_node, literal_node
+        identifier_node, literal_node
     use ast_base, only: LITERAL_STRING
     use lexer_core, only: to_lower
     implicit none
@@ -19,7 +19,7 @@ contains
 
     ! Calculate string concatenation result type
     function infer_string_concatenation(arena, left_index, right_index, &
-                                        left_typ, right_typ) result(typ)
+            left_typ, right_typ) result(typ)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: left_index, right_index
         type(mono_type_t), intent(in) :: left_typ, right_typ
@@ -40,7 +40,7 @@ contains
             if (inferred_left >= 0) then
                 left_size = inferred_left
             else if (left_typ%size > 0 .and. &
-                     .not. left_typ%alloc_info%needs_allocatable_string) then
+                    .not. left_typ%alloc_info%needs_allocatable_string) then
                 left_size = left_typ%size
             end if
         end if
@@ -50,7 +50,7 @@ contains
             if (inferred_right >= 0) then
                 right_size = inferred_right
             else if (right_typ%size > 0 .and. &
-                     .not. right_typ%alloc_info%needs_allocatable_string) then
+                    .not. right_typ%alloc_info%needs_allocatable_string) then
                 right_size = right_typ%size
             end if
         end if
@@ -100,20 +100,20 @@ contains
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (node%inferred_type%kind == TCHAR .and. &
                 node%inferred_type%size >= 0 .and. &
                 .not. node%inferred_type%alloc_info%needs_allocatable_string) then
                 len_out = node%inferred_type%size
             end if
-        type is (literal_node)
+            type is (literal_node)
             if (node%literal_kind == LITERAL_STRING) then
                 len_out = literal_string_length(node)
                 if (len_out < 0) then
                     if (node%inferred_type%kind == TCHAR) then
                         if (node%inferred_type%size >= 0) then
                             needs_alloc = node%inferred_type%alloc_info% &
-                                          needs_allocatable_string
+                                needs_allocatable_string
                             if (.not. needs_alloc) then
                                 len_out = node%inferred_type%size
                             end if
@@ -121,7 +121,7 @@ contains
                     end if
                 end if
             end if
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 lowered_name = to_lower(trim(node%name))
                 select case (lowered_name)
@@ -129,12 +129,12 @@ contains
                     if (allocated(node%arg_indices)) then
                         if (size(node%arg_indices) >= 1) then
                             len_out = estimate_character_length(arena, &
-                                                                node%arg_indices(1))
+                                node%arg_indices(1))
                         end if
                     end if
                 end select
             end if
-        type is (binary_op_node)
+            type is (binary_op_node)
             if (allocated(node%operator)) then
                 if (trim(node%operator) == "//") then
                     left_len = estimate_character_length(arena, node%left_index)

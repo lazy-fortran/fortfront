@@ -9,9 +9,9 @@ contains
     subroutine process(arr)
         class(*), intent(in) :: arr(:)
         select type (arr)
-        type is (integer)
+            type is (integer)
             print *, "Integer array:", arr
-        type is (real)
+            type is (real)
             print *, "Real array:", arr
         end select
     end subroutine process

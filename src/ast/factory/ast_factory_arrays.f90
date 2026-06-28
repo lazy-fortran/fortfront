@@ -2,7 +2,7 @@ module ast_factory_arrays
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
-                                range_expression_node
+        range_expression_node
     use ast_factory_core, only: push_literal
     use ast_base, only: LITERAL_INTEGER
     use uid_generator, only: generate_uid
@@ -17,7 +17,7 @@ module ast_factory_arrays
 contains
 
     function push_array_section(arena, array_name, start_idx, end_idx, &
-                                line, column, parent_index) result(section_index)
+            line, column, parent_index) result(section_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: array_name
         integer, intent(in) :: start_idx, end_idx
@@ -33,9 +33,9 @@ contains
 
         ! Create start and end index literals
         start_literal_idx = push_literal(arena, trim(start_str), LITERAL_INTEGER, &
-                                         line, column)
+            line, column)
         end_literal_idx = push_literal(arena, trim(end_str), LITERAL_INTEGER, &
-                                       line, column)
+            line, column)
 
         ! Create subscript node with array section range
         section%uid = generate_uid()
@@ -52,12 +52,12 @@ contains
 
         ! Link children to this parent for AST traversal
         call link_children_to_parent(arena, section_index, &
-                                     [start_literal_idx, end_literal_idx])
+            [start_literal_idx, end_literal_idx])
     end function push_array_section
 
     ! Create array bounds node and add to stack
     function push_array_bounds(arena, lower_index, upper_index, stride_index, &
-                               line, column, parent_index) result(bounds_index)
+            line, column, parent_index) result(bounds_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: lower_index, upper_index
         integer, intent(in), optional :: stride_index
@@ -91,7 +91,7 @@ contains
 
     ! Create array slice node and add to stack
     function push_array_slice(arena, array_index, bounds_indices, num_dims, &
-                              line, column, parent_index) result(slice_index)
+            line, column, parent_index) result(slice_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: array_index
         integer, intent(in) :: bounds_indices(:)
@@ -139,7 +139,7 @@ contains
 
     ! Create range expression node and add to stack
     function push_range_expression(arena, start_index, end_index, stride_index, &
-                                   line, column, parent_index) result(range_index)
+            line, column, parent_index) result(range_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: stride_index
@@ -173,7 +173,7 @@ contains
 
     ! Create assumed-size array bounds node and add to stack
     function push_assumed_size_bounds(arena, line, column, parent_index) &
-        result(bounds_index)
+            result(bounds_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: line, column, parent_index
         integer :: bounds_index
@@ -194,7 +194,7 @@ contains
     ! Create assumed-rank array bounds node (..) and add to stack
     ! Fortran 2018 feature for SELECT RANK construct
     function push_assumed_rank_bounds(arena, line, column, parent_index) &
-        result(bounds_index)
+            result(bounds_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: line, column, parent_index
         integer :: bounds_index

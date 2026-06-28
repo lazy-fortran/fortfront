@@ -89,7 +89,7 @@ contains
         if (.not. keyword_recognized .and. len_trim(error_msg) == 0) then
             ! No error but keyword not in output - might be partial implementation
             print *, '    INFO: Keyword may be recognized but not fully implemented'
-            keyword_recognized = .true.  ! Give benefit of doubt for partial implementation
+            keyword_recognized = .true. ! Give benefit of doubt for partial implementation
         end if
 
         if (keyword_recognized) then

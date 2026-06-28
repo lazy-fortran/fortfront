@@ -1,18 +1,18 @@
 module parser_interface_blocks_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, TK_COMMENT, &
-                          TK_NEWLINE, TK_WHITESPACE
+        TK_NEWLINE, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_interface_block
     use parser_interface_block_headers_module, only: begin_interface_block, &
-                                                     handle_interface_end
+        handle_interface_end
     use parser_interface_prefix_module, only: is_procedure_prefix, &
-                                              is_interface_return_type_keyword, &
-                                              is_interface_return_type_with_parens, &
-                                              collect_interface_return_type, &
-                                              append_interface_prefix
+        is_interface_return_type_keyword, &
+        is_interface_return_type_with_parens, &
+        collect_interface_return_type, &
+        append_interface_prefix
     use parser_interface_module_procedures_module, only: &
         parse_module_procedure_statement, parse_plain_procedure_statement
     use parser_interface_import_module, only: parse_import_statement
@@ -38,7 +38,7 @@ module parser_interface_blocks_module
 contains
 
     function parse_interface_block(parser, arena, prefix_buffer, is_abstract) &
-        result(interface_index)
+            result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -56,7 +56,7 @@ contains
         if (present(is_abstract)) is_abstract_interface = is_abstract
 
         call begin_interface_block(parser, interface_name, interface_kind, &
-                                   operator_symbol, line, column, is_abstract_interface)
+            operator_symbol, line, column, is_abstract_interface)
         call prefix_buffer%clear()
 
         allocate (body_indices(0))
@@ -67,7 +67,7 @@ contains
 
             stmt_index = 0
             if (try_parse_interface_procedure(parser, arena, prefix_buffer, token, &
-                                              stmt_index)) then
+                stmt_index)) then
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 end if
@@ -75,21 +75,21 @@ contains
             end if
 
             if (process_interface_body_token(parser, arena, token, body_indices, &
-                                             prefix_buffer)) cycle
+                prefix_buffer)) cycle
 
             call parser%error("Unexpected token '"//trim(token%text)// &
-                              "' in interface block.")
+                "' in interface block.")
             token = parser%consume()
         end do
 
         interface_index = push_interface_block( &
-                          arena, interface_name, body_indices, line, column, &
-                          is_abstract=is_abstract_interface, kind=interface_kind, &
-                          operator_symbol=operator_symbol)
+            arena, interface_name, body_indices, line, column, &
+            is_abstract=is_abstract_interface, kind=interface_kind, &
+            operator_symbol=operator_symbol)
     end function parse_interface_block
 
     logical function try_parse_interface_procedure(parser, arena, prefix_buffer, &
-                                                   token, stmt_index) result(handled)
+            token, stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -131,7 +131,7 @@ contains
     end function try_parse_interface_procedure
 
     function parse_interface_procedure(parser, arena, prefix_buffer) &
-        result(proc_index)
+            result(proc_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -150,8 +150,8 @@ contains
     end subroutine set_interface_procedure_parser
 
     logical function process_interface_body_token(parser, arena, token, &
-                                                  body_indices, prefix_buffer) &
-        result(handled)
+            body_indices, prefix_buffer) &
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token

@@ -8,8 +8,8 @@ program test_issue_2462_line_continuation_token_boundaries
 
     ! Test 1: Long use statement with identifiers at column boundary
     input_line = 'use fortfront, only: tooling_parse_options_t, ' // &
-                 'tooling_load_ast_from_string, ast_arena_t, token_t, ' // &
-                 'get_node_type_at, ast_to_json'
+        'tooling_load_ast_from_string, ast_arena_t, token_t, ' // &
+        'get_node_type_at, ast_to_json'
     output = add_line_continuations(input_line)
 
     ! Verify no identifier is broken mid-word
@@ -25,8 +25,8 @@ program test_issue_2462_line_continuation_token_boundaries
 
     ! Test 2: Long string parameter with content at boundary
     input_line = 'character(len=*), parameter :: lazy_code = ' // &
-                 '''sum_neg = 0'' //new_line(''a'') //''sum_pos = 0'' ' // &
-                 '//new_line(''a'') //''do i = 1, 6'''
+        '''sum_neg = 0'' //new_line(''a'') //''sum_pos = 0'' ' // &
+        '//new_line(''a'') //''do i = 1, 6'''
     output = add_line_continuations(input_line)
 
     ! Verify no identifier inside string is broken

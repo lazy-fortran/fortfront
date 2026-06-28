@@ -1,9 +1,9 @@
 module semantic_function_helpers
     use type_system_unified, only: mono_type_t, create_mono_type, &
-                                   TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE, &
-                                   TCOMPLEX, TFUN, TARRAY, TVAR, &
-                                   type_args_allocated, type_args_size, &
-                                   type_args_element
+        TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE, &
+        TCOMPLEX, TFUN, TARRAY, TVAR, &
+        type_args_allocated, type_args_size, &
+        type_args_element
     use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
@@ -29,7 +29,7 @@ module semantic_function_helpers
 contains
 
     subroutine gather_call_argument_types(arena, call_node, get_type_fn, &
-                                          arg_types)
+            arg_types)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         procedure(get_type_lookup) :: get_type_fn
@@ -47,7 +47,7 @@ contains
     end subroutine gather_call_argument_types
 
     subroutine refine_type_from_arguments(arg_types, typ, type_locked, &
-                                          is_intrinsic)
+            is_intrinsic)
         type(mono_type_t), intent(in) :: arg_types(:)
         type(mono_type_t), intent(inout) :: typ
         logical, intent(in), optional :: type_locked
@@ -184,7 +184,7 @@ contains
     end function deduce_return_kind_from_args
 
     logical function find_return_type(arena, func_name, return_type) &
-        result(found)
+            result(found)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: func_name
         type(mono_type_t), intent(out) :: return_type
@@ -196,7 +196,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. allocated(node%name)) cycle
                 if (trim(node%name) /= trim(func_name)) cycle
                 if (node%inferred_type%kind == TFUN .and. &

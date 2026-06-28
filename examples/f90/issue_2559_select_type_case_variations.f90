@@ -7,7 +7,7 @@ program issue_2559_select_type_case_variations
     allocate (x, source=1)
 
     select type (x)
-    type Is (integer)
+        type Is (integer)
         i = x
     class DeFaUlT
         i = 0

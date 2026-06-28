@@ -1,6 +1,6 @@
 program test_issue_2155_character_length_collision
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -11,7 +11,7 @@ program test_issue_2155_character_length_collision
     print *, "=== Testing Issue #2155: Character length in mangled names ==="
 
     call read_example('examples/lf/issue_playtest5_subroutine_name_collision.lf', &
-                      source)
+        source)
     call transform_lazy_fortran_string(source, output, errors)
 
     if (len_trim(errors) > 0) then
@@ -25,23 +25,23 @@ program test_issue_2155_character_length_collision
 
     ! Verify we're NOT creating monomorphized variants with specific lengths
     call assert_not_contains(output, 'greet__ch5', &
-                             'should not create character(len=5) specialization')
+        'should not create character(len=5) specialization')
     call assert_not_contains(output, 'greet__ch7', &
-                             'should not create character(len=7) specialization')
+        'should not create character(len=7) specialization')
 
     ! Verify we're NOT creating a monomorphization module
     call assert_not_contains(output, 'module auto_greet', &
-                             'should not monomorphize character-only variations')
+        'should not monomorphize character-only variations')
     call assert_not_contains(output, 'interface greet', &
-                             'should not create generic interface for character-only variations')
+        'should not create generic interface for character-only variations')
 
     ! Verify we're using assumed-length character
     call assert_contains(output, 'character(len=*)', &
-                         'should use assumed-length character')
+        'should use assumed-length character')
 
     ! Verify the subroutine is defined once with assumed-length
     call assert_contains(output, 'subroutine greet(name)', &
-                         'missing greet subroutine definition')
+        'missing greet subroutine definition')
 
     ! Ensure no duplicate procedure definitions
     call assert_no_duplicate_procedure_names(output)

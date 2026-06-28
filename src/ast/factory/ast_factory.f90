@@ -72,8 +72,8 @@ module ast_factory
 
     ! LFortran generics nodes
     use ast_factory_generics, only: push_template_block, &
-                                    push_instantiate_statement, push_trait_block, &
-                                    push_requirement_block, push_implements_block
+        push_instantiate_statement, push_trait_block, &
+        push_requirement_block, push_implements_block
 
     implicit none
     private
@@ -83,7 +83,7 @@ module ast_factory
     ! Core functionality and utilities
     public :: validate_arena, validate_node_index
     public :: push_program, push_multi_unit_container, push_identifier, &
-              push_literal, push_binary_op
+        push_literal, push_binary_op
     public :: push_assignment, push_pointer_assignment, push_array_literal
     public :: push_complex_literal, push_component_access, push_range_subscript
     public :: push_type_constructor
@@ -109,7 +109,7 @@ module ast_factory
     public :: push_read_statement_with_err, push_read_statement_with_end
     public :: push_read_statement_with_all_specifiers, push_write_statement_with_iostat
     public :: push_write_statement_with_format, &
-              push_write_statement_with_runtime_format
+        push_write_statement_with_runtime_format
     public :: push_format_statement, push_open_statement, push_close_statement
     public :: push_inquire_statement, push_backspace_statement, push_rewind_statement
     public :: push_endfile_statement
@@ -126,11 +126,11 @@ module ast_factory
 
     ! Statement nodes
     public :: push_use_statement, push_intrinsic_statement, &
-              push_visibility_statement, push_namelist_statement, &
-              push_data_statement, push_implicit_statement, &
-              push_include_statement, push_import_statement
+        push_visibility_statement, push_namelist_statement, &
+        push_data_statement, push_implicit_statement, &
+        push_include_statement, push_import_statement
     public :: push_end_statement, push_stop, push_return, push_entry, push_continue, &
-              push_goto, push_error_stop, push_pause, push_nullify
+        push_goto, push_error_stop, push_pause, push_nullify
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
     public :: push_common_block, push_enum
 
@@ -139,7 +139,7 @@ module ast_factory
 
     ! LFortran generics nodes
     public :: push_template_block, push_instantiate_statement, push_trait_block, &
-              push_requirement_block, push_implements_block
+        push_requirement_block, push_implements_block
 
     ! Note: No module body needed - all functionality is provided by re-exported
     ! modules. This maintains full API compatibility while achieving architectural

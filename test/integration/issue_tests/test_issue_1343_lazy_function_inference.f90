@@ -32,7 +32,7 @@ contains
         print *, 'Testing lazy function inference...'
 
         call read_example('examples/lf/issue_1343_lazy_function_inference.lf', &
-                          source)
+            source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -52,7 +52,7 @@ contains
 
         has_signature = index(output, 'integer function add(') > 0
         has_param_types = index(output, 'integer, intent(in) :: a') > 0 .and. &
-                          index(output, 'integer, intent(in) :: b') > 0
+            index(output, 'integer, intent(in) :: b') > 0
         has_result_decl = index(output, 'result(result)') > 0
 
         if (.not. has_signature) then

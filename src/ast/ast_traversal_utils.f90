@@ -31,7 +31,7 @@ module ast_traversal_utils
 contains
 
     function find_nodes_by_type_impl(arena, root_index, node_type_name) &
-        result(node_indices)
+            result(node_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=*), intent(in) :: node_type_name
@@ -44,7 +44,7 @@ contains
         allocate (temp_indices(arena%compat_size))
 
         call collect_matching_nodes(arena, root_index, node_type_name, &
-                                    temp_indices, count)
+            temp_indices, count)
 
         allocate (node_indices(count))
         do i = 1, count
@@ -53,7 +53,7 @@ contains
     end function find_nodes_by_type_impl
 
     recursive subroutine collect_matching_nodes(arena, node_index, &
-                                                node_type_name, indices, count)
+            node_type_name, indices, count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: node_type_name
@@ -74,12 +74,12 @@ contains
         children = arena%get_children(node_index)
         do i = 1, size(children)
             call collect_matching_nodes(arena, children(i), node_type_name, &
-                                        indices, count)
+                indices, count)
         end do
     end subroutine collect_matching_nodes
 
     function get_ancestor_of_type(arena, node_index, node_type_name) &
-        result(ancestor_index)
+            result(ancestor_index)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: node_type_name
@@ -105,7 +105,7 @@ contains
     end function get_ancestor_of_type
 
     function has_child_of_type(arena, node_index, node_type_name) &
-        result(found)
+            result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: node_type_name
@@ -147,7 +147,7 @@ contains
     end subroutine traverse_ast
 
     recursive subroutine traverse_recursive(arena, node_index, callback, &
-                                            user_data)
+            user_data)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         procedure(traverse_callback) :: callback

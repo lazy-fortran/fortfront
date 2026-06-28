@@ -1,6 +1,6 @@
 module parser_statement_detection_module
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, &
-                          TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     implicit none
     private
 
@@ -50,14 +50,14 @@ contains
     end function is_block_if
 
     pure logical function at_top_level(if_depth, select_depth, do_depth, &
-                                       where_depth, assoc_depth, forall_depth) &
-        result(is_top_level)
+            where_depth, assoc_depth, forall_depth) &
+            result(is_top_level)
         integer, intent(in) :: if_depth, select_depth, do_depth
         integer, intent(in) :: where_depth, assoc_depth, forall_depth
 
         is_top_level = (if_depth == 0 .and. select_depth == 0 .and. &
-                        do_depth == 0 .and. where_depth == 0 .and. &
-                        assoc_depth == 0 .and. forall_depth == 0)
+            do_depth == 0 .and. where_depth == 0 .and. &
+            assoc_depth == 0 .and. forall_depth == 0)
     end function at_top_level
 
     pure integer function next_significant_index(tokens, start_index) result(idx)
@@ -77,7 +77,7 @@ contains
     end function next_significant_index
 
     logical function inline_where_parenthetical(tokens, start_index) &
-        result(is_inline)
+            result(is_inline)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer :: i, depth
@@ -196,7 +196,7 @@ contains
             case (TK_KEYWORD)
                 if (token%text == "end") then
                     call process_end_keyword(tokens, idx, tracker, end_index, &
-                                             done, restart_iteration)
+                        done, restart_iteration)
                 else
                     done = handle_regular_keyword(tokens, idx, tracker, end_index)
                 end if
@@ -348,7 +348,7 @@ contains
     end function close_if_construct
 
     logical function try_close_depth(depth, expected_keyword, first_keyword, idx, &
-                                     end_index) result(done)
+            end_index) result(done)
         integer, intent(inout) :: depth
         character(len=*), intent(in) :: expected_keyword
         character(len=*), intent(in) :: first_keyword
@@ -369,7 +369,7 @@ contains
     end function try_close_depth
 
     logical function handle_regular_keyword(tokens, idx, tracker, end_index) &
-        result(done)
+            result(done)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: idx
         type(statement_tracker_t), intent(inout) :: tracker
@@ -418,7 +418,7 @@ contains
     end function handle_regular_keyword
 
     subroutine process_end_keyword(tokens, idx, tracker, end_index, done, &
-                                   restart_iteration)
+            restart_iteration)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(inout) :: idx
         type(statement_tracker_t), intent(inout) :: tracker
@@ -487,7 +487,7 @@ contains
     end subroutine process_end_keyword
 
     pure logical function is_select_construct(tokens, select_index) &
-        result(is_select)
+            result(is_select)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: select_index
         integer :: idx, max_idx
@@ -522,7 +522,7 @@ contains
     end function is_select_construct
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
-        result(end_index)
+            result(end_index)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer, intent(in) :: initial_end

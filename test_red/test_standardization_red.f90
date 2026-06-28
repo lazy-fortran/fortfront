@@ -16,7 +16,7 @@ program test_standardization_red
 
     print *
     print *, 'Standardization RED tests completed'
-    stop 0  ! Exit 0 since failures are expected
+    stop 0 ! Exit 0 since failures are expected
 
 contains
 
@@ -183,7 +183,7 @@ contains
         call compile_source(input_file, options, error_msg)
 
         if (error_msg /= '') then
-print *, '  EXPECTED FAIL: Array slicing in context of new features - ', trim(error_msg)
+            print *, '  EXPECTED FAIL: Array slicing in context of new features - ', trim(error_msg)
         else
             print *, '  Array slicing might be working'
         end if

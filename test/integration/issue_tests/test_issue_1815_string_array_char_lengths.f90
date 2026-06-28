@@ -28,9 +28,9 @@ contains
         print *, 'Testing string array literal padding...'
 
         source = 'names = ["Alice", "Bob", "Charlie"]' // new_line('a') // &
-                 'print *, names(1)' // new_line('a') // &
-                 'print *, names(2)' // new_line('a') // &
-                 'print *, names(3)'
+            'print *, names(1)' // new_line('a') // &
+            'print *, names(2)' // new_line('a') // &
+            'print *, names(3)'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

@@ -23,13 +23,13 @@ contains
 
         ! Test that parameter declarations are preserved
         input_code = "module test" // new_line('A') // &
-                     "contains" // new_line('A') // &
-                     "function calc(a, b, c) result(res)" // new_line('A') // &
-                     "integer, intent(in) :: a, b, c" // new_line('A') // &
-                     "real :: res" // new_line('A') // &
-                     "res = real(a + b + c)" // new_line('A') // &
-                     "end function calc" // new_line('A') // &
-                     "end module test"
+            "contains" // new_line('A') // &
+            "function calc(a, b, c) result(res)" // new_line('A') // &
+            "integer, intent(in) :: a, b, c" // new_line('A') // &
+            "real :: res" // new_line('A') // &
+            "res = real(a + b + c)" // new_line('A') // &
+            "end function calc" // new_line('A') // &
+            "end module test"
 
         print *, ""
         print *, "Testing parameter declaration preservation in module function"
@@ -121,7 +121,7 @@ contains
                 if (end_pos >= start) then
                     print *, text(start:end_pos)
                 else
-                    print *, ""  ! Empty line
+                    print *, "" ! Empty line
                 end if
                 start = i + 1
             end if

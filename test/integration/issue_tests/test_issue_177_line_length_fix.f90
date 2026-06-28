@@ -1,9 +1,9 @@
 program test_issue_177_line_length_fix
     ! Test for issue #177: Line length enforcement with continuations
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use fortfront, only: transform_lazy_fortran_string_with_format, &
-                         format_options_t
+        format_options_t
     implicit none
 
     character(len=:), allocatable :: output, error_msg
@@ -28,13 +28,13 @@ contains
         integer :: continuation_count, search_start, rel_pos
 
         call read_example('examples/lf/issue_0177_line_length_long_assignment.lf', &
-                          long_assignment)
+            long_assignment)
 
-        options%line_length = 50  ! Force breaking
+        options%line_length = 50 ! Force breaking
 
         call transform_lazy_fortran_string_with_format(long_assignment, &
-                                                       output, error_msg, &
-                                                       options)
+            output, error_msg, &
+            options)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "ERROR: ", trim(error_msg)
@@ -72,13 +72,13 @@ contains
         character(len=:), allocatable :: short_assignment
 
         call read_example('examples/lf/issue_0177_line_length_short_assignment.lf', &
-                          short_assignment)
+            short_assignment)
 
-        options%line_length = 80  ! Should not break
+        options%line_length = 80 ! Should not break
 
         call transform_lazy_fortran_string_with_format(short_assignment, &
-                                                       output, error_msg, &
-                                                       options)
+            output, error_msg, &
+            options)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "ERROR: ", trim(error_msg)

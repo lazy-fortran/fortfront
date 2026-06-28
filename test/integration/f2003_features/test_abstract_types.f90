@@ -44,83 +44,83 @@ contains
         character(len=:), allocatable, intent(out) :: source
 
         call set_source_from_lines(source, [character(len=96) :: &
-                                            "module myclass_base", &
-                              "use, intrinsic :: iso_fortran_env, only: dp => real64", &
-                                            "implicit none", &
-                                            "", &
-                                            "type, abstract :: myclass_t", &
-                                            "contains", &
-                                  "    procedure(get_value_i), deferred :: get_value", &
-                                            "end type myclass_t", &
-                                            "", &
-                                            "abstract interface", &
-                                            "    subroutine get_value_i(self, value)", &
-                                            "        import myclass_t", &
-                                       "        class(myclass_t), intent(in) :: self", &
-                                            "        real(dp), intent(out) :: value", &
-                                            "    end subroutine get_value_i", &
-                                            "end interface", &
-                                            "", &
-                                            "end module myclass_base"])
+            "module myclass_base", &
+            "use, intrinsic :: iso_fortran_env, only: dp => real64", &
+            "implicit none", &
+            "", &
+            "type, abstract :: myclass_t", &
+            "contains", &
+            "    procedure(get_value_i), deferred :: get_value", &
+            "end type myclass_t", &
+            "", &
+            "abstract interface", &
+            "    subroutine get_value_i(self, value)", &
+            "        import myclass_t", &
+            "        class(myclass_t), intent(in) :: self", &
+            "        real(dp), intent(out) :: value", &
+            "    end subroutine get_value_i", &
+            "end interface", &
+            "", &
+            "end module myclass_base"])
     end subroutine build_abstract_type_source
 
     subroutine build_abstract_interface_source(source)
         character(len=:), allocatable, intent(out) :: source
 
         call set_source_from_lines(source, [character(len=96) :: &
-                                            "abstract interface", &
-                                            "    subroutine test_sub(x)", &
-                                            "        real, intent(in) :: x", &
-                                            "    end subroutine test_sub", &
-                                            "end interface"])
+            "abstract interface", &
+            "    subroutine test_sub(x)", &
+            "        real, intent(in) :: x", &
+            "    end subroutine test_sub", &
+            "end interface"])
     end subroutine build_abstract_interface_source
 
     subroutine build_program_abstract_interface_source(source)
         character(len=:), allocatable, intent(out) :: source
 
         call set_source_from_lines(source, [character(len=96) :: &
-                                            "program test_abstract_interface", &
-                                            "implicit none", &
-                                            "", &
-                                            "abstract interface", &
-                                            "    function func_template(x) result(y)", &
-                                            "        real, intent(in) :: x", &
-                                            "        real :: y", &
-                                            "    end function func_template", &
-                                            "end interface", &
-                                            "", &
-                                          "procedure(func_template), pointer :: fptr", &
-                                            "print *, ""Testing abstract interface""", &
-                                            "", &
-                                            "end program test_abstract_interface"])
+            "program test_abstract_interface", &
+            "implicit none", &
+            "", &
+            "abstract interface", &
+            "    function func_template(x) result(y)", &
+            "        real, intent(in) :: x", &
+            "        real :: y", &
+            "    end function func_template", &
+            "end interface", &
+            "", &
+            "procedure(func_template), pointer :: fptr", &
+            "print *, ""Testing abstract interface""", &
+            "", &
+            "end program test_abstract_interface"])
     end subroutine build_program_abstract_interface_source
 
     subroutine build_type_extension_source(source)
         character(len=:), allocatable, intent(out) :: source
 
         call set_source_from_lines(source, [character(len=96) :: &
-                                            "module myclass_impl", &
-                              "use, intrinsic :: iso_fortran_env, only: dp => real64", &
-                                            "implicit none", &
-                                            "type :: base_t", &
-                                            "    integer :: x", &
-                                            "end type base_t", &
-                                            "", &
-                                            "type, extends(base_t) :: derived_t", &
-                                            "    real(dp) :: y", &
-                                            "contains", &
-                                       "    procedure :: get_value => get_value_impl", &
-                                            "end type derived_t", &
-                                            "", &
-                                            "contains", &
-                                            "", &
-                                            "subroutine get_value_impl(self, value)", &
-                                           "    class(derived_t), intent(in) :: self", &
-                                            "    real(dp), intent(out) :: value", &
-                                            "    value = 1.0d0", &
-                                            "end subroutine get_value_impl", &
-                                            "", &
-                                            "end module myclass_impl"])
+            "module myclass_impl", &
+            "use, intrinsic :: iso_fortran_env, only: dp => real64", &
+            "implicit none", &
+            "type :: base_t", &
+            "    integer :: x", &
+            "end type base_t", &
+            "", &
+            "type, extends(base_t) :: derived_t", &
+            "    real(dp) :: y", &
+            "contains", &
+            "    procedure :: get_value => get_value_impl", &
+            "end type derived_t", &
+            "", &
+            "contains", &
+            "", &
+            "subroutine get_value_impl(self, value)", &
+            "    class(derived_t), intent(in) :: self", &
+            "    real(dp), intent(out) :: value", &
+            "    value = 1.0d0", &
+            "end subroutine get_value_impl", &
+            "", &
+            "end module myclass_impl"])
     end subroutine build_type_extension_source
 
     subroutine check_contains(text, snippet, message, passed)
@@ -155,9 +155,9 @@ contains
             passed = .false.
         else
             call check_contains(output, "type, abstract", &
-                                "abstract attribute missing", passed)
+                "abstract attribute missing", passed)
             call check_contains(output, "procedure(get_value_i), deferred", &
-                                "procedure interface reference missing", passed)
+                "procedure interface reference missing", passed)
             if (passed) then
                 print *, "  PASS: Abstract type with deferred procedure"
             end if
@@ -213,8 +213,8 @@ contains
             passed = .false.
         else
             call check_contains(output, "abstract interface", &
-                                "abstract keyword missing from program output", &
-                                passed)
+                "abstract keyword missing from program output", &
+                passed)
             if (passed) then
                 print *, "  PASS: Program abstract interface block"
             end if
@@ -241,9 +241,9 @@ contains
             passed = .false.
         else
             call check_contains(output, "extends(base_t)", &
-                                "extends attribute missing", passed)
+                "extends attribute missing", passed)
             call check_contains(output, "procedure :: get_value => get_value_impl", &
-                                "procedure binding missing", passed)
+                "procedure binding missing", passed)
             if (passed) then
                 print *, "  PASS: Type extension with extends"
             end if

@@ -9,7 +9,7 @@ module standardizer_driver
     use standardizer_function, only: standardize_function_def
     use standardizer_subroutine, only: standardize_subroutine_def
     use standardizer_subprograms, only: wrap_function_in_program, &
-                                        wrap_subroutine_in_program
+        wrap_subroutine_in_program
     implicit none
     private
 
@@ -50,15 +50,15 @@ contains
             visited(current_index) = .true.
 
             select type (node => arena%entries(current_index)%node)
-            type is (multi_unit_container_node)
+                type is (multi_unit_container_node)
                 if (allocated(node%body_indices)) then
                     call push_many(node%body_indices, .false.)
                 end if
-            type is (program_node)
+                type is (program_node)
                 original_index = current_index
                 call standardize_program(arena, node, current_index)
                 if (original_index == root_tracker) root_tracker = current_index
-            type is (module_node)
+                type is (module_node)
                 call standardize_module(arena, node, current_index)
                 if (allocated(node%declaration_indices)) then
                     call push_many(node%declaration_indices, .true.)
@@ -66,7 +66,7 @@ contains
                 if (allocated(node%procedure_indices)) then
                     call push_many(node%procedure_indices, .true.)
                 end if
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. get_in_module()) then
                     if (procedure_contains_entry(arena, current_index)) then
                         call standardize_function_def(arena, node, current_index)
@@ -78,7 +78,7 @@ contains
                         end if
                     end if
                 end if
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (.not. get_in_module()) then
                     if (procedure_contains_entry(arena, current_index)) then
                         call standardize_subroutine_def(arena, node, current_index)
@@ -164,7 +164,7 @@ contains
     end subroutine standardize_ast_iter
 
     logical function procedure_contains_entry(arena, proc_index) &
-        result(has_entry)
+            result(has_entry)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_index
 
@@ -174,10 +174,10 @@ contains
         if (.not. allocated(arena%entries(proc_index)%node)) return
 
         select type (proc => arena%entries(proc_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(proc%body_indices)) return
             has_entry = body_contains_entry(arena, proc%body_indices)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (.not. allocated(proc%body_indices)) return
             has_entry = body_contains_entry(arena, proc%body_indices)
         class default
@@ -198,7 +198,7 @@ contains
             if (idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (stmt => arena%entries(idx)%node)
-            type is (entry_node)
+                type is (entry_node)
                 found = .true.
                 return
             end select

@@ -43,8 +43,8 @@ contains
 
         ! Analyze the program to determine if it should be a module
         call analyze_program_content(arena, prog, has_functions, &
-                                     has_subroutines, has_use_statements, &
-                                     has_executable_statements, should_be_module)
+            has_subroutines, has_use_statements, &
+            has_executable_statements, should_be_module)
 
         if (should_be_module) then
             ! Handle contains insertion for module-like programs
@@ -53,7 +53,7 @@ contains
             if (insert_pos > 0) then
                 ! Ensure contains is present exactly once in the correct position
                 call ensure_contains_before_index(arena, prog, prog_index, &
-                                                  insert_pos)
+                    insert_pos)
             end if
         end if
 
@@ -69,7 +69,7 @@ contains
                 if (insert_pos > 0) then
                     ! Ensure contains is present exactly once in the correct position
                     call ensure_contains_before_index(arena, prog, prog_index, &
-                                                      insert_pos)
+                        insert_pos)
                 end if
             end if
 
@@ -99,7 +99,7 @@ contains
             if (insert_pos > 0) then
                 ! Ensure contains is present exactly once in the correct position
                 call ensure_contains_before_index(arena, prog, prog_index, &
-                                                  insert_pos)
+                    insert_pos)
             end if
         end if
 
@@ -110,8 +110,8 @@ contains
 
     ! Analyze program content to determine its nature
     subroutine analyze_program_content(arena, prog, has_functions, has_subroutines, &
-                                       has_use_statements, has_executable_statements, &
-                                       should_be_module)
+            has_use_statements, has_executable_statements, &
+            should_be_module)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         logical, intent(out) :: has_functions, has_subroutines, has_use_statements
@@ -130,31 +130,31 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (function_def_node)
+                        type is (function_def_node)
                         has_functions = .true.
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         has_subroutines = .true.
-                    type is (use_statement_node)
+                        type is (use_statement_node)
                         has_use_statements = .true.
-                    type is (assignment_node)
+                        type is (assignment_node)
                         has_executable_statements = .true.
-                    type is (pointer_assignment_node)
+                        type is (pointer_assignment_node)
                         has_executable_statements = .true.
-                    type is (call_or_subscript_node)
+                        type is (call_or_subscript_node)
                         has_executable_statements = .true.
-                    type is (subroutine_call_node)
+                        type is (subroutine_call_node)
                         has_executable_statements = .true.
-                    type is (print_statement_node)
+                        type is (print_statement_node)
                         has_executable_statements = .true.
-                    type is (if_node)
+                        type is (if_node)
                         has_executable_statements = .true.
-                    type is (do_loop_node)
+                        type is (do_loop_node)
                         has_executable_statements = .true.
-                    type is (do_while_node)
+                        type is (do_while_node)
                         has_executable_statements = .true.
-                    type is (select_case_node)
+                        type is (select_case_node)
                         has_executable_statements = .true.
-                    type is (nullify_node)
+                        type is (nullify_node)
                         has_executable_statements = .true.
                     end select
                 end if
@@ -186,10 +186,10 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (function_def_node)
+                        type is (function_def_node)
                         pos = i
                         return
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         pos = i
                         return
                     end select
@@ -211,7 +211,7 @@ contains
         if (.not. allocated(prog%body_indices)) return
 
         ! Create contains node
-        contains_stmt%line = 1  ! Line number will be adjusted later
+        contains_stmt%line = 1 ! Line number will be adjusted later
         contains_stmt%column = 1
 
         ! Add contains node to arena
@@ -260,7 +260,7 @@ contains
                 return
             end if
             call reposition_contains_statement(arena, prog, prog_index, &
-                                               existing_pos, insert_pos)
+                existing_pos, insert_pos)
         else
             call insert_contains_statement(arena, prog, prog_index, insert_pos)
         end if
@@ -278,7 +278,7 @@ contains
             idx = prog%body_indices(i)
             if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
-            type is (contains_node)
+                type is (contains_node)
                 pos = i
                 return
             end select
@@ -286,7 +286,7 @@ contains
     end function find_existing_contains_position
 
     subroutine reposition_contains_statement(arena, prog, prog_index, &
-                                             current_pos, insert_pos)
+            current_pos, insert_pos)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(inout) :: prog
         integer, intent(in) :: prog_index, current_pos, insert_pos

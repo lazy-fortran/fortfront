@@ -1,6 +1,6 @@
 program test_derived_type_parsing
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                              iostat_eor
+        iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -76,7 +76,7 @@ contains
 
         ! Test derived type with multiple components
         call read_example('examples/lf/derived_type_multiple_components.lf', &
-                          input_code)
+            input_code)
 
         print *, ""
         print *, "=== Test 2: Multiple components ==="
@@ -105,8 +105,8 @@ contains
             if (index(output_code, "integer :: age") > 0 .and. &
                 index(output_code, "character") > 0 .and. &
                 (index(output_code, "real :: height") > 0 .or. &
-                 index(output_code, "real(dp) :: height") > 0 .or. &
-                 index(output_code, "real(8) :: height") > 0)) then
+                index(output_code, "real(dp) :: height") > 0 .or. &
+                index(output_code, "real(8) :: height") > 0)) then
                 print *, "✓ PASS: All components preserved"
             else
                 print *, "✗ FAIL: Some components missing"
@@ -202,11 +202,11 @@ contains
 
             ! Check if both components are preserved, especially the 'end' field
             if ((index(output_code, "real :: start") > 0 .or. &
-                 index(output_code, "real(dp) :: start") > 0 .or. &
-                 index(output_code, "real(8) :: start") > 0) .and. &
+                index(output_code, "real(dp) :: start") > 0 .or. &
+                index(output_code, "real(8) :: start") > 0) .and. &
                 (index(output_code, "real :: end") > 0 .or. &
-                 index(output_code, "real(dp) :: end") > 0 .or. &
-                 index(output_code, "real(8) :: end") > 0)) then
+                index(output_code, "real(dp) :: end") > 0 .or. &
+                index(output_code, "real(8) :: end") > 0)) then
                 print *, "✓ PASS: Both 'start' and 'end' fields preserved"
             else
                 print *, "✗ FAIL: Missing 'end' field"
