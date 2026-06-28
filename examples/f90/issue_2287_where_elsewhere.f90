@@ -10,15 +10,15 @@ program issue_2287_where_elsewhere
 
     ! Valid WHERE/ELSEWHERE with array assignments only
     where (b == 0)
-        c = a * 10  ! Valid: array assignment
+        c = a * 10 ! Valid: array assignment
     elsewhere
-        c = a       ! Valid: array assignment
+        c = a ! Valid: array assignment
     end where
 
     ! Valid nested WHERE construct
     where (a > 2)
         where (b == 1)
-            c = 99  ! Valid: nested WHERE with array assignment
+            c = 99 ! Valid: nested WHERE with array assignment
         end where
     end where
 

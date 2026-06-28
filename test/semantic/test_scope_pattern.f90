@@ -1,6 +1,6 @@
 program test_scope_pattern
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   create_mono_type, create_poly_type, TINT
+        create_mono_type, create_poly_type, TINT
     implicit none
 
     type :: env_entry
@@ -16,7 +16,7 @@ program test_scope_pattern
     allocate (entries(2))
 
     ! Entry 1 - create mono type using arena
-    mono_sin = create_mono_type(TINT)  ! Basic integer type
+    mono_sin = create_mono_type(TINT) ! Basic integer type
     entries(1)%name = "sin"
     ! Use single element array instead of empty array
     block
@@ -25,7 +25,7 @@ program test_scope_pattern
     end block
 
     ! Entry 2 - create mono type using arena
-    mono_cos = create_mono_type(TINT)  ! Basic integer type
+    mono_cos = create_mono_type(TINT) ! Basic integer type
     entries(2)%name = "cos"
     block
         type(type_var_t) :: empty_forall(0)
@@ -47,7 +47,7 @@ program test_scope_pattern
 
     print *, ""
     print *, "=== Test lookup not found ==="
-    if (allocated(result)) deallocate (result)  ! Make sure it's clean
+    if (allocated(result)) deallocate (result) ! Make sure it's clean
     print *, "About to call lookup('tan')"
     call lookup("tan", result)
     print *, "Returned from lookup('tan')"
@@ -71,7 +71,7 @@ contains
             if (entries(i)%name == name) then
                 print *, "  Found match! Doing assignment..."
                 allocate (scheme)
-                scheme = entries(i)%scheme  ! Uses unified arena assignment
+                scheme = entries(i)%scheme ! Uses unified arena assignment
                 print *, "  Assignment complete"
                 return
             end if

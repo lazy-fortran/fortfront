@@ -5,8 +5,8 @@ module frontend_program_structure
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
-                              end_statement_node, implicit_statement_node, &
-                              interface_block_node
+        end_statement_node, implicit_statement_node, &
+        interface_block_node
     use ast_factory, only: push_program, push_multi_unit_container
 
     implicit none
@@ -20,7 +20,7 @@ contains
 
     ! Create final program structure from parsed statements
     subroutine create_final_program_structure(arena, body_indices, stmt_count, &
-                                              prog_index)
+            prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         integer, intent(in) :: stmt_count
@@ -44,7 +44,7 @@ contains
 
     ! Handle multiple program units
     subroutine handle_multiple_program_units(arena, body_indices, &
-                                             prog_index, error_msg)
+            prog_index, error_msg)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         integer, intent(out) :: prog_index
@@ -72,12 +72,12 @@ contains
             ! Single unit - check if it's already a program node
             if (allocated(arena%entries(valid_units(1))%node)) then
                 select type (node => arena%entries(valid_units(1))%node)
-                type is (program_node)
+                    type is (program_node)
                     ! Already a program node
                     prog_index = valid_units(1)
-                type is (interface_block_node)
+                    type is (interface_block_node)
                     prog_index = push_multi_unit_container(arena, &
-                                                           valid_units(1:1), 1, 1)
+                        valid_units(1:1), 1, 1)
                 class default
                     ! Wrap in program node for consistent API
                     prog_index = push_program(arena, "main", valid_units(1:1), 1, 1)
@@ -89,7 +89,7 @@ contains
         else
             ! Multiple units - create container
             prog_index = push_multi_unit_container(arena, &
-                                                   valid_units(1:valid_count), 1, 1)
+                valid_units(1:valid_count), 1, 1)
         end if
 
         deallocate (valid_units)
@@ -126,7 +126,7 @@ contains
         is_empty = .false.
 
         select type (prog_node => node)
-        type is (program_node)
+            type is (program_node)
             if (prog_node%name == "main" .or. &
                 prog_node%name == "__IMPLICIT_MAIN__") then
                 if (.not. allocated(prog_node%body_indices) .or. &
@@ -140,17 +140,17 @@ contains
                     idx = prog_node%body_indices(i)
                     if (.not. arena%has_node_at(idx)) cycle
                     select type (child => arena%entries(idx)%node)
-                    type is (comment_node)
+                        type is (comment_node)
                         cycle
-                    type is (blank_line_node)
+                        type is (blank_line_node)
                         cycle
-                    type is (directive_node)
+                        type is (directive_node)
                         cycle
-                    type is (implicit_statement_node)
+                        type is (implicit_statement_node)
                         if (.not. child%is_none) then
                             has_meaningful = .true.
                         end if
-                    type is (end_statement_node)
+                        type is (end_statement_node)
                         cycle
                     class default
                         has_meaningful = .true.

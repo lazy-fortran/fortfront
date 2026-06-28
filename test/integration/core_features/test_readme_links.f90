@@ -22,7 +22,7 @@ contains
         logical, intent(out) :: test_passed
         character(len=:), allocatable :: readme_content
         character(len=*), parameter :: expected_link = &
-                                       "https://github.com/lazy-fortran/fortrun"
+            "https://github.com/lazy-fortran/fortrun"
         character(len=*), parameter :: wrong_link = "../fortrun"
         logical :: has_correct_link, avoids_wrong_link
 

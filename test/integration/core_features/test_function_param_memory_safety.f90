@@ -2,7 +2,7 @@ program test_function_param_memory_safety
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string_with_format, &
-                         format_options_t
+        format_options_t
     implicit none
 
     character(len=:), allocatable :: input
@@ -15,7 +15,7 @@ program test_function_param_memory_safety
 
     test_passed = .true.
     call transform_lazy_fortran_string_with_format(input, output, error_msg, &
-                                                   options)
+        options)
 
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
         write (error_unit, '(A)') 'Error: ' // trim(error_msg)

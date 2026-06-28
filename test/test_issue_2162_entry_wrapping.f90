@@ -18,7 +18,7 @@ contains
         character(len=:), allocatable :: error_msg
 
         call read_example('examples/f90/issue_2162_entry_wrapping.f90', &
-                          input_code)
+            input_code)
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
         if (allocated(error_msg)) then

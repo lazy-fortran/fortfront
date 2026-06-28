@@ -28,7 +28,7 @@ contains
         print *, "Testing simple semicolon-separated assignments..."
 
         source = "integer :: a, b, c; a = 1; b = 2; c = 3" // new_line('a') // &
-                 "write(*,*) a, b, c"
+            "write(*,*) a, b, c"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -62,7 +62,7 @@ contains
         ! literal concat assigned to a deferred-length allocatable yields
         ! all-zero bytes.
         source = "integer :: i; real :: x; i = 42; x = 3.14" // new_line('a') // &
-                 "print *, i; print *, x" // new_line('a')
+            "print *, i; print *, x" // new_line('a')
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -94,8 +94,8 @@ contains
         print *, "Testing mixed semicolon and regular statements..."
 
         source = "integer :: a; a = 100" // new_line('a') // &
-                 "integer :: b" // new_line('a') // &
-                 "b = 200; print *, a; print *, b"
+            "integer :: b" // new_line('a') // &
+            "b = 200; print *, a; print *, b"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

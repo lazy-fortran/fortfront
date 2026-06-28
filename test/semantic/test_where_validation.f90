@@ -65,7 +65,7 @@ contains
         block
             type(where_node) :: where_nd
             select type (node => arena%entries(where_idx)%node)
-            type is (where_node)
+                type is (where_node)
                 where_nd = node
             end select
             call validate_where_construct(arena, where_nd, errors)
@@ -108,7 +108,7 @@ contains
         block
             type(where_node) :: where_nd
             select type (node => arena%entries(where_idx)%node)
-            type is (where_node)
+                type is (where_node)
                 where_nd = node
             end select
             call validate_where_construct(arena, where_nd, errors)
@@ -149,7 +149,7 @@ contains
         block
             type(where_node) :: where_nd
             select type (node => arena%entries(where_idx)%node)
-            type is (where_node)
+                type is (where_node)
                 where_nd = node
             end select
             call validate_where_construct(arena, where_nd, errors)
@@ -186,21 +186,21 @@ contains
 
         ! Create ELSEWHERE clause with valid assignment
         allocate (elsewhere_clauses(1))
-        elsewhere_clauses(1)%mask_index = 0 ! Unmasked ELSEWHERE
+    elsewhere_clauses(1)%mask_index = 0 ! Unmasked ELSEWHERE
         allocate (elsewhere_clauses(1)%body_indices(1))
-        elsewhere_clauses(1)%body_indices(1) = assign_idx
+    elsewhere_clauses(1)%body_indices(1) = assign_idx
 
         ! Create WHERE node with empty body and valid ELSEWHERE
         allocate (body_indices(0))
         where_idx = push_where(arena, mask_idx, body_indices, &
-                               elsewhere_clauses=elsewhere_clauses, &
-                               line=1, column=1)
+            elsewhere_clauses=elsewhere_clauses, &
+            line=1, column=1)
 
         ! Validate - should have no errors
         block
             type(where_node) :: where_nd
             select type (node => arena%entries(where_idx)%node)
-            type is (where_node)
+                type is (where_node)
                 where_nd = node
             end select
             call validate_where_construct(arena, where_nd, errors)
@@ -235,21 +235,21 @@ contains
 
         ! Create ELSEWHERE clause with invalid STOP
         allocate (elsewhere_clauses(1))
-        elsewhere_clauses(1)%mask_index = 0
+    elsewhere_clauses(1)%mask_index = 0
         allocate (elsewhere_clauses(1)%body_indices(1))
-        elsewhere_clauses(1)%body_indices(1) = stop_idx
+    elsewhere_clauses(1)%body_indices(1) = stop_idx
 
         ! Create WHERE node with empty body and invalid ELSEWHERE
         allocate (body_indices(0))
         where_idx = push_where(arena, mask_idx, body_indices, &
-                               elsewhere_clauses=elsewhere_clauses, &
-                               line=1, column=1)
+            elsewhere_clauses=elsewhere_clauses, &
+            line=1, column=1)
 
         ! Validate - should have error
         block
             type(where_node) :: where_nd
             select type (node => arena%entries(where_idx)%node)
-            type is (where_node)
+                type is (where_node)
                 where_nd = node
             end select
             call validate_where_construct(arena, where_nd, errors)

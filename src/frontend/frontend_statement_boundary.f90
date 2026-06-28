@@ -3,8 +3,8 @@ module frontend_statement_boundary
     ! Handles finding statement boundaries and inline construct detection
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, &
-                          TK_IDENTIFIER, to_lower
+        TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, &
+        TK_IDENTIFIER, to_lower
     use frontend_utilities, only: is_type_start
 
     implicit none
@@ -16,7 +16,7 @@ module frontend_statement_boundary
 contains
 
     pure integer function next_significant_token_index(tokens, start_index) &
-        result(idx)
+            result(idx)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
 
@@ -33,7 +33,7 @@ contains
     end function next_significant_token_index
 
     pure logical function inline_where_parenthetical(tokens, start_index) &
-        result(is_inline)
+            result(is_inline)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer :: idx
@@ -68,7 +68,7 @@ contains
     end function inline_where_parenthetical
 
     pure logical function inline_where_colon_variant(tokens, start_index) &
-        result(is_inline)
+            result(is_inline)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer :: idx
@@ -103,7 +103,7 @@ contains
     end function inline_where_colon_variant
 
     pure logical function is_inline_where_statement(tokens, where_index) &
-        result(is_inline)
+            result(is_inline)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: where_index
         integer :: first_token
@@ -125,7 +125,7 @@ contains
     end function is_inline_where_statement
 
     pure logical function is_inline_forall_statement(tokens, forall_index) &
-        result(is_inline)
+            result(is_inline)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: forall_index
         integer :: idx, depth
@@ -190,7 +190,7 @@ contains
     end function find_statement_start
 
     pure subroutine detect_multiline_construct(tokens, stmt_start, &
-                                               is_multiline, nesting_level)
+            is_multiline, nesting_level)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start
         logical, intent(out) :: is_multiline
@@ -261,7 +261,7 @@ contains
     end subroutine detect_multiline_construct
 
     pure subroutine locate_multiline_end(tokens, stmt_start, stmt_end, &
-                                         initial_level)
+            initial_level)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start
         integer, intent(out) :: stmt_end
@@ -279,8 +279,8 @@ contains
 
             if (tokens(i)%kind == TK_KEYWORD) then
                 call update_multiline_keyword_state(tokens, stmt_start, i, &
-                                                    nesting_level, stmt_end, &
-                                                    found_end)
+                    nesting_level, stmt_end, &
+                    found_end)
                 if (found_end) exit
             end if
 
@@ -289,8 +289,8 @@ contains
     end subroutine locate_multiline_end
 
     pure subroutine update_multiline_keyword_state(tokens, stmt_start, idx, &
-                                                   nesting_level, stmt_end, &
-                                                   found_end)
+            nesting_level, stmt_end, &
+            found_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, idx
         integer, intent(inout) :: nesting_level
@@ -301,7 +301,7 @@ contains
         select case (tokens(idx)%text)
         case ("if")
             call maybe_increment_if_nesting(tokens, stmt_start, idx, &
-                                            nesting_level)
+                nesting_level)
         case ("do")
             if (idx > stmt_start) nesting_level = nesting_level + 1
         case ("select")
@@ -327,28 +327,28 @@ contains
             end if
         case ("endif")
             call try_close_construct(tokens, stmt_start, "if", idx, &
-                                     nesting_level, stmt_end, found_end, &
-                                     .false.)
+                nesting_level, stmt_end, found_end, &
+                .false.)
         case ("end")
             call handle_end_keyword(tokens, stmt_start, idx, nesting_level, &
-                                    stmt_end, found_end)
+                stmt_end, found_end)
         case ("enddo")
             call try_close_construct(tokens, stmt_start, "do", idx, &
-                                     nesting_level, stmt_end, found_end, &
-                                     .false.)
+                nesting_level, stmt_end, found_end, &
+                .false.)
         case ("endsubmodule")
             call try_close_construct(tokens, stmt_start, "submodule", idx, &
-                                     nesting_level, stmt_end, found_end, &
-                                     .true.)
+                nesting_level, stmt_end, found_end, &
+                .true.)
         case ("endforall")
             call try_close_construct(tokens, stmt_start, "forall", idx, &
-                                     nesting_level, stmt_end, found_end, &
-                                     .false.)
+                nesting_level, stmt_end, found_end, &
+                .false.)
         end select
     end subroutine update_multiline_keyword_state
 
     pure subroutine maybe_increment_if_nesting(tokens, stmt_start, idx, &
-                                               nesting_level)
+            nesting_level)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, idx
         integer, intent(inout) :: nesting_level
@@ -391,7 +391,7 @@ contains
     end subroutine maybe_increment_if_nesting
 
     pure subroutine handle_end_keyword(tokens, stmt_start, idx, nesting_level, &
-                                       stmt_end, found_end)
+            stmt_end, found_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, idx
         integer, intent(inout) :: nesting_level
@@ -403,20 +403,20 @@ contains
             if (tokens(idx + 1)%kind == TK_KEYWORD) then
                 if (tokens(idx + 1)%text == "if") then
                     call try_close_construct(tokens, stmt_start, "if", idx + 1, &
-                                             nesting_level, stmt_end, found_end, &
-                                             .false.)
+                        nesting_level, stmt_end, found_end, &
+                        .false.)
                     if (found_end) return
                 end if
             end if
         end if
 
         call handle_two_word_end_constructs(tokens, stmt_start, idx, &
-                                            nesting_level, stmt_end, found_end)
+            nesting_level, stmt_end, found_end)
     end subroutine handle_end_keyword
 
     pure subroutine handle_two_word_end_constructs(tokens, stmt_start, idx, &
-                                                   nesting_level, stmt_end, &
-                                                   found_end)
+            nesting_level, stmt_end, &
+            found_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, idx
         integer, intent(inout) :: nesting_level
@@ -428,8 +428,8 @@ contains
 
         kw_pos = idx + 1
         do while (kw_pos <= size(tokens) .and. &
-                  (tokens(kw_pos)%kind == TK_WHITESPACE .or. &
-                   tokens(kw_pos)%kind == TK_COMMENT))
+                (tokens(kw_pos)%kind == TK_WHITESPACE .or. &
+                tokens(kw_pos)%kind == TK_COMMENT))
             kw_pos = kw_pos + 1
         end do
         if (kw_pos <= size(tokens)) then
@@ -437,13 +437,13 @@ contains
                 select case (tokens(kw_pos)%text)
                 case ("do")
                     call try_close_construct(tokens, stmt_start, "do", kw_pos, &
-                                             nesting_level, stmt_end, &
-                                             found_end, .false.)
+                        nesting_level, stmt_end, &
+                        found_end, .false.)
                     if (found_end) return
                 case ("forall")
                     call try_close_construct(tokens, stmt_start, "forall", kw_pos, &
-                                             nesting_level, stmt_end, &
-                                             found_end, .false.)
+                        nesting_level, stmt_end, &
+                        found_end, .false.)
                     if (found_end) return
                 end select
             end if
@@ -454,24 +454,24 @@ contains
                 select case (tokens(idx + 1)%text)
                 case ("do")
                     call try_close_construct(tokens, stmt_start, "do", idx + 1, &
-                                             nesting_level, stmt_end, &
-                                             found_end, .false.)
+                        nesting_level, stmt_end, &
+                        found_end, .false.)
                 case ("select")
                     call try_close_construct(tokens, stmt_start, "select", &
-                                             idx + 1, nesting_level, stmt_end, &
-                                             found_end, .false.)
+                        idx + 1, nesting_level, stmt_end, &
+                        found_end, .false.)
                 case ("where")
                     call try_close_construct(tokens, stmt_start, "where", &
-                                             idx + 1, nesting_level, stmt_end, &
-                                             found_end, .false.)
+                        idx + 1, nesting_level, stmt_end, &
+                        found_end, .false.)
                 case ("submodule")
                     call try_close_construct(tokens, stmt_start, "submodule", &
-                                             idx + 1, nesting_level, stmt_end, &
-                                             found_end, .true.)
+                        idx + 1, nesting_level, stmt_end, &
+                        found_end, .true.)
                 case ("type")
                     call try_close_construct(tokens, stmt_start, "type", &
-                                             idx + 1, nesting_level, stmt_end, &
-                                             found_end, .true.)
+                        idx + 1, nesting_level, stmt_end, &
+                        found_end, .true.)
                 end select
                 if (found_end) return
             end if
@@ -479,8 +479,8 @@ contains
     end subroutine handle_two_word_end_constructs
 
     pure subroutine try_close_construct(tokens, stmt_start, construct_name, &
-                                        closing_idx, nesting_level, stmt_end, &
-                                        found_end, include_identifier)
+            closing_idx, nesting_level, stmt_end, &
+            found_end, include_identifier)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, closing_idx
         integer, intent(inout) :: nesting_level
@@ -572,10 +572,10 @@ contains
         end if
 
         call detect_multiline_construct(tokens, stmt_start, is_multiline, &
-                                        nesting_level)
+            nesting_level)
         if (is_multiline) then
             call locate_multiline_end(tokens, stmt_start, stmt_end, &
-                                      nesting_level)
+                nesting_level)
         else
             call locate_single_line_end(tokens, stmt_start, stmt_end)
         end if
@@ -585,7 +585,7 @@ contains
     end subroutine find_statement_boundary
 
     pure logical function begins_select_construct(tokens, select_index) &
-        result(is_select_construct)
+            result(is_select_construct)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: select_index
         integer :: idx, max_idx

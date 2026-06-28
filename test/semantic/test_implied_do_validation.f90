@@ -6,7 +6,7 @@ program test_implied_do_validation
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER
     use ast_factory_core, only: push_identifier, push_literal, push_binary_op, &
-                                push_array_literal
+        push_array_literal
     use ast_factory, only: push_do_loop
     use error_handling, only: error_collection_t, create_error_collection
     use semantic_implied_do_validation, only: validate_implied_do_array
@@ -38,7 +38,7 @@ contains
 
     ! Build an array_literal_node with one implied-DO element [(body, var=lo,hi)].
     function build_implied_do(arena, var_name, body_index, lo_index, hi_index) &
-        result(array_index)
+            result(array_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: body_index, lo_index, hi_index
@@ -48,10 +48,10 @@ contains
 
         body(1) = body_index
         do_index = push_do_loop(arena, var_name, lo_index, hi_index, &
-                                body_indices=body, line=1, column=1)
+            body_indices=body, line=1, column=1)
         elems(1) = do_index
         array_index = push_array_literal(arena, elems, line=1, column=1, &
-                                         syntax_style='implied_do')
+            syntax_style='implied_do')
     end function build_implied_do
 
     function get_array_node(arena, array_index) result(node)
@@ -60,7 +60,7 @@ contains
         type(array_literal_node) :: node
 
         select type (n => arena%entries(array_index)%node)
-        type is (array_literal_node)
+            type is (array_literal_node)
             node = n
         end select
     end function get_array_node
@@ -80,7 +80,7 @@ contains
         array_index = build_implied_do(arena, 'i', body, lo, hi)
 
         call validate_implied_do_array(arena, get_array_node(arena, array_index), &
-                                       errors)
+            errors)
 
         if (errors%has_errors()) then
             print *, '  FAIL: valid implied-DO incorrectly rejected'
@@ -101,9 +101,9 @@ contains
         arena = create_ast_arena()
         errors = create_error_collection()
         inner_body = push_binary_op(arena, &
-                                    push_identifier(arena, 'i', line=1, column=2), &
-                                    push_identifier(arena, 'j', line=1, column=4), &
-                                    '+', line=1, column=3)
+            push_identifier(arena, 'i', line=1, column=2), &
+            push_identifier(arena, 'j', line=1, column=4), &
+            '+', line=1, column=3)
         inner_lo = push_literal(arena, '1', LITERAL_INTEGER, line=1, column=8)
         inner_hi = push_literal(arena, '4', LITERAL_INTEGER, line=1, column=10)
         inner_array = build_implied_do(arena, 'j', inner_body, inner_lo, inner_hi)
@@ -111,13 +111,13 @@ contains
         outer_lo = push_literal(arena, '1', LITERAL_INTEGER, line=1, column=14)
         outer_hi = push_literal(arena, '3', LITERAL_INTEGER, line=1, column=16)
         outer_do = push_do_loop(arena, 'i', outer_lo, outer_hi, &
-                                body_indices=[inner_array], line=1, column=1)
+            body_indices=[inner_array], line=1, column=1)
         elems(1) = outer_do
         outer_array = push_array_literal(arena, elems, line=1, column=1, &
-                                         syntax_style='implied_do')
+            syntax_style='implied_do')
 
         call validate_implied_do_array(arena, &
-                                       get_array_node(arena, outer_array), errors)
+            get_array_node(arena, outer_array), errors)
 
         if (errors%has_errors()) then
             print *, '  FAIL: nested distinct indices incorrectly rejected'
@@ -142,7 +142,7 @@ contains
         array_index = build_implied_do(arena, 'i', body, lo, hi)
 
         call validate_implied_do_array(arena, get_array_node(arena, array_index), &
-                                       errors)
+            errors)
 
         if (errors%has_errors()) then
             print *, '  PASS'
@@ -170,13 +170,13 @@ contains
         outer_lo = push_literal(arena, '1', LITERAL_INTEGER, line=1, column=12)
         outer_hi = push_literal(arena, '3', LITERAL_INTEGER, line=1, column=14)
         outer_do = push_do_loop(arena, 'i', outer_lo, outer_hi, &
-                                body_indices=[inner_array], line=1, column=1)
+            body_indices=[inner_array], line=1, column=1)
         elems(1) = outer_do
         outer_array = push_array_literal(arena, elems, line=1, column=1, &
-                                         syntax_style='implied_do')
+            syntax_style='implied_do')
 
         call validate_implied_do_array(arena, &
-                                       get_array_node(arena, outer_array), errors)
+            get_array_node(arena, outer_array), errors)
 
         if (errors%has_errors()) then
             print *, '  PASS'

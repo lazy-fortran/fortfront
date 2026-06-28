@@ -8,16 +8,16 @@ program test_close_in_control_flow
 
     all_passed = .true.
     if (.not. run_close_test('simple IF block', 'examples/f90/close_if_block.f90', &
-                             1)) all_passed = .false.
+        1)) all_passed = .false.
     if (.not. run_close_test('nested IF blocks', 'examples/f90/close_nested_if.f90', &
-                             1)) all_passed = .false.
+        1)) all_passed = .false.
     if (.not. run_close_test('DO loop', 'examples/f90/close_do_loop.f90', 1)) &
         all_passed = .false.
     if (.not. run_close_test('SELECT CASE branches', &
-                             'examples/f90/close_select_case.f90', 2)) &
+        'examples/f90/close_select_case.f90', 2)) &
         all_passed = .false.
     if (.not. run_close_test('multiple CLOSE statements', &
-                             'examples/f90/close_multiple.f90', 2)) &
+        'examples/f90/close_multiple.f90', 2)) &
         all_passed = .false.
 
     if (all_passed) then
@@ -57,7 +57,7 @@ contains
 
         lowered = to_lowercase(output)
         close_hits = count_occurrences(lowered, 'close(') + &
-                     count_occurrences(lowered, 'close (')
+            count_occurrences(lowered, 'close (')
 
         if (close_hits /= expected_count) then
             write (error_unit, '(A,A,I0)') 'FAIL: ', trim(name) // ' expected ', &

@@ -1,7 +1,7 @@
 program test_issue_2417_array_intrinsic_timeout
     use transformation_api, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-                                             iostat_end, iostat_eor
+        iostat_end, iostat_eor
     implicit none
     character(len=:), allocatable :: source, output, error_msg
 
@@ -18,9 +18,9 @@ program test_issue_2417_array_intrinsic_timeout
 
     ! Verify output contains expected elements
     call assert_contains(output, 'program test_minloc_timeout', &
-                         'Expected program name')
+        'Expected program name')
     call assert_contains(output, 'minloc', &
-                         'Expected minloc intrinsic call')
+        'Expected minloc intrinsic call')
 
     write (*, '(A)') 'PASS: array intrinsic timeout test (issue 2417)'
 

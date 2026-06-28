@@ -1,11 +1,11 @@
 program test_cst_core_arena
     use cst_arena, only: cst_arena_t, cst_handle_t, create_cst_arena
     use cst_core, only: add_child_to_cst_node, add_leading_trivia, &
-                        add_trailing_trivia, create_cst_node, create_trivia, &
-                        get_node_kind_name, is_trivia_kind, set_cst_node_text, &
-                        validate_cst_node, validate_trivia
+        add_trailing_trivia, create_cst_node, create_trivia, &
+        get_node_kind_name, is_trivia_kind, set_cst_node_text, &
+        validate_cst_node, validate_trivia
     use cst_nodes, only: cst_node_t, trivia_t, CST_ASSIGNMENT, CST_COMMENT, &
-                         CST_IDENTIFIER, CST_NEWLINE, CST_WHITESPACE
+        CST_IDENTIFIER, CST_NEWLINE, CST_WHITESPACE
     implicit none
 
     logical :: all_passed

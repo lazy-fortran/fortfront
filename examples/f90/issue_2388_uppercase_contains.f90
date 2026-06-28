@@ -6,10 +6,10 @@ module issue_2388_uppercase_sections
         procedure :: do_work
     end type worker_t
 
-    CONTAINS
+CONTAINS
 
     subroutine run()
-        CONTAINS
+    CONTAINS
         integer function bump(x)
             integer, intent(in) :: x
             bump = x + 1

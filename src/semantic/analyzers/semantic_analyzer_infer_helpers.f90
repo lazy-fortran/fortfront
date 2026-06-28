@@ -1,10 +1,10 @@
 submodule(semantic_analyzer) semantic_analyzer_infer_helpers
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   allocation_info_t, create_mono_type, &
-                                   create_poly_type, create_type_var, &
-                                   TREAL, TVAR, TINT, TLOGICAL, TCHAR, &
-                                   TCOMPLEX, TARRAY
-    implicit none
+use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    allocation_info_t, create_mono_type, &
+    create_poly_type, create_type_var, &
+    TREAL, TVAR, TINT, TLOGICAL, TCHAR, &
+    TCOMPLEX, TARRAY
+implicit none
 
 contains
 
@@ -34,12 +34,12 @@ contains
             var_name = ""
             rank = 0
             select type (node => arena%entries(var_index)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 var_name = node%name
                 if (allocated(alloc_stmt%shape_indices)) then
                     rank = size(alloc_stmt%shape_indices)
                 end if
-            type is (call_or_subscript_node)
+                type is (call_or_subscript_node)
                 var_name = node%name
                 if (allocated(node%arg_indices)) then
                     rank = size(node%arg_indices)
@@ -71,7 +71,7 @@ contains
                             end select
                         end if
                     else if (element_type%kind == TVAR .and. &
-                             element_type%var%id == 0) then
+                            element_type%var%id == 0) then
                         element_type = create_mono_type(TINT)
                     else if (element_type%kind == TREAL) then
                         element_type = create_mono_type(TINT)
@@ -98,7 +98,7 @@ contains
                     call update_identifier_type_in_arena(arena, var_name, var_type)
 
                     var_scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                                  mono=var_type)
+                        mono=var_type)
                     call ctx%scopes%define(var_name, var_scheme)
 
                     call set_node_inferred_type(arena, var_index, var_type)
@@ -118,7 +118,7 @@ contains
         if (.not. allocated(arena%entries(value_index)%node)) return
 
         select type (value_node => arena%entries(value_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             if (value_node%literal_kind == LITERAL_STRING) then
                 literal_length = compute_string_literal_length(value_node)
                 expr_typ = create_mono_type(TCHAR, char_size=literal_length)
@@ -128,7 +128,7 @@ contains
     end subroutine ensure_string_literal_type
 
     pure module integer function compute_string_literal_length(literal) &
-        result(len_value)
+            result(len_value)
         type(literal_node), intent(in) :: literal
         character(len=:), allocatable :: trimmed_value
         character(len=:), allocatable :: inner_value

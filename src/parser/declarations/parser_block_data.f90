@@ -1,6 +1,6 @@
 module parser_block_data_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, TK_NUMBER, to_lower
+        TK_COMMENT, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_STRING
@@ -72,7 +72,7 @@ contains
 
         token = parser%consume()
         if (.not. (token%kind == TK_KEYWORD .and. &
-                   to_lower(trim(token%text)) == "block")) then
+            to_lower(trim(token%text)) == "block")) then
             block_data_index = 0
             return
         end if
@@ -175,7 +175,7 @@ contains
                     if (parser%tokens(parser%current_token + 1)%kind == &
                         TK_KEYWORD .and. &
                         to_lower(trim(parser%tokens(parser%current_token + &
-                                                    1)%text)) == "block") then
+                        1)%text)) == "block") then
                         token = parser%consume()
                         token = parser%consume()
                         if (.not. parser%is_at_end()) then
@@ -220,8 +220,8 @@ contains
         end do
 
         block_data_index = push_block_data(arena, block_name, statement_indices, &
-                                           line, column, header_label=header_label, &
-                                           end_label=end_label)
+            line, column, header_label=header_label, &
+            end_label=end_label)
     end function parse_block_data
 
     ! Parse a single BLOCK DATA body statement into a structured node, routing on
@@ -239,7 +239,7 @@ contains
 
         select case (keyword)
         case ("integer", "real", "logical", "character", "complex", &
-              "double", "type", "class", "dimension")
+                "double", "type", "class", "dimension")
             stmt_index = parse_declaration(parser, arena)
         case ("common")
             stmt_index = parse_common_statement(parser, arena)
@@ -270,9 +270,9 @@ contains
 
         if (len(statement_text) > 0) then
             stmt_index = push_literal(arena, trim(statement_text), &
-                                      LITERAL_STRING, &
-                                      line=parser%tokens(stmt_start_pos)%line, &
-                                      column=parser%tokens(stmt_start_pos)%column)
+                LITERAL_STRING, &
+                line=parser%tokens(stmt_start_pos)%line, &
+                column=parser%tokens(stmt_start_pos)%column)
         end if
     end function parse_body_text_literal
 

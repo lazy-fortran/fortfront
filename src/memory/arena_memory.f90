@@ -42,25 +42,25 @@ module arena_memory
     ! - Zero-allocation validation operations
 
     ! Default configuration
-    integer, parameter :: DEFAULT_CHUNK_SIZE = 65536  ! 64KB chunks
-    integer, parameter :: MIN_CHUNK_SIZE = 4096  ! 4KB minimum
-    integer, parameter :: MAX_CHUNK_SIZE = 1048576  ! 1MB maximum
-    integer, parameter :: DEFAULT_ALIGNMENT = 8  ! 8-byte alignment
+    integer, parameter :: DEFAULT_CHUNK_SIZE = 65536 ! 64KB chunks
+    integer, parameter :: MIN_CHUNK_SIZE = 4096 ! 4KB minimum
+    integer, parameter :: MAX_CHUNK_SIZE = 1048576 ! 1MB maximum
+    integer, parameter :: DEFAULT_ALIGNMENT = 8 ! 8-byte alignment
 
     ! Handle for memory allocation with generation validation
     type, public :: arena_handle_t
-        integer :: offset = 0  ! Byte offset within chunk
-        integer :: size = 0  ! Size of allocation
-        integer :: generation = 0  ! Generation for validation
-        integer :: chunk_id = 0  ! Which chunk contains data
+        integer :: offset = 0 ! Byte offset within chunk
+        integer :: size = 0 ! Size of allocation
+        integer :: generation = 0 ! Generation for validation
+        integer :: chunk_id = 0 ! Which chunk contains data
     end type arena_handle_t
 
     ! Memory chunk for arena storage
     type :: arena_chunk_t
-        integer(1), allocatable :: data(:)  ! Raw byte storage
-        integer :: capacity = 0  ! Chunk capacity in bytes
-        integer :: used = 0  ! Bytes currently used
-        integer :: generation = 1  ! Current generation
+        integer(1), allocatable :: data(:) ! Raw byte storage
+        integer :: capacity = 0 ! Chunk capacity in bytes
+        integer :: used = 0 ! Bytes currently used
+        integer :: generation = 1 ! Current generation
     contains
         procedure :: assign_chunk => arena_chunk_assign
         generic :: assignment(=) => assign_chunk
@@ -68,14 +68,14 @@ module arena_memory
 
     ! Core arena allocator with generation-based handle validation (Issue #398)
     type, public :: arena_t
-        type(arena_chunk_t), allocatable :: chunks(:)  ! Memory chunks
-        integer :: chunk_count = 0  ! Number of chunks
-        integer :: current_chunk = 1  ! Active chunk index
-        integer :: total_allocated = 0  ! Total bytes allocated
-        integer :: total_capacity = 0  ! Total capacity
-        integer :: chunk_size = DEFAULT_CHUNK_SIZE  ! Size for new chunks
-        integer :: alignment = DEFAULT_ALIGNMENT  ! Memory alignment
-        integer :: generation = 1  ! Global generation
+        type(arena_chunk_t), allocatable :: chunks(:) ! Memory chunks
+        integer :: chunk_count = 0 ! Number of chunks
+        integer :: current_chunk = 1 ! Active chunk index
+        integer :: total_allocated = 0 ! Total bytes allocated
+        integer :: total_capacity = 0 ! Total capacity
+        integer :: chunk_size = DEFAULT_CHUNK_SIZE ! Size for new chunks
+        integer :: alignment = DEFAULT_ALIGNMENT ! Memory alignment
+        integer :: generation = 1 ! Global generation
     contains
         procedure :: allocate => arena_allocate
         procedure :: validate => arena_validate
@@ -92,11 +92,11 @@ module arena_memory
 
     ! Arena statistics for monitoring
     type, public :: arena_stats_t
-        integer :: total_allocated = 0  ! Total bytes allocated
-        integer :: total_capacity = 0  ! Total capacity in bytes
-        integer :: chunk_count = 0  ! Number of chunks
-        integer :: current_generation = 0  ! Current generation number
-        real(dp) :: utilization = 0.0_dp  ! Memory utilization (0-1)
+        integer :: total_allocated = 0 ! Total bytes allocated
+        integer :: total_capacity = 0 ! Total capacity in bytes
+        integer :: chunk_count = 0 ! Number of chunks
+        integer :: current_generation = 0 ! Current generation number
+        real(dp) :: utilization = 0.0_dp ! Memory utilization (0-1)
     end type arena_stats_t
 
     ! Base arena interface types
@@ -236,12 +236,12 @@ contains
         ! Initialize with one chunk
         arena%chunk_count = 1
         arena%current_chunk = 1
-        allocate (arena%chunks(8))  ! Initial capacity for chunk array
+        allocate (arena%chunks(8)) ! Initial capacity for chunk array
 
         ! Allocate first chunk
         arena%chunks(1)%capacity = size
         allocate (arena%chunks(1)%data(size))
-        arena%chunks(1)%data = 0  ! Zero-initialize
+        arena%chunks(1)%data = 0 ! Zero-initialize
         arena%chunks(1)%used = 0
         arena%chunks(1)%generation = 1
 
@@ -268,7 +268,7 @@ contains
         arena%current_chunk = 1
         arena%total_allocated = 0
         arena%total_capacity = 0
-        arena%generation = arena%generation + 1  ! Invalidate all handles
+        arena%generation = arena%generation + 1 ! Invalidate all handles
     end subroutine destroy_arena
 
     ! Allocate memory from arena (O(1) operation)
@@ -278,7 +278,7 @@ contains
         type(arena_handle_t) :: handle
         integer :: aligned_size, required_size
         integer :: chunk_idx
-        integer :: loop_count  ! Safety counter for infinite loop prevention
+        integer :: loop_count ! Safety counter for infinite loop prevention
 
         ! Validate size
         if (size <= 0) then
@@ -296,7 +296,7 @@ contains
             loop_count = loop_count + 1
             if (this%chunks(chunk_idx)%used + aligned_size &
                 <= this%chunks(chunk_idx)%capacity) then
-                exit  ! Found space
+                exit ! Found space
             end if
             chunk_idx = chunk_idx + 1
         end do
@@ -304,7 +304,7 @@ contains
         ! Need new chunk?
         if (chunk_idx > this%chunk_count) then
             call this%grow(max(aligned_size, this%chunk_size))
-            chunk_idx = this%chunk_count  ! Use the newly created chunk
+            chunk_idx = this%chunk_count ! Use the newly created chunk
         end if
 
         ! Allocate from chunk
@@ -358,7 +358,7 @@ contains
         ! Reset arena state
         this%current_chunk = 1
         this%total_allocated = 0
-        this%generation = this%generation + 1  ! Invalidate all handles
+        this%generation = this%generation + 1 ! Invalidate all handles
     end subroutine arena_reset
 
     ! Clear arena and free excess memory
@@ -382,7 +382,7 @@ contains
         ! Reset first chunk
         if (this%chunk_count >= 1) then
             this%chunks(1)%used = 0
-            this%chunks(1)%data = 0  ! Zero memory
+            this%chunks(1)%data = 0 ! Zero memory
         end if
 
         this%current_chunk = 1
@@ -402,7 +402,7 @@ contains
 
         if (this%total_capacity > 0) then
             stats%utilization = real(this%total_allocated, dp) / &
-                                real(this%total_capacity, dp)
+                real(this%total_capacity, dp)
         else
             stats%utilization = 0.0_dp
         end if
@@ -459,7 +459,7 @@ contains
 
         ! Copy data
         buffer(1:handle%size) = this%chunks(handle%chunk_id)%data( &
-                                handle%offset + 1:handle%offset + handle%size)
+            handle%offset + 1:handle%offset + handle%size)
 
         status = .true.
     end subroutine arena_get_data
@@ -506,8 +506,8 @@ contains
         logical :: valid
 
         valid = handle%generation > 0 .and. &
-                handle%size > 0 .and. &
-                handle%chunk_id > 0
+            handle%size > 0 .and. &
+            handle%chunk_id > 0
     end function is_valid_handle
 
     ! Create null handle
@@ -556,7 +556,7 @@ contains
         if (allocated(rhs%chunks)) then
             allocate (lhs%chunks(size(rhs%chunks)))
             do i = 1, size(rhs%chunks)
-                lhs%chunks(i) = rhs%chunks(i)  ! Uses chunk assignment operator
+                lhs%chunks(i) = rhs%chunks(i) ! Uses chunk assignment operator
             end do
         end if
     end subroutine arena_assign
@@ -570,12 +570,12 @@ contains
         class(base_arena_t), intent(inout) :: this
 
         ! Reset base fields
-        this%generation = this%generation + 1  ! Invalidate all handles
+        this%generation = this%generation + 1 ! Invalidate all handles
         this%size = 0
 
         ! For basic_arena_t, also reset internal arena
         select type (this)
-        type is (basic_arena_t)
+            type is (basic_arena_t)
             call this%internal_arena%reset()
         end select
     end subroutine base_arena_reset
@@ -656,11 +656,11 @@ contains
 
         ! Store item data (simplified - real implementation would serialize)
         allocate (buffer(item_size))
-        buffer = 0  ! Initialize
+        buffer = 0 ! Initialize
 
         ! For integers, store the value
         select type (item)
-        type is (integer)
+            type is (integer)
             if (item_size >= 4) then
                 buffer(1:4) = transfer(item, buffer(1:4))
             end if

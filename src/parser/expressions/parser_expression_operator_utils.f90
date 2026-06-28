@@ -4,15 +4,15 @@ module parser_expression_operator_utils_module
     use ast_factory, only: push_binary_op, push_literal
     use ast_types, only: LITERAL_INTEGER
     use parser_expression_stacks_module, only: operator_entry_t, operator_stack_t, &
-                                               operand_stack_t, token_stack_t, &
-                                               operator_stack_push, &
-                                               operator_stack_pop, &
-                                               operator_stack_peek, &
-                                               operator_stack_is_empty, &
-                                               operand_stack_push, &
-                                               operand_stack_pop, &
-                                               operand_stack_peek, &
-                                               token_stack_pop
+        operand_stack_t, token_stack_t, &
+        operator_stack_push, &
+        operator_stack_pop, &
+        operator_stack_peek, &
+        operator_stack_is_empty, &
+        operand_stack_push, &
+        operand_stack_pop, &
+        operand_stack_peek, &
+        token_stack_pop
     implicit none
     private
 
@@ -76,8 +76,8 @@ contains
         case ("==", "/=", "<=", ">=", "<", ">")
             entry%symbol = token%text
             entry%precedence = PREC_COMPARISON
-        ! ISO/IEC 1539-1:2018 Table 10.1: old-style comparison operators
-        ! have same precedence as modern comparison operators
+            ! ISO/IEC 1539-1:2018 Table 10.1: old-style comparison operators
+            ! have same precedence as modern comparison operators
         case (".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.")
             entry%symbol = token%text
             entry%precedence = PREC_COMPARISON
@@ -178,7 +178,7 @@ contains
         integer :: zero_index
 
         zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
-                                  reference_token%line, reference_token%column)
+            reference_token%line, reference_token%column)
     end function create_zero_literal
 
     function apply_prefix_stack(arena, prefix_stack, expr_index) result(result_index)
@@ -201,11 +201,11 @@ contains
             case ("-")
                 zero_index = create_zero_literal(arena, token)
                 result_index = push_binary_op(arena, zero_index, result_index, &
-                                              token%text, token%line, token%column)
+                    token%text, token%line, token%column)
             case ("+")
                 cycle
-            ! Note: .not. is now handled as an operator with PREC_NOT precedence
-            ! in parse_expression_with_precedence, not as a prefix operator
+                ! Note: .not. is now handled as an operator with PREC_NOT precedence
+                ! in parse_expression_with_precedence, not as a prefix operator
             case default
                 cycle
             end select
@@ -234,11 +234,11 @@ contains
         ! Handle = operator specially - create assignment node instead of binary_op
         if (trim(op_entry%symbol) == "=") then
             result_index = push_assignment(arena, left_index, right_index, &
-                                          op_entry%token%line, op_entry%token%column)
+                op_entry%token%line, op_entry%token%column)
         else
             result_index = push_binary_op(arena, left_index, right_index, &
-                                         op_entry%symbol, &
-                                         op_entry%token%line, op_entry%token%column)
+                op_entry%symbol, &
+                op_entry%token%line, op_entry%token%column)
         end if
 
         call operand_stack_push(operands, result_index)
@@ -292,7 +292,7 @@ contains
         type(operator_entry_t) :: entry
 
         entry = operator_entry_t(symbol="(", precedence=0, is_group=.true., &
-                                 token=token)
+            token=token)
         call operator_stack_push(operators, entry)
     end subroutine push_group_marker
 

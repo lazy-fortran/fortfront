@@ -22,9 +22,9 @@ program test_issue_1623_select_type
         class(*), allocatable :: generic_obj
         allocate (integer :: generic_obj)
         select type (generic_obj)
-        type is (integer)
+            type is (integer)
             result_flag = 1
-        type is (real)
+            type is (real)
             result_flag = 2
         class default
             result_flag = 0
@@ -38,9 +38,9 @@ program test_issue_1623_select_type
         class(*), allocatable :: generic_obj
         allocate (real :: generic_obj)
         select type (generic_obj)
-        type is (integer)
+            type is (integer)
             result_flag = 1
-        type is (real)
+            type is (real)
             result_flag = 2
         class default
             result_flag = 0
@@ -80,12 +80,12 @@ program test_issue_1623_select_type
         class(*), allocatable :: outer_obj
         allocate (integer :: outer_obj)
         select type (outer_obj)
-        type is (integer)
+            type is (integer)
             block
                 class(*), allocatable :: inner_obj
                 allocate (real :: inner_obj)
                 select type (inner_obj)
-                type is (real)
+                    type is (real)
                     result_flag = 6
                 class default
                     result_flag = 0

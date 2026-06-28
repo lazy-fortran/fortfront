@@ -1,9 +1,9 @@
 module cst_trivia_query
     use cst_arena, only: cst_arena_t
     use cst_nodes, only: cst_node_t, trivia_t, CST_COMMENT, CST_NEWLINE, &
-                         CST_WHITESPACE
+        CST_WHITESPACE
     use lexer_core, only: token_t, trivia_token_t, tokenize_core_with_trivia, &
-                          TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
+        TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
     use ast_arena_modern, only: ast_arena_t
     use ast_introspection, only: get_node_source_location_from_arena
     implicit none
@@ -117,7 +117,7 @@ contains
             end_pos = end_pos - 1
             allocate (trivia(1))
             trivia(1) = make_trivia(CST_WHITESPACE, normalized(start_pos:end_pos), &
-                                    start_pos, end_pos)
+                start_pos, end_pos)
         else if (ch == '!') then
             start_pos = pos
             end_pos = pos
@@ -133,7 +133,7 @@ contains
             end if
             allocate (trivia(1))
             trivia(1) = make_trivia(CST_COMMENT, normalized(start_pos:end_pos), &
-                                    start_pos, end_pos)
+                start_pos, end_pos)
         else if (ch == new_line('A')) then
             allocate (trivia(1))
             trivia(1) = make_trivia(CST_NEWLINE, new_line('A'), pos, pos)
@@ -143,7 +143,7 @@ contains
     end function get_source_trivia_at
 
     subroutine get_trivia_for_ast_node(source, ast_arena, ast_index, leading, &
-                                       trailing, found)
+            trailing, found)
         character(len=*), intent(in) :: source
         type(ast_arena_t), intent(in) :: ast_arena
         integer, intent(in) :: ast_index
@@ -154,12 +154,12 @@ contains
         type(token_t), allocatable :: tokens(:)
         call tokenize_core_with_trivia(source, tokens)
         call get_trivia_for_ast_node_tokens(tokens, ast_arena, &
-                                            ast_index, leading, &
-                                            trailing, found)
+            ast_index, leading, &
+            trailing, found)
     end subroutine get_trivia_for_ast_node
 
     subroutine get_trivia_for_ast_node_tokens(tokens, ast_arena, ast_index, &
-                                              leading, trailing, found)
+            leading, trailing, found)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(in) :: ast_arena
         integer, intent(in) :: ast_index
@@ -175,8 +175,8 @@ contains
         found = .false.
 
         call get_node_source_location_from_arena(ast_arena, ast_index, &
-                                                 node_line, &
-                                                 node_col)
+            node_line, &
+            node_col)
         if (node_line <= 0 .or. node_col <= 0) return
 
         token_index = find_token_at(tokens, node_line, node_col)
@@ -185,7 +185,7 @@ contains
         call convert_trivia_tokens(tokens(token_index)%leading_trivia, leading)
         call &
             convert_trivia_tokens(tokens(token_index)%trailing_trivia, &
-                                  trailing)
+            trailing)
         found = .true.
     end subroutine get_trivia_for_ast_node_tokens
 

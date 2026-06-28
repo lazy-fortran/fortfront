@@ -103,7 +103,7 @@ contains
         end if
 
         ! Write and read data
-        buffer = 42  ! Set test data
+        buffer = 42 ! Set test data
         call arena%set_data(handle, buffer, status)
 
         if (.not. status) then
@@ -286,11 +286,11 @@ contains
 
         print *, "Testing arena growth..."
 
-        arena = create_arena(512)  ! Small initial size (below MIN_CHUNK_SIZE)
+        arena = create_arena(512) ! Small initial size (below MIN_CHUNK_SIZE)
         stats_before = arena%get_stats()
 
         ! Allocate more than chunk size
-        handle = arena%allocate(5000)  ! More than 4096
+        handle = arena%allocate(5000) ! More than 4096
         stats_after = arena%get_stats()
 
         if (.not. is_valid_handle(handle)) then
@@ -321,18 +321,18 @@ contains
         arena = create_arena()
 
         ! Allocate unaligned sizes
-        h1 = arena%allocate(7)  ! Will be aligned to 8
-        h2 = arena%allocate(13)  ! Will be aligned to 16
-        h3 = arena%allocate(8)  ! Already aligned
+        h1 = arena%allocate(7) ! Will be aligned to 8
+        h2 = arena%allocate(13) ! Will be aligned to 16
+        h3 = arena%allocate(8) ! Already aligned
 
         ! Check alignment
         if (mod(h1%offset, 8) /= 0) then
             print *, "  FAILED: First allocation not aligned"
             tests_failed = tests_failed + 1
-        else if (h2%offset /= 8) then  ! Should start after aligned h1
+        else if (h2%offset /= 8) then ! Should start after aligned h1
             print *, "  FAILED: Second allocation misaligned"
             tests_failed = tests_failed + 1
-        else if (h3%offset /= 24) then  ! Should start after aligned h2
+        else if (h3%offset /= 24) then ! Should start after aligned h2
             print *, "  FAILED: Third allocation misaligned"
             tests_failed = tests_failed + 1
         else
@@ -415,7 +415,7 @@ contains
         ! Test corrupted handle
         handle = arena%allocate(100)
         bad_handle = handle
-        bad_handle%chunk_id = 999  ! Invalid chunk
+        bad_handle%chunk_id = 999 ! Invalid chunk
 
         if (arena%validate(bad_handle)) then
             print *, "  FAILED: Invalid chunk ID accepted"
@@ -505,7 +505,7 @@ contains
         end if
 
         ! Very large allocation
-        handle = arena%allocate(100000000)  ! 100MB
+        handle = arena%allocate(100000000) ! 100MB
         if (.not. is_valid_handle(handle)) then
             print *, "  FAILED: Large allocation failed"
             tests_failed = tests_failed + 1

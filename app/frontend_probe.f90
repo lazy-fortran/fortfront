@@ -1,8 +1,8 @@
 program frontend_probe
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
     use frontend_compiler_api, only: compiler_frontend_options_t, &
-                                     compiler_frontend_result_t, &
-                                     compile_frontend_from_file
+        compiler_frontend_result_t, &
+        compile_frontend_from_file
     implicit none
 
     character(len=:), allocatable :: source_path
@@ -45,9 +45,9 @@ program frontend_probe
     end if
 
     json_line = '{"source_path":"' // escape_json(source_path) // &
-                '","parse_ok":' // logical_json(result%parse_ok) // &
-                ',"semantic_ok":' // logical_json(result%semantic_ok) // &
-                ',"diagnostic_text":"' // escape_json(diagnostic_text) // '"}'
+        '","parse_ok":' // logical_json(result%parse_ok) // &
+        ',"semantic_ok":' // logical_json(result%semantic_ok) // &
+        ',"diagnostic_text":"' // escape_json(diagnostic_text) // '"}'
     write (output_unit, '(A)') trim(json_line)
 
 contains

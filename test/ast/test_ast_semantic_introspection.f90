@@ -22,7 +22,7 @@ contains
 
     ! Helper function to find assignment node and get type details
     subroutine find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                                 is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(out) :: type_kind, type_size
         logical, intent(out) :: is_allocatable, is_pointer, found
@@ -42,7 +42,7 @@ contains
         if (assignment_index > 0) then
             print *, "    SUCCESS: Found assignment node at index: ", assignment_index
             call get_node_type_details(arena, assignment_index, type_kind, type_size, &
-                                       is_allocatable, is_pointer, found)
+                is_allocatable, is_pointer, found)
         else
             print *, "    FAIL: No assignment node found"
         end if
@@ -110,7 +110,7 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                               is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
 
         if (.not. found) then
             test_integer_type_inference = .false.
@@ -166,7 +166,7 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                               is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
 
         if (.not. found) then
             test_real_type_inference = .false.
@@ -221,7 +221,7 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                               is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
 
         if (.not. found) then
             test_character_type_inference = .false.
@@ -234,7 +234,7 @@ contains
         ! Verify this is a character type
         if (type_kind == TCHAR) then
             print *, "    PASS: Correctly identified as character type"
-            if (type_size == 5) then  ! "hello" is 5 characters
+            if (type_size == 5) then ! "hello" is 5 characters
                 print *, "    PASS: Correctly identified string length: ", type_size
             else
                 print *, "    INFO: String length: ", type_size, " (expected 5)"
@@ -281,7 +281,7 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                               is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
 
         if (.not. found) then
             test_logical_type_inference = .false.

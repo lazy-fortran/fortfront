@@ -27,11 +27,11 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
 
         success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "if (x > 0) then") > 0) .and. &
-                  (index(output, "else") > 0) .and. &
-                  (index(output, "print *, 'positive'") > 0) .and. &
-                  (index(output, "print *, 'non-positive'") > 0) .and. &
-                  (index(output, "end if") > 0)
+            (index(output, "if (x > 0) then") > 0) .and. &
+            (index(output, "else") > 0) .and. &
+            (index(output, "print *, 'positive'") > 0) .and. &
+            (index(output, "print *, 'non-positive'") > 0) .and. &
+            (index(output, "end if") > 0)
     end subroutine run_test
 
 end program test_issue_1112_if_else_single_line

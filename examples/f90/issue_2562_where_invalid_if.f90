@@ -11,10 +11,10 @@ program issue_2562_where_invalid_if
 
     b = (/1, 0/)
     where (b == 0)
-        if (any(b == 0)) then    ! INVALID: IF construct not allowed in WHERE
-            stop 1               ! INVALID: STOP statement not allowed in WHERE
+        if (any(b == 0)) then ! INVALID: IF construct not allowed in WHERE
+            stop 1 ! INVALID: STOP statement not allowed in WHERE
         end if
     elsewhere
-        b = 2                    ! Valid: array assignment
+        b = 2 ! Valid: array assignment
     end where
 end program issue_2562_where_invalid_if

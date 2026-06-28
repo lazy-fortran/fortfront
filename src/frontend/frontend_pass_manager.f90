@@ -11,7 +11,7 @@ module frontend_pass_manager
     public :: pass_t, pass_manager_t, pass_context_t, pass_config_t
     public :: create_pass_manager, create_default_config
     public :: PASS_SEMANTIC, PASS_STANDARDIZATION, PASS_MONOMORPHIZATION, &
-              PASS_CODEGEN
+        PASS_CODEGEN
 
     ! Pass identifiers for final phases
     integer, parameter :: PASS_SEMANTIC = 1
@@ -96,7 +96,7 @@ contains
 
     ! Add pass to manager
     subroutine pass_manager_add_pass(this, pass_id, name, trace_key, &
-                                     required, execute)
+            required, execute)
         class(pass_manager_t), intent(inout) :: this
         integer, intent(in) :: pass_id
         character(len=*), intent(in) :: name

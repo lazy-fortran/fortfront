@@ -3,7 +3,7 @@ module semantic_strict_argument_type_checker_validation
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
-                              error_collection_t
+        error_collection_t
     use semantic_unsigned_integer_mix_diagnostics, only: &
         emit_unsigned_integer_mix_error, extract_integer_signedness, &
         is_integer_literal_expr
@@ -21,7 +21,7 @@ module semantic_strict_argument_type_checker_validation
 contains
 
     subroutine validate_call_against_interface(arena, errors, proc_name, &
-                                               arg_indices, param_indices, body_indices)
+            arg_indices, param_indices, body_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(error_collection_t), intent(inout) :: errors
         character(len=*), intent(in) :: proc_name
@@ -56,35 +56,35 @@ contains
             param_names(i) = resolve_param_name(arena, param_indices(i), i)
         end do
         call collect_param_decl_indices(arena, body_indices, param_names, &
-                                        decl_for_param)
+            decl_for_param)
 
         if (allocated(arg_indices)) then
             do i = 1, actual_count
                 call map_keyword_argument(arena, errors, arg_indices(i), param_names, &
-                                          arg_for_param)
+                    arg_for_param)
             end do
 
             next_positional = 1
             do i = 1, actual_count
                 call extract_keyword_name_if_present(arena, arg_indices(i), keyword, &
-                                                     is_keyword)
+                    is_keyword)
                 if (is_keyword) cycle
                 call map_positional_argument(errors, arg_indices(i), next_positional, &
-                                             arg_for_param)
+                    arg_for_param)
             end do
         end if
 
         do i = 1, dummy_count
             if (arg_for_param(i) == 0) cycle
             call validate_mapped_argument(arena, errors, proc_name, &
-                                          trim(param_names(i)), arg_for_param(i), &
-                                          merge(decl_for_param(i), param_indices(i), &
-                                                decl_for_param(i) > 0))
+                trim(param_names(i)), arg_for_param(i), &
+                merge(decl_for_param(i), param_indices(i), &
+                decl_for_param(i) > 0))
         end do
     end subroutine validate_call_against_interface
 
     subroutine collect_param_decl_indices(arena, body_indices, param_names, &
-                                          decl_for_param)
+            decl_for_param)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: param_names(:)
@@ -102,19 +102,19 @@ contains
             stmt_index = body_indices(i)
             if (.not. arena%has_node_at(stmt_index)) cycle
             select type (node => arena%entries(stmt_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (node%is_multi_declaration .and. allocated(node%var_names)) then
                     do j = 1, size(node%var_names)
                         lowered = to_lower(trim(node%var_names(j)))
                         call bind_decl_index(param_names, lowered, stmt_index, &
-                                             decl_for_param)
+                            decl_for_param)
                     end do
                 else if (allocated(node%var_name)) then
                     lowered = to_lower(trim(node%var_name))
                     call bind_decl_index(param_names, lowered, stmt_index, &
-                                         decl_for_param)
+                        decl_for_param)
                 end if
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (.not. allocated(node%name)) cycle
                 lowered = to_lower(trim(node%name))
                 call bind_decl_index(param_names, lowered, stmt_index, decl_for_param)
@@ -143,7 +143,7 @@ contains
     end subroutine bind_decl_index
 
     subroutine map_keyword_argument(arena, errors, arg_index, param_names, &
-                                    arg_for_param)
+            arg_for_param)
         type(ast_arena_t), intent(in) :: arena
         type(error_collection_t), intent(inout) :: errors
         integer, intent(in) :: arg_index
@@ -161,8 +161,8 @@ contains
             if (to_lower(trim(param_names(i))) == to_lower(trim(keyword))) then
                 if (arg_for_param(i) /= 0) then
                     call emit_argument_error(errors, &
-                                             "Duplicate argument for dummy '"// &
-                                             trim(param_names(i))//"'")
+                        "Duplicate argument for dummy '"// &
+                        trim(param_names(i))//"'")
                     return
                 end if
                 arg_for_param(i) = value_index_if_keyword_arg(arena, arg_index)
@@ -171,11 +171,11 @@ contains
         end do
 
         call emit_argument_error(errors, &
-                                 "Unknown keyword argument '"//trim(keyword)//"'")
+            "Unknown keyword argument '"//trim(keyword)//"'")
     end subroutine map_keyword_argument
 
     subroutine map_positional_argument(errors, arg_index, next_positional, &
-                                       arg_for_param)
+            arg_for_param)
         type(error_collection_t), intent(inout) :: errors
         integer, intent(in) :: arg_index
         integer, intent(inout) :: next_positional
@@ -196,7 +196,7 @@ contains
     end subroutine map_positional_argument
 
     subroutine validate_mapped_argument(arena, errors, proc_name, dummy_name, &
-                                        arg_expr_index, dummy_index)
+            arg_expr_index, dummy_index)
         type(ast_arena_t), intent(inout) :: arena
         type(error_collection_t), intent(inout) :: errors
         character(len=*), intent(in) :: proc_name
@@ -226,9 +226,9 @@ contains
         if (.not. strict_type_is_known(dummy_type)) return
 
         call extract_integer_signedness(actual_type, actual_is_int, &
-                                        actual_is_unsigned)
+            actual_is_unsigned)
         call extract_integer_signedness(dummy_type, dummy_is_int, &
-                                        dummy_is_unsigned)
+            dummy_is_unsigned)
         actual_is_int_literal = is_integer_literal_expr(arena, arg_expr_index)
 
         if (actual_is_int .and. dummy_is_int) then
@@ -245,10 +245,10 @@ contains
         call strict_type_name(actual_type, actual_string)
         call strict_type_name(dummy_type, dummy_string)
         call emit_argument_error(errors, &
-                                 "Type mismatch in call to '"//trim(proc_name)// &
-                                 "': actual argument '"//trim(dummy_name)// &
-                                 "' is "//trim(actual_string)// &
-                                 ", but dummy expects "//trim(dummy_string))
+            "Type mismatch in call to '"//trim(proc_name)// &
+            "': actual argument '"//trim(dummy_name)// &
+            "' is "//trim(actual_string)// &
+            ", but dummy expects "//trim(dummy_string))
     end subroutine validate_mapped_argument
 
     subroutine extract_keyword_name_if_present(arena, arg_index, keyword, is_keyword)
@@ -262,7 +262,7 @@ contains
         if (.not. arena%has_node_at(arg_index)) return
 
         select type (node => arena%entries(arg_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (.not. node%is_keyword_argument) return
             keyword = keyword_target_name(arena, node%target_index)
             if (len_trim(keyword) == 0) return
@@ -280,7 +280,7 @@ contains
         if (.not. arena%has_node_at(arg_index)) return
 
         select type (node => arena%entries(arg_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (.not. node%is_keyword_argument) return
             value_index = node%value_index
         class default
@@ -296,11 +296,11 @@ contains
         if (.not. arena%has_node_at(target_index)) return
 
         select type (node => arena%entries(target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) name = trim(node%name)
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(node%var_name)) name = trim(node%var_name)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (allocated(node%name)) name = trim(node%name)
         class default
             return
@@ -308,7 +308,7 @@ contains
     end function keyword_target_name
 
     character(len=64) function resolve_param_name(arena, param_index, position) &
-        result(name)
+            result(name)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_index
         integer, intent(in) :: position
@@ -324,21 +324,21 @@ contains
         end if
 
         select type (node => arena%entries(param_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
                     name = trim(node%name)
                     return
                 end if
             end if
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) then
                     name = trim(node%name)
                     return
                 end if
             end if
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(node%var_name)) then
                 if (len_trim(node%var_name) > 0) then
                     name = trim(node%var_name)
@@ -357,12 +357,12 @@ contains
         character(len=*), intent(in) :: message
 
         call errors%add_result(create_error_result( &
-                               trim(message), ERROR_SEMANTIC, &
-                               component="semantic_analyzer", &
-                               context="strict_argument_type_check", &
-                               suggestion="Use explicit conversion functions "// &
-                               "(real/int/dble) to match dummy "// &
-                               "argument types"))
+            trim(message), ERROR_SEMANTIC, &
+            component="semantic_analyzer", &
+            context="strict_argument_type_check", &
+            suggestion="Use explicit conversion functions "// &
+            "(real/int/dble) to match dummy "// &
+            "argument types"))
     end subroutine emit_argument_error
 
 end module semantic_strict_argument_type_checker_validation

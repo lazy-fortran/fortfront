@@ -2,10 +2,10 @@ program test_strict_infer_mode_selection
     use, intrinsic :: iso_fortran_env, only: &
         error_unit, input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_context_t, &
-                                  transform_with_context, &
-                                  INPUT_MODE_LAZY, &
-                                  OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+        transform_with_context, &
+        INPUT_MODE_LAZY, &
+        OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     implicit none
 
     character(len=:), allocatable :: source
@@ -23,7 +23,7 @@ program test_strict_infer_mode_selection
     call assert_contains(error_msg, 'Strict mode forbids bare statements')
 
     call read_example('examples/lf/issue_2588_program_undeclared_assignment.lf', &
-                      source)
+        source)
 
     ctx%operating_mode = OPERATING_MODE_INFER
     call transform_with_context(source, output, error_msg, ctx)

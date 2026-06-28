@@ -73,7 +73,7 @@ contains
         end if
 
         stmt_index = push_intrinsic_statement(arena, names(1:count), line, column, &
-                                              has_double_colon=has_double_colon)
+            has_double_colon=has_double_colon)
 
     contains
         subroutine grow_name_buffer(buffer)

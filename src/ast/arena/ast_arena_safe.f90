@@ -2,12 +2,12 @@ module ast_arena_safe
     ! SAFE version of ast_arena that avoids source= allocations
     use ast_base, only: ast_node
     use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
-                              identifier_node, literal_node, array_literal_node, &
-                              call_or_subscript_node
+        identifier_node, literal_node, array_literal_node, &
+        call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
-                                   subroutine_call_node
+        subroutine_call_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              module_node
+        module_node
     use ast_nodes_control, only: &
         select_case_node, case_block_node
     use, intrinsic :: iso_fortran_env, only: error_unit
@@ -60,31 +60,31 @@ contains
         handled = .true.
 
         select type (n => node)
-        type is (program_node)
+            type is (program_node)
             allocate (program_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (assignment_node)
+            type is (assignment_node)
             allocate (assignment_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (binary_op_node)
+            type is (binary_op_node)
             allocate (binary_op_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (identifier_node)
+            type is (identifier_node)
             allocate (identifier_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (literal_node)
+            type is (literal_node)
             allocate (literal_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (array_literal_node)
+            type is (array_literal_node)
             allocate (array_literal_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             allocate (call_or_subscript_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
@@ -103,15 +103,15 @@ contains
         handled = .true.
 
         select type (n => node)
-        type is (function_def_node)
+            type is (function_def_node)
             allocate (function_def_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             allocate (subroutine_def_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             allocate (subroutine_call_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
@@ -130,15 +130,15 @@ contains
         handled = .true.
 
         select type (n => node)
-        type is (declaration_node)
+            type is (declaration_node)
             allocate (declaration_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             allocate (parameter_declaration_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
-        type is (module_node)
+            type is (module_node)
             allocate (module_node :: arena%entries(index)%node)
             call copy_node(arena%entries(index)%node, n)
 
@@ -152,69 +152,69 @@ contains
         class(ast_node), intent(in) :: src
 
         select type (dest_typed => dest)
-        type is (program_node)
-            select type (src_typed => src)
             type is (program_node)
+            select type (src_typed => src)
+                type is (program_node)
                 dest_typed = src_typed
             end select
-        type is (assignment_node)
-            select type (src_typed => src)
             type is (assignment_node)
+            select type (src_typed => src)
+                type is (assignment_node)
                 dest_typed = src_typed
             end select
-        type is (binary_op_node)
-            select type (src_typed => src)
             type is (binary_op_node)
+            select type (src_typed => src)
+                type is (binary_op_node)
                 dest_typed = src_typed
             end select
-        type is (identifier_node)
-            select type (src_typed => src)
             type is (identifier_node)
+            select type (src_typed => src)
+                type is (identifier_node)
                 dest_typed = src_typed
             end select
-        type is (literal_node)
-            select type (src_typed => src)
             type is (literal_node)
+            select type (src_typed => src)
+                type is (literal_node)
                 dest_typed = src_typed
             end select
-        type is (array_literal_node)
-            select type (src_typed => src)
             type is (array_literal_node)
+            select type (src_typed => src)
+                type is (array_literal_node)
                 dest_typed = src_typed
             end select
-        type is (call_or_subscript_node)
-            select type (src_typed => src)
             type is (call_or_subscript_node)
+            select type (src_typed => src)
+                type is (call_or_subscript_node)
                 dest_typed = src_typed
             end select
-        type is (function_def_node)
-            select type (src_typed => src)
             type is (function_def_node)
+            select type (src_typed => src)
+                type is (function_def_node)
                 dest_typed = src_typed
             end select
-        type is (subroutine_def_node)
-            select type (src_typed => src)
             type is (subroutine_def_node)
+            select type (src_typed => src)
+                type is (subroutine_def_node)
                 dest_typed = src_typed
             end select
-        type is (subroutine_call_node)
-            select type (src_typed => src)
             type is (subroutine_call_node)
+            select type (src_typed => src)
+                type is (subroutine_call_node)
                 dest_typed = src_typed
             end select
-        type is (declaration_node)
-            select type (src_typed => src)
             type is (declaration_node)
+            select type (src_typed => src)
+                type is (declaration_node)
                 dest_typed = src_typed
             end select
-        type is (parameter_declaration_node)
-            select type (src_typed => src)
             type is (parameter_declaration_node)
+            select type (src_typed => src)
+                type is (parameter_declaration_node)
                 dest_typed = src_typed
             end select
-        type is (module_node)
-            select type (src_typed => src)
             type is (module_node)
+            select type (src_typed => src)
+                type is (module_node)
                 dest_typed = src_typed
             end select
         end select
@@ -231,9 +231,9 @@ contains
             "ERROR: Unknown AST node type - creating error placeholder"
         allocate (error_node_t :: arena%entries(index)%node)
         select type (error_node => arena%entries(index)%node)
-        type is (error_node_t)
+            type is (error_node_t)
             error_node = create_error_node("Unknown node type in arena storage", &
-                                           "Could not safely store node")
+                "Could not safely store node")
         end select
     end subroutine store_error_placeholder
 
@@ -249,7 +249,7 @@ contains
         else
             ! Check if we created an error node
             select type (node_ref => arena%entries(index)%node)
-            type is (error_node_t)
+                type is (error_node_t)
                 arena%entries(index)%node_type = "error_node"
             class default
                 arena%entries(index)%node_type = "unknown"

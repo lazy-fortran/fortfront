@@ -28,8 +28,8 @@ contains
     logical function test_program_keywords()
         type(token_t), allocatable :: tokens(:)
         character(len=20), dimension(4) :: prog_keywords = [ &
-                                           "program   ", "end       ", "function  ", "subroutine" &
-                                           ]
+            "program   ", "end       ", "function  ", "subroutine" &
+            ]
         integer :: i
 
         test_program_keywords = .true.
@@ -37,7 +37,7 @@ contains
 
         do i = 1, size(prog_keywords)
             call tokenize_core(trim(prog_keywords(i)), tokens)
-            if (size(tokens) /= 2) then  ! keyword + EOF
+            if (size(tokens) /= 2) then ! keyword + EOF
                 print '(a,a)', "FAIL: Wrong token count for keyword: ", trim(prog_keywords(i))
                 test_program_keywords = .false.
                 return
@@ -63,8 +63,8 @@ contains
     logical function test_control_keywords()
         type(token_t), allocatable :: tokens(:)
         character(len=20), dimension(5) :: ctrl_keywords = [ &
-                                           "if    ", "then  ", "else  ", "endif ", "do    " &
-                                           ]
+            "if    ", "then  ", "else  ", "endif ", "do    " &
+            ]
         integer :: i
 
         test_control_keywords = .true.
@@ -91,8 +91,8 @@ contains
     logical function test_type_keywords()
         type(token_t), allocatable :: tokens(:)
         character(len=20), dimension(6) :: type_keywords = [ &
-                                           "implicit ", "none     ", "integer  ", "real     ", "logical  ", "character" &
-                                           ]
+            "implicit ", "none     ", "integer  ", "real     ", "logical  ", "character" &
+            ]
         integer :: i
 
         test_type_keywords = .true.
@@ -119,8 +119,8 @@ contains
     logical function test_io_keywords()
         type(token_t), allocatable :: tokens(:)
         character(len=20), dimension(4) :: io_keywords = [ &
-                                           "print", "read ", "write", "call " &
-                                           ]
+            "print", "read ", "write", "call " &
+            ]
         integer :: i
 
         test_io_keywords = .true.
@@ -147,8 +147,8 @@ contains
     logical function test_memory_keywords()
         type(token_t), allocatable :: tokens(:)
         character(len=10), dimension(2) :: mem_keywords = [ &
-                                           "allocate  ", "deallocate" &
-                                           ]
+            "allocate  ", "deallocate" &
+            ]
         integer :: i
 
         test_memory_keywords = .true.

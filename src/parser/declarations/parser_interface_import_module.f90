@@ -84,13 +84,13 @@ contains
 
         if (name_count > 0) then
             stmt_index = push_import_statement(arena, import_names(1:name_count), &
-                                               has_double_colon=has_double_colon, &
-                                               line=line, column=column)
+                has_double_colon=has_double_colon, &
+                line=line, column=column)
         else
             stmt_index = push_import_statement(arena, &
-                                               has_double_colon=has_double_colon, &
-                                               is_all=is_all, is_none=is_none, &
-                                               line=line, column=column)
+                has_double_colon=has_double_colon, &
+                is_all=is_all, is_none=is_none, &
+                line=line, column=column)
         end if
     end function parse_import_statement
 

@@ -32,7 +32,7 @@ contains
     function test_nested_parentheses_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "x = (a + b) * (c + d * (e + f * (g + h)))" // new_line('a')
+            "x = (a + b) * (c + d * (e + f * (g + h)))" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "nested_parentheses_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -98,7 +98,7 @@ contains
     function test_simple_parentheses_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "y = (a + b) * c" // new_line('a')
+            "y = (a + b) * c" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "simple_parentheses_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -154,7 +154,7 @@ contains
     function test_operator_precedence_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-                                       "z = a * (b + c) * d" // new_line('a')
+            "z = a * (b + c) * d" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "operator_precedence_preservation"
         type(token_t), allocatable :: tokens(:)

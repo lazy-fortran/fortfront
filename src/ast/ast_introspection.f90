@@ -3,8 +3,8 @@ module ast_introspection
     ! Provides comprehensive API for examining AST nodes and their properties
 
     use ast_arena_modern, only: ast_arena_t, has_node_at, get_node_line, &
-                                get_node_column, get_inferred_kind_at, &
-                                get_inferred_details_at
+        get_node_column, get_inferred_kind_at, &
+        get_inferred_details_at
     use ast_base, only: ast_node
     use ast_nodes_core
     use ast_nodes_procedure
@@ -13,7 +13,7 @@ module ast_introspection
     use ast_nodes_io
     use ast_nodes_misc
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
-                                range_expression_node, array_operation_node
+        range_expression_node, array_operation_node
     use ast_nodes_legacy, only: common_block_node, enum_node
     use type_system_unified, only: mono_type_t
     implicit none
@@ -84,175 +84,175 @@ contains
         ! Use select type to determine node type and return standard constants
         ! These constants match those defined in fortfront.f90
         select type (node)
-        type is (program_node)
+            type is (program_node)
             type_id = 1 ! NODE_PROGRAM
-        type is (function_def_node)
+            type is (function_def_node)
             type_id = 2 ! NODE_FUNCTION_DEF
-        type is (assignment_node)
+            type is (assignment_node)
             type_id = 3 ! NODE_ASSIGNMENT
-        type is (binary_op_node)
+            type is (binary_op_node)
             type_id = 4 ! NODE_BINARY_OP
-        type is (identifier_node)
+            type is (identifier_node)
             type_id = 5 ! NODE_IDENTIFIER
-        type is (literal_node)
+            type is (literal_node)
             type_id = 6 ! NODE_LITERAL
-        type is (array_literal_node)
+            type is (array_literal_node)
             type_id = 7 ! NODE_ARRAY_LITERAL
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             type_id = 8 ! NODE_CALL_OR_SUBSCRIPT
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             type_id = 9 ! NODE_SUBROUTINE_DEF
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             type_id = 10 ! NODE_SUBROUTINE_CALL
-        type is (declaration_node)
+            type is (declaration_node)
             type_id = 11 ! NODE_DECLARATION
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             type_id = 12 ! NODE_PARAMETER_DECLARATION
-        type is (if_node)
+            type is (if_node)
             type_id = 13 ! NODE_IF
-        type is (do_loop_node)
+            type is (do_loop_node)
             type_id = 14 ! NODE_DO_LOOP
-        type is (do_while_node)
+            type is (do_while_node)
             type_id = 15 ! NODE_DO_WHILE
-        type is (select_case_node)
+            type is (select_case_node)
             type_id = 16 ! NODE_SELECT_CASE
-        type is (case_block_node)
+            type is (case_block_node)
             type_id = 17 ! NODE_CASE_BLOCK
-        type is (module_node)
+            type is (module_node)
             type_id = 18 ! NODE_MODULE
-        type is (use_statement_node)
+            type is (use_statement_node)
             type_id = 19 ! NODE_USE_STATEMENT
-        type is (print_statement_node)
+            type is (print_statement_node)
             type_id = 20 ! NODE_PRINT_STATEMENT
-        type is (write_statement_node)
+            type is (write_statement_node)
             type_id = 21 ! NODE_WRITE_STATEMENT
-        type is (read_statement_node)
+            type is (read_statement_node)
             type_id = 22 ! NODE_READ_STATEMENT
-        type is (format_statement_node)
+            type is (format_statement_node)
             type_id = 44 ! NODE_FORMAT_STATEMENT
-        type is (allocate_statement_node)
+            type is (allocate_statement_node)
             type_id = 23 ! NODE_ALLOCATE_STATEMENT
-        type is (deallocate_statement_node)
+            type is (deallocate_statement_node)
             type_id = 24 ! NODE_DEALLOCATE_STATEMENT
-        type is (stop_node)
+            type is (stop_node)
             type_id = 25 ! NODE_STOP
-        type is (return_node)
+            type is (return_node)
             type_id = 26 ! NODE_RETURN
-        type is (entry_node)
+            type is (entry_node)
             type_id = 60 ! NODE_ENTRY
-        type is (goto_node)
+            type is (goto_node)
             type_id = 27 ! NODE_GOTO
-        type is (error_stop_node)
+            type is (error_stop_node)
             type_id = 28 ! NODE_ERROR_STOP
-        type is (cycle_node)
+            type is (cycle_node)
             type_id = 29 ! NODE_CYCLE
-        type is (exit_node)
+            type is (exit_node)
             type_id = 30 ! NODE_EXIT
-        type is (where_node)
+            type is (where_node)
             type_id = 31 ! NODE_WHERE
-        type is (interface_block_node)
+            type is (interface_block_node)
             type_id = 32 ! NODE_INTERFACE_BLOCK
-        type is (derived_type_node)
+            type is (derived_type_node)
             type_id = 33 ! NODE_DERIVED_TYPE
-        type is (pointer_assignment_node)
+            type is (pointer_assignment_node)
             type_id = 34 ! NODE_POINTER_ASSIGNMENT
-        type is (forall_node)
+            type is (forall_node)
             type_id = 35 ! NODE_FORALL
-        type is (case_range_node)
+            type is (case_range_node)
             type_id = 36 ! NODE_CASE_RANGE
-        type is (case_default_node)
+            type is (case_default_node)
             type_id = 37 ! NODE_CASE_DEFAULT
-        type is (complex_literal_node)
+            type is (complex_literal_node)
             type_id = 38 ! NODE_COMPLEX_LITERAL
-        type is (include_statement_node)
+            type is (include_statement_node)
             type_id = 39 ! NODE_INCLUDE_STATEMENT
-        type is (contains_node)
+            type is (contains_node)
             type_id = 40 ! NODE_CONTAINS
-        type is (format_descriptor_node)
+            type is (format_descriptor_node)
             type_id = 41 ! NODE_FORMAT_DESCRIPTOR
-        type is (comment_node)
+            type is (comment_node)
             type_id = 42 ! NODE_COMMENT
-        type is (implicit_statement_node)
+            type is (implicit_statement_node)
             type_id = 43 ! NODE_IMPLICIT_STATEMENT
-        type is (module_procedure_node)
+            type is (module_procedure_node)
             type_id = 83 ! NODE_MODULE_PROCEDURE
-        type is (continue_node)
+            type is (continue_node)
             type_id = 45 ! NODE_CONTINUE
-        type is (directive_node)
+            type is (directive_node)
             type_id = 48 ! NODE_DIRECTIVE
-        type is (pause_node)
+            type is (pause_node)
             type_id = 46 ! NODE_PAUSE
-        type is (nullify_node)
+            type is (nullify_node)
             type_id = 47 ! NODE_NULLIFY
-        type is (array_bounds_node)
+            type is (array_bounds_node)
             type_id = 50 ! NODE_ARRAY_BOUNDS
-        type is (array_slice_node)
+            type is (array_slice_node)
             type_id = 51 ! NODE_ARRAY_SLICE
-        type is (range_expression_node)
+            type is (range_expression_node)
             type_id = 52 ! NODE_RANGE_EXPRESSION
-        type is (array_operation_node)
+            type is (array_operation_node)
             type_id = 53 ! NODE_ARRAY_OPERATION
-        type is (submodule_node)
+            type is (submodule_node)
             type_id = 54 ! NODE_SUBMODULE
-        type is (block_data_node)
+            type is (block_data_node)
             type_id = 55 ! NODE_BLOCK_DATA
-        type is (type_binding_node)
+            type is (type_binding_node)
             type_id = 56 ! NODE_TYPE_BINDING
-        type is (mixed_construct_container_node)
+            type is (mixed_construct_container_node)
             type_id = 57 ! NODE_MIXED_CONSTRUCT
-        type is (where_stmt_node)
+            type is (where_stmt_node)
             type_id = 58 ! NODE_WHERE_STMT
-        type is (select_type_node)
+            type is (select_type_node)
             type_id = 59 ! NODE_SELECT_TYPE
-        type is (type_guard_block_node)
+            type is (type_guard_block_node)
             type_id = 61 ! NODE_TYPE_GUARD_BLOCK
-        type is (select_rank_node)
+            type is (select_rank_node)
             type_id = 62 ! NODE_SELECT_RANK
-        type is (rank_block_node)
+            type is (rank_block_node)
             type_id = 63 ! NODE_RANK_BLOCK
-        type is (associate_node)
+            type is (associate_node)
             type_id = 64 ! NODE_ASSOCIATE
-        type is (block_construct_node)
+            type is (block_construct_node)
             type_id = 65 ! NODE_BLOCK_CONSTRUCT
-        type is (io_implied_do_node)
+            type is (io_implied_do_node)
             type_id = 66 ! NODE_IO_IMPLIED_DO
-        type is (open_statement_node)
+            type is (open_statement_node)
             type_id = 67 ! NODE_OPEN_STATEMENT
-        type is (close_statement_node)
+            type is (close_statement_node)
             type_id = 68 ! NODE_CLOSE_STATEMENT
-        type is (inquire_statement_node)
+            type is (inquire_statement_node)
             type_id = 69 ! NODE_INQUIRE_STATEMENT
-        type is (backspace_statement_node)
+            type is (backspace_statement_node)
             type_id = 70 ! NODE_BACKSPACE_STATEMENT
-        type is (rewind_statement_node)
+            type is (rewind_statement_node)
             type_id = 71 ! NODE_REWIND_STATEMENT
-        type is (endfile_statement_node)
+            type is (endfile_statement_node)
             type_id = 72 ! NODE_ENDFILE_STATEMENT
-        type is (component_access_node)
+            type is (component_access_node)
             type_id = 73 ! NODE_COMPONENT_ACCESS
-        type is (range_subscript_node)
+            type is (range_subscript_node)
             type_id = 74 ! NODE_RANGE_SUBSCRIPT
-        type is (blank_line_node)
+            type is (blank_line_node)
             type_id = 75 ! NODE_BLANK_LINE
-        type is (end_statement_node)
+            type is (end_statement_node)
             type_id = 76 ! NODE_END_STATEMENT
-        type is (intrinsic_statement_node)
+            type is (intrinsic_statement_node)
             type_id = 77 ! NODE_INTRINSIC_STATEMENT
-        type is (visibility_statement_node)
+            type is (visibility_statement_node)
             type_id = 78 ! NODE_VISIBILITY_STATEMENT
-        type is (namelist_statement_node)
+            type is (namelist_statement_node)
             type_id = 79 ! NODE_NAMELIST_STATEMENT
-        type is (data_statement_node)
+            type is (data_statement_node)
             type_id = 80 ! NODE_DATA_STATEMENT
-        type is (import_statement_node)
+            type is (import_statement_node)
             type_id = 81 ! NODE_IMPORT_STATEMENT
-        type is (statement_function_node)
+            type is (statement_function_node)
             type_id = 82 ! NODE_STATEMENT_FUNCTION
-        type is (common_block_node)
+            type is (common_block_node)
             type_id = 83 ! NODE_COMMON_BLOCK
-        type is (enum_node)
+            type is (enum_node)
             type_id = 84 ! NODE_ENUM
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             type_id = 85 ! NODE_MULTI_UNIT_CONTAINER
         class default
             type_id = 99 ! NODE_UNKNOWN
@@ -295,7 +295,7 @@ contains
 
     ! Get type details without dangerous deep copy (safe read-only access)
     subroutine get_node_type_details(arena, index, kind, type_size, is_allocatable, &
-                                     is_pointer, found)
+            is_pointer, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         integer, intent(out) :: kind, type_size
@@ -303,7 +303,7 @@ contains
 
         ! Delegate to arena helper
         call arena%get_inferred_details_at(index, kind, type_size, &
-                                           is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
     end subroutine get_node_type_details
 
     ! PRIVATE: Legacy function - always returns unallocated

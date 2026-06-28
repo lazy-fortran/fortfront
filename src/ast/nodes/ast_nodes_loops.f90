@@ -1,7 +1,7 @@
 module ast_nodes_loops
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -201,8 +201,8 @@ contains
 
     ! Factory functions
     function create_do_loop(var_name, start_expr_index, end_expr_index, &
-                            step_expr_index, body_indices, line, column) &
-        result(node)
+            step_expr_index, body_indices, line, column) &
+            result(node)
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index
         integer, intent(in), optional :: step_expr_index

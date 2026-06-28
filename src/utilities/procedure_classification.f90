@@ -1,22 +1,22 @@
 module procedure_classification
-    use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
-        & get_procedure_params, get_procedure_name
-    use ast_nodes_transfer, only: entry_node
-    use string_utils_mod, only: to_lower
-    implicit none
-    private
+use ast_arena_modern, only: ast_arena_t
+use ast_nodes_core, only: program_node
+use ast_nodes_data, only: declaration_node, parameter_declaration_node
+use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+    & get_procedure_params, get_procedure_name
+use ast_nodes_transfer, only: entry_node
+use string_utils_mod, only: to_lower
+implicit none
+private
 
-    public :: should_hoist_procedure
-    public :: procedure_has_explicit_types
-    public :: procedure_has_entry_statement
+public :: should_hoist_procedure
+public :: procedure_has_explicit_types
+public :: procedure_has_entry_statement
 
 contains
 
     logical function should_hoist_procedure(arena, proc_idx, target_prog_idx) &
-        & result(should_hoist)
+            & result(should_hoist)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_idx
         integer, intent(in) :: target_prog_idx
@@ -52,7 +52,7 @@ contains
     end function should_hoist_procedure
 
     logical function procedure_has_optional_arguments(arena, proc_idx) &
-        & result(has_optional)
+            & result(has_optional)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_idx
         integer, allocatable :: param_indices(:)
@@ -72,12 +72,12 @@ contains
             if (param_idx > arena%size) cycle
             if (.not. allocated(arena%entries(param_idx)%node)) cycle
             select type (param_node => arena%entries(param_idx)%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 if (param_node%is_optional) then
                     has_optional = .true.
                     return
                 end if
-            type is (declaration_node)
+                type is (declaration_node)
                 if (param_node%is_optional) then
                     has_optional = .true.
                     return
@@ -86,13 +86,13 @@ contains
         end do
 
         select type (proc_node => arena%entries(proc_idx)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(proc_node%body_indices)) then
                 if (body_has_optional_declaration(arena, proc_node%body_indices)) then
                     has_optional = .true.
                 end if
             end if
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(proc_node%body_indices)) then
                 if (body_has_optional_declaration(arena, proc_node%body_indices)) then
                     has_optional = .true.
@@ -103,7 +103,7 @@ contains
     end function procedure_has_optional_arguments
 
     logical function procedure_has_special_prefix(arena, proc_idx) &
-        & result(has_prefix)
+            & result(has_prefix)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_idx
         integer :: i
@@ -115,7 +115,7 @@ contains
         if (.not. allocated(arena%entries(proc_idx)%node)) return
 
         select type (proc_node => arena%entries(proc_idx)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(proc_node%prefix_keywords)) return
             do i = 1, size(proc_node%prefix_keywords)
                 keyword = to_lower(trim(proc_node%prefix_keywords(i)))
@@ -125,7 +125,7 @@ contains
                     return
                 end select
             end do
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(proc_node%prefix_keywords)) then
                 do i = 1, size(proc_node%prefix_keywords)
                     keyword = to_lower(trim(proc_node%prefix_keywords(i)))
@@ -146,7 +146,7 @@ contains
     end function procedure_has_special_prefix
 
     logical function body_has_special_prefix(arena, body_indices) &
-        & result(has_prefix)
+            & result(has_prefix)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer :: i, idx
@@ -159,12 +159,12 @@ contains
             if (idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (node => arena%entries(idx)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (procedure_has_special_prefix(arena, idx)) then
                     has_prefix = .true.
                     return
                 end if
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (procedure_has_special_prefix(arena, idx)) then
                     has_prefix = .true.
                     return
@@ -175,7 +175,7 @@ contains
     end function body_has_special_prefix
 
     logical function body_has_optional_declaration(arena, body_indices) &
-        & result(has_optional)
+            & result(has_optional)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer :: i, idx
@@ -188,7 +188,7 @@ contains
             if (idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (decl%is_optional) then
                     has_optional = .true.
                     return
@@ -198,7 +198,7 @@ contains
     end function body_has_optional_declaration
 
     logical function procedure_has_explicit_types(arena, proc_idx) &
-        result(has_types)
+            result(has_types)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_idx
         type(function_def_node), pointer :: func
@@ -213,12 +213,12 @@ contains
         if (.not. allocated(arena%entries(proc_idx)%node)) return
 
         select type (node => arena%entries(proc_idx)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             func => node
             if (.not. allocated(func%param_indices)) return
             if (size(func%param_indices) == 0) return
             param_indices = func%param_indices
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             subr => node
             if (.not. allocated(subr%param_indices)) return
             if (size(subr%param_indices) == 0) return
@@ -245,14 +245,14 @@ contains
             if (idx > arena%size) return
             if (.not. allocated(arena%entries(idx)%node)) return
             select type (decl => arena%entries(idx)%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 param_node => decl
             end select
         end subroutine get_parameter_node_from_arena
     end function procedure_has_explicit_types
 
     logical function procedure_declared_external(arena, proc_idx, target_prog_idx) &
-        result(is_external_proc)
+            result(is_external_proc)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: proc_idx
         integer, intent(in) :: target_prog_idx
@@ -272,10 +272,10 @@ contains
         if (len(proc_name) == 0) return
 
         select type (target => arena%entries(target_prog_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(target%body_indices)) return
             if (body_declares_external_with_name(arena, target%body_indices, &
-                                                 proc_name)) then
+                proc_name)) then
                 is_external_proc = .true.
             end if
         class default
@@ -283,7 +283,7 @@ contains
     end function procedure_declared_external
 
     logical function body_declares_external_with_name(arena, body_indices, name) &
-        & result(has_match)
+            & result(has_match)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: name
@@ -298,7 +298,7 @@ contains
             if (idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (.not. decl%is_external) cycle
                 if (allocated(decl%var_name)) then
                     candidate = trim(to_lower(decl%var_name))
@@ -323,7 +323,7 @@ contains
     end function body_declares_external_with_name
 
     logical function procedure_has_entry_statement(arena, proc_idx) &
-        & result(has_entry)
+            & result(has_entry)
         ! Check if a procedure contains ENTRY statements. ENTRY statements cannot
         ! appear in contained (internal) procedures per ISO/IEC 1539-1:2018
         ! Section 15.6.2.6. This function is used to prevent hoisting procedures
@@ -338,10 +338,10 @@ contains
         if (.not. allocated(arena%entries(proc_idx)%node)) return
 
         select type (proc_node => arena%entries(proc_idx)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(proc_node%body_indices)) return
             has_entry = body_has_entry_statement(arena, proc_node%body_indices)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (.not. allocated(proc_node%body_indices)) return
             has_entry = body_has_entry_statement(arena, proc_node%body_indices)
         class default
@@ -350,7 +350,7 @@ contains
     end function procedure_has_entry_statement
 
     logical function body_has_entry_statement(arena, body_indices) &
-        & result(has_entry)
+            & result(has_entry)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer :: i, idx
@@ -362,7 +362,7 @@ contains
             if (idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (stmt => arena%entries(idx)%node)
-            type is (entry_node)
+                type is (entry_node)
                 has_entry = .true.
                 return
             end select

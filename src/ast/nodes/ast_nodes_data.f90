@@ -1,7 +1,7 @@
 module ast_nodes_data
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_visitor_base_t
+        ast_visitor_base_t
     use string_types, only: string_t
     implicit none
     private
@@ -556,7 +556,7 @@ contains
 
     ! Constructor for module node (migrated from ast_core)
     function create_module(name, declaration_indices, procedure_indices, &
-                           has_contains, line, column) result(node)
+            has_contains, line, column) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
@@ -586,7 +586,7 @@ contains
 
     ! Constructor for block data node
     function create_block_data(name, statement_indices, line, column, header_label, &
-                               end_label) result(node)
+            end_label) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: statement_indices(:)
@@ -615,8 +615,8 @@ contains
 
     ! Constructor for submodule node (Fortran 2008)
     function create_submodule(name, parent_identifier, declaration_indices, &
-                              procedure_indices, has_contains, line, column) &
-        result(node)
+            procedure_indices, has_contains, line, column) &
+            result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: parent_identifier
@@ -648,9 +648,9 @@ contains
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, &
-                                initializer_index, dimension_indices, &
-                                is_allocatable, is_pointer, is_target, &
-                                is_external, line, column) result(node)
+            initializer_index, dimension_indices, &
+            is_allocatable, is_pointer, is_target, &
+            is_external, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -699,7 +699,7 @@ contains
     end function create_declaration
 
     function create_derived_type(name, component_indices, param_indices, &
-                                 extends_parent, line, column) result(node)
+            extends_parent, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
         integer, intent(in), optional :: param_indices(:)
@@ -729,8 +729,8 @@ contains
     end function create_derived_type
 
     function create_type_binding(binding_name, implementation, is_generic, &
-                                 is_final, is_deferred, pass_arg, &
-                                 accessibility, line, column) result(node)
+            is_final, is_deferred, pass_arg, &
+            accessibility, line, column) result(node)
         character(len=*), intent(in) :: binding_name
         character(len=*), intent(in), optional :: implementation
         logical, intent(in), optional :: is_generic
@@ -852,8 +852,8 @@ contains
 
     ! Factory function for mixed construct container
     function create_mixed_construct_container(module_name, implicit_indices, &
-                                              explicit_indices, line, column) &
-        result(node)
+            explicit_indices, line, column) &
+            result(node)
         character(len=*), intent(in) :: module_name
         integer, intent(in), optional :: implicit_indices(:)
         integer, intent(in), optional :: explicit_indices(:)

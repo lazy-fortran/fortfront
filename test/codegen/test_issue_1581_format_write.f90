@@ -13,8 +13,8 @@ contains
         print *, "Test: FORMAT statement preservation"
 
         source = "program test" // new_line('A') // &
-                 "100 format('test')" // new_line('A') // &
-                 "end program test"
+            "100 format('test')" // new_line('A') // &
+            "end program test"
 
         call transform_lazy_fortran_string(source, generated, error_msg)
 
@@ -44,11 +44,11 @@ contains
         print *, "Test: WRITE with label reference"
 
         source = "program test" // new_line('A') // &
-                 "integer :: x" // new_line('A') // &
-                 "x = 42" // new_line('A') // &
-                 "write(*, 100) x" // new_line('A') // &
-                 "100 format(I5)" // new_line('A') // &
-                 "end program test"
+            "integer :: x" // new_line('A') // &
+            "x = 42" // new_line('A') // &
+            "write(*, 100) x" // new_line('A') // &
+            "100 format(I5)" // new_line('A') // &
+            "end program test"
 
         call transform_lazy_fortran_string(source, generated, error_msg)
 
@@ -78,14 +78,14 @@ contains
         print *, "Test: Full FORMAT/WRITE integration from issue #1581"
 
         source = "program test_format" // new_line('A') // &
-                 "implicit none" // new_line('A') // &
-                 "integer :: x" // new_line('A') // &
-                 "real :: y" // new_line('A') // &
-                 "x = 42" // new_line('A') // &
-                 "y = 3.14159" // new_line('A') // &
-                 "write(*, 100) x, y" // new_line('A') // &
-                 "100 format('x = ', I5, ', y = ', F8.5)" // new_line('A') // &
-                 "end program test_format"
+            "implicit none" // new_line('A') // &
+            "integer :: x" // new_line('A') // &
+            "real :: y" // new_line('A') // &
+            "x = 42" // new_line('A') // &
+            "y = 3.14159" // new_line('A') // &
+            "write(*, 100) x, y" // new_line('A') // &
+            "100 format('x = ', I5, ', y = ', F8.5)" // new_line('A') // &
+            "end program test_format"
 
         call transform_lazy_fortran_string(source, generated, error_msg)
 

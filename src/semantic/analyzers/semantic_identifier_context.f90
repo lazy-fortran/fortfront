@@ -1,15 +1,15 @@
 module semantic_identifier_context
     use type_system_unified, only: mono_type_t, poly_type_t, &
-                                   create_mono_type, TVAR, TREAL, TARRAY, TFUN
+        create_mono_type, TVAR, TREAL, TARRAY, TFUN
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
-                              call_or_subscript_node, binary_op_node, program_node
+        call_or_subscript_node, binary_op_node, program_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: declaration_node
     use scope_manager, only: scope_stack_t
     use semantic_type_operations, only: instantiate_type_scheme_op
     use semantic_array_type_builders, only: build_deferred_shape_array, &
-                                            collapse_array_rank
+        collapse_array_rank
     use semantic_procedure_utils, only: declaration_type_to_mono
     use semantic_expression_context, only: infer_expression_type_static
     implicit none
@@ -22,8 +22,8 @@ module semantic_identifier_context
 contains
 
     function infer_identifier_type_from_context(arena, ident_name, param_names, &
-                                                param_types, scopes, anchor_index, &
-                                                next_var_id) result(typ)
+            param_types, scopes, anchor_index, &
+            next_var_id) result(typ)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: ident_name
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -46,11 +46,11 @@ contains
         if (typ%kind /= 0) return
 
         call determine_anchor_context(arena, anchor_index, scope_index, &
-                                      program_index, search_start)
+            program_index, search_start)
         call search_identifier_type_bidirectional(arena, lowered_name, param_names, &
-                                                  param_types, scope_index, &
-                                                  program_index, search_start, &
-                                                  anchor_index, typ)
+            param_types, scope_index, &
+            program_index, search_start, &
+            anchor_index, typ)
     end function infer_identifier_type_from_context
 
     subroutine instantiate_scope_type(scopes, lowered_name, next_var_id, typ)
@@ -68,7 +68,7 @@ contains
     end subroutine instantiate_scope_type
 
     subroutine determine_anchor_context(arena, anchor_index, scope_index, &
-                                        program_index, search_start)
+            program_index, search_start)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: anchor_index
         integer, intent(out) :: scope_index
@@ -87,9 +87,9 @@ contains
     end subroutine determine_anchor_context
 
     subroutine search_identifier_type_bidirectional(arena, lowered_name, param_names, &
-                                                    param_types, scope_index, &
-                                                    program_index, search_start, &
-                                                    anchor_index, typ)
+            param_types, scope_index, &
+            program_index, search_start, &
+            anchor_index, typ)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: lowered_name
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -105,17 +105,17 @@ contains
 
         if (search_start >= 1) then
             call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, &
-                                              program_index, search_start, 1, -1, typ)
+                param_types, scope_index, &
+                program_index, search_start, 1, -1, typ)
             if (typ%kind /= 0) return
         end if
 
         forward_start = compute_forward_start(anchor_index, arena%size)
         if (forward_start <= arena%size) then
             call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, &
-                                              program_index, forward_start, &
-                                              arena%size, 1, typ)
+                param_types, scope_index, &
+                program_index, forward_start, &
+                arena%size, 1, typ)
         end if
     end subroutine search_identifier_type_bidirectional
 
@@ -131,8 +131,8 @@ contains
     end function compute_forward_start
 
     subroutine search_identifier_type_range(arena, lowered_name, param_names, &
-                                            param_types, scope_index, program_index, &
-                                            start_idx, end_idx, step, typ)
+            param_types, scope_index, program_index, &
+            start_idx, end_idx, step, typ)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: lowered_name
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -150,10 +150,10 @@ contains
         do idx = start_idx, end_idx, step
             if (.not. allocated(arena%entries(idx)%node)) cycle
             if (.not. identifier_visible_in_scope(arena, idx, scope_index, &
-                                                  program_index)) cycle
+                program_index)) cycle
             candidate = infer_identifier_type_at_index(arena, idx, lowered_name, &
-                                                       param_names, param_types, &
-                                                       scope_index, program_index)
+                param_names, param_types, &
+                scope_index, program_index)
             if (candidate%kind /= 0) then
                 typ = candidate
                 return
@@ -162,8 +162,8 @@ contains
     end subroutine search_identifier_type_range
 
     function infer_identifier_type_at_index(arena, entry_index, lowered_name, &
-                                            param_names, param_types, scope_index, &
-                                            program_index) result(candidate)
+            param_names, param_types, scope_index, &
+            program_index) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: entry_index
         character(len=*), intent(in) :: lowered_name
@@ -178,7 +178,7 @@ contains
         if (.not. allocated(arena%entries(entry_index)%node)) return
 
         select type (node => arena%entries(entry_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(node%var_name)) then
                 if (trim(node%var_name) == lowered_name) then
                     candidate = declaration_type_to_mono(node%type_name)
@@ -193,23 +193,23 @@ contains
                     end if
                 end do
             end if
-        type is (assignment_node)
+            type is (assignment_node)
             candidate = check_assignment_for_identifier(arena, node, lowered_name, &
-                                                        param_names, param_types, &
-                                                        scope_index, program_index)
-        type is (call_or_subscript_node)
+                param_names, param_types, &
+                scope_index, program_index)
+            type is (call_or_subscript_node)
             candidate = check_call_for_identifier(arena, node, lowered_name, &
-                                                  param_names, param_types)
-        type is (binary_op_node)
+                param_names, param_types)
+            type is (binary_op_node)
             candidate = check_binary_op_for_identifier(arena, node, lowered_name, &
-                                                       param_names, param_types, &
-                                                       entry_index)
+                param_names, param_types, &
+                entry_index)
         end select
     end function infer_identifier_type_at_index
 
     function check_assignment_for_identifier(arena, node, lowered_name, &
-                                             param_names, param_types, scope_index, &
-                                             program_index) result(candidate)
+            param_names, param_types, scope_index, &
+            program_index) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: node
         character(len=*), intent(in) :: lowered_name
@@ -227,25 +227,25 @@ contains
         if (.not. arena%has_node_at(target_index)) return
 
         select type (target => arena%entries(target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (trim(target%name) /= lowered_name) return
             candidate = infer_expression_type_static(arena, node%value_index, &
-                                                     param_names, param_types)
-        type is (call_or_subscript_node)
+                param_names, param_types)
+            type is (call_or_subscript_node)
             if (.not. allocated(target%name)) return
             if (trim(target%name) /= lowered_name) return
             if (.not. allocated(target%arg_indices)) return
             rank = size(target%arg_indices)
             if (rank <= 0) return
             element_type = infer_expression_type_static(arena, node%value_index, &
-                                                        param_names, param_types)
+                param_names, param_types)
             if (element_type%kind == 0) element_type = create_mono_type(TREAL)
             candidate = build_deferred_shape_array(element_type, rank)
         end select
     end function check_assignment_for_identifier
 
     function check_call_for_identifier(arena, node, lowered_name, &
-                                       param_names, param_types) result(candidate)
+            param_names, param_types) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
         character(len=*), intent(in) :: lowered_name
@@ -279,8 +279,8 @@ contains
     end function check_call_for_identifier
 
     function check_binary_op_for_identifier(arena, node, lowered_name, &
-                                            param_names, param_types, &
-                                            entry_index) result(candidate)
+            param_names, param_types, &
+            entry_index) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         character(len=*), intent(in) :: lowered_name
@@ -292,20 +292,20 @@ contains
         candidate%kind = 0
         if (is_identifier_reference(arena, node%left_index, lowered_name)) then
             candidate = infer_expression_type_static(arena, node%right_index, &
-                                                     param_names, param_types)
+                param_names, param_types)
             if (candidate%kind == 0) then
                 candidate = infer_expression_type_static(arena, entry_index, &
-                                                         param_names, param_types)
+                    param_names, param_types)
             end if
             if (candidate%kind /= 0) return
         end if
 
         if (is_identifier_reference(arena, node%right_index, lowered_name)) then
             candidate = infer_expression_type_static(arena, node%left_index, &
-                                                     param_names, param_types)
+                param_names, param_types)
             if (candidate%kind == 0) then
                 candidate = infer_expression_type_static(arena, entry_index, &
-                                                         param_names, param_types)
+                    param_names, param_types)
             end if
         end if
     end function check_binary_op_for_identifier
@@ -319,7 +319,7 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) then
                 if (trim(node%name) == lowered_name) then
                     is_identifier_reference = .true.
@@ -341,10 +341,10 @@ contains
                 cycle
             end if
             select type (owner => arena%entries(current)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 scope_index = current
                 return
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 scope_index = current
                 return
             end select
@@ -365,7 +365,7 @@ contains
                 cycle
             end if
             select type (owner => arena%entries(current)%node)
-            type is (program_node)
+                type is (program_node)
                 program_index = current
                 return
             end select
@@ -374,8 +374,8 @@ contains
     end function find_program_owner
 
     logical function identifier_visible_in_scope(arena, candidate_index, &
-                                                 scope_index, program_index) &
-        result(is_visible)
+            scope_index, program_index) &
+            result(is_visible)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: candidate_index
         integer, intent(in) :: scope_index

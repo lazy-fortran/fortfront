@@ -9,7 +9,7 @@ program issue_2416_io_formats_comprehensive
 
     ! Label format with READ
     read (10, 100) val
-100 format (I5)
+    100 format (I5)
 
     ! String literal format
     read (10, '(I5)') val

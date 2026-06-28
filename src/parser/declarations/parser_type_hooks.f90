@@ -26,10 +26,10 @@ module parser_type_hooks_module
 contains
 
     subroutine register_type_annotation(decl_index, type_name, var_names, has_kind, &
-                                        kind_value, &
-                                        is_unsigned, is_parameter, is_allocatable, &
-                                        is_pointer, &
-                                        dimension_indices)
+            kind_value, &
+            is_unsigned, is_parameter, is_allocatable, &
+            is_pointer, &
+            dimension_indices)
         integer, intent(in) :: decl_index
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -59,7 +59,7 @@ contains
             max_len = max(max_len, len_trim(var_names(i)))
         end do
         allocate (character(len=max_len) :: &
-                  registry(entry_index)%var_names(size(var_names)))
+            registry(entry_index)%var_names(size(var_names)))
         do i = 1, size(var_names)
             registry(entry_index)%var_names(i) = adjustl(trim(var_names(i)))
         end do
@@ -134,7 +134,7 @@ contains
     end subroutine consume_type_annotations
 
     subroutine update_type_annotation_entry(decl_index, var_names, has_dimensions, &
-                                            dimension_indices)
+            dimension_indices)
         integer, intent(in) :: decl_index
         character(len=*), intent(in), optional :: var_names(:)
         logical, intent(in), optional :: has_dimensions
@@ -155,7 +155,7 @@ contains
                     deallocate (registry(i)%var_names)
                 end if
                 allocate (character(len=max_len) :: &
-                          registry(i)%var_names(size(var_names)))
+                    registry(i)%var_names(size(var_names)))
                 do j = 1, size(var_names)
                     registry(i)%var_names(j) = adjustl(trim(var_names(j)))
                 end do

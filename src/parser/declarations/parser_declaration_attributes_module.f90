@@ -4,8 +4,8 @@ module parser_declaration_attributes_module
     use ast_arena_modern, only: ast_arena_t
     use parser_expressions_module, only: parse_range
     use declaration_attribute_utils, only: declaration_attribute_info_t, &
-                                           reset_declaration_attributes, &
-                                           set_declaration_intent
+        reset_declaration_attributes, &
+        set_declaration_intent
     implicit none
     private
 
@@ -31,7 +31,7 @@ contains
 
             token = parser%consume()
             handled_attribute = parse_single_declaration_attribute(parser, &
-                                                                   arena, attr_info)
+                arena, attr_info)
             if (.not. handled_attribute) then
                 exit
             end if
@@ -39,7 +39,7 @@ contains
     end subroutine parse_declaration_attributes
 
     logical function parse_single_declaration_attribute(parser, arena, attr_info) &
-        result(handled)
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_attribute_info_t), intent(inout) :: attr_info

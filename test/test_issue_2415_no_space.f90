@@ -13,14 +13,14 @@ program test_issue_2415_no_space
     integer :: root
 
     source1 = "program test" // new_line('a') // &
-              "integer :: x" // new_line('a') // &
-              "data x / 5 /" // new_line('a') // &
-              "end program"
+        "integer :: x" // new_line('a') // &
+        "data x / 5 /" // new_line('a') // &
+        "end program"
 
     source2 = "program test" // new_line('a') // &
-              "integer :: x" // new_line('a') // &
-              "data x /5/" // new_line('a') // &
-              "end program"
+        "integer :: x" // new_line('a') // &
+        "data x /5/" // new_line('a') // &
+        "end program"
 
     write (output_unit, '(A)') "Testing with spaces: data x / 5 /"
     arena = create_ast_arena()

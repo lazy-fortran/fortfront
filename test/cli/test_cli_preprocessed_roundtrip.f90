@@ -52,7 +52,7 @@ contains
         integer :: unit, ios
 
         open (newunit=unit, file=path, status='replace', action='write', &
-              iostat=ios)
+            iostat=ios)
         call assert_equal_int(ios, 0, 'Failed to open preprocessed snippet file')
         write (unit, '(A)') '# 1 "fake_line.F"'
         write (unit, '(A)') '! simple preprocessed snippet'

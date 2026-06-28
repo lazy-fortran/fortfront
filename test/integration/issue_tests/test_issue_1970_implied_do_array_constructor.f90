@@ -2,7 +2,7 @@ program test_issue_1970_implied_do_array_constructor
     use, intrinsic :: iso_fortran_env, only: error_unit
     use, intrinsic :: iso_fortran_env, only: input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t, &
-                                  INPUT_MODE_STANDARD
+        INPUT_MODE_STANDARD
     implicit none
 
     type(transform_context_t) :: context

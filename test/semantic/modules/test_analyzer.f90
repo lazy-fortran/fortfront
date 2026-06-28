@@ -48,7 +48,7 @@ contains
         ! For testing, return the execution status
         allocate (test_result_t :: results)
         select type (results)
-        type is (test_result_t)
+            type is (test_result_t)
             results%analysis_executed = this%analysis_executed
             results%nodes_visited = this%nodes_visited
         end select
@@ -80,7 +80,7 @@ contains
         class(semantic_analyzer_t), intent(in) :: rhs
 
         select type (rhs)
-        type is (simple_test_analyzer_t)
+            type is (simple_test_analyzer_t)
             lhs%analysis_executed = rhs%analysis_executed
             lhs%nodes_visited = rhs%nodes_visited
         class default

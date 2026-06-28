@@ -25,13 +25,13 @@ contains
 
         ! Driver must insert implicit none and declarations for inferred names.
         call require_contains(output, 'implicit none', &
-                              'declaration insertion: implicit none')
+            'declaration insertion: implicit none')
         call require_contains(output, ':: count', &
-                              'declaration insertion: integer count declared')
+            'declaration insertion: integer count declared')
         call require_contains(output, ':: pi_estimate', &
-                              'declaration insertion: real pi_estimate declared')
+            'declaration insertion: real pi_estimate declared')
         call require_contains(output, 'program main', &
-                              'program wrapping: program main header')
+            'program wrapping: program main header')
     end subroutine assert_declaration_insertion
 
     subroutine assert_program_wrapping_for_bare_statements()
@@ -42,11 +42,11 @@ contains
         call assert_no_errors('assignment_simple', errors)
 
         call require_contains(output, 'program main', &
-                              'bare statements wrapped in program main')
+            'bare statements wrapped in program main')
         call require_contains(output, 'end program main', &
-                              'bare statements have matching end program')
+            'bare statements have matching end program')
         call require_contains(output, 'implicit none', &
-                              'wrapped program gets implicit none')
+            'wrapped program gets implicit none')
     end subroutine assert_program_wrapping_for_bare_statements
 
     subroutine assert_function_standardization()
@@ -57,9 +57,9 @@ contains
         call assert_no_errors('basic_function', errors)
 
         call require_contains(output, 'integer function square', &
-                              'function standardization: explicit return type')
+            'function standardization: explicit return type')
         call require_contains(output, 'intent(in) :: x', &
-                              'function standardization: parameter intent inferred')
+            'function standardization: parameter intent inferred')
     end subroutine assert_function_standardization
 
     subroutine assert_subroutine_intent_inference()
@@ -70,9 +70,9 @@ contains
         call assert_no_errors('intent_mixed_subroutine', errors)
 
         call require_contains(output, 'intent(inout)', &
-                              'subroutine intent inference: inout for read+write arg')
+            'subroutine intent inference: inout for read+write arg')
         call require_contains(output, 'intent(in)', &
-                              'subroutine intent inference: in for read-only arg')
+            'subroutine intent inference: in for read-only arg')
     end subroutine assert_subroutine_intent_inference
 
     subroutine assert_no_errors(label, errors)

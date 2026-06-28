@@ -1,7 +1,7 @@
 program test_debug_trace_profile_mismatch
     use, intrinsic :: iso_fortran_env, only: error_unit
     use debug_trace, only: trace_enter, trace_leave, trace_profile_reset, &
-                           trace_set_profile_enabled
+        trace_set_profile_enabled
     implicit none
 
     character(len=512) :: executable_path

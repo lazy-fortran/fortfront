@@ -13,11 +13,11 @@ program test_issue_2016_nested_call_types
     type(tooling_parse_options_t) :: opts
 
     call read_example('examples/lf/issue_2016_nested_call_type_mismatch.lf', &
-                      source)
+        source)
 
     opts%run_semantics = .true.
     call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                      opts)
+        opts)
 
     if (len_trim(error_msg) > 0) then
         write (error_unit, '(A)') 'ERROR: ' // trim(error_msg)

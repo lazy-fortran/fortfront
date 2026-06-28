@@ -106,11 +106,11 @@ contains
         logical :: found_assignment, as_identifier
 
         source = 'program demo_program_kw' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: program' // new_line('a') // &
-                 '    program = 10' // new_line('a') // &
-                 '    print *, program' // new_line('a') // &
-                 'end program demo_program_kw'
+            '    implicit none' // new_line('a') // &
+            '    integer :: program' // new_line('a') // &
+            '    program = 10' // new_line('a') // &
+            '    print *, program' // new_line('a') // &
+            'end program demo_program_kw'
 
         call tokenize_core(source, tokens)
         parser = create_parser_state(tokens)
@@ -154,11 +154,11 @@ contains
         logical :: found_assignment, as_identifier
 
         source = 'program demo_module_kw' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: module' // new_line('a') // &
-                 '    module = 3' // new_line('a') // &
-                 '    print *, module' // new_line('a') // &
-                 'end program demo_module_kw'
+            '    implicit none' // new_line('a') // &
+            '    integer :: module' // new_line('a') // &
+            '    module = 3' // new_line('a') // &
+            '    print *, module' // new_line('a') // &
+            'end program demo_module_kw'
 
         call tokenize_core(source, tokens)
         parser = create_parser_state(tokens)

@@ -32,9 +32,9 @@ contains
         print *, 'Testing lazy WHERE with single-line syntax...'
 
         source = '! Lazy WHERE syntax' // new_line('a') // &
-                 'arr = [1, -2, 3, -4, 5]' // new_line('a') // &
-                 'where arr < 0: arr = 0' // new_line('a') // &
-                 'print *, arr'
+            'arr = [1, -2, 3, -4, 5]' // new_line('a') // &
+            'where arr < 0: arr = 0' // new_line('a') // &
+            'print *, arr'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

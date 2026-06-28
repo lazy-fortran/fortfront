@@ -22,10 +22,10 @@ contains
         type(cst_node_t) :: node
 
         node%kind = kind
-        node%uid = 0_int64  ! Will be set by arena
+        node%uid = 0_int64 ! Will be set by arena
         node%start_pos = start_pos
         node%end_pos = end_pos
-        node%ast_link = 0  ! No AST link initially
+        node%ast_link = 0 ! No AST link initially
 
         ! Set text for terminal nodes
         if (present(text)) then
@@ -90,8 +90,8 @@ contains
         logical :: is_trivia
 
         is_trivia = (kind == CST_COMMENT .or. &
-                     kind == CST_WHITESPACE .or. &
-                     kind == CST_NEWLINE)
+            kind == CST_WHITESPACE .or. &
+            kind == CST_NEWLINE)
     end function is_trivia_kind
 
     ! Validate CST node structure

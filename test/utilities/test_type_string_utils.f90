@@ -1,7 +1,7 @@
 program test_type_string_utils
     use type_string_utils, only: is_character_type_string, mono_type_to_string
     use type_system_unified, only: create_mono_type, mono_type_t, TINT, TREAL, &
-                                   TCHAR, TLOGICAL, TARRAY
+        TCHAR, TLOGICAL, TARRAY
     implicit none
 
     integer :: total, passed
@@ -10,15 +10,15 @@ program test_type_string_utils
     passed = 0
 
     call expect_true(is_character_type_string("character(len=4)"), &
-                     "detects character type prefix")
+        "detects character type prefix")
     call expect_true(is_character_type_string("   CHARACTER(LEN=10)"), &
-                     "handles leading spaces and case")
+        "handles leading spaces and case")
     call expect_true(is_character_type_string("character(kind=4)"), &
-                     "accepts kind specifier")
+        "accepts kind specifier")
     call expect_false(is_character_type_string("integer(4)"), &
-                      "rejects integer type")
+        "rejects integer type")
     call expect_false(is_character_type_string("char(len=4)"), &
-                      "rejects partial match")
+        "rejects partial match")
     call expect_false(is_character_type_string(""), "rejects empty input")
 
     call test_mono_type_to_string_cases()
@@ -43,60 +43,60 @@ contains
 
         int_type = create_mono_type(TINT)
         call expect_string_equal(mono_type_to_string(int_type), "integer", &
-                                 "mono_type_to_string integer")
+            "mono_type_to_string integer")
 
         real_type = create_mono_type(TREAL)
         call expect_string_equal(mono_type_to_string(real_type), "real", &
-                                 "mono_type_to_string real default")
+            "mono_type_to_string real default")
 
         type_str = mono_type_to_string(real_type, standardize_real=.true.)
         call expect_string_equal(type_str, "real(dp)", &
-                                 "mono_type_to_string real standardize")
+            "mono_type_to_string real standardize")
 
         char_type = create_mono_type(TCHAR, char_size=4)
         call expect_string_equal(mono_type_to_string(char_type), &
-                                 "character(len=4)", &
-                                 "mono_type_to_string character len")
+            "character(len=4)", &
+            "mono_type_to_string character len")
 
         char_unknown = create_mono_type(TCHAR)
         char_unknown%alloc_info%needs_allocatable_string = .true.
         call expect_string_equal(mono_type_to_string(char_unknown), &
-                                 "character(len=:), allocatable", &
-                                 "mono_type_to_string character allocatable")
+            "character(len=:), allocatable", &
+            "mono_type_to_string character allocatable")
 
         char_unknown = create_mono_type(TCHAR)
         type_str = mono_type_to_string(char_unknown, prefer_len_zero_char=.true.)
         call expect_string_equal(type_str, "character(len=0)", &
-                                 "mono_type_to_string character zero length")
+            "mono_type_to_string character zero length")
 
         array_type = create_mono_type(TARRAY, args=[real_type], array_size=3)
         type_str = mono_type_to_string(array_type, include_shape=.true.)
         call expect_string_equal(type_str, "real, dimension(3)", &
-                                 "mono_type_to_string array dimension")
+            "mono_type_to_string array dimension")
 
         type_str = mono_type_to_string(array_type)
         call expect_string_equal(type_str, "real", &
-                                 "mono_type_to_string array element")
+            "mono_type_to_string array element")
 
         alloc_array = create_mono_type(TARRAY, args=[real_type])
         alloc_array%alloc_info%is_allocatable = .true.
         type_str = mono_type_to_string(alloc_array, include_shape=.true.)
         call expect_string_equal(type_str, "real, dimension(:), allocatable", &
-                                 "mono_type_to_string allocatable array")
+            "mono_type_to_string allocatable array")
 
         invalid_type = mono_type_t()
         type_str = mono_type_to_string(invalid_type, success=success)
         call expect_true(.not. success, &
-                         "mono_type_to_string reports failure for invalid type")
+            "mono_type_to_string reports failure for invalid type")
         call expect_string_equal(type_str, "", &
-                                 "mono_type_to_string invalid type string")
+            "mono_type_to_string invalid type string")
 
         type_str = mono_type_to_string(invalid_type, fallback="real", &
-                                       success=success)
+            success=success)
         call expect_true(.not. success, &
-                         "mono_type_to_string preserves failure with fallback")
+            "mono_type_to_string preserves failure with fallback")
         call expect_string_equal(type_str, "real", &
-                                 "mono_type_to_string applies fallback")
+            "mono_type_to_string applies fallback")
     end subroutine test_mono_type_to_string_cases
 
     subroutine expect_true(condition, name)

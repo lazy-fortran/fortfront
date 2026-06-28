@@ -1,7 +1,7 @@
 program test_debug_trace_profile_report_sorted
     use, intrinsic :: iso_fortran_env, only: error_unit, int64
     use debug_trace, only: trace_enter, trace_leave, trace_profile_reset, &
-                           trace_set_profile_enabled, trace_finalize
+        trace_set_profile_enabled, trace_finalize
     implicit none
 
     character(len=256) :: report_path
@@ -12,7 +12,7 @@ program test_debug_trace_profile_report_sorted
     call make_tmpfile(report_path)
 
     open (newunit=report_unit, file=trim(report_path), status='replace', &
-          action='write', iostat=ios)
+        action='write', iostat=ios)
     if (ios /= 0) then
         write (error_unit, '(A,1X,A)') 'FAIL: Could not open report file:', &
             trim(report_path)
@@ -45,7 +45,7 @@ contains
         else
             target_fast = max(1_int64, int(rate_default, kind=int64) / 500_int64)
             target_slow = max(target_fast + 1_int64, &
-                              int(rate_default, kind=int64) / 50_int64)
+                int(rate_default, kind=int64) / 50_int64)
         end if
 
         call trace_enter('profile:fast')
@@ -91,7 +91,7 @@ contains
         line_no = 0
 
         open (newunit=unit, file=trim(path), status='old', action='read', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) then
             write (error_unit, '(A,1X,A)') 'FAIL: Could not open report:', trim(path)
             stop 1

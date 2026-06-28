@@ -21,16 +21,16 @@ program test_derived_type_component_scope
     logical :: test_passed
 
     source = "program attr_type_test" // new_line('a') // &
-             "    implicit none" // new_line('a') // new_line('a') // &
-             "    type :: point_t" // new_line('a') // &
-             "        real :: x" // new_line('a') // &
-             "        real :: y" // new_line('a') // &
-             "    end type point_t" // new_line('a') // new_line('a') // &
-             "    type(point_t) :: p" // new_line('a') // new_line('a') // &
-             "    p%x = 1.0" // new_line('a') // &
-             "    p%y = 2.0" // new_line('a') // new_line('a') // &
-             "    print *, p%x, p%y" // new_line('a') // &
-             "end program attr_type_test"
+        "    implicit none" // new_line('a') // new_line('a') // &
+        "    type :: point_t" // new_line('a') // &
+        "        real :: x" // new_line('a') // &
+        "        real :: y" // new_line('a') // &
+        "    end type point_t" // new_line('a') // new_line('a') // &
+        "    type(point_t) :: p" // new_line('a') // new_line('a') // &
+        "    p%x = 1.0" // new_line('a') // &
+        "    p%y = 2.0" // new_line('a') // new_line('a') // &
+        "    print *, p%x, p%y" // new_line('a') // &
+        "end program attr_type_test"
 
     call lex_source(source, tokens, error_msg)
     if (len_trim(error_msg) > 0) then
@@ -49,7 +49,7 @@ program test_derived_type_component_scope
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (node => arena%entries(i)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             if (allocated(node%name)) then
                 if (trim(node%name) == "point_t") then
                     derived_index = i
@@ -72,7 +72,7 @@ program test_derived_type_component_scope
     if (allocated(component_list)) deallocate (component_list)
 
     select type (dtype => arena%entries(derived_index)%node)
-    type is (derived_type_node)
+        type is (derived_type_node)
         if (allocated(dtype%component_indices)) then
             component_list = dtype%component_indices
         else
@@ -100,7 +100,7 @@ program test_derived_type_component_scope
             end if
 
             select type (decl => arena%entries(comp_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (.not. allocated(decl%var_name)) then
                     print *, "FAIL: component missing variable name"
                     test_passed = .false.
@@ -139,7 +139,7 @@ program test_derived_type_component_scope
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (decl => arena%entries(i)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. allocated(decl%var_name)) cycle
             if (trim(decl%var_name) == "p") then
                 found_p = .true.

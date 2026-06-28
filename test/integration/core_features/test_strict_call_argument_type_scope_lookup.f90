@@ -2,7 +2,7 @@ program test_strict_call_argument_type_scope_lookup
     use, intrinsic :: iso_fortran_env, only: &
         error_unit, input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_context_t, transform_with_context, &
-                                  INPUT_MODE_STANDARD, OPERATING_MODE_STRICT
+        INPUT_MODE_STANDARD, OPERATING_MODE_STRICT
     implicit none
 
     character(len=:), allocatable :: source

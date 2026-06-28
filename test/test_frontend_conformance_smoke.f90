@@ -13,11 +13,11 @@ program test_frontend_conformance_smoke
     end if
 
     command = 'sh -c "rm -rf /tmp/fortfront_conf_smoke_gcc ' // &
-              '/tmp/fortfront_conf_smoke_lfortran && ' // &
-              'FF_GFORTRAN_DG_DIR=/tmp/fortfront_conf_smoke_gcc/gcc/testsuite/gfortran.dg ' // &
-              'FF_LFORTRAN_DIR=/tmp/fortfront_conf_smoke_lfortran ' // &
-              'scripts/run_frontend_conformance.sh --suite all ' // &
-              '--report /tmp/fortfront_conf_smoke.jsonl"'
+        '/tmp/fortfront_conf_smoke_lfortran && ' // &
+        'FF_GFORTRAN_DG_DIR=/tmp/fortfront_conf_smoke_gcc/gcc/testsuite/gfortran.dg ' // &
+        'FF_LFORTRAN_DIR=/tmp/fortfront_conf_smoke_lfortran ' // &
+        'scripts/run_frontend_conformance.sh --suite all ' // &
+        '--report /tmp/fortfront_conf_smoke.jsonl"'
 
     call execute_command_line(trim(command), exitstat=exit_code)
     if (exit_code /= 0) then

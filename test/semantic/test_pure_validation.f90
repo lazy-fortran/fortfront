@@ -219,7 +219,7 @@ contains
         allocate (then_body(1))
         then_body(1) = print_idx
         if_idx = push_if(arena, cond_idx, then_body_indices=then_body, &
-                         line=2, column=1)
+            line=2, column=1)
         allocate (body(1))
         body(1) = if_idx
         prefix = [character(len=16) :: 'pure']

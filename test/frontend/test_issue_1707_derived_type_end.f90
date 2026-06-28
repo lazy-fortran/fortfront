@@ -18,12 +18,12 @@ contains
         integer :: idx_wrong_footer
 
         input_code = "module types_mod" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    type point_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "        real :: y" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // &
-                     "end module types_mod"
+            "    implicit none" // new_line('A') // &
+            "    type point_t" // new_line('A') // &
+            "        real :: x" // new_line('A') // &
+            "        real :: y" // new_line('A') // &
+            "    end type point_t" // new_line('A') // &
+            "end module types_mod"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
         if (len_trim(error_msg) > 0) then
@@ -60,14 +60,14 @@ contains
         integer :: idx_footer
 
         input_code = "program header_test" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    type point_t" // new_line('A') // &
-                     "        real :: value" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // &
-                     "    type(point_t) :: p" // new_line('A') // &
-                     "    p%value = 1.0" // new_line('A') // &
-                     "    print *, p%value" // new_line('A') // &
-                     "end program header_test"
+            "    implicit none" // new_line('A') // &
+            "    type point_t" // new_line('A') // &
+            "        real :: value" // new_line('A') // &
+            "    end type point_t" // new_line('A') // &
+            "    type(point_t) :: p" // new_line('A') // &
+            "    p%value = 1.0" // new_line('A') // &
+            "    print *, p%value" // new_line('A') // &
+            "end program header_test"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
         if (len_trim(error_msg) > 0) then
@@ -98,17 +98,17 @@ contains
         integer :: idx_child_footer
 
         input_code = "module comment_extends" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    type parent_t" // new_line('A') // &
-                     "        integer :: id" // new_line('A') // &
-                     "    end type parent_t" // new_line('A') // &
-                     "" // new_line('A') // &
-                     "    type, &" // new_line('A') // &
-                     "         ! comment about inheritance" // new_line('A') // &
-                     "         extends(parent_t) :: child_t" // new_line('A') // &
-                     "        integer :: value" // new_line('A') // &
-                     "    end type child_t" // new_line('A') // &
-                     "end module comment_extends"
+            "    implicit none" // new_line('A') // &
+            "    type parent_t" // new_line('A') // &
+            "        integer :: id" // new_line('A') // &
+            "    end type parent_t" // new_line('A') // &
+            "" // new_line('A') // &
+            "    type, &" // new_line('A') // &
+            "         ! comment about inheritance" // new_line('A') // &
+            "         extends(parent_t) :: child_t" // new_line('A') // &
+            "        integer :: value" // new_line('A') // &
+            "    end type child_t" // new_line('A') // &
+            "end module comment_extends"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
         if (len_trim(error_msg) > 0) then

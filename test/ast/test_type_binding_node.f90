@@ -1,6 +1,6 @@
 program test_type_binding_node
     use ast_nodes_data, only: type_binding_node, derived_type_node, &
-                               create_type_binding
+        create_type_binding
     implicit none
 
     type(type_binding_node) :: binding1, binding2, binding3
@@ -41,7 +41,7 @@ program test_type_binding_node
     end if
 
     binding2 = create_type_binding("generic_op", is_generic=.true., &
-                                   pass_arg=.false.)
+        pass_arg=.false.)
     if (binding2%binding_name /= "generic_op") then
         print *, "FAIL: generic binding name mismatch"
         stop 1
@@ -56,7 +56,7 @@ program test_type_binding_node
     end if
 
     binding3 = create_type_binding("destructor", is_final=.true., &
-                                   accessibility="private")
+        accessibility="private")
     if (binding3%binding_name /= "destructor") then
         print *, "FAIL: final binding name mismatch"
         stop 1

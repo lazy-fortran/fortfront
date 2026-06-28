@@ -45,7 +45,7 @@ contains
 
         ! Verify the index name was stored correctly
         select type (node => arena%entries(forall_idx)%node)
-        type is (forall_node)
+            type is (forall_node)
             if (len(node%index_names(1)) /= MAX_INDEX_NAME_LENGTH) then
                 print *, "Index name length not preserved correctly"
                 stop 1
@@ -68,7 +68,7 @@ contains
         end if
 
         select type (node => arena%entries(forall_idx)%node)
-        type is (forall_node)
+            type is (forall_node)
             if (node%index_names(1) /= valid_name) then
                 print *, "Multi-character index name not preserved"
                 stop 1
@@ -154,10 +154,10 @@ contains
         index_names = ['i', 'j']
 
         forall_idx = push_forall(arena, 'i', lower_ids(1), upper_ids(1), 0, 0, [body_idx], &
-                                 index_vars_all=index_names, &
-                                 start_indices_all=lower_ids, &
-                                 end_indices_all=upper_ids, &
-                                 stride_indices_all=stride_ids)
+            index_vars_all=index_names, &
+            start_indices_all=lower_ids, &
+            end_indices_all=upper_ids, &
+            stride_indices_all=stride_ids)
 
         if (forall_idx <= 0) then
             print *, "Failed to create multi-index FORALL"
@@ -165,7 +165,7 @@ contains
         end if
 
         select type (node => arena%entries(forall_idx)%node)
-        type is (forall_node)
+            type is (forall_node)
             if (node%num_indices /= 2) then
                 print *, "Multi-index FORALL did not record both indices"
                 stop 1

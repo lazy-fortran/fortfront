@@ -12,7 +12,7 @@ program test_issue_1810_parameter_array_allocatable
     print *, '=== Issue #1810: Parameter arrays incorrectly get ALLOCATABLE ==='
 
     call read_example('examples/f90/issue_1810_parameter_array_allocatable.f90', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 

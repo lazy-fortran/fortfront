@@ -1,6 +1,6 @@
 program test_cli_long_line
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     implicit none
 
     character(len=:), allocatable :: tmpfile, text
@@ -14,7 +14,7 @@ program test_cli_long_line
     line = repeat('x', N)
     file_content = line // char(13) // char(10)
     open (newunit=unit, file=tmpfile, status='replace', action='write', &
-          access='stream', form='unformatted', iostat=ios)
+        access='stream', form='unformatted', iostat=ios)
     if (ios /= 0) then
         write (error_unit, '(A)') 'Failed to open temp file for writing'
         stop 1
@@ -70,7 +70,7 @@ contains
         end if
 
         path = trim(envtmp) // '/ff_long_line_test_' // to_str(int(1000000 * &
-                                                                   rand())) // '.txt'
+            rand())) // '.txt'
     end subroutine make_tmpfile
 
     subroutine cleanup_tmpfile(path)

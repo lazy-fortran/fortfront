@@ -2,8 +2,8 @@ program test_monomorphization_three_types
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     use test_shell_commands, only: build_compile_command
     implicit none
     character(len=:), allocatable :: input, output, error_msg
@@ -26,11 +26,11 @@ program test_monomorphization_three_types
     end if
 
     call assert_contains(output, 'add__i32_i32', &
-                         'missing integer specialization in three type test')
+        'missing integer specialization in three type test')
     call assert_contains(output, 'add__r64_r64', &
-                         'missing real specialization in three type test')
+        'missing real specialization in three type test')
     call assert_contains(output, 'add__c64_c64', &
-                         'missing complex specialization in three type test')
+        'missing complex specialization in three type test')
 
     is_windows = check_if_windows()
     call create_temp_directory(temp_dir, is_windows)

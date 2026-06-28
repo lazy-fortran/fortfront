@@ -3,21 +3,21 @@ module frontend_final_passes
     ! (semantic analysis, standardization, monomorphization, codegen)
     use frontend_pass_manager, only: pass_context_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program, has_semantic_errors
+        analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use ast_nodes_data, only: mixed_construct_container_node, &
-                              multi_unit_container_node
+        multi_unit_container_node
     use call_graph_signatures_mod, only: create_signatures_map
     use frontend_transformation_semantics, only: analyze_container_semantics, &
-                                                 get_detailed_semantic_errors
+        get_detailed_semantic_errors
     use standardizer, only: standardize_ast, mark_pointer_targets
     use frontend_transformation_structure, only: normalize_multi_unit_container, &
-                                                 run_code_generation_phase
+        run_code_generation_phase
     use ast_monomorphization, only: transform_monomorphization
     use frontend_transformation_analysis, only: analyze_ast_content, &
-                                                promote_functions_to_internal_program, &
-                                                requires_lazy_internalization, &
-                                                has_existing_module_in_ast
+        promote_functions_to_internal_program, &
+        requires_lazy_internalization, &
+        has_existing_module_in_ast
     use frontend_transformation_structure, only: wrap_ast_in_module_only
     use frontend_transformation_common, only: transform_context_t
     use semantic_input_mode, only: INPUT_MODE_LAZY
@@ -25,7 +25,7 @@ module frontend_final_passes
     private
 
     public :: semantic_pass, standardization_pass, monomorphization_pass, &
-              codegen_pass
+        codegen_pass
 
 contains
 
@@ -45,32 +45,32 @@ contains
         if (context%prog_index > 0 .and. &
             context%prog_index <= context%compiler_arena%ast%size) then
             if (allocated(context%compiler_arena%ast%entries( &
-                          context%prog_index)%node)) then
+                context%prog_index)%node)) then
                 select type (root_node => context%compiler_arena%ast%entries( &
-                             context%prog_index)%node)
-                type is (mixed_construct_container_node)
+                        context%prog_index)%node)
+                    type is (mixed_construct_container_node)
                     call analyze_container_semantics(context%compiler_arena%ast, &
-                                                     root_node, &
-                                                     context%signatures, &
-                                                     context%error_msg)
+                        root_node, &
+                        context%signatures, &
+                        context%error_msg)
                     if (len(context%error_msg) > 0) then
                         ! Generate output even with semantic errors
                         call run_code_generation_phase(context%compiler_arena, &
-                                                       context%prog_index, &
-                                                       context%output)
+                            context%prog_index, &
+                            context%output)
                         return
                     end if
                     handled = .true.
                 class default
                     call analyze_program(ctx, context%compiler_arena%ast, &
-                                         context%prog_index)
+                        context%prog_index)
                     context%signatures = ctx%signatures
                     if (has_semantic_errors(ctx)) then
                         context%error_msg = get_detailed_semantic_errors(ctx)
                         ! Generate output even with semantic errors
                         call run_code_generation_phase(context%compiler_arena, &
-                                                       context%prog_index, &
-                                                       context%output)
+                            context%prog_index, &
+                            context%output)
                         return
                     end if
                     handled = .true.
@@ -94,17 +94,17 @@ contains
 
         ! Normalize multi-unit containers
         call normalize_multi_unit_container(context%compiler_arena%ast, &
-                                            context%prog_index)
+            context%prog_index)
 
         ! Check if we should skip standardization for multi-unit containers
         skip_standardization = .false.
         if (context%prog_index > 0 .and. &
             context%prog_index <= context%compiler_arena%ast%size) then
             if (allocated(context%compiler_arena%ast%entries( &
-                          context%prog_index)%node)) then
+                context%prog_index)%node)) then
                 select type (node => context%compiler_arena%ast%entries( &
-                             context%prog_index)%node)
-                type is (multi_unit_container_node)
+                        context%prog_index)%node)
+                    type is (multi_unit_container_node)
                     skip_standardization = .true.
                 end select
             end if
@@ -123,12 +123,12 @@ contains
 
         call context%compiler_arena%next_phase("monomorphization")
         call transform_monomorphization(context%compiler_arena%ast, &
-                                        context%prog_index, context%signatures)
+            context%prog_index, context%signatures)
 
         ! Analyze AST content after monomorphization
         call analyze_ast_content(context%compiler_arena%ast, context%prog_index, &
-                                 context%has_functions, context%has_subroutines, &
-                                 context%has_main_code)
+            context%has_functions, context%has_subroutines, &
+            context%has_main_code)
     end subroutine monomorphization_pass
 
     ! Code generation pass - emit Fortran source
@@ -139,7 +139,7 @@ contains
 
         ! Determine if AST wrapping is needed
         force_internal_wrapping = requires_lazy_internalization( &
-                                  context%compiler_arena%ast, context%prog_index)
+            context%compiler_arena%ast, context%prog_index)
 
         ! Initialize default context for wrapping
         transform_ctx%source_name = "main"
@@ -156,16 +156,16 @@ contains
                         context%compiler_arena%ast, context%prog_index)
                 end if
             else if (context%enable_ast_wrapping .and. &
-                     (context%has_functions .or. context%has_subroutines) .and. &
-                     .not. context%has_main_code) then
+                    (context%has_functions .or. context%has_subroutines) .and. &
+                    .not. context%has_main_code) then
                 call wrap_ast_in_module_only(context%compiler_arena%ast, &
-                                             context%prog_index, transform_ctx)
+                    context%prog_index, transform_ctx)
             end if
         end if
 
         ! Generate code
         call run_code_generation_phase(context%compiler_arena, &
-                                       context%prog_index, context%output)
+            context%prog_index, context%output)
     end subroutine codegen_pass
 
 end module frontend_final_passes

@@ -41,10 +41,10 @@ contains
             type(parser_prefix_buffer_t) :: prefix_buffer
 
             source = 'real function foo(x, n)' // new_line('A') // &
-                     '  real, intent(in) :: x' // new_line('A') // &
-                     '  integer :: n' // new_line('A') // &
-                     '  foo = x * n' // new_line('A') // &
-                     'end function foo'
+                '  real, intent(in) :: x' // new_line('A') // &
+                '  integer :: n' // new_line('A') // &
+                '  foo = x * n' // new_line('A') // &
+                'end function foo'
 
             call tokenize_core(source, tokens)
             arena = create_ast_arena()
@@ -64,7 +64,7 @@ contains
             end if
 
             select type (node => arena%entries(idx)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. allocated(node%body_indices)) then
                     print *, '  INFO: body_indices not allocated'
                 else
@@ -93,7 +93,7 @@ contains
                     return
                 end if
                 select type (p1 => arena%entries(node%param_indices(1))%node)
-                type is (parameter_declaration_node)
+                    type is (parameter_declaration_node)
                     continue
                 class default
                     print *, '  FAIL: First parameter is not a parameter_declaration_node'
@@ -112,7 +112,7 @@ contains
                     return
                 end if
                 select type (p2 => arena%entries(node%param_indices(2))%node)
-                type is (parameter_declaration_node)
+                    type is (parameter_declaration_node)
                     continue
                 class default
                     print *, '  FAIL: Second parameter is not a parameter_declaration_node'
@@ -144,11 +144,11 @@ contains
             type(parser_prefix_buffer_t) :: prefix_buffer
 
             source = 'integer function make_range(start, stop, step)' // new_line('A') // &
-                     '  integer :: start' // new_line('A') // &
-                     '  integer :: stop' // new_line('A') // &
-                     '  integer :: step' // new_line('A') // &
-                     '  make_range = stop - start + step' // new_line('A') // &
-                     'end function make_range'
+                '  integer :: start' // new_line('A') // &
+                '  integer :: stop' // new_line('A') // &
+                '  integer :: step' // new_line('A') // &
+                '  make_range = stop - start + step' // new_line('A') // &
+                'end function make_range'
 
             call tokenize_core(source, tokens)
             arena = create_ast_arena()
@@ -168,7 +168,7 @@ contains
             end if
 
             select type (node => arena%entries(idx)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. allocated(node%param_indices)) then
                     print *, '  FAIL: Expected allocated param_indices'
                     test_keyword_parameters = .false.
@@ -219,7 +219,7 @@ contains
         end if
 
         select type (param_node => arena%entries(param_index)%node)
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             if (.not. allocated(param_node%name)) then
                 print *, '  FAIL: Parameter name not allocated'
                 verify_parameter_name = .false.
@@ -227,7 +227,7 @@ contains
             end if
             if (trim(param_node%name) /= expected_name) then
                 print *, '  FAIL: Expected parameter ', expected_name, ' got ', &
-                         trim(param_node%name)
+                    trim(param_node%name)
                 verify_parameter_name = .false.
                 return
             end if

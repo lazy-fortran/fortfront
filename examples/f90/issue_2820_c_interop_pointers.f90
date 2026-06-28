@@ -3,7 +3,7 @@
 ! of C_F_POINTER and the two-argument form of C_ASSOCIATED.
 program issue_2820_c_interop_pointers
     use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_f_pointer, &
-                                           c_associated, c_int
+        c_associated, c_int
     implicit none
     integer(c_int), target :: x
     integer(c_int), target :: a(4)

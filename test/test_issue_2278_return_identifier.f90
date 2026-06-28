@@ -11,7 +11,7 @@ program test_issue_2278_return_identifier
     type(transform_context_t) :: ctx
 
     call read_example('examples/f90/issue_2278_return_identifier.f90', &
-                      source_code)
+        source_code)
 
     ctx%input_mode = INPUT_MODE_STANDARD
     ctx%has_filename = .true.

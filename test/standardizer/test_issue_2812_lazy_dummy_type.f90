@@ -8,9 +8,9 @@ program test_issue_2812_lazy_dummy_type
     ! inferred kind. The dummies a, b are inferred integer from add(5, 3).
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: lex_source, parse_tokens, create_ast_arena, &
-                         ast_arena_t, token_t
+        ast_arena_t, token_t
     use semantic_api, only: semantic_context_t, create_semantic_context, &
-                            analyze_program
+        analyze_program
     use standardizer, only: standardize_ast
     use ast_nodes_data, only: declaration_node
     implicit none
@@ -76,7 +76,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 call check_declaration(node, iter)
                 if (trim(node%var_name) == 'a') then
                     call assert_integer_type(node%type_name, 'a', iter)

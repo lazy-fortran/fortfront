@@ -23,7 +23,7 @@ contains
         integer :: value_count
 
         call read_example('examples/f90/issue_2813_value_attribute.f90', &
-                          input_code)
+            input_code)
 
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)

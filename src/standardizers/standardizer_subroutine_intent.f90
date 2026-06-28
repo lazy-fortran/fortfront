@@ -25,7 +25,7 @@ contains
 
         do i = 1, size(body_indices)
             call scan_statement(arena, body_indices(i), metadata, &
-                                is_read, is_written)
+                is_read, is_written)
         end do
 
         do i = 1, n_params
@@ -45,7 +45,7 @@ contains
     end subroutine infer_subroutine_parameter_intents
 
     recursive subroutine scan_statement(arena, node_idx, metadata, &
-                                        is_read, is_written)
+            is_read, is_written)
         use ast_nodes_core, only: assignment_node
         use ast_nodes_io, only: print_statement_node, write_statement_node
         use ast_nodes_io, only: read_statement_node
@@ -58,45 +58,45 @@ contains
         if (.not. node_exists(arena, node_idx)) return
 
         select type (node => arena%entries(node_idx)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             ! Skip keyword arguments - they don't modify variables
             if (.not. node%is_keyword_argument) then
                 call mark_lhs_written(arena, node%target_index, metadata, &
-                                      is_read, is_written)
+                    is_read, is_written)
                 call mark_rhs_read(arena, node%value_index, metadata, is_read)
             else
                 ! For keyword arguments, only the RHS (value) is read
                 call mark_rhs_read(arena, node%value_index, metadata, is_read)
             end if
-        type is (print_statement_node)
+            type is (print_statement_node)
             if (allocated(node%expression_indices)) then
                 do i = 1, size(node%expression_indices)
                     call mark_rhs_read(arena, node%expression_indices(i), &
-                                       metadata, is_read)
+                        metadata, is_read)
                 end do
             end if
-        type is (write_statement_node)
+            type is (write_statement_node)
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     call mark_rhs_read(arena, node%arg_indices(i), &
-                                       metadata, is_read)
+                        metadata, is_read)
                 end do
             end if
-        type is (read_statement_node)
+            type is (read_statement_node)
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
                     call mark_lhs_written(arena, node%var_indices(i), &
-                                          metadata, is_read, is_written)
+                        metadata, is_read, is_written)
                 end do
             end if
         class default
             call scan_children_generic(arena, node_idx, metadata, &
-                                       is_read, is_written)
+                is_read, is_written)
         end select
     end subroutine scan_statement
 
     recursive subroutine mark_lhs_written(arena, node_idx, metadata, &
-                                          is_read, is_written)
+            is_read, is_written)
         use ast_nodes_core, only: identifier_node, call_or_subscript_node
         use ast_nodes_core, only: component_access_node
         type(ast_arena_t), intent(in) :: arena
@@ -109,12 +109,12 @@ contains
         if (.not. node_exists(arena, node_idx)) return
 
         select type (node => arena%entries(node_idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. allocated(node%name)) return
             name = trim(node%name)
             param_idx = metadata_find_param(metadata, name)
             if (param_idx > 0) is_written(param_idx) = .true.
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 name = trim(node%name)
                 param_idx = metadata_find_param(metadata, name)
@@ -123,18 +123,18 @@ contains
                     if (allocated(node%arg_indices)) then
                         do i = 1, size(node%arg_indices)
                             call mark_rhs_read(arena, node%arg_indices(i), &
-                                               metadata, is_read)
+                                metadata, is_read)
                         end do
                     end if
                 end if
             else if (node%base_expr_index > 0) then
                 call mark_lhs_written(arena, node%base_expr_index, metadata, &
-                                      is_read, is_written)
+                    is_read, is_written)
             end if
-        type is (component_access_node)
+            type is (component_access_node)
             if (node%base_expr_index > 0) then
                 call mark_lhs_written(arena, node%base_expr_index, metadata, &
-                                      is_read, is_written)
+                    is_read, is_written)
             end if
         end select
     end subroutine mark_lhs_written
@@ -153,15 +153,15 @@ contains
         if (.not. node_exists(arena, node_idx)) return
 
         select type (node => arena%entries(node_idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. allocated(node%name)) return
             name = trim(node%name)
             param_idx = metadata_find_param(metadata, name)
             if (param_idx > 0) is_read(param_idx) = .true.
-        type is (binary_op_node)
+            type is (binary_op_node)
             call mark_rhs_read(arena, node%left_index, metadata, is_read)
             call mark_rhs_read(arena, node%right_index, metadata, is_read)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name)) then
                 name = trim(node%name)
                 param_idx = metadata_find_param(metadata, name)
@@ -173,10 +173,10 @@ contains
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     call mark_rhs_read(arena, node%arg_indices(i), metadata, &
-                                       is_read)
+                        is_read)
                 end do
             end if
-        type is (component_access_node)
+            type is (component_access_node)
             if (node%base_expr_index > 0) then
                 call mark_rhs_read(arena, node%base_expr_index, metadata, is_read)
             end if
@@ -186,7 +186,7 @@ contains
     end subroutine mark_rhs_read
 
     subroutine scan_children_generic(arena, node_idx, metadata, &
-                                     is_read, is_written)
+            is_read, is_written)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
         type(param_metadata_t), intent(in) :: metadata

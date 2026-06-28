@@ -75,7 +75,7 @@ contains
 
         ! Test very large index
         call get_node_type_details(arena, 999999, type_kind, type_size, &
-                                   is_allocatable, is_pointer, found)
+            is_allocatable, is_pointer, found)
         if (found) then
             print *, "  FAIL: large index should not be found"
             test_edge_cases = .false.
@@ -125,7 +125,7 @@ contains
             type_kind = get_node_type_kind(arena, idx)
             if (type_kind > 0) then
                 call get_node_type_details(arena, idx, type_kind, type_size, &
-                                           is_allocatable, is_pointer, found)
+                    is_allocatable, is_pointer, found)
                 if (found) then
                     print *, "  Found type at index", idx, ": kind=", type_kind
                 end if

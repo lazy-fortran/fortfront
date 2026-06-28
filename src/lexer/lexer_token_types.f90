@@ -12,7 +12,7 @@ module lexer_token_types
     integer, parameter, public :: TK_KEYWORD = 5
     integer, parameter, public :: TK_NEWLINE = 6
     integer, parameter, public :: TK_COMMENT = 7
-    integer, parameter, public :: TK_WHITESPACE = 8  ! New: for CST trivia
+    integer, parameter, public :: TK_WHITESPACE = 8 ! New: for CST trivia
     integer, parameter, public :: TK_UNKNOWN = 99
 
     ! Backward compatibility aliases

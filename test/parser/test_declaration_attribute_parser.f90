@@ -8,7 +8,7 @@ program test_declaration_attribute_parser
     implicit none
 
     character(len=*), parameter :: source = &
-                                   ', pointer, dimension(1:10), intent(inout), optional'
+        ', pointer, dimension(1:10), intent(inout), optional'
     type(token_t), allocatable :: tokens(:)
     character(len=:), allocatable :: error_msg
     type(parser_state_t) :: parser

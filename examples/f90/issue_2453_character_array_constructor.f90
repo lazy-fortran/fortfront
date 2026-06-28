@@ -10,7 +10,7 @@ program issue_2453_character_array_constructor
     strings = [character(len=10) :: "short", "medium len", "verylongstring"]
 
     ! Verify correct padding/truncation
-    print *, trim(strings(1))  ! Expected: "short"
-    print *, trim(strings(2))  ! Expected: "medium len"
-    print *, trim(strings(3))  ! Expected: "verylongst"
+    print *, trim(strings(1)) ! Expected: "short"
+    print *, trim(strings(2)) ! Expected: "medium len"
+    print *, trim(strings(3)) ! Expected: "verylongst"
 end program issue_2453_character_array_constructor

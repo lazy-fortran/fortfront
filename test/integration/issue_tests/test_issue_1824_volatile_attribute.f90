@@ -31,11 +31,11 @@ contains
         call initialize_codegen()
 
         source = 'program test_volatile_attribute' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, volatile :: vol_var' // new_line('a') // &
-                 '    vol_var = 10' // new_line('a') // &
-                 '    print *, vol_var' // new_line('a') // &
-                 'end program test_volatile_attribute'
+            '    implicit none' // new_line('a') // &
+            '    integer, volatile :: vol_var' // new_line('a') // &
+            '    vol_var = 10' // new_line('a') // &
+            '    print *, vol_var' // new_line('a') // &
+            'end program test_volatile_attribute'
 
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) return

@@ -20,7 +20,7 @@ contains
         type(transform_context_t) :: context
 
         call read_example('examples/f90/issue_2591_unsigned_declarations.f90', &
-                          input_code)
+            input_code)
 
         context%input_mode = INPUT_MODE_STANDARD
         context%has_filename = .true.
@@ -50,7 +50,7 @@ contains
         type(transform_context_t) :: context
 
         call read_example('examples/f90/issue_2591_unsigned_mixing_error.f90', &
-                          input_code)
+            input_code)
 
         context%input_mode = INPUT_MODE_STANDARD
         context%has_filename = .true.

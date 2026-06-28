@@ -19,17 +19,17 @@ program test_control_flow_router_nested
     print *, '=== Test: control-flow router handles nested constructs ==='
 
     source = 'program nested_cf' // new_line('a') // &
-             '  do i = 1, 3' // new_line('a') // &
-             '    if (flag) then' // new_line('a') // &
-             '      select case(value)' // new_line('a') // &
-             '      case (1)' // new_line('a') // &
-             '        print *, "one"' // new_line('a') // &
-             '      case default' // new_line('a') // &
-             '        print *, "other"' // new_line('a') // &
-             '      end select' // new_line('a') // &
-             '    end if' // new_line('a') // &
-             '  end do' // new_line('a') // &
-             'end program nested_cf'
+        '  do i = 1, 3' // new_line('a') // &
+        '    if (flag) then' // new_line('a') // &
+        '      select case(value)' // new_line('a') // &
+        '      case (1)' // new_line('a') // &
+        '        print *, "one"' // new_line('a') // &
+        '      case default' // new_line('a') // &
+        '        print *, "other"' // new_line('a') // &
+        '      end select' // new_line('a') // &
+        '    end if' // new_line('a') // &
+        '  end do' // new_line('a') // &
+        'end program nested_cf'
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -54,15 +54,15 @@ program test_control_flow_router_nested
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (program_node)
+            type is (program_node)
             cycle
-        type is (do_loop_node)
+            type is (do_loop_node)
             has_do_loop = .true.
-        type is (if_node)
+            type is (if_node)
             has_if_block = .true.
-        type is (select_case_node)
+            type is (select_case_node)
             has_select_case = .true.
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) then
                 if (index(node%value, '! Unparsed') > 0) has_placeholder = .true.
             end if

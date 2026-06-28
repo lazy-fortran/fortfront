@@ -15,14 +15,14 @@ contains
         logical :: has_assignment
 
         input_code = "program test_dimension" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    integer :: arr1" // new_line('A') // &
-                     "    real :: arr2" // new_line('A') // &
-                     "    dimension arr1(10)" // new_line('A') // &
-                     "    dimension arr2(5, 5)" // new_line('A') // new_line('A') // &
-                     "    arr1 = [(i, i=1,10)]" // new_line('A') // &
-                     "    print *, arr1(5)" // new_line('A') // &
-                     "end program test_dimension"
+            "    implicit none" // new_line('A') // &
+            "    integer :: arr1" // new_line('A') // &
+            "    real :: arr2" // new_line('A') // &
+            "    dimension arr1(10)" // new_line('A') // &
+            "    dimension arr2(5, 5)" // new_line('A') // new_line('A') // &
+            "    arr1 = [(i, i=1,10)]" // new_line('A') // &
+            "    print *, arr1(5)" // new_line('A') // &
+            "end program test_dimension"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -49,9 +49,9 @@ contains
 
         has_assignment = index(output_code, "arr1 = [(i, i=1,10)]") > 0
         has_assignment = has_assignment .or. &
-                         index(output_code, "arr1 = [(i, i=1, 10)]") > 0
+            index(output_code, "arr1 = [(i, i=1, 10)]") > 0
         has_assignment = has_assignment .or. &
-                         index(output_code, "arr1 = [(i, i = 1, 10)]") > 0
+            index(output_code, "arr1 = [(i, i = 1, 10)]") > 0
 
         if (.not. has_assignment) then
             print *, "FAIL: array constructor assignment not preserved"

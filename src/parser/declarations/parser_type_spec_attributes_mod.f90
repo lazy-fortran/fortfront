@@ -4,7 +4,7 @@ module parser_type_spec_attributes_mod
     use lexer_core, only: TK_STRING, to_lower
     use parser_state_module, only: parser_state_t
     use parser_type_spec_tokens_mod, only: append_token, trim_token_sequence, &
-                                           tokens_to_text
+        tokens_to_text
     implicit none
     private
 
@@ -23,7 +23,7 @@ contains
 
         select case (normalized)
         case ("public", "private", "sequence", "abstract", "extends", "bind", &
-              "implements", "protected", "non_overridable", "final", "deferred")
+                "implements", "protected", "non_overridable", "final", "deferred")
             is_attribute = .true.
         case default
             is_attribute = .false.
@@ -31,7 +31,7 @@ contains
     end function is_type_attribute_token
 
     subroutine consume_parenthesized_content(parser, attr_tokens, &
-                                             invalid_definition)
+            invalid_definition)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), allocatable, intent(inout) :: attr_tokens(:)
         logical, intent(inout) :: invalid_definition
@@ -98,7 +98,7 @@ contains
     end subroutine format_attribute_clause
 
     subroutine skip_type_definition_attributes(parser, invalid_definition, &
-                                               attribute_clause)
+            attribute_clause)
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: invalid_definition
         character(len=:), allocatable, intent(out), optional :: attribute_clause
@@ -142,7 +142,7 @@ contains
                 case ("(")
                     if (.not. attributes_started) exit
                     call consume_parenthesized_content(parser, attr_tokens, &
-                                                       invalid_definition)
+                        invalid_definition)
                     if (invalid_definition) exit
                 case ("&")
                     if (.not. attributes_started .and. .not. found_double_colon) exit
@@ -235,7 +235,7 @@ contains
     end function advance_parenthesized_tokens
 
     logical function scan_type_attribute_sequence(parser, start_pos) &
-        result(is_type_def)
+            result(is_type_def)
         type(parser_state_t), intent(in) :: parser
         integer, intent(in) :: start_pos
         integer :: pos
@@ -268,7 +268,7 @@ contains
                     select case (normalized_attribute)
                     case ("extends", "bind", "implements")
                         if (.not. advance_parenthesized_tokens(parser, &
-                                                               pos)) return
+                            pos)) return
                         last_attribute = ""
                     case default
                         return
@@ -302,7 +302,7 @@ contains
     end function parser_is_at_type_definition
 
     subroutine extract_extends_from_attributes(attribute_clause, extends_parent, &
-                                               remaining_attrs)
+            remaining_attrs)
         character(len=*), intent(in) :: attribute_clause
         character(len=:), allocatable, intent(out) :: extends_parent
         character(len=:), allocatable, intent(out) :: remaining_attrs
@@ -350,7 +350,7 @@ contains
         end if
 
         extends_parent = trim(adjustl( &
-                              attribute_clause(paren_start + 1:paren_end - 1)))
+            attribute_clause(paren_start + 1:paren_end - 1)))
 
         attr_before = ""
         if (extends_pos > 1) then

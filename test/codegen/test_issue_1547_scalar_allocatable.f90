@@ -39,7 +39,7 @@ contains
 
             ! Scalar with multiple assignments - should NOT be allocatable
             call read_example('examples/lf/issue_1547_scalar_multiple_assignments.lf', &
-                              input)
+                input)
 
             call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -84,7 +84,7 @@ contains
 
             ! Scalar with single assignment - should NOT be allocatable
             call read_example('examples/lf/issue_1547_scalar_single_assignment.lf', &
-                              input)
+                input)
 
             call transform_lazy_fortran_string(input, output, error_msg)
 

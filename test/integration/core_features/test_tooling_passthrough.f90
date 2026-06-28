@@ -1,6 +1,6 @@
 program test_tooling_passthrough
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_context_t, transform_with_context
     use frontend_transformation, only: INPUT_MODE_STANDARD
 

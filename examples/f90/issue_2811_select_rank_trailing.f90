@@ -15,9 +15,9 @@ contains
 
         i = 0
         select rank (arr)
-        rank (1)
+            rank (1)
             i = 1
-        rank default
+            rank default
             i = 2
         end select
         print *, i

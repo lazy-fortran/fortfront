@@ -1,14 +1,14 @@
 module parser_statement_data_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, &
-                          TK_COMMENT, TK_WHITESPACE
+        TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until, parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node, literal_node, &
-                              identifier_node
+        identifier_node
     use ast_factory, only: push_assignment, push_array_literal, &
-                           push_namelist_statement, push_data_statement, &
-                           push_io_implied_do
+        push_namelist_statement, push_data_statement, &
+        push_io_implied_do
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
     implicit none
@@ -23,7 +23,7 @@ module parser_statement_data_module
 contains
 
     integer function parse_data_statement(parser, arena, parent_index) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -73,7 +73,7 @@ contains
             token = parser%consume()
 
             call create_data_node(object_indices, element_indices, &
-                                  assignment_indices, emit_ok)
+                assignment_indices, emit_ok)
             if (.not. emit_ok) return
             if (size(assignment_indices) > initial_size) have_assignments = .true.
 
@@ -164,17 +164,17 @@ contains
             call skip_trivia(parser)
 
             if (.not. parse_implied_do_control(var_name, start_index, end_index, &
-                                               step_index, saved_pos)) return
+                step_index, saved_pos)) return
 
             expr_index = create_implied_do_node_helper(object_exprs, &
-                                                       value_expr_index, var_name, &
-                                                       start_index, end_index, &
-                                                       step_index, line, column)
+                value_expr_index, var_name, &
+                start_index, end_index, &
+                step_index, line, column)
 
         end function try_parse_data_implied_do
 
         logical function parse_implied_do_control(var_name, start_index, end_index, &
-                                                  step_index, saved_pos) result(success)
+                step_index, saved_pos) result(success)
             character(len=:), allocatable, intent(out) :: var_name
             integer, intent(out) :: start_index, end_index, step_index
             integer, intent(in) :: saved_pos
@@ -238,9 +238,9 @@ contains
         end function parse_implied_do_control
 
         function create_implied_do_node_helper(object_exprs, value_expr_index, &
-                                               var_name, start_index, end_index, &
-                                               step_index, line, column) &
-            result(node_index)
+                var_name, start_index, end_index, &
+                step_index, line, column) &
+                result(node_index)
             integer, allocatable, intent(in) :: object_exprs(:)
             integer, intent(in) :: value_expr_index
             character(len=*), intent(in) :: var_name
@@ -251,31 +251,31 @@ contains
             if (step_index > 0) then
                 if (allocated(object_exprs)) then
                     node_index = push_io_implied_do( &
-                                 arena, value_expr_index, var_name, &
-                                 start_expr_index=start_index, &
-                                 end_expr_index=end_index, &
-                                 step_expr_index=step_index, line=line, column=column, &
-                                 object_indices=object_exprs)
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, &
+                        end_expr_index=end_index, &
+                        step_expr_index=step_index, line=line, column=column, &
+                        object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
-                                 arena, value_expr_index, var_name, &
-                                 start_expr_index=start_index, &
-                                 end_expr_index=end_index, &
-                                 step_expr_index=step_index, line=line, column=column)
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, &
+                        end_expr_index=end_index, &
+                        step_expr_index=step_index, line=line, column=column)
                 end if
             else
                 if (allocated(object_exprs)) then
                     node_index = push_io_implied_do( &
-                                 arena, value_expr_index, var_name, &
-                                 start_expr_index=start_index, &
-                                 end_expr_index=end_index, &
-                                 line=line, column=column, object_indices=object_exprs)
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, &
+                        end_expr_index=end_index, &
+                        line=line, column=column, object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
-                                 arena, value_expr_index, var_name, &
-                                 start_expr_index=start_index, &
-                                 end_expr_index=end_index, &
-                                 line=line, column=column)
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, &
+                        end_expr_index=end_index, &
+                        line=line, column=column)
                 end if
             end if
         end function create_implied_do_node_helper
@@ -362,7 +362,7 @@ contains
                 current = parser%peek()
                 if (current%kind == TK_EOF) then
                     call parser%error("Unexpected end of statement inside DATA "// &
-                                      "object list")
+                        "object list")
                     return
                 end if
 
@@ -400,7 +400,7 @@ contains
                                 exit
                             case default
                                 call parser%error("Unexpected token in DATA "// &
-                                                  "object list")
+                                    "object list")
                                 return
                             end select
                         else
@@ -459,7 +459,7 @@ contains
                 current = parser%peek()
                 if (current%kind == TK_EOF) then
                     call parser%error("Unexpected end of statement inside DATA "// &
-                                      "value list")
+                        "value list")
                     return
                 end if
 
@@ -497,12 +497,12 @@ contains
                                 exit
                             case default
                                 call parser%error("Unexpected token in DATA "// &
-                                                  "statement value list")
+                                    "statement value list")
                                 return
                             end select
                         else
                             call parser%error("Unexpected token in DATA "// &
-                                              "statement value list")
+                                "statement value list")
                             return
                         end if
                     end if
@@ -531,7 +531,7 @@ contains
                     case ("/")
                     case default
                         call parser%error("Unexpected token in DATA statement "// &
-                                          "value list")
+                            "value list")
                         return
                     end select
                 else
@@ -568,10 +568,10 @@ contains
 
             if (present(parent_index)) then
                 data_index = push_data_statement(arena, objects, values, &
-                                                 node_line, node_column, parent_index)
+                    node_line, node_column, parent_index)
             else
                 data_index = push_data_statement(arena, objects, values, &
-                                                 node_line, node_column)
+                    node_line, node_column)
             end if
 
             if (data_index <= 0) return
@@ -598,7 +598,7 @@ contains
             end if
 
             select type (node => arena%entries(value_index)%node)
-            type is (binary_op_node)
+                type is (binary_op_node)
                 if (.not. allocated(node%operator)) then
                     call append_index(indices, value_index)
                     return
@@ -623,7 +623,7 @@ contains
                 end if
 
                 select type (left_node => arena%entries(node%left_index)%node)
-                type is (literal_node)
+                    type is (literal_node)
                     if (.not. allocated(left_node%value)) then
                         call append_index(indices, value_index)
                         return
@@ -710,7 +710,7 @@ contains
             if (size(objects) == 0 .or. size(values) == 0) return
 
             can_aggregate = size(objects) == 1 .and. size(values) > 1 .and. &
-                            is_plain_identifier(objects(1))
+                is_plain_identifier(objects(1))
             if (can_aggregate) then
                 assign_index = create_array_assignment(objects(1), values)
                 if (assign_index > 0) call append_index(assignments, assign_index)
@@ -726,7 +726,7 @@ contains
             if (.not. arena%has_node_at(node_index)) return
 
             select type (obj_node => arena%entries(node_index)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 is_ident = .true.
             class default
                 is_ident = .false.
@@ -734,7 +734,7 @@ contains
         end function is_plain_identifier
 
         integer function create_array_assignment(target_index, values) &
-            result(assign_index)
+                result(assign_index)
             integer, intent(in) :: target_index
             integer, allocatable, intent(in) :: values(:)
             integer :: array_index
@@ -745,21 +745,21 @@ contains
 
             if (present(parent_index)) then
                 array_index = push_array_literal(arena, values, data_token%line, &
-                                                 data_token%column, parent_index)
+                    data_token%column, parent_index)
             else
                 array_index = push_array_literal(arena, values, data_token%line, &
-                                                 data_token%column)
+                    data_token%column)
             end if
             if (array_index <= 0) return
 
             if (present(parent_index)) then
                 assign_index = push_assignment(arena, target_index, array_index, &
-                                               data_token%line, data_token%column, &
-                                               parent_index, suppress_codegen=.true.)
+                    data_token%line, data_token%column, &
+                    parent_index, suppress_codegen=.true.)
             else
                 assign_index = push_assignment(arena, target_index, array_index, &
-                                               data_token%line, data_token%column, &
-                                               suppress_codegen=.true.)
+                    data_token%line, data_token%column, &
+                    suppress_codegen=.true.)
             end if
         end function create_array_assignment
 
@@ -780,7 +780,7 @@ contains
                 do obj_idx = 1, size(objects)
                     if (value_pos > size(values)) exit
                     assign_index = create_scalar_assignment(objects(obj_idx), &
-                                                            values(value_pos))
+                        values(value_pos))
                     if (assign_index > 0) call append_index(assignments, assign_index)
                     value_pos = value_pos + 1
                 end do
@@ -788,7 +788,7 @@ contains
         end subroutine append_scalar_assignments
 
         integer function create_scalar_assignment(target_index, value_index) &
-            result(assign_index)
+                result(assign_index)
             integer, intent(in) :: target_index
             integer, intent(in) :: value_index
 
@@ -798,19 +798,19 @@ contains
 
             if (present(parent_index)) then
                 assign_index = push_assignment(arena, target_index, value_index, &
-                                               data_token%line, data_token%column, &
-                                               parent_index, suppress_codegen=.true.)
+                    data_token%line, data_token%column, &
+                    parent_index, suppress_codegen=.true.)
             else
                 assign_index = push_assignment(arena, target_index, value_index, &
-                                               data_token%line, data_token%column, &
-                                               suppress_codegen=.true.)
+                    data_token%line, data_token%column, &
+                    suppress_codegen=.true.)
             end if
         end function create_scalar_assignment
 
     end function parse_data_statement
 
     integer function parse_namelist_statement(parser, arena, parent_index) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -834,19 +834,19 @@ contains
         if (present(parent_index)) then
             if (allocated(names)) then
                 stmt_index = push_namelist_statement(arena, group_name, names, &
-                                                     line, column, parent_index)
+                    line, column, parent_index)
             else
                 stmt_index = push_namelist_statement(arena, group_name, line=line, &
-                                                     column=column, &
-                                                     parent_index=parent_index)
+                    column=column, &
+                    parent_index=parent_index)
             end if
         else
             if (allocated(names)) then
                 stmt_index = push_namelist_statement(arena, group_name, names, &
-                                                     line, column)
+                    line, column)
             else
                 stmt_index = push_namelist_statement(arena, group_name, line=line, &
-                                                     column=column)
+                    column=column)
             end if
         end if
     end function parse_namelist_statement

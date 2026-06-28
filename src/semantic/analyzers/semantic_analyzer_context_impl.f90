@@ -1,30 +1,30 @@
 submodule(semantic_analyzer) semantic_analyzer_context_impl
-    use, intrinsic :: iso_fortran_env, only: error_unit, int32
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   create_mono_type, create_fun_type, &
-                                   create_poly_type, &
-                                   TVAR, TREAL
-    use scope_manager, only: create_scope_stack
-    use parser_type_hooks_module, only: consume_type_annotations, &
-                                        has_type_annotations
-    use semantic_annotation_utils, only: type_from_annotation
-    use semantic_inference_helpers, only: check_implicit_none, &
-                                          process_declaration_variables
-    use semantic_undefined_variable_checker, only: check_undefined_variables_generic
-    use semantic_walrus_checker, only: check_walrus_redeclaration
-    use constant_transformation, only: fold_constants_in_arena
-    use error_handling, only: create_error_collection
-    use type_hierarchy, only: create_type_hierarchy
-    use semantic_type_hierarchy_validation, only: populate_type_hierarchy
-    use call_graph_signatures_mod, only: create_signatures_map
-    use semantic_validation_utils, only: int_to_str
-    use ast_nodes_data, only: declaration_node
-    use semantic_context_types, only: semantic_context_base_t
-    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
-    use semantic_operating_mode, only: OPERATING_MODE_INFER, &
-                                       OPERATING_MODE_STRICT
-    use debug_trace, only: trace_is_enabled
-    implicit none
+use, intrinsic :: iso_fortran_env, only: error_unit, int32
+use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    create_mono_type, create_fun_type, &
+    create_poly_type, &
+    TVAR, TREAL
+use scope_manager, only: create_scope_stack
+use parser_type_hooks_module, only: consume_type_annotations, &
+    has_type_annotations
+use semantic_annotation_utils, only: type_from_annotation
+use semantic_inference_helpers, only: check_implicit_none, &
+    process_declaration_variables
+use semantic_undefined_variable_checker, only: check_undefined_variables_generic
+use semantic_walrus_checker, only: check_walrus_redeclaration
+use constant_transformation, only: fold_constants_in_arena
+use error_handling, only: create_error_collection
+use type_hierarchy, only: create_type_hierarchy
+use semantic_type_hierarchy_validation, only: populate_type_hierarchy
+use call_graph_signatures_mod, only: create_signatures_map
+use semantic_validation_utils, only: int_to_str
+use ast_nodes_data, only: declaration_node
+use semantic_context_types, only: semantic_context_base_t
+use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+use semantic_operating_mode, only: OPERATING_MODE_INFER, &
+    OPERATING_MODE_STRICT
+use debug_trace, only: trace_is_enabled
+implicit none
 contains
 
     module subroutine create_semantic_context(ctx)
@@ -64,7 +64,7 @@ contains
         real_to_real = create_fun_type(real_type, real_type)
 
         builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                          mono=real_to_real)
+            mono=real_to_real)
 
         call ctx%scopes%define("exp", builtin_scheme)
 
@@ -90,9 +90,9 @@ contains
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
-            type is (program_node)
+                type is (program_node)
                 write (error_unit, '(A)') 'TRACE: Root is program_node'
-            type is (module_node)
+                type is (module_node)
                 write (error_unit, '(A)') 'TRACE: Root is module_node'
             class default
                 write (error_unit, '(A)') 'TRACE: Root is OTHER node type'
@@ -100,7 +100,7 @@ contains
         end if
 
         select type (ast => arena%entries(root_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (trace_is_enabled()) then
                 write (error_unit, '(A,L1,A,I0)') 'TRACE: respect_implicit_none=', &
                     ctx%respect_implicit_none, ' input_mode=', ctx%input_mode
@@ -113,7 +113,7 @@ contains
                 end if
             end if
             call analyze_program_node_arena(ctx, arena, ast, root_index)
-        type is (module_node)
+            type is (module_node)
             return
         class default
             call infer_and_store_type(ctx, arena, root_index)
@@ -137,7 +137,7 @@ contains
                     prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (node => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
+                            type is (declaration_node)
                             block
                                 type(mono_type_t) :: decl_type
                                 type(poly_type_t) :: scheme
@@ -155,7 +155,7 @@ contains
                                     allocated(node%var_names)) then
                                     do j = 1, size(node%var_names)
                                         call ctx%scopes%define(node%var_names(j), &
-                                                               scheme)
+                                            scheme)
                                     end do
                                 else if (allocated(node%var_name)) then
                                     call ctx%scopes%define(node%var_name, scheme)
@@ -173,13 +173,13 @@ contains
 
         if (ctx%operating_mode == OPERATING_MODE_STRICT) then
             call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
-                                                   ctx%input_mode, arena, &
-                                                   prog_index)
+                ctx%input_mode, arena, &
+                prog_index)
             if (ctx%errors%has_errors()) return
         end if
 
         call check_walrus_redeclaration(ctx%errors, ctx%input_mode, arena, &
-                                        prog_index)
+            prog_index)
         if (ctx%errors%has_errors()) return
 
         ! Enable constant folding for lazy Fortran to support constant propagation
@@ -202,7 +202,7 @@ contains
             end do
         end if
         call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
-                                               ctx%input_mode, arena, prog_index)
+            ctx%input_mode, arena, prog_index)
     end subroutine analyze_program_node_arena
 
     module subroutine infer_and_store_type(ctx, arena, node_index)
@@ -237,7 +237,7 @@ contains
         typ = ctx%apply_subst_to_type(arena%entries(index)%node%inferred_type)
         if (typ%kind == TVAR) then
             if (len_trim(typ%var%name) == 0) typ%var%name = "v"// &
-                                                            int_to_str(typ%var%id)
+                int_to_str(typ%var%id)
         end if
         arena%entries(index)%node%inferred_type = typ
     end function get_inferred_type_from_arena
@@ -274,7 +274,7 @@ contains
     end function semantic_clone_context
 
     module function semantic_get_type_hint(this, decl_index, annotation) &
-        result(found)
+            result(found)
         class(semantic_context_t), intent(in) :: this
         integer, intent(in) :: decl_index
         type(type_annotation_t), intent(out) :: annotation

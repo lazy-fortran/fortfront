@@ -3,7 +3,7 @@ program test_issue_1386_string_concatenation
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_assignment, push_identifier, &
-                           push_literal, push_binary_op
+        push_literal, push_binary_op
     implicit none
 
     type(ast_arena_t) :: arena
@@ -39,9 +39,9 @@ program test_issue_1386_string_concatenation
     assign_idx = push_assignment(arena, lazy_id, dangling_concat_idx)
     assign_plus_idx = push_assignment(arena, lazy_plus_id, dangling_plus_idx)
     assign_plus_right_idx = push_assignment(arena, lazy_plus_right_id, &
-                                            dangling_plus_right_idx)
+        dangling_plus_right_idx)
     prog_idx = push_program(arena, 'demo', [assign_idx, assign_plus_idx, &
-                                            assign_plus_right_idx])
+        assign_plus_right_idx])
 
     call emit_fortran(arena, prog_idx, generated)
 

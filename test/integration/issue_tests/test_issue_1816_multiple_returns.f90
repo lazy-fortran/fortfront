@@ -1,6 +1,6 @@
 program test_issue_1816_multiple_returns
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                            iostat_eor
+        iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -145,7 +145,7 @@ contains
         end if
 
         has_array_result = index(output, 'dimension(2)') > 0 .or. &
-                           index(output, ', dimension (2)') > 0
+            index(output, ', dimension (2)') > 0
 
         if (.not. has_array_result) then
             print *, '  FAIL: Result type not inferred as array'

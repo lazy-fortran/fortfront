@@ -24,8 +24,8 @@ module codegen_control_flow
 contains
 
     recursive subroutine append_do_loop_body_and_end(arena, body_indices, &
-                                                     indent_level, code, &
-                                                     end_keyword)
+            indent_level, code, &
+            end_keyword)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         integer, intent(in) :: indent_level
@@ -41,13 +41,13 @@ contains
 
         if (allocated(body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, body_indices, indent_level + 1)
+                arena, body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
                 code = code//repeat("    ", indent_level)//end_stmt
             else
                 code = code//new_line('A')//repeat("    ", indent_level) &
-                       //end_stmt
+                    //end_stmt
             end if
         else
             code = code//new_line('A')//repeat("    ", indent_level)//end_stmt
@@ -105,7 +105,7 @@ contains
         ! Generate then body
         if (allocated(node%then_body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, node%then_body_indices, indent_level + 1)
+                arena, node%then_body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -115,14 +115,14 @@ contains
         if (allocated(node%elseif_blocks)) then
             do i = 1, size(node%elseif_blocks)
                 cond_code = generate_code_from_arena( &
-                            arena, node%elseif_blocks(i)%condition_index)
+                    arena, node%elseif_blocks(i)%condition_index)
                 code = code//new_line('A')//repeat("    ", indent_level)// &
-                       "else if ("//cond_code//") then"
+                    "else if ("//cond_code//") then"
 
                 if (allocated(node%elseif_blocks(i)%body_indices)) then
                     body_code = generate_grouped_body_internal( &
-                                arena, node%elseif_blocks(i)%body_indices, &
-                                indent_level + 1)
+                        arena, node%elseif_blocks(i)%body_indices, &
+                        indent_level + 1)
                     if (len(body_code) > 0) then
                         code = code//new_line('A')//body_code
                     end if
@@ -134,7 +134,7 @@ contains
         if (allocated(node%else_body_indices)) then
             code = code//new_line('A')//repeat("    ", indent_level)//"else"
             body_code = generate_grouped_body_internal( &
-                        arena, node%else_body_indices, indent_level + 1)
+                arena, node%else_body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -220,12 +220,12 @@ contains
             ! DO CONCURRENT syntax: do concurrent (var = start:end[:step])
             if (allocated(node%label)) then
                 code = trim(adjustl(node%label))//": do concurrent ("// &
-                       var_code// &
-                       " = "//start_code//":"//end_code
+                    var_code// &
+                    " = "//start_code//":"//end_code
                 end_keyword = "end do "//trim(adjustl(node%label))
             else
                 code = "do concurrent ("//var_code//" = "//start_code//":"// &
-                       end_code
+                    end_code
                 end_keyword = "end do"
             end if
             if (len(step_code) > 0) then
@@ -236,7 +236,7 @@ contains
             ! Regular DO loop syntax: do var = start, end [, step]
             if (allocated(node%label)) then
                 code = trim(adjustl(node%label))//": do "//var_code//" = "// &
-                       start_code//", "//end_code
+                    start_code//", "//end_code
                 end_keyword = "end do "//trim(adjustl(node%label))
             else
                 code = "do "//var_code//" = "//start_code//", "//end_code
@@ -249,7 +249,7 @@ contains
 
         ! Generate body
         call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &
-                                         code, end_keyword)
+            code, end_keyword)
     end function generate_code_do_loop
 
     ! Generate code for do while loops
@@ -281,7 +281,7 @@ contains
 
         ! Generate body
         call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &
-                                         code, end_keyword)
+            code, end_keyword)
     end function generate_code_do_while
 
     ! Generate code for select case statements
@@ -312,7 +312,7 @@ contains
                 if (node%case_indices(i) > 0 .and. &
                     node%case_indices(i) <= arena%size) then
                     select type (case_node => arena%entries(node%case_indices(i))%node)
-                    type is (case_block_node)
+                        type is (case_block_node)
                         ! Generate case statement
                         code = code//new_line('A')//repeat("    ", indent_level)
                         code = code//"case ("
@@ -325,23 +325,23 @@ contains
                                 if (case_node%value_indices(j) > 0 .and. &
                                     case_node%value_indices(j) <= arena%size) then
                                     select type (value_node => arena%entries( &
-                                                 case_node%value_indices(j))%node)
-                                    type is (case_range_node)
+                                            case_node%value_indices(j))%node)
+                                        type is (case_range_node)
                                         lower_code = generate_code_from_arena( &
-                                                     arena, value_node%start_value)
+                                            arena, value_node%start_value)
                                         if (value_node%end_value > 0) then
                                             upper_code = generate_code_from_arena( &
-                                                         arena, value_node%end_value)
+                                                arena, value_node%end_value)
                                             case_code = trim(adjustl(lower_code)) &
-                                                        //":"// &
-                                                        trim(adjustl(upper_code))
+                                                //":"// &
+                                                trim(adjustl(upper_code))
                                         else
                                             case_code = &
                                                 trim(adjustl(lower_code))//":"
                                         end if
                                     class default
                                         case_code = generate_code_from_arena( &
-                                                    arena, case_node%value_indices(j))
+                                            arena, case_node%value_indices(j))
                                     end select
                                     code = code//case_code
                                 end if
@@ -353,8 +353,8 @@ contains
                         ! Generate case body
                         if (allocated(case_node%body_indices)) then
                             body_code = generate_grouped_body_internal( &
-                                        arena, case_node%body_indices, &
-                                        indent_level + 1)
+                                arena, case_node%body_indices, &
+                                indent_level + 1)
                             if (len(body_code) > 0) then
                                 code = code//new_line('A')//body_code
                             end if
@@ -367,14 +367,14 @@ contains
         ! Handle default case if present
         if (node%default_index > 0 .and. node%default_index <= arena%size) then
             code = code//new_line('A')//repeat("    ", indent_level)// &
-                   "case default"
+                "case default"
 
             if (arena%has_node_at(node%default_index)) then
                 select type (default_node => arena%entries(node%default_index)%node)
-                type is (case_default_node)
+                    type is (case_default_node)
                     if (allocated(default_node%body_indices)) then
                         body_code = generate_grouped_body_internal( &
-                                    arena, default_node%body_indices, indent_level + 1)
+                            arena, default_node%body_indices, indent_level + 1)
                         if (len(body_code) > 0) then
                             code = code//new_line('A')//body_code
                         end if
@@ -421,8 +421,8 @@ contains
                 if (node%guard_indices(i) > 0 .and. &
                     node%guard_indices(i) <= arena%size) then
                     select type (guard_node => &
-                                 arena%entries(node%guard_indices(i))%node)
-                    type is (type_guard_block_node)
+                            arena%entries(node%guard_indices(i))%node)
+                        type is (type_guard_block_node)
                         ! Generate type guard statement
                         code = code//new_line('A')//repeat("    ", indent_level)
                         if (guard_node%guard_type == "type_is") then
@@ -441,8 +441,8 @@ contains
                         ! Generate guard body
                         if (allocated(guard_node%body_indices)) then
                             body_code = generate_grouped_body_internal( &
-                                        arena, guard_node%body_indices, &
-                                        indent_level + 1)
+                                arena, guard_node%body_indices, &
+                                indent_level + 1)
                             if (len(body_code) > 0) then
                                 code = code//new_line('A')//body_code
                             end if
@@ -455,13 +455,13 @@ contains
         ! Handle default guard if present
         if (node%default_index > 0 .and. node%default_index <= arena%size) then
             select type (default_node => arena%entries(node%default_index)%node)
-            type is (type_guard_block_node)
+                type is (type_guard_block_node)
                 code = code//new_line('A')//repeat("    ", indent_level)// &
-                       "class default"
+                    "class default"
 
                 if (allocated(default_node%body_indices)) then
                     body_code = generate_grouped_body_internal( &
-                                arena, default_node%body_indices, indent_level + 1)
+                        arena, default_node%body_indices, indent_level + 1)
                     if (len(body_code) > 0) then
                         code = code//new_line('A')//body_code
                     end if
@@ -501,8 +501,8 @@ contains
                 if (node%rank_indices(i) > 0 .and. &
                     node%rank_indices(i) <= arena%size) then
                     select type (rank_node => &
-                                 arena%entries(node%rank_indices(i))%node)
-                    type is (rank_block_node)
+                            arena%entries(node%rank_indices(i))%node)
+                        type is (rank_block_node)
                         ! Generate rank statement
                         code = code//new_line('A')//repeat("    ", indent_level)
 
@@ -518,8 +518,8 @@ contains
                         ! Generate rank body
                         if (allocated(rank_node%body_indices)) then
                             body_code = generate_grouped_body_internal( &
-                                        arena, rank_node%body_indices, &
-                                        indent_level + 1)
+                                arena, rank_node%body_indices, &
+                                indent_level + 1)
                             if (len(body_code) > 0) then
                                 code = code//new_line('A')//body_code
                             end if
@@ -532,13 +532,13 @@ contains
         ! Handle default rank if present
         if (node%default_index > 0 .and. node%default_index <= arena%size) then
             select type (default_node => arena%entries(node%default_index)%node)
-            type is (rank_block_node)
+                type is (rank_block_node)
                 code = code//new_line('A')//repeat("    ", indent_level)// &
-                       "rank default"
+                    "rank default"
 
                 if (allocated(default_node%body_indices)) then
                     body_code = generate_grouped_body_internal( &
-                                arena, default_node%body_indices, indent_level + 1)
+                        arena, default_node%body_indices, indent_level + 1)
                     if (len(body_code) > 0) then
                         code = code//new_line('A')//body_code
                     end if
@@ -572,7 +572,7 @@ contains
         ! WHERE body
         if (allocated(node%where_body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, node%where_body_indices, 1)
+                arena, node%where_body_indices, 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -583,7 +583,7 @@ contains
             do i = 1, size(node%elsewhere_clauses)
                 if (node%elsewhere_clauses(i)%mask_index > 0) then
                     mask_code = generate_code_from_arena( &
-                                arena, node%elsewhere_clauses(i)%mask_index)
+                        arena, node%elsewhere_clauses(i)%mask_index)
                     code = code//new_line('A')//"elsewhere ("//mask_code//")"
                 else
                     code = code//new_line('A')//"elsewhere"
@@ -591,7 +591,7 @@ contains
 
                 if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                     body_code = generate_grouped_body_internal( &
-                                arena, node%elsewhere_clauses(i)%body_indices, 1)
+                        arena, node%elsewhere_clauses(i)%body_indices, 1)
                     if (len(body_code) > 0) then
                         code = code//new_line('A')//body_code
                     end if
@@ -626,16 +626,16 @@ contains
 
                 if (node%lower_bound_indices(i) > 0) then
                     part = part//generate_code_from_arena( &
-                           arena, node%lower_bound_indices(i))
+                        arena, node%lower_bound_indices(i))
                 end if
                 part = part//":"
                 if (node%upper_bound_indices(i) > 0) then
                     part = part//generate_code_from_arena( &
-                           arena, node%upper_bound_indices(i))
+                        arena, node%upper_bound_indices(i))
                 end if
                 if (node%stride_indices(i) > 0) then
                     part = part//":"//generate_code_from_arena( &
-                           arena, node%stride_indices(i))
+                        arena, node%stride_indices(i))
                 end if
 
                 header = header//part
@@ -644,7 +644,7 @@ contains
 
         if (node%has_mask .and. node%mask_expr_index > 0) then
             header = header//", "//generate_code_from_arena( &
-                     arena, node%mask_expr_index)
+                arena, node%mask_expr_index)
         end if
         header = header//")"
 
@@ -652,7 +652,7 @@ contains
 
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, node%body_indices, 1)
+                arena, node%body_indices, 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -685,7 +685,7 @@ contains
 
                     if (node%associations(i)%expr_index > 0) then
                         assoc_code = generate_code_from_arena( &
-                                     arena, node%associations(i)%expr_index)
+                            arena, node%associations(i)%expr_index)
                         code = code//assoc_code
                     end if
                 end if
@@ -697,7 +697,7 @@ contains
         ! Generate body
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, node%body_indices, indent_level + 1)
+                arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -721,7 +721,7 @@ contains
 
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_internal( &
-                        arena, node%body_indices, indent_level + 1)
+                arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code//new_line('A')//body_code
             end if
@@ -733,7 +733,7 @@ contains
 
     ! Internal function to generate grouped body
     recursive function generate_grouped_body_internal(arena, body_indices, indent) &
-        result(code)
+            result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent

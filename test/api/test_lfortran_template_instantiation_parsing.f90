@@ -12,7 +12,7 @@ program test_lfortran_template_instantiation_parsing
     integer :: root_index
 
     call read_example('examples/f90/issue_2737_lfortran_template_instantiate.f90', &
-                      source)
+        source)
 
     arena = create_ast_arena()
     call lex_source(source, tokens, error_msg)

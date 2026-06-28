@@ -17,13 +17,13 @@ contains
         type(error_collection_t), intent(inout) :: errors
 
         call errors%add_result(create_error_result( &
-                               "Implicit mixing of signed and unsigned " // &
-                               "integers is forbidden; use uint() or int()", &
-                               ERROR_SEMANTIC, &
-                               component="semantic_analyzer", &
-                               context="unsigned_integer_mix", &
-                               suggestion="Convert explicitly with uint(...) or " // &
-                               "int(...)"))
+            "Implicit mixing of signed and unsigned " // &
+            "integers is forbidden; use uint() or int()", &
+            ERROR_SEMANTIC, &
+            component="semantic_analyzer", &
+            context="unsigned_integer_mix", &
+            suggestion="Convert explicitly with uint(...) or " // &
+            "int(...)"))
     end subroutine emit_unsigned_integer_mix_error
 
     subroutine extract_integer_signedness(typ, is_int, is_unsigned)
@@ -55,7 +55,7 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (lit => arena%entries(expr_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             is_lit = lit%literal_kind == LITERAL_INTEGER
         class default
             is_lit = .false.

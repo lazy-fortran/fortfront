@@ -1,8 +1,8 @@
 program test_array_features_pipeline
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     implicit none
 
     logical :: all_passed
@@ -84,9 +84,9 @@ contains
                     print *, '  PASS: Array declaration found'
                     found_correct_output = .true.
                 else if (index(line, 'arr = (/1,2,3/)') > 0 .or. &
-                         index(line, 'arr = (/ 1, 2, 3 /)') > 0 .or. &
-                         index(line, 'arr = [1,2,3]') > 0 .or. &
-                         index(line, 'arr = [1, 2, 3]') > 0) then
+                        index(line, 'arr = (/ 1, 2, 3 /)') > 0 .or. &
+                        index(line, 'arr = [1,2,3]') > 0 .or. &
+                        index(line, 'arr = [1, 2, 3]') > 0) then
                     print *, '  PASS: Array literal converted to constructor'
                     found_correct_output = .true.
                 end if
@@ -167,7 +167,7 @@ contains
             print *, '  EXPECTED FAIL: Array constructors not implemented'
             print *, '  Error:', trim(error_msg)
             ! This is expected to fail - it's a RED test
-            test_array_constructors = .true.  ! Mark as "passed" since we expect failure
+            test_array_constructors = .true. ! Mark as "passed" since we expect failure
         else
             print *, '  UNEXPECTED: Array constructors compiled!'
             ! If it compiles, check the output

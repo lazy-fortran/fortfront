@@ -7,7 +7,7 @@ program test_elemental_validation
     use ast_factory_declarations, only: push_declaration
     use error_handling, only: error_collection_t, create_error_collection
     use semantic_elemental_validation, only: validate_elemental_procedure, &
-                                             is_elemental_prefix
+        is_elemental_prefix
     implicit none
 
     logical :: all_tests_passed
@@ -78,7 +78,7 @@ contains
         allocate (dims(1))
         dims(1) = push_literal(arena, '3', LITERAL_INTEGER, line=2, column=10)
         decl_idx = push_declaration(arena, 'real', ['x'], dimension_indices=dims, &
-                                    line=2, column=1)
+            line=2, column=1)
         allocate (body(1))
         body(1) = decl_idx
         prefix = [character(len=16) :: 'elemental']
@@ -107,7 +107,7 @@ contains
         dims(1) = push_literal(arena, '3', LITERAL_INTEGER, line=1, column=10)
         allocate (params(1))
         params(1) = push_declaration(arena, 'real', ['x'], dimension_indices=dims, &
-                                     line=1, column=1)
+            line=1, column=1)
         allocate (body(0))
         prefix = [character(len=16) :: 'elemental']
 
@@ -137,7 +137,7 @@ contains
         allocate (dims(1))
         dims(1) = push_literal(arena, '3', LITERAL_INTEGER, line=2, column=10)
         decl_idx = push_declaration(arena, 'real', ['x'], dimension_indices=dims, &
-                                    line=2, column=1)
+            line=2, column=1)
         allocate (body(1))
         body(1) = decl_idx
         prefix = [character(len=16) :: 'pure']

@@ -18,18 +18,18 @@ program test_reshape_variable_shape_inference
     end if
 
     call assert_contains_any(output, 'real :: a(3, 3)', 'real :: a(3,3)', &
-                             'Expected fixed-size declaration for a')
+        'Expected fixed-size declaration for a')
     call assert_contains_any(output, 'real :: b(3, 3)', 'real :: b(3,3)', &
-                             'Expected fixed-size declaration for b')
+        'Expected fixed-size declaration for b')
     call assert_contains_any(output, 'real :: c(3, 3)', 'real :: c(3,3)', &
-                             'Expected fixed-size declaration for c')
+        'Expected fixed-size declaration for c')
 
     call ensure_absent(output, 'allocatable :: a', &
-                       'a incorrectly marked allocatable')
+        'a incorrectly marked allocatable')
     call ensure_absent(output, 'allocatable :: b', &
-                       'b incorrectly marked allocatable')
+        'b incorrectly marked allocatable')
     call ensure_absent(output, 'allocatable :: c', &
-                       'c incorrectly marked allocatable')
+        'c incorrectly marked allocatable')
 
     write (*, '(A)') 'PASS: reshape variable shape inference'
 

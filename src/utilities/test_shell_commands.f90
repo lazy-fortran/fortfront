@@ -8,7 +8,7 @@ module test_shell_commands
 contains
 
     function build_compile_command(output_file, module_dir, temp_dir, &
-                                   is_windows) result(command)
+            is_windows) result(command)
         character(len=*), intent(in) :: output_file
         character(len=*), intent(in) :: module_dir, temp_dir
         logical, intent(in) :: is_windows
@@ -23,21 +23,21 @@ contains
         command = ''
 
         output_arg = quote_for_shell(output_file, is_windows, &
-                                     escape_for_cmd=is_windows)
+            escape_for_cmd=is_windows)
         if (len_trim(output_arg) == 0) return
 
         command = 'gfortran -c -fsyntax-only '
 
         if (len_trim(module_dir) > 0) then
             module_arg = quote_for_shell(module_dir, is_windows, &
-                                         escape_for_cmd=is_windows)
+                escape_for_cmd=is_windows)
             if (len_trim(module_arg) > 0) command = command // '-I ' // &
-                                                    module_arg // ' '
+                module_arg // ' '
         end if
 
         if (len_trim(temp_dir) > 0) then
             temp_arg = quote_for_shell(temp_dir, is_windows, &
-                                       escape_for_cmd=is_windows)
+                escape_for_cmd=is_windows)
             if (len_trim(temp_arg) > 0) command = command // '-J ' // temp_arg // ' '
         end if
 
@@ -47,7 +47,7 @@ contains
         env_status = 1
         disable_redirect = .false.
         call get_environment_variable('FORTFRONT_SHOW_COMPILE_OUTPUT', &
-                                      env_value, status=env_status)
+            env_value, status=env_status)
         if (env_status == 0) then
             if (len_trim(env_value) > 0) then
                 if (env_value(1:1) /= '0') disable_redirect = .true.
@@ -98,7 +98,7 @@ contains
         end if
 
         command = build_compile_command('output file.f90', 'modules dir', 'temp dir', &
-                                        is_windows)
+            is_windows)
         if (len_trim(command) == 0) then
             error stop 'verify_shell_helpers: build_compile_command returned empty command'
         end if
@@ -119,8 +119,8 @@ contains
         end if
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
-                                      escape_for_cmd=.true.), &
-                      '"pipe path"') == 0) then
+                escape_for_cmd=.true.), &
+                '"pipe path"') == 0) then
                 error stop 'verify_shell_helpers: Windows cmd escaping missing'
             end if
         end if

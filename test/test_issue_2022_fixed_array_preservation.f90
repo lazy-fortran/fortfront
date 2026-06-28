@@ -13,7 +13,7 @@ program test_issue_2022_fixed_array_preservation
     type(transform_context_t) :: context
 
     call read_example('examples/f90/issue_2022_fixed_array_to_unallocated.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.

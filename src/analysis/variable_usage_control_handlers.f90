@@ -70,7 +70,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (if_node)
+            type is (if_node)
             call push_node(ctx, node%condition_index)
 
             if (allocated(node%then_body_indices)) then
@@ -111,7 +111,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (do_while_node)
+            type is (do_while_node)
             call push_node(ctx, node%condition_index)
 
             if (allocated(node%body_indices)) then
@@ -132,7 +132,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (select_case_node)
+            type is (select_case_node)
             call push_node(ctx, node%selector_index)
 
             if (allocated(node%case_indices)) then
@@ -155,7 +155,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (select_rank_node)
+            type is (select_rank_node)
             call push_node(ctx, node%selector_index)
 
             if (allocated(node%rank_indices)) then
@@ -178,7 +178,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (rank_block_node)
+            type is (rank_block_node)
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     call push_node(ctx, node%body_indices(i))
@@ -197,7 +197,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (select_type_node)
+            type is (select_type_node)
             call push_node(ctx, node%selector_index)
 
             if (allocated(node%guard_indices)) then
@@ -220,7 +220,7 @@ contains
         integer :: i
 
         select type (node => arena%entries(node_index)%node)
-        type is (type_guard_block_node)
+            type is (type_guard_block_node)
             call push_node(ctx, node%type_name_index)
 
             if (allocated(node%body_indices)) then
@@ -241,7 +241,7 @@ contains
         integer :: i, j
 
         select type (node => arena%entries(node_index)%node)
-        type is (where_node)
+            type is (where_node)
             call push_node(ctx, node%mask_expr_index)
 
             if (allocated(node%where_body_indices)) then
@@ -257,7 +257,7 @@ contains
                     if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
                             call push_node(ctx, node%elsewhere_clauses(i)% &
-                                           body_indices(j))
+                                body_indices(j))
                         end do
                     end if
                 end do
@@ -273,7 +273,7 @@ contains
         type(traversal_context_t), intent(inout) :: ctx
 
         select type (node => arena%entries(node_index)%node)
-        type is (where_stmt_node)
+            type is (where_stmt_node)
             call push_node(ctx, node%mask_expr_index)
             call push_node(ctx, node%assignment_index)
         end select
@@ -291,7 +291,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (case_block_node)
+            type is (case_block_node)
             if (allocated(node%value_indices)) then
                 do i = 1, size(node%value_indices)
                     call push_node(ctx, node%value_indices(i))
@@ -318,7 +318,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (block_construct_node)
+            type is (block_construct_node)
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     call push_node(ctx, node%body_indices(i))
@@ -339,7 +339,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             if (allocated(node%var_name)) then
                 call add_string_to_info(node%var_name, node_index, info)
             end if
@@ -368,7 +368,7 @@ contains
         if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (forall_node)
+            type is (forall_node)
             if (allocated(node%index_names)) then
                 do i = 1, node%num_indices
                     call add_string_to_info(node%index_names(i), node_index, info)

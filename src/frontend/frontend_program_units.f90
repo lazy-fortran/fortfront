@@ -3,15 +3,15 @@ module frontend_program_units
     ! Handles module, function, subroutine, type, and program unit parsing
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, &
-                          TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_STRING, TK_UNKNOWN, TK_WHITESPACE, to_lower
+        TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, &
+        TK_STRING, TK_UNKNOWN, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                        get_last_parser_errors
+        get_last_parser_errors
     use frontend_statement_processing, only: parse_all_statements, &
-                                             parse_explicit_program_unit
+        parse_explicit_program_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program
     use frontend_utilities, only: is_type_start
@@ -25,17 +25,17 @@ module frontend_program_units
     public :: parse_subroutine_unit, parse_type_unit, parse_explicit_program_unit
     public :: parse_implicit_main_program, parse_block_data_unit
     public :: not_meaningful_program_unit, has_any_non_comment_content, &
-              has_executable_statements
+        has_executable_statements
 
     ! Helper functions for unit detection
     public :: is_function_start, is_subroutine_start, is_module_start, &
-              is_submodule_start, is_program_start, is_type_start, is_block_data_start
+        is_submodule_start, is_program_start, is_type_start, is_block_data_start
 
 contains
 
     ! Main program unit parsing dispatch
     function parse_program_unit(tokens, arena, has_explicit_program, error_msg) &
-        result(unit_index)
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
@@ -83,18 +83,18 @@ contains
                 unit_index = parse_template_unit(trimmed_tokens, arena, parse_error)
             else if (is_program_start(trimmed_tokens, 1)) then
                 unit_index = parse_explicit_program_unit(trimmed_tokens, arena, &
-                                                         parse_error)
+                    parse_error)
             else if (is_block_data_start(trimmed_tokens, 1)) then
                 ! Parse BLOCK DATA unit
                 unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error)
             else if (is_interface_start(trimmed_tokens, 1)) then
                 unit_index = parse_interface_unit(trimmed_tokens, arena, &
-                                                  parse_error)
+                    parse_error)
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
-                                                         has_explicit_program, &
-                                                         parse_error)
+                    has_explicit_program, &
+                    parse_error)
             end if
         end block
 
@@ -259,7 +259,7 @@ contains
 
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program, &
-                                         error_msg) result(prog_index)
+            error_msg) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
@@ -347,8 +347,8 @@ contains
         if (pos <= size(tokens)) then
             if (tokens(pos)%kind == TK_KEYWORD .and. &
                 (tokens(pos)%text == "function" .or. &
-                 (pos < size(tokens) .and. tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                  tokens(pos + 1)%text == "function"))) then
+                (pos < size(tokens) .and. tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "function"))) then
                 is_start = .true.
             end if
         end if

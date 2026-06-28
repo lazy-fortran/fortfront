@@ -3,7 +3,7 @@ module codegen_grouped_body_params_helpers
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_character_normalization, only: normalize_character_type, &
-                                               normalize_character_type_param
+        normalize_character_type_param
     use codegen_parameter_info, only: parameter_info_t, find_parameter_info
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: is_character_type_string
@@ -18,8 +18,8 @@ module codegen_grouped_body_params_helpers
 contains
 
     subroutine process_multi_decl_params(arena, node, param_map, indent_str, &
-                                         standardize_types, preserve_intent, &
-                                         code)
+            standardize_types, preserve_intent, &
+            code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -66,11 +66,11 @@ contains
         code = code // indent_str // type_name
         if (append_kind) then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) &
-                   // ")"
+                // ")"
         end if
 
         call add_intent_optional_target(node, param_map, first_param_idx, &
-                                        preserve_intent, code)
+            preserve_intent, code)
 
         dimension_suffix = build_inline_dimension_suffix(arena, node)
         has_dimensions = len(dimension_suffix) > 0
@@ -85,12 +85,12 @@ contains
         code = code // new_line('A')
 
         call process_nonparam_vars(arena, node, is_param, indent_str, &
-                                   standardize_types, code)
+            standardize_types, code)
         deallocate (is_param)
     end subroutine process_multi_decl_params
 
     subroutine add_intent_optional_target(node, param_map, first_param_idx, &
-                                          preserve_intent, code)
+            preserve_intent, code)
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
         integer, intent(in) :: first_param_idx
@@ -123,7 +123,7 @@ contains
     end subroutine add_intent_optional_target
 
     subroutine process_nonparam_vars(arena, node, is_param, indent_str, &
-                                     standardize_types, code)
+            standardize_types, code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         logical, intent(in) :: is_param(:)
@@ -174,7 +174,7 @@ contains
     end subroutine process_nonparam_vars
 
     subroutine process_single_decl_param(arena, node, param_map, indent_str, &
-                                         standardize_types, code)
+            standardize_types, code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -194,22 +194,22 @@ contains
         if (is_character_type_string(type_name)) then
             type_name = normalize_character_type(node, type_name)
         else if (standardize_types .and. to_lower(trim(type_name)) == "real" &
-                 .and. .not. node%has_kind) then
+                .and. .not. node%has_kind) then
             type_name = "real(dp)"
         end if
         append_kind_single = node%has_kind .and. .not. &
-                             is_character_type_string(type_name)
+            is_character_type_string(type_name)
         code = code // indent_str // type_name
         if (append_kind_single) then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) &
-                   // ")"
+                // ")"
         end if
         if (node%has_intent) then
             code = code // ", intent(" // node%intent // ")"
         else if (allocated(param_map(param_idx)%intent_str)) then
             if (len_trim(param_map(param_idx)%intent_str) > 0) then
                 code = code // ", intent(" // param_map(param_idx)%intent_str &
-                       // ")"
+                    // ")"
             end if
         end if
         if (node%is_optional .or. param_map(param_idx)%is_optional) then
@@ -229,7 +229,7 @@ contains
     end subroutine process_single_decl_param
 
     subroutine process_param_decl_node(arena, node, param_map, indent_str, &
-                                      standardize_types, code)
+            standardize_types, code)
         type(ast_arena_t), intent(in) :: arena
         type(parameter_declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -247,17 +247,17 @@ contains
         type_name = trim(node%type_name)
         if (is_character_type_string(type_name)) then
             type_name = normalize_character_type_param(type_name, node%has_kind, &
-                                                       node%kind_value)
+                node%kind_value)
         else if (standardize_types .and. to_lower(trim(type_name)) == "real") then
             if (.not. node%has_kind) type_name = "real(dp)"
         end if
         append_kind_param = node%has_kind .and. .not. &
-                            is_character_type_string(type_name)
+            is_character_type_string(type_name)
         if (len_trim(type_name) == 0) return
         code = code // indent_str // type_name
         if (append_kind_param) then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) &
-                   // ")"
+                // ")"
         end if
         if (len_trim(param_map(param_idx)%intent_str) > 0) then
             code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
@@ -311,8 +311,8 @@ contains
     end function build_inline_dimension_suffix
 
     function should_skip_result_decl(node, result_var_name, &
-                                     has_return_type_in_signature, &
-                                     force_keep_result_decl) result(should_skip)
+            has_return_type_in_signature, &
+            force_keep_result_decl) result(should_skip)
         type(declaration_node), intent(in) :: node
         character(len=*), intent(in) :: result_var_name
         logical, intent(in) :: has_return_type_in_signature
@@ -329,9 +329,9 @@ contains
         has_dimensions = allocated(node%dimension_indices)
         if (has_dimensions) has_dimensions = size(node%dimension_indices) > 0
         keep_result_decl = node%is_multi_declaration .or. node%is_array .or. &
-                           has_dimensions .or. node%is_allocatable .or. &
-                           node%is_pointer .or. node%is_target .or. &
-                           node%is_parameter .or. node%has_initializer
+            has_dimensions .or. node%is_allocatable .or. &
+            node%is_pointer .or. node%is_target .or. &
+            node%is_parameter .or. node%has_initializer
         if (force_keep_result_decl) keep_result_decl = .true.
         if (keep_result_decl) return
 

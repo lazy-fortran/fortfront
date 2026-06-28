@@ -1,6 +1,6 @@
 program test_issue_2075_stop_keyword_collision
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                              iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none
@@ -11,7 +11,7 @@ program test_issue_2075_stop_keyword_collision
     character(len=:), allocatable :: error_msg
 
     call read_example('examples/lf/issue_2075_stop_keyword_collision_in_function_param.lf', &
-                      source)
+        source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then

@@ -1,6 +1,6 @@
 program test_issue_1960_pointer_assignment_if
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_STANDARD
     implicit none
@@ -20,7 +20,7 @@ program test_issue_1960_pointer_assignment_if
     print *, "=== Issue #1960: preserve pointer assignment inside IF blocks ==="
 
     call read_example('examples/f90/issue_1960_pointer_assignment_if.f90', &
-                      input_code)
+        input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.

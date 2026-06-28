@@ -1,10 +1,10 @@
 program test_compiler_identifier_queries
     use fortfront, only: compiler_frontend_options_t, &
-                         compiler_frontend_result_t, &
-                         compile_frontend_from_string, &
-                         is_identifier, get_identifier_name, &
-                         is_literal, &
-                         INPUT_MODE_STANDARD
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        is_identifier, get_identifier_name, &
+        is_literal, &
+        INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: result_options
@@ -57,7 +57,7 @@ program test_compiler_identifier_queries
 contains
 
     integer function find_identifier_named(frontend_result, want) &
-        result(node_index)
+            result(node_index)
         type(compiler_frontend_result_t), intent(in) :: frontend_result
         character(len=*), intent(in) :: want
         character(len=:), allocatable :: nm, msg

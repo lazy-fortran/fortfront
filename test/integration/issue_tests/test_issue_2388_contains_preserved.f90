@@ -48,7 +48,7 @@ program test_issue_2388_contains_preserved
     end if
     type_contains_pos = type_contains_pos + type_pos - 1
     if (.not. (type_pos < type_contains_pos .and. type_contains_pos < &
-               binding_pos)) then
+        binding_pos)) then
         write (error_unit, '(A)') 'FAIL: type contains misplaced'
         error stop 1
     end if
@@ -60,8 +60,8 @@ program test_issue_2388_contains_preserved
     end if
 
     module_contains_pos = index(lowered(module_anchor:), &
-                                new_line('a')//'contains'//new_line('a')// &
-                                '    subroutine run')
+        new_line('a')//'contains'//new_line('a')// &
+        '    subroutine run')
     if (module_contains_pos == 0) then
         write (error_unit, '(A)') 'FAIL: module-level contains stripped'
         error stop 1
@@ -91,7 +91,7 @@ program test_issue_2388_contains_preserved
     end if
     internal_contains_pos = internal_contains_pos + run_pos - 1
     if (.not. (run_pos < internal_contains_pos .and. internal_contains_pos < &
-               bump_pos)) then
+        bump_pos)) then
         write (error_unit, '(A)') 'FAIL: internal contains misplaced'
         error stop 1
     end if
@@ -125,7 +125,7 @@ program test_issue_2388_contains_preserved
     decl_pos = index(lowered, 'integer :: counter')
     bump_counter_pos = index(lowered, 'subroutine bump_counter')
     program_contains_pos = index(lowered, new_line('a')//'contains'// &
-                                 new_line('a'))
+        new_line('a'))
 
     if (decl_pos == 0 .or. bump_counter_pos == 0) then
         write (error_unit, '(A)') 'FAIL: program elements missing after roundtrip'
@@ -138,7 +138,7 @@ program test_issue_2388_contains_preserved
     end if
 
     if (.not. (decl_pos < program_contains_pos .and. &
-               program_contains_pos < bump_counter_pos)) then
+        program_contains_pos < bump_counter_pos)) then
         write (error_unit, '(A)') 'FAIL: program contains misplaced'
         error stop 1
     end if
@@ -156,8 +156,8 @@ contains
 
     subroutine assert_compiles(text, basename)
         use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                           cleanup_temp_directory, join_path, &
-                                           path_separator_for
+            cleanup_temp_directory, join_path, &
+            path_separator_for
         use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: basename
@@ -176,7 +176,7 @@ contains
         filename = join_path(temp_dir, trim(basename)//'.f90', sep)
 
         open (newunit=unit, file=filename, status='replace', action='write', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) then
             write (error_unit, '(A)') 'FAIL: could not create ' // trim(filename)
             error stop 1

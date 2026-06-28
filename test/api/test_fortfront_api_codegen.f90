@@ -1,8 +1,8 @@
 program test_fortfront_api_codegen
     ! Test the public API code generation functionality
     use fortfront, only: emit_fortran, lex_source, parse_tokens, &
-                         analyze_semantics, token_t, &
-                         ast_arena_t, create_ast_arena
+        analyze_semantics, token_t, &
+        ast_arena_t, create_ast_arena
     implicit none
 
     logical :: all_passed
@@ -113,8 +113,8 @@ contains
 
             ! Simple assignment code
             source = 'x = 42' // new_line('A') // &
-                     'y = 3.14' // new_line('A') // &
-                     'z = x + y'
+                'y = 3.14' // new_line('A') // &
+                'z = x + y'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()
@@ -165,9 +165,9 @@ contains
 
             ! Function definition
             source = 'real function square(x)' // new_line('A') // &
-                     '    real :: x' // new_line('A') // &
-                     '    square = x * x' // new_line('A') // &
-                     'end function square'
+                '    real :: x' // new_line('A') // &
+                '    square = x * x' // new_line('A') // &
+                'end function square'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()
@@ -212,10 +212,10 @@ contains
 
             ! If statement
             source = 'if (x > 0) then' // new_line('A') // &
-                     '    y = 1' // new_line('A') // &
-                     'else' // new_line('A') // &
-                     '    y = -1' // new_line('A') // &
-                     'end if'
+                '    y = 1' // new_line('A') // &
+                'else' // new_line('A') // &
+                '    y = -1' // new_line('A') // &
+                'end if'
 
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()

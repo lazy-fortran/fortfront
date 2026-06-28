@@ -67,12 +67,12 @@ contains
         character(len=:), allocatable :: message
 
         result = create_error_result( &
-                 "Test validation failed", &
-                 ERROR_VALIDATION, &
-                 component="test_module", &
-                 context="test_function", &
-                 suggestion="Check input parameters" &
-                 )
+            "Test validation failed", &
+            ERROR_VALIDATION, &
+            component="test_module", &
+            context="test_function", &
+            suggestion="Check input parameters" &
+            )
 
         call assert_test(result%is_failure(), "Comprehensive error result with context")
         call assert_test(.not. result%is_success(), "Comprehensive error result success check")
@@ -86,17 +86,17 @@ contains
         character(len=:), allocatable :: full_message
 
         result = create_error_result( &
-                 "Specific error occurred", &
-                 ERROR_PARSER, &
-                 component="parser_expressions_module", &
-                 context="parse_statement", &
-                 suggestion="Check syntax" &
-                 )
+            "Specific error occurred", &
+            ERROR_PARSER, &
+            component="parser_expressions_module", &
+            context="parse_statement", &
+            suggestion="Check syntax" &
+            )
 
         full_message = result%get_full_message()
         call assert_test(index(full_message, "ERROR") > 0, "Error message formatting with context")
         call assert_test(index(full_message, "parser_expressions_module") > 0, &
-                         "Full message contains component")
+            "Full message contains component")
     end subroutine
 
     subroutine test_error_categories_and_severity()
@@ -145,7 +145,7 @@ contains
 
         call collection%add_result(result1)
         call collection%add_result(result2)
-        call collection%add_result(result3)  ! Should not add success results
+        call collection%add_result(result3) ! Should not add success results
 
         call assert_test(collection%get_error_count() >= 2, "Error collection functionality")
         call assert_test(collection%has_errors(), "Collection has errors")

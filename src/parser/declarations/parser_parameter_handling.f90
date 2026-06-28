@@ -1,15 +1,15 @@
 module parser_parameter_handling_module
     ! Parser module for parameter handling and typed parameter parsing
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_parameter_declaration, push_identifier, push_literal
     use ast_factory
     use ast_types, only: LITERAL_INTEGER
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+        INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_utilities, only: consume_token
     use string_utils_mod, only: to_lower
     implicit none
@@ -79,7 +79,7 @@ contains
             if (.not. allocated(arena%entries(param_indices(i))%node)) cycle
 
             select type (param_node => arena%entries(param_indices(i))%node)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 param_name = param_node%name
 
                 ! Look for corresponding declaration in body
@@ -90,7 +90,7 @@ contains
                     if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
 
                     select type (body_node => arena%entries(body_indices(j))%node)
-                    type is (declaration_node)
+                        type is (declaration_node)
                         ! Check if this declaration is for the parameter
                         if (body_node%is_multi_declaration) then
                             ! Check multi-declaration var_names
@@ -98,7 +98,7 @@ contains
                                 if (any(body_node%var_names == param_name)) then
                                     call &
                                         update_parameter_from_declaration(param_node, &
-                                                                          body_node)
+                                        body_node)
                                 end if
                             end if
                         else
@@ -107,7 +107,7 @@ contains
                                 body_node%var_name == param_name) then
                                 call &
                                     update_parameter_from_declaration(param_node, &
-                                                                      body_node)
+                                    body_node)
                             end if
                         end if
                     end select
@@ -159,9 +159,9 @@ contains
     logical function is_type_keyword_token(token) result(is_type_keyword)
         type(token_t), intent(in) :: token
         is_type_keyword = token%text == "real" .or. token%text == "integer" .or. &
-                          token%text == "logical" .or. token%text == "character" .or. &
-                          token%text == "type" .or. token%text == "complex" .or. &
-                          token%text == "class" .or. token%text == "procedure"
+            token%text == "logical" .or. token%text == "character" .or. &
+            token%text == "type" .or. token%text == "complex" .or. &
+            token%text == "class" .or. token%text == "procedure"
     end function is_type_keyword_token
 
     logical function can_keyword_be_identifier(token) result(can_be_id)
@@ -170,8 +170,8 @@ contains
 
         lower_text = to_lower(token%text)
         can_be_id = lower_text == "stop" .or. lower_text == "pause" .or. &
-                    lower_text == "cycle" .or. lower_text == "exit" .or. &
-                    lower_text == "return" .or. lower_text == "continue"
+            lower_text == "cycle" .or. lower_text == "exit" .or. &
+            lower_text == "return" .or. lower_text == "continue"
     end function can_keyword_be_identifier
 
     subroutine parse_parameter_group(parser, arena, param_indices)
@@ -386,7 +386,7 @@ contains
         do while (.not. parser%is_at_end())
             if (.not. next_token_is_identifier(parser)) exit
             group_indices = [group_indices, parse_single_parameter(parser, &
-                                                                   arena, info)]
+                arena, info)]
 
             if (.not. comma_continues_group(parser)) exit
         end do
@@ -420,7 +420,7 @@ contains
 
         select case (parser%tokens(parser%current_token + 1)%text)
         case ("real", "integer", "logical", "character", "type", "class", &
-              "complex", "procedure")
+                "complex", "procedure")
             continues = .false.
         case default
             call consume_token(parser)
@@ -453,54 +453,54 @@ contains
         if (size(dim_indices) > 0) then
             if (allocated(length_expr)) then
                 param_index = push_parameter_declaration( &
-                              arena, param_name, &
-                              info%type_name, &
-                              info%kind_value, &
-                              info%intent_value, &
-                              info%is_optional, &
-                              info%is_target, &
-                              info%is_unsigned, &
-                              dim_indices, &
-                              line=info%line, &
-                              column=info%column, &
-                              character_length_expr=length_expr)
+                    arena, param_name, &
+                    info%type_name, &
+                    info%kind_value, &
+                    info%intent_value, &
+                    info%is_optional, &
+                    info%is_target, &
+                    info%is_unsigned, &
+                    dim_indices, &
+                    line=info%line, &
+                    column=info%column, &
+                    character_length_expr=length_expr)
             else
                 param_index = push_parameter_declaration( &
-                              arena, param_name, &
-                              info%type_name, &
-                              info%kind_value, &
-                              info%intent_value, &
-                              info%is_optional, &
-                              info%is_target, &
-                              info%is_unsigned, &
-                              dim_indices, &
-                              line=info%line, &
-                              column=info%column)
+                    arena, param_name, &
+                    info%type_name, &
+                    info%kind_value, &
+                    info%intent_value, &
+                    info%is_optional, &
+                    info%is_target, &
+                    info%is_unsigned, &
+                    dim_indices, &
+                    line=info%line, &
+                    column=info%column)
             end if
         else
             if (allocated(length_expr)) then
                 param_index = push_parameter_declaration( &
-                              arena, name=param_name, &
-                              type_name=info%type_name, &
-                              kind_value=info%kind_value, &
-                              intent_value=info%intent_value, &
-                              is_optional=info%is_optional, &
-                              is_target=info%is_target, &
-                              is_unsigned=info%is_unsigned, &
-                              line=info%line, &
-                              column=info%column, &
-                              character_length_expr=length_expr)
+                    arena, name=param_name, &
+                    type_name=info%type_name, &
+                    kind_value=info%kind_value, &
+                    intent_value=info%intent_value, &
+                    is_optional=info%is_optional, &
+                    is_target=info%is_target, &
+                    is_unsigned=info%is_unsigned, &
+                    line=info%line, &
+                    column=info%column, &
+                    character_length_expr=length_expr)
             else
                 param_index = push_parameter_declaration( &
-                              arena, name=param_name, &
-                              type_name=info%type_name, &
-                              kind_value=info%kind_value, &
-                              intent_value=info%intent_value, &
-                              is_optional=info%is_optional, &
-                              is_target=info%is_target, &
-                              is_unsigned=info%is_unsigned, &
-                              line=info%line, &
-                              column=info%column)
+                    arena, name=param_name, &
+                    type_name=info%type_name, &
+                    kind_value=info%kind_value, &
+                    intent_value=info%intent_value, &
+                    is_optional=info%is_optional, &
+                    is_target=info%is_target, &
+                    is_unsigned=info%is_unsigned, &
+                    line=info%line, &
+                    column=info%column)
             end if
         end if
     end function parse_single_parameter
@@ -546,14 +546,14 @@ contains
             select case (token%text)
             case (":", "*")
                 dim_index = push_identifier(arena, token%text, token%line, &
-                                            token%column)
+                    token%column)
                 dim_indices = [dim_indices, dim_index]
                 call consume_token(parser)
                 return
             end select
         case (TK_NUMBER)
             dim_index = push_literal(arena, token%text, LITERAL_INTEGER, token%line, &
-                                     token%column)
+                token%column)
             dim_indices = [dim_indices, dim_index]
             call consume_token(parser)
             return
@@ -576,13 +576,13 @@ contains
 
         token = parser%consume()
         param_index = push_parameter_declaration(arena, name=token%text, &
-                                                 type_name="", &
-                                                 kind_value=0, &
-                                                 intent_value=INTENT_NONE, &
-                                                 is_optional=.false., &
-                                                 is_target=.false., &
-                                                 line=token%line, &
-                                                 column=token%column)
+            type_name="", &
+            kind_value=0, &
+            intent_value=INTENT_NONE, &
+            is_optional=.false., &
+            is_target=.false., &
+            line=token%line, &
+            column=token%column)
         param_indices = [param_indices, param_index]
     end subroutine append_untyped_parameter
 

@@ -17,30 +17,30 @@ contains
         character(len=*), intent(in) :: lowered_text
 
         is_prefix = trim(lowered_text) == "pure" .or. &
-                    trim(lowered_text) == "elemental" .or. &
-                    trim(lowered_text) == "recursive" .or. &
-                    trim(lowered_text) == "impure" .or. &
-                    trim(lowered_text) == "nonrecursive" .or. &
-                    trim(lowered_text) == "non_recursive" .or. &
-                    trim(lowered_text) == "module"
+            trim(lowered_text) == "elemental" .or. &
+            trim(lowered_text) == "recursive" .or. &
+            trim(lowered_text) == "impure" .or. &
+            trim(lowered_text) == "nonrecursive" .or. &
+            trim(lowered_text) == "non_recursive" .or. &
+            trim(lowered_text) == "module"
     end function is_procedure_prefix
 
     logical function is_interface_return_type_keyword(lowered_text) result(is_type)
         character(len=*), intent(in) :: lowered_text
 
         is_type = trim(lowered_text) == "integer" .or. &
-                  trim(lowered_text) == "real" .or. &
-                  trim(lowered_text) == "logical" .or. &
-                  trim(lowered_text) == "character" .or. &
-                  trim(lowered_text) == "complex" .or. &
-                  trim(lowered_text) == "double"
+            trim(lowered_text) == "real" .or. &
+            trim(lowered_text) == "logical" .or. &
+            trim(lowered_text) == "character" .or. &
+            trim(lowered_text) == "complex" .or. &
+            trim(lowered_text) == "double"
     end function is_interface_return_type_keyword
 
     ! type(...) and class(...) are function return-type prefixes inside an
     ! interface body, but a bare "type ::" / "type," begins a derived-type
     ! definition. Distinguish by requiring an opening parenthesis to follow.
     logical function is_interface_return_type_with_parens(parser, lowered_text) &
-        result(is_type)
+            result(is_type)
         type(parser_state_t), intent(in) :: parser
         character(len=*), intent(in) :: lowered_text
 

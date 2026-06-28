@@ -64,7 +64,7 @@ contains
         logical :: both_have_names
 
         both_have_names = len_trim(node1%type_name) > 0 .and. &
-                          len_trim(node2%type_name) > 0
+            len_trim(node2%type_name) > 0
         if (both_have_names) then
             match = trim(node1%type_name) == trim(node2%type_name)
             return
@@ -143,14 +143,14 @@ contains
             can_group = (trim(node1%type_name) == trim(node2%type_name))
         end if
         can_group = can_group .and. &
-                    (node1%intent_type == node2%intent_type) .and. &
-                    (node1%is_optional .eqv. node2%is_optional) .and. &
-                    (node1%is_target .eqv. node2%is_target)
+            (node1%intent_type == node2%intent_type) .and. &
+            (node1%is_optional .eqv. node2%is_optional) .and. &
+            (node1%is_target .eqv. node2%is_target)
     end function can_group_parameters
 
     subroutine resolve_parameter_metadata(node, param_map, intent_text, &
-                                          optional_flag, &
-                                          target_flag)
+            optional_flag, &
+            target_flag)
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=:), allocatable, intent(out) :: intent_text
@@ -176,7 +176,7 @@ contains
     end subroutine resolve_parameter_metadata
 
     function can_group_declarations_with_params(node1, node2, param_map) &
-        result(can_group)
+            result(can_group)
         type(declaration_node), intent(in) :: node1
         type(declaration_node), intent(in) :: node2
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -210,8 +210,8 @@ contains
         call resolve_parameter_metadata(node2, param_map, intent2, optional2, target2)
 
         can_group = trim(intent1) == trim(intent2) .and. &
-                    optional1 .eqv. optional2 .and. &
-                    target1 .eqv. target2
+            optional1 .eqv. optional2 .and. &
+            target1 .eqv. target2
     end function can_group_declarations_with_params
 
     function build_param_name_with_dims(arena, param_node) result(name_with_dims)
@@ -223,8 +223,8 @@ contains
     end function build_param_name_with_dims
 
     function generate_grouped_declaration(type_name, kind_value, has_kind, intent, &
-                                          var_list, is_optional, is_target) &
-        result(stmt)
+            var_list, is_optional, is_target) &
+            result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
         logical, intent(in) :: has_kind

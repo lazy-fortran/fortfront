@@ -80,15 +80,15 @@ contains
         ! First character must be a letter
         ch = name(1:1)
         if (.not. ((ch >= 'a' .and. ch <= 'z') .or. &
-                   (ch >= 'A' .and. ch <= 'Z'))) return
+            (ch >= 'A' .and. ch <= 'Z'))) return
 
         ! Remaining characters must be alphanumeric or underscore
         do i = 2, len(name)
             ch = name(i:i)
             if (.not. ((ch >= 'a' .and. ch <= 'z') .or. &
-                       (ch >= 'A' .and. ch <= 'Z') .or. &
-                       (ch >= '0' .and. ch <= '9') .or. &
-                       ch == '_')) return
+                (ch >= 'A' .and. ch <= 'Z') .or. &
+                (ch >= '0' .and. ch <= '9') .or. &
+                ch == '_')) return
         end do
 
         valid = .true.

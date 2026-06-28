@@ -1,9 +1,9 @@
 program test_ast_base_coverage
     use ast_base, only: copy_ast_node_base, LITERAL_INTEGER, LITERAL_REAL, &
-                        LITERAL_STRING, LITERAL_LOGICAL, LITERAL_ARRAY, &
-                        LITERAL_COMPLEX, ast_node_wrapper
+        LITERAL_STRING, LITERAL_LOGICAL, LITERAL_ARRAY, &
+        LITERAL_COMPLEX, ast_node_wrapper
     use ast_nodes_core, only: identifier_node, literal_node, &
-                              assignment_node
+        assignment_node
     use type_system_unified, only: create_mono_type
     use type_constants, only: TINT
     use uid_generator, only: generate_uid
@@ -79,7 +79,7 @@ contains
 
         ! Verify deep copy
         select type (lhs_node => lhs%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (lhs_node%name /= "test_var") then
                 call test_fail("Node name should be copied")
                 return
@@ -133,7 +133,7 @@ contains
         end if
 
         select type (lhs_node => lhs%node)
-        type is (literal_node)
+            type is (literal_node)
             if (lhs_node%value /= "new_value") then
                 call test_fail("Node should have new value after reassignment")
                 return

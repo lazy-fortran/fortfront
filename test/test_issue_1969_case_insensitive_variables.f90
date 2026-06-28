@@ -14,7 +14,7 @@ program test_issue_1969_case_insensitive_variables
     integer :: y_decls
 
     call read_example('examples/lf/issue_1969_case_insensitive_variables.lf', &
-                      input_code)
+        input_code)
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     if (len_trim(error_msg) > 0) then

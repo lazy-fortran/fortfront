@@ -71,7 +71,7 @@ contains
         arena = create_type_arena()
 
         ! Create test mono type
-        original%kind = 2  ! TINT
+        original%kind = 2 ! TINT
         original%var_id = 42
         original%var_name = "test_var"
         original%size = 8
@@ -115,13 +115,13 @@ contains
         arena = create_type_arena()
 
         ! Create test mono type for poly type
-        mono_type%kind = 1  ! TVAR
+        mono_type%kind = 1 ! TVAR
         mono_type%var_id = 1
         mono_type%var_name = "'a"
         mono_handle = store_mono_type(arena, mono_type)
 
         ! Create test poly type
-        original%forall_vars = null_args_handle()  ! No quantified vars for now
+        original%forall_vars = null_args_handle() ! No quantified vars for now
         original%mono = mono_handle
 
         ! Store in arena
@@ -270,7 +270,7 @@ contains
         allocate (handles(1000))
 
         ! Bulk allocate 1000 mono types
-        mono_type%kind = 2  ! TINT
+        mono_type%kind = 2 ! TINT
         do i = 1, 1000
             mono_type%var_id = i
             handles(i) = store_mono_type(arena, mono_type)

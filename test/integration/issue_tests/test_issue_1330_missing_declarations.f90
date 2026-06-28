@@ -37,7 +37,7 @@ contains
         character(len=32) :: real_decl_variants(3)
 
         call read_example('examples/lf/issue_1330_missing_declarations.lf', &
-                          input)
+            input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -50,11 +50,11 @@ contains
         end if
 
         call assert_contains(output, 'use iso_fortran_env', &
-                             'missing iso_fortran_env use statement')
+            'missing iso_fortran_env use statement')
         call assert_contains(output, 'use iso_c_binding', &
-                             'missing iso_c_binding use statement')
+            'missing iso_c_binding use statement')
         if (.not. has_integer_declaration(output, [character(len=16) :: &
-                                                   'n', 'count', 'i'])) then
+            'n', 'count', 'i'])) then
             write (error_unit, '(A)') &
                 'FAIL: missing integer declarations for n/count/i'
             write (error_unit, '(A)') trim(output)
@@ -87,7 +87,7 @@ contains
             error stop 1
         end if
         if (.not. (use_comment_pos > use1_pos .and. use_comment_pos < &
-                   implicit_pos)) then
+            implicit_pos)) then
             write (error_unit, '(A)') &
                 'FAIL: use block comment moved out of declaration header'
             write (error_unit, '(A)') trim(output)
@@ -95,11 +95,11 @@ contains
         end if
 
         real_decl_variants = [character(len=32) :: &
-                              'real(kind=8) :: x, y', &
-                              'real(dp) :: x, y      ', &
-                              'real(8) :: x, y']
+            'real(kind=8) :: x, y', &
+            'real(dp) :: x, y      ', &
+            'real(8) :: x, y']
         call assert_contains_any(output, real_decl_variants, &
-                                 'missing explicit real declaration for x,y')
+            'missing explicit real declaration for x,y')
 
         real_decl_pos = index(output, 'real(kind=8) :: x, y')
         existing_decl_line = 'real(kind=8) :: x, y'

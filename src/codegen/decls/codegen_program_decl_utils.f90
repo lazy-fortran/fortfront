@@ -5,7 +5,7 @@ module codegen_program_decl_utils
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: TFUN, type_args_allocated, type_args_size, &
-                                   type_args_element
+        type_args_element
     implicit none
     private
     public :: exists_in_list, build_function_return_type_table
@@ -79,7 +79,7 @@ contains
         if (len_trim(name) == 0) return
         if (state%derived_type_count >= program_decl_max_vars) return
         if (exists_in_list(state%derived_type_names, &
-                           state%derived_type_count, name)) return
+            state%derived_type_count, name)) return
         state%derived_type_count = state%derived_type_count + 1
         state%derived_type_names(state%derived_type_count) = trim(to_lower(name))
     end subroutine record_derived_type_name
@@ -120,7 +120,7 @@ contains
     end function exists_in_list
 
     subroutine build_function_return_type_table(arena, func_names, func_types, &
-                                                count)
+            count)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(inout) :: func_names(:)
         character(len=*), intent(inout) :: func_types(:)
@@ -137,7 +137,7 @@ contains
             if (count >= size(func_names)) exit
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (func => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. allocated(func%name)) cycle
                 func_name = trim(func%name)
                 if (len_trim(func_name) == 0) cycle
@@ -159,10 +159,10 @@ contains
                     type_args_allocated(func%inferred_type) .and. &
                     type_args_size(func%inferred_type) >= 2) then
                     inferred_return_type = mono_type_to_string( &
-                                           type_args_element(func%inferred_type, 2), &
-                                           include_shape=.true., &
-                                           standardize_real=.false., &
-                                           fallback='')
+                        type_args_element(func%inferred_type, 2), &
+                        include_shape=.true., &
+                        standardize_real=.false., &
+                        fallback='')
                     if (len_trim(inferred_return_type) > 0) then
                         func_types(count) = trim(inferred_return_type)
                     end if
@@ -180,7 +180,7 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%declared_count >= program_decl_max_vars) return
         if (exists_in_list(state%declared_names, state%declared_count, &
-                           normalized_name)) return
+            normalized_name)) return
         state%declared_count = state%declared_count + 1
         state%declared_names(state%declared_count) = normalized_name
     end subroutine record_declared_name
@@ -194,7 +194,7 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%namelist_group_count >= program_decl_max_vars) return
         if (exists_in_list(state%namelist_group_names, &
-                           state%namelist_group_count, normalized_name)) return
+            state%namelist_group_count, normalized_name)) return
         state%namelist_group_count = state%namelist_group_count + 1
         state%namelist_group_names(state%namelist_group_count) = &
             normalized_name
@@ -209,7 +209,7 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%use_associated_count >= program_decl_max_vars) return
         if (exists_in_list(state%use_associated_names, &
-                           state%use_associated_count, normalized_name)) return
+            state%use_associated_count, normalized_name)) return
         state%use_associated_count = state%use_associated_count + 1
         state%use_associated_names(state%use_associated_count) = normalized_name
     end subroutine record_use_associated_name
@@ -223,7 +223,7 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%use_module_count >= program_decl_max_vars) return
         if (exists_in_list(state%use_module_names, &
-                           state%use_module_count, normalized_name)) return
+            state%use_module_count, normalized_name)) return
         state%use_module_count = state%use_module_count + 1
         state%use_module_names(state%use_module_count) = normalized_name
     end subroutine record_use_module_name

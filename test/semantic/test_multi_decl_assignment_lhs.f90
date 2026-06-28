@@ -8,10 +8,10 @@ program test_multi_decl_assignment_lhs
     print *, 'Testing LHS assignment for multi-declarations...'
 
     src = 'program p'//new_line('a')// &
-          '  implicit none'//new_line('a')// &
-          '  real :: a = 1.0, b = 2.0, c = 3.0'//new_line('a')// &
-          '  b = b + c'//new_line('a')// &
-          'end program'
+        '  implicit none'//new_line('a')// &
+        '  real :: a = 1.0, b = 2.0, c = 3.0'//new_line('a')// &
+        '  b = b + c'//new_line('a')// &
+        'end program'
 
     call transform_lazy_fortran_string(src, out_code, err)
 

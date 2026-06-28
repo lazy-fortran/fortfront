@@ -27,7 +27,7 @@ module declaration_attribute_utils
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
-        character(len=:), allocatable :: accessibility  ! 'public'/'private'
+        character(len=:), allocatable :: accessibility ! 'public'/'private'
         integer, allocatable :: global_dimension_indices(:)
     end type declaration_attribute_info_t
 
@@ -84,8 +84,8 @@ contains
             if (allocated(attr%global_dimension_indices)) then
                 if (index(lowered, 'dimension(') == 0) then
                     call build_dimension_attribute(arena, &
-                                                   attr%global_dimension_indices, &
-                                                   attr%is_allocatable, dim_clause)
+                        attr%global_dimension_indices, &
+                        attr%is_allocatable, dim_clause)
                     code = trim(code) // ", " // dim_clause
                     lowered = to_lower(trim(code))
                 end if
@@ -193,7 +193,7 @@ contains
     end subroutine append_declaration_attributes
 
     subroutine build_dimension_attribute(arena, dimension_indices, &
-                                         is_allocatable, clause)
+            is_allocatable, clause)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: dimension_indices(:)
         logical, intent(in) :: is_allocatable

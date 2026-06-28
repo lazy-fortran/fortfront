@@ -37,8 +37,8 @@ contains
         if (allocated(local_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                          line=1, column=1, &
-                                                          parent_index=sub_index)
+                line=1, column=1, &
+                parent_index=sub_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(local_def%body_indices) + 1))
@@ -79,7 +79,7 @@ contains
                 arena, sub_def%body_indices, metadata, "", type_std_enabled)
             call analyze_subroutine_parameter_usage(arena, sub_def, metadata)
             call infer_subroutine_parameter_intents(arena, sub_def%body_indices, &
-                                                    metadata)
+                metadata)
             call synchronize_parameter_declarations( &
                 arena, sub_def%body_indices, metadata, "", type_std_enabled)
         else
@@ -113,9 +113,9 @@ contains
                 cycle
             end if
             select type (param => arena%entries(idx)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 metadata%names(i) = param%name
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 metadata%names(i) = param%name
                 metadata%optional(i) = param%is_optional
                 select case (param%intent_type)
@@ -126,7 +126,7 @@ contains
                 case (INTENT_INOUT)
                     metadata%intent(i) = "inout"
                 end select
-            type is (declaration_node)
+                type is (declaration_node)
                 metadata%names(i) = param%var_name
                 if (param%has_intent .and. allocated(param%intent)) then
                     metadata%intent(i) = trim(param%intent)
@@ -141,9 +141,9 @@ contains
     end subroutine populate_subroutine_param_metadata
 
     subroutine add_missing_subroutine_parameter_declarations_ext(arena, sub_def, &
-                                                                 sub_index, &
-                                                                 metadata, &
-                                                                 type_std_enabled)
+            sub_index, &
+            metadata, &
+            type_std_enabled)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(inout) :: sub_def
@@ -178,7 +178,7 @@ contains
             call reset_declaration_node(decl)
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
-                                            inferred_local)
+                inferred_local)
             call try_copy_dimension_from_peer(arena, metadata, i, decl)
             skip_intent = metadata%is_procedure(i)
             if (skip_intent) then
@@ -201,12 +201,12 @@ contains
         end do
 
         call combine_existing_and_new_body_subroutine(sub_def, existing, &
-                                                      new_indices, new_count)
+            new_indices, new_count)
 
     contains
 
         subroutine try_copy_dimension_from_peer(arena_l, metadata_l, target_idx, &
-                                                target_decl)
+                target_decl)
             use ast_nodes_data, only: declaration_node
             type(ast_arena_t), intent(in) :: arena_l
             type(param_metadata_t), intent(in) :: metadata_l
@@ -230,12 +230,12 @@ contains
                 if (.not. allocated(arena_l%entries(decl_index)%node)) cycle
 
                 select type (peer_decl => arena_l%entries(decl_index)%node)
-                type is (declaration_node)
+                    type is (declaration_node)
                     if (.not. peer_decl%is_array) cycle
                     if (.not. allocated(peer_decl%dimension_indices)) cycle
                     if (all(peer_decl%dimension_indices == 0)) cycle
                     call copy_dimension_indices(target_decl, &
-                                                peer_decl%dimension_indices)
+                        peer_decl%dimension_indices)
                     return
                 class default
                 end select
@@ -268,7 +268,7 @@ contains
     end subroutine set_subroutine_param_intents
 
     character(len=8) function choose_subroutine_intent(intent_value) &
-        result(result_intent)
+            result(result_intent)
         character(len=*), intent(in) :: intent_value
 
         if (len_trim(intent_value) > 0) then
@@ -279,7 +279,7 @@ contains
     end function choose_subroutine_intent
 
     subroutine combine_existing_and_new_body_subroutine(sub_def, existing, &
-                                                        new_indices, new_count)
+            new_indices, new_count)
         type(subroutine_def_node), intent(inout) :: sub_def
         integer, allocatable, intent(in) :: existing(:)
         integer, intent(in) :: new_indices(:)

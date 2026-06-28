@@ -18,18 +18,18 @@ program test_array_slice_fixed_size_inference
     end if
 
     call assert_contains_any(output, 'integer :: slice1(5)', 'integer :: slice1( 5)', &
-                             'Expected fixed-size declaration for slice1')
+        'Expected fixed-size declaration for slice1')
     call assert_contains_any(output, 'integer :: slice2(5)', 'integer :: slice2( 5)', &
-                             'Expected fixed-size declaration for slice2')
+        'Expected fixed-size declaration for slice2')
     call assert_contains_any(output, 'integer :: slice3(5)', 'integer :: slice3( 5)', &
-                             'Expected fixed-size declaration for slice3')
+        'Expected fixed-size declaration for slice3')
 
     call ensure_absent(output, 'allocatable :: slice1', &
-                       'slice1 incorrectly marked allocatable')
+        'slice1 incorrectly marked allocatable')
     call ensure_absent(output, 'allocatable :: slice2', &
-                       'slice2 incorrectly marked allocatable')
+        'slice2 incorrectly marked allocatable')
     call ensure_absent(output, 'allocatable :: slice3', &
-                       'slice3 incorrectly marked allocatable')
+        'slice3 incorrectly marked allocatable')
 
     write (*, '(A)') 'PASS: array slice fixed size inference'
 

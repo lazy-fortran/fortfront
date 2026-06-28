@@ -12,7 +12,7 @@ program test_module_implicit_rules_preserved
     integer :: module_pos
 
     call read_example('examples/f90/issue_2390_module_implicit_rules.f90', &
-                      source_code)
+        source_code)
 
     ctx%input_mode = INPUT_MODE_STANDARD
     ctx%has_filename = .true.

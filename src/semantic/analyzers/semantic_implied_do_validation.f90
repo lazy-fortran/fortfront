@@ -10,7 +10,7 @@ module semantic_implied_do_validation
     !      array constructor.
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: array_literal_node, identifier_node, &
-                              binary_op_node, call_or_subscript_node
+        binary_op_node, call_or_subscript_node
     use ast_nodes_loops, only: do_loop_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
     use string_utils_mod, only: int_to_string
@@ -49,7 +49,7 @@ contains
         if (.not. arena%has_node_at(elem_index)) return
 
         select type (elem => arena%entries(elem_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             call check_implied_do(arena, elem, enclosing, errors)
         end select
     end subroutine check_element
@@ -99,13 +99,13 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             call check_implied_do(arena, node, enclosing, errors)
-        type is (array_literal_node)
+            type is (array_literal_node)
             if (allocated(node%element_indices)) then
                 do i = 1, size(node%element_indices)
                     call check_body_node(arena, node%element_indices(i), &
-                                         enclosing, errors)
+                        enclosing, errors)
                 end do
             end if
         end select
@@ -138,13 +138,13 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) found = trim(node%name) == name
-        type is (binary_op_node)
+            type is (binary_op_node)
             found = expr_references_name(arena, node%left_index, name)
             if (.not. found) &
                 found = expr_references_name(arena, node%right_index, name)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     found = expr_references_name(arena, node%arg_indices(i), name)

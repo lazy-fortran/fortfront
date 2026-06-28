@@ -28,7 +28,7 @@ contains
         integer :: outer_pos
 
         call read_example('examples/lf/issue_nested_internal_procedures.lf', &
-                          input_code)
+            input_code)
 
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)

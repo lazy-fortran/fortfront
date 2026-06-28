@@ -45,7 +45,7 @@ contains
         end if
 
         call validate_ast_locations(arena, strict_mode=.false., &
-                                    violations_count=violations)
+            violations_count=violations)
 
         ! Parser should populate all node locations for this input
         if (violations /= 0) then
@@ -63,8 +63,8 @@ contains
         integer :: prog_index, violations
 
         source = "function add(a, b)" // new_line('a') // &
-                 "    result = a + b" // new_line('a') // &
-                 "end function"
+            "    result = a + b" // new_line('a') // &
+            "end function"
         error_msg = ""
 
         arena = create_ast_arena()
@@ -78,7 +78,7 @@ contains
         end if
 
         call validate_ast_locations(arena, strict_mode=.false., &
-                                    violations_count=violations)
+            violations_count=violations)
 
         if (violations /= 0) then
             write (error_unit, '(A,I0)') &
@@ -110,7 +110,7 @@ contains
         call invalidate_first_assignment(arena)
 
         call validate_ast_locations(arena, strict_mode=.false., &
-                                    violations_count=violations)
+            violations_count=violations)
 
         if (violations /= 1) then
             write (error_unit, '(A,I0)') &
@@ -129,7 +129,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (assign_node => arena%entries(i)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 assign_node%line = 0
                 assign_node%column = 0
                 updated = .true.

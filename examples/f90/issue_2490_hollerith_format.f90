@@ -6,5 +6,5 @@ program main
     implicit none
     character(len=72) :: c
     write(c, 8000)
-    8000 format (36(2H!!))
+    8000 format (36(2H !!))
 end program

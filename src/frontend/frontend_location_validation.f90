@@ -8,21 +8,21 @@ module frontend_location_validation
     use ast_base, only: ast_node
     use ast_visitor, only: ast_visitor_t
     use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
-                              identifier_node, literal_node, &
-                              call_or_subscript_node
+        identifier_node, literal_node, &
+        call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
-                                   subroutine_call_node
+        subroutine_call_node
     use ast_nodes_control, only: if_node, select_case_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_data, only: declaration_node, derived_type_node, module_node, &
-                              submodule_node
+        submodule_node
     use ast_nodes_misc, only: interface_block_node, use_statement_node, &
-                              visibility_statement_node, &
-                              include_statement_node
+        visibility_statement_node, &
+        include_statement_node
     use ast_nodes_generics, only: template_block_node, instantiate_statement_node, &
-                                  trait_block_node, requirement_block_node, &
-                                  implements_block_node
+        trait_block_node, requirement_block_node, &
+        implements_block_node
     use ast_introspection, only: visit_node_at
     implicit none
     private

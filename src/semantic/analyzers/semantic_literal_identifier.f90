@@ -1,12 +1,12 @@
 module semantic_literal_identifier
     ! Literal and identifier type inference
     use type_system_unified, only: type_var_t, mono_type_t, &
-                                   poly_type_t, create_mono_type, create_type_var, &
-                                   create_poly_type, TVAR, TINT, TREAL, TCHAR, &
-                                   TLOGICAL
+        poly_type_t, create_mono_type, create_type_var, &
+        create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+        TLOGICAL
     use scope_manager, only: scope_stack_t
     use error_handling, only: error_collection_t, result_t, &
-                              ERROR_SEMANTIC
+        ERROR_SEMANTIC
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node
     use semantic_function_analysis, only: infer_type_from_usage_context
@@ -45,7 +45,7 @@ contains
     end function infer_literal_type
 
     function infer_identifier_type(ident, scopes, errors, input_mode, next_var_id) &
-        result(typ)
+            result(typ)
         type(identifier_node), intent(in) :: ident
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
@@ -75,7 +75,7 @@ contains
                 block
                     type(poly_type_t) :: new_scheme
                     new_scheme = create_poly_type(forall_vars=[type_var_t &
-                                                               ::], mono=typ)
+                        ::], mono=typ)
                     call scopes%define(ident%name, new_scheme)
                 end block
             else

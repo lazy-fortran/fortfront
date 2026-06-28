@@ -12,7 +12,7 @@ program test_issue_2266_identifier_dimension
     logical :: has_declaration, has_assignment, has_print
 
     call read_example('examples/f90/issue_2266_identifier_dimension.f90', &
-                      source_code)
+        source_code)
 
     ctx%input_mode = INPUT_MODE_STANDARD
     ctx%has_filename = .true.

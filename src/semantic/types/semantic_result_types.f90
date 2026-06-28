@@ -132,7 +132,7 @@ contains
         class(semantic_result_base_t), allocatable :: cloned
         type(symbol_result_t) :: temp_result
 
-        temp_result = this  ! Use assignment operator
+        temp_result = this ! Use assignment operator
         allocate (cloned, source=temp_result)
     end function symbol_clone_result
 
@@ -141,12 +141,12 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other_result => other)
-        type is (symbol_result_t)
+            type is (symbol_result_t)
             this%symbols_found = this%symbols_found + other_result%symbols_found
             this%symbols_resolved = this%symbols_resolved + &
-                                    other_result%symbols_resolved
+                other_result%symbols_resolved
             this%unresolved_symbols = this%unresolved_symbols + &
-                                      other_result%unresolved_symbols
+                other_result%unresolved_symbols
             this%has_errors = this%has_errors .or. other_result%has_errors
             this%has_warnings = this%has_warnings .or. other_result%has_warnings
         end select
@@ -188,13 +188,13 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other_result => other)
-        type is (type_result_t)
+            type is (type_result_t)
             this%types_analyzed = this%types_analyzed + &
-                                  other_result%types_analyzed
+                other_result%types_analyzed
             this%type_errors = this%type_errors + other_result%type_errors
             this%type_warnings = this%type_warnings + other_result%type_warnings
             this%type_inference_used = this%type_inference_used .or. &
-                                       other_result%type_inference_used
+                other_result%type_inference_used
         end select
     end subroutine type_merge_results
 
@@ -234,11 +234,11 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other_result => other)
-        type is (scope_result_t)
+            type is (scope_result_t)
             this%scopes_analyzed = this%scopes_analyzed + &
-                                   other_result%scopes_analyzed
+                other_result%scopes_analyzed
             this%scope_violations = this%scope_violations + &
-                                    other_result%scope_violations
+                other_result%scope_violations
         end select
     end subroutine scope_merge_results
 
@@ -277,13 +277,13 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other_result => other)
-        type is (usage_result_t)
+            type is (usage_result_t)
             this%variables_tracked = this%variables_tracked + &
-                                     other_result%variables_tracked
+                other_result%variables_tracked
             this%unused_variables = this%unused_variables + &
-                                    other_result%unused_variables
+                other_result%unused_variables
             this%undefined_variables = this%undefined_variables + &
-                                       other_result%undefined_variables
+                other_result%undefined_variables
         end select
     end subroutine usage_merge_results
 
@@ -322,13 +322,13 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other_result => other)
-        type is (call_graph_result_t)
+            type is (call_graph_result_t)
             this%procedures_found = this%procedures_found + &
-                                    other_result%procedures_found
+                other_result%procedures_found
             this%call_relationships = this%call_relationships + &
-                                      other_result%call_relationships
+                other_result%call_relationships
             this%has_recursive_calls = this%has_recursive_calls .or. &
-                                       other_result%has_recursive_calls
+                other_result%has_recursive_calls
         end select
     end subroutine call_graph_merge_results
 
@@ -362,7 +362,7 @@ contains
 
         allocate (test_result_t :: cloned)
         select type (cloned)
-        type is (test_result_t)
+            type is (test_result_t)
             cloned = this
         end select
     end function test_clone_result
@@ -372,7 +372,7 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other)
-        type is (test_result_t)
+            type is (test_result_t)
             this%has_errors = this%has_errors .or. other%has_errors
             this%has_warnings = this%has_warnings .or. other%has_warnings
             this%nodes_visited = this%nodes_visited + other%nodes_visited

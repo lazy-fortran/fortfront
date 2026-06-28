@@ -51,7 +51,7 @@ contains
         do i = 1, count
             if (associated(scope%identifiers)) then
                 name = identifier_table_get(scope%identifiers, &
-                                            scope%env%name_ids(i))
+                    scope%env%name_ids(i))
             else
                 name = ""
             end if

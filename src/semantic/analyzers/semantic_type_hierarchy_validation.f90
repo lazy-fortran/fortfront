@@ -44,7 +44,7 @@ contains
                     cycle
                 end if
                 call try_register_node(arena, i, hierarchy, registered, &
-                                       progressed, errors)
+                    progressed, errors)
             end do
             if (.not. progressed) exit
         end do
@@ -68,7 +68,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (use_statement_node)
+                type is (use_statement_node)
                 has_use = .true.
                 return
             end select
@@ -78,7 +78,7 @@ contains
     ! Attempt to register a single arena node if it is a derived type whose
     ! parent (if any) is already registered. Marks non-type nodes as done.
     subroutine try_register_node(arena, idx, hierarchy, registered, progressed, &
-                                 errors)
+            errors)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
         type(type_hierarchy_t), intent(inout) :: hierarchy
@@ -89,7 +89,7 @@ contains
         logical :: parent_ready
 
         select type (node => arena%entries(idx)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             if (.not. allocated(node%name)) then
                 registered(idx) = .true.
                 progressed = .true.
@@ -103,8 +103,8 @@ contains
 
             if (allocated(node%extends_parent)) then
                 call hierarchy%register_type(node%name, &
-                                             parent_name=node%extends_parent, &
-                                             error_msg=error_msg)
+                    parent_name=node%extends_parent, &
+                    error_msg=error_msg)
             else
                 call hierarchy%register_type(node%name, error_msg=error_msg)
             end if
@@ -113,7 +113,7 @@ contains
             if (allocated(error_msg)) then
                 if (len_trim(error_msg) > 0) then
                     call report_hierarchy_error(errors, error_msg, node%line, &
-                                                node%column)
+                        node%column)
                 end if
             end if
         class default
@@ -135,11 +135,11 @@ contains
             if (registered(i)) cycle
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (derived_type_node)
+                type is (derived_type_node)
                 if (.not. allocated(node%extends_parent)) cycle
                 message = 'Parent type not found: '//trim(node%extends_parent)
                 call report_hierarchy_error(errors, message, node%line, &
-                                            node%column)
+                    node%column)
             end select
         end do
     end subroutine report_unresolved_parents

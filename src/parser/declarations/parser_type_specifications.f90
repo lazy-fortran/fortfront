@@ -1,8 +1,8 @@
 module parser_type_specifications_module
     ! Type specification parsing module for implicit statements
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
@@ -157,7 +157,7 @@ contains
 
     ! Check if parentheses contain type specification (extracted logic)
     function is_type_parameter_specification(parser, type_name) &
-        result(is_type_spec)
+            result(is_type_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: type_name
         logical :: is_type_spec
@@ -225,7 +225,7 @@ contains
     end subroutine clear_implicit_additional_indices
 
     logical function try_parse_implicit_none(parser, arena, line, column, stmt_index) &
-        result(parsed)
+            result(parsed)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: line
@@ -255,11 +255,11 @@ contains
 
         if (allocated(none_spec)) then
             stmt_index = push_implicit_statement(arena, .true., line=line, &
-                                                 column=column, parent_index=0, &
-                                                 none_spec=none_spec)
+                column=column, parent_index=0, &
+                none_spec=none_spec)
         else
             stmt_index = push_implicit_statement(arena, .true., line=line, &
-                                                 column=column, parent_index=0)
+                column=column, parent_index=0)
         end if
 
         parsed = (stmt_index > 0)
@@ -315,10 +315,10 @@ contains
                 token = parser%consume()
                 if (spec%type_name == "character") then
                     call parse_character_type_spec(parser, spec%length_value, &
-                                                   spec%has_length)
+                        spec%has_length)
                 else
                     call parse_kind_specification(parser, spec%kind_value, &
-                                                  spec%has_kind)
+                        spec%has_kind)
                 end if
 
                 token = parser%peek()
@@ -392,25 +392,25 @@ contains
             associate (spec => specs(i))
                 if (allocated(spec%letter_ranges)) then
                     created_indices(i) = push_implicit_statement(arena, .false., &
-                                                             type_name=spec%type_name, &
-                                                           kind_value=spec%kind_value, &
-                                                               has_kind=spec%has_kind, &
-                                                       length_value=spec%length_value, &
-                                                           has_length=spec%has_length, &
-                                                     letter_ranges=spec%letter_ranges, &
-                                                                 line=line, &
-                                                                 column=column, &
-                                                                 parent_index=0)
+                        type_name=spec%type_name, &
+                        kind_value=spec%kind_value, &
+                        has_kind=spec%has_kind, &
+                        length_value=spec%length_value, &
+                        has_length=spec%has_length, &
+                        letter_ranges=spec%letter_ranges, &
+                        line=line, &
+                        column=column, &
+                        parent_index=0)
                 else
                     created_indices(i) = push_implicit_statement(arena, .false., &
-                                                             type_name=spec%type_name, &
-                                                           kind_value=spec%kind_value, &
-                                                               has_kind=spec%has_kind, &
-                                                       length_value=spec%length_value, &
-                                                           has_length=spec%has_length, &
-                                                                 line=line, &
-                                                                 column=column, &
-                                                                 parent_index=0)
+                        type_name=spec%type_name, &
+                        kind_value=spec%kind_value, &
+                        has_kind=spec%has_kind, &
+                        length_value=spec%length_value, &
+                        has_length=spec%has_length, &
+                        line=line, &
+                        column=column, &
+                        parent_index=0)
                 end if
             end associate
         end do

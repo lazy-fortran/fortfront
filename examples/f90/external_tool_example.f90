@@ -11,9 +11,9 @@ program external_tool_example
 
     ! Example Lazy Fortran code
     lazy_code = 'program test' // new_line('a') // &
-                'integer :: x = 5' // new_line('a') // &
-                'print *, x' // new_line('a') // &
-                'end program test'
+        'integer :: x = 5' // new_line('a') // &
+        'print *, x' // new_line('a') // &
+        'end program test'
 
     ! Transform using FortFront
     call transform_lazy_fortran_string(lazy_code, standard_code, error_msg)

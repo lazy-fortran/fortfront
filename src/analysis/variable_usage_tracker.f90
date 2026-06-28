@@ -6,13 +6,13 @@ module variable_usage_tracker_module
     use variable_usage_core_module
     use variable_usage_dispatcher_module
     use ast_nodes_core, only: assignment_node, binary_op_node, &
-                              call_or_subscript_node, component_access_node, &
-                              identifier_node, program_node
+        call_or_subscript_node, component_access_node, &
+        identifier_node, program_node
     use ast_nodes_control, only: block_construct_node, do_loop_node, if_node
     use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     implicit none
     private
 
@@ -83,7 +83,7 @@ contains
 
         if (arena%has_node_at(root_index)) then
             call collect_scoped_usage(arena, root_index, 0, 0, 0, &
-                                      next_scope_id, usages, count, capacity)
+                next_scope_id, usages, count, capacity)
         end if
 
         call resize_scoped_usages(usages, count)
@@ -127,14 +127,14 @@ contains
             select case (node_type)
             case ("binary_op")
                 select type (node => arena%entries(current_index)%node)
-                type is (binary_op_node)
+                    type is (binary_op_node)
                     call push(node%right_index)
                     call push(node%left_index)
                 end select
 
             case ("call_or_subscript")
                 select type (node => arena%entries(current_index)%node)
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     if (allocated(node%arg_indices)) then
                         do i = size(node%arg_indices), 1, -1
                             call push(node%arg_indices(i))
@@ -144,7 +144,7 @@ contains
 
             case ("array_slice")
                 select type (node => arena%entries(current_index)%node)
-                type is (array_slice_node)
+                    type is (array_slice_node)
                     do i = node%num_dimensions, 1, -1
                         call push(node%bounds_indices(i))
                     end do
@@ -153,13 +153,13 @@ contains
 
             case ("component_access")
                 select type (node => arena%entries(current_index)%node)
-                type is (component_access_node)
+                    type is (component_access_node)
                     call push(node%base_expr_index)
                 end select
 
             case ("associate")
                 select type (node => arena%entries(current_index)%node)
-                type is (associate_node)
+                    type is (associate_node)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i))
@@ -238,9 +238,9 @@ contains
     end function count_variable_usage
 
     recursive subroutine collect_scoped_usage(arena, node_index, scope_id, &
-                                             parent_scope_id, scope_depth, &
-                                             next_scope_id, usages, count, &
-                                             capacity)
+            parent_scope_id, scope_depth, &
+            next_scope_id, usages, count, &
+            capacity)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(in) :: scope_id
@@ -269,89 +269,89 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             call collect_index_list(node%body_indices)
 
-        type is (module_node)
+            type is (module_node)
             call collect_index_list(node%declaration_indices)
             call collect_index_list(node%procedure_indices)
 
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             call collect_index_list(node%param_indices)
             call collect_index_list(node%body_indices)
 
-        type is (function_def_node)
+            type is (function_def_node)
             call collect_index_list(node%param_indices)
             call collect_index_list(node%body_indices)
 
-        type is (block_construct_node)
+            type is (block_construct_node)
             call collect_index_list(node%body_indices)
 
-        type is (declaration_node)
+            type is (declaration_node)
             call append_declaration_names(node, node_index, current_scope_id, &
-                                          current_parent_scope_id, &
-                                          current_scope_depth, usages, count, &
-                                          capacity)
+                current_parent_scope_id, &
+                current_scope_depth, usages, count, &
+                capacity)
             if (node%has_initializer) then
                 call collect_child(node%initializer_index)
             end if
             call collect_index_list(node%dimension_indices)
 
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) then
                 call append_scoped_usage(node%name, node_index, current_scope_id, &
-                                         current_parent_scope_id, &
-                                         current_scope_depth, .false., usages, &
-                                         count, capacity)
+                    current_parent_scope_id, &
+                    current_scope_depth, .false., usages, &
+                    count, capacity)
             end if
 
-        type is (assignment_node)
+            type is (assignment_node)
             call collect_child(node%target_index)
             call collect_child(node%value_index)
 
-        type is (binary_op_node)
+            type is (binary_op_node)
             call collect_child(node%left_index)
             call collect_child(node%right_index)
 
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%name) .and. .not. node%is_array_access) then
                 call append_scoped_usage(node%name, node_index, current_scope_id, &
-                                         current_parent_scope_id, &
-                                         current_scope_depth, .false., usages, &
-                                         count, capacity)
+                    current_parent_scope_id, &
+                    current_scope_depth, .false., usages, &
+                    count, capacity)
             end if
             call collect_child(node%base_expr_index)
             call collect_index_list(node%arg_indices)
 
-        type is (component_access_node)
+            type is (component_access_node)
             call collect_child(node%base_expr_index)
 
-        type is (if_node)
+            type is (if_node)
             call collect_child(node%condition_index)
             call collect_index_list(node%then_body_indices)
             call collect_index_list(node%else_body_indices)
 
-        type is (do_loop_node)
+            type is (do_loop_node)
             if (allocated(node%var_name)) then
                 call append_scoped_usage(node%var_name, node_index, current_scope_id, &
-                                         current_parent_scope_id, &
-                                         current_scope_depth, .false., usages, &
-                                         count, capacity)
+                    current_parent_scope_id, &
+                    current_scope_depth, .false., usages, &
+                    count, capacity)
             end if
             call collect_child(node%start_expr_index)
             call collect_child(node%end_expr_index)
             call collect_child(node%step_expr_index)
             call collect_index_list(node%body_indices)
 
-        type is (print_statement_node)
+            type is (print_statement_node)
             call collect_index_list(node%expression_indices)
 
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             if (allocated(node%name)) then
                 call append_scoped_usage(node%name, node_index, current_scope_id, &
-                                         current_parent_scope_id, &
-                                         current_scope_depth, .false., usages, &
-                                         count, capacity)
+                    current_parent_scope_id, &
+                    current_scope_depth, .false., usages, &
+                    count, capacity)
             end if
             call collect_index_list(node%arg_indices)
         end select
@@ -362,9 +362,9 @@ contains
 
             if (child_index <= 0) return
             call collect_scoped_usage(arena, child_index, current_scope_id, &
-                                      current_parent_scope_id, &
-                                      current_scope_depth, next_scope_id, &
-                                      usages, count, capacity)
+                current_parent_scope_id, &
+                current_scope_depth, next_scope_id, &
+                usages, count, capacity)
         end subroutine collect_child
 
         subroutine collect_index_list(indices)
@@ -387,14 +387,14 @@ contains
 
         select case (arena%entries(node_index)%node_type)
         case ("program", "module", "subroutine_def", "function_def", &
-              "block_construct")
+                "block_construct")
             starts_scope = .true.
         end select
     end function node_starts_scope
 
     subroutine append_declaration_names(node, node_index, scope_id, &
-                                        parent_scope_id, scope_depth, usages, &
-                                        count, capacity)
+            parent_scope_id, scope_depth, usages, &
+            count, capacity)
         type(declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         integer, intent(in) :: scope_id
@@ -408,19 +408,19 @@ contains
         if (node%is_multi_declaration .and. allocated(node%var_names)) then
             do i = 1, size(node%var_names)
                 call append_scoped_usage(node%var_names(i), node_index, scope_id, &
-                                         parent_scope_id, scope_depth, .true., &
-                                         usages, count, capacity)
+                    parent_scope_id, scope_depth, .true., &
+                    usages, count, capacity)
             end do
         else if (allocated(node%var_name)) then
             call append_scoped_usage(node%var_name, node_index, scope_id, &
-                                     parent_scope_id, scope_depth, .true., &
-                                     usages, count, capacity)
+                parent_scope_id, scope_depth, .true., &
+                usages, count, capacity)
         end if
     end subroutine append_declaration_names
 
     subroutine append_scoped_usage(name, node_index, scope_id, parent_scope_id, &
-                                  scope_depth, is_declaration, usages, count, &
-                                  capacity)
+            scope_depth, is_declaration, usages, count, &
+            capacity)
         character(len=*), intent(in) :: name
         integer, intent(in) :: node_index
         integer, intent(in) :: scope_id

@@ -83,7 +83,7 @@ contains
 
         if (index(output, 'integer :: x') == 0 .or. &
             (index(output, 'real :: y') == 0 .and. &
-             index(output, 'real(dp) :: y') == 0) &
+            index(output, 'real(dp) :: y') == 0) &
             .or. index(output, 'character') == 0) then
             write (error_unit, '(A)') 'FAIL: missing inferred declarations'
             write (error_unit, '(A)') trim(output)

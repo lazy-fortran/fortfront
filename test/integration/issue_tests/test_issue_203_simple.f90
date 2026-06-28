@@ -28,8 +28,8 @@ contains
         print *, 'Testing exact example from issue #203...'
 
         source = 'v = [10]' // new_line('a') // &
-                 'v = [v, v**2]' // new_line('a') // &
-                 'print*,v'
+            'v = [v, v**2]' // new_line('a') // &
+            'print*,v'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

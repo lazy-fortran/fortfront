@@ -1,13 +1,13 @@
 module frontend_token_normalization
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_COMMENT, &
-                          TK_WHITESPACE, TK_NEWLINE, TK_OPERATOR, TK_EOF, &
-                          TK_NUMBER, to_lower
+        TK_WHITESPACE, TK_NEWLINE, TK_OPERATOR, TK_EOF, &
+        TK_NUMBER, to_lower
     use frontend_program_unit_scanner, only: find_next_nontrivial_index, &
-                                             token_precedes_identifier, &
-                                             token_requires_identifier_after, &
-                                             token_follows_identifier_context, &
-                                             keyword_can_be_identifier, &
-                                             token_is_block_keyword
+        token_precedes_identifier, &
+        token_requires_identifier_after, &
+        token_follows_identifier_context, &
+        keyword_can_be_identifier, &
+        token_is_block_keyword
 
     implicit none
     private

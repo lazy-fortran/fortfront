@@ -29,9 +29,9 @@ contains
         print *, 'Testing exponentiation right-associativity (a**b**c == a**(b**c))...'
 
         source = 'a = 2' // new_line('a') // &
-                 'b = 3' // new_line('a') // &
-                 'c = 2' // new_line('a') // &
-                 'x = a**b**c'
+            'b = 3' // new_line('a') // &
+            'c = 2' // new_line('a') // &
+            'x = a**b**c'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

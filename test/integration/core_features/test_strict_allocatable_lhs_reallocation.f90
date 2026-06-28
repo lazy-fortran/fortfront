@@ -1,10 +1,10 @@
 program test_strict_allocatable_lhs_reallocation
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_context_t, &
-                                  transform_with_context, &
-                                  INPUT_MODE_LAZY, &
-                                  OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+        transform_with_context, &
+        INPUT_MODE_LAZY, &
+        OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     implicit none
 
     character(len=:), allocatable :: error_msg
@@ -24,7 +24,7 @@ program test_strict_allocatable_lhs_reallocation
     ctx%operating_mode = OPERATING_MODE_STRICT
     call transform_with_context(source, output, error_msg, ctx)
     call assert_contains(error_msg, 'forbids automatic allocatable array '// &
-                         'reallocation')
+        'reallocation')
 
     print *, 'PASS: strict mode forbids allocatable lhs reallocation'
 

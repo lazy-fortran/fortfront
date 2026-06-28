@@ -1,7 +1,7 @@
 module ast_nodes_array
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-                        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -80,7 +80,7 @@ contains
                     rhs%elsewhere_clauses(i)%mask_index
                 if (allocated(rhs%elsewhere_clauses(i)%body_indices)) then
                     allocate (lhs%elsewhere_clauses(i)%body_indices( &
-                              size(rhs%elsewhere_clauses(i)%body_indices)))
+                        size(rhs%elsewhere_clauses(i)%body_indices)))
                     lhs%elsewhere_clauses(i)%body_indices = &
                         rhs%elsewhere_clauses(i)%body_indices
                 end if
@@ -114,11 +114,11 @@ contains
 
     ! Constructor
     function create_where(mask_expr_index, where_body_indices, &
-                          elsewhere_body_indices, line, column) result(node)
+            elsewhere_body_indices, line, column) result(node)
         use uid_generator, only: generate_uid
         integer, intent(in) :: mask_expr_index
         integer, intent(in), optional :: where_body_indices(:), &
-                                         elsewhere_body_indices(:)
+            elsewhere_body_indices(:)
         integer, intent(in), optional :: line, column
         type(where_node) :: node
         integer :: n

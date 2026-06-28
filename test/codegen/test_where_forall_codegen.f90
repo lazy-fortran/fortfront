@@ -3,7 +3,7 @@ program test_where_forall_codegen
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER
     use ast_factory, only: push_program, push_identifier, push_literal, push_binary_op, &
-                           push_assignment
+        push_assignment
     use ast_factory, only: push_where_construct_with_elsewhere, push_forall
     implicit none
 
@@ -49,8 +49,8 @@ contains
 
         ! WHERE with ELSEWHERE
         where_idx = push_where_construct_with_elsewhere(arena, mask_idx, &
-                                                        where_body_indices=[assign_then_idx], &
-                                                        elsewhere_body_indices=[assign_else_idx])
+            where_body_indices=[assign_then_idx], &
+            elsewhere_body_indices=[assign_else_idx])
 
         prog_idx = push_program(arena, 'main', [where_idx])
 
@@ -173,10 +173,10 @@ contains
         stride_ids = [0, 0]
 
         forall_idx = push_forall(arena, 'i', one_id, n_id, 0, 0, [assign_idx], &
-                                 index_vars_all=index_list, &
-                                 start_indices_all=lower_ids, &
-                                 end_indices_all=upper_ids, &
-                                 stride_indices_all=stride_ids)
+            index_vars_all=index_list, &
+            start_indices_all=lower_ids, &
+            end_indices_all=upper_ids, &
+            stride_indices_all=stride_ids)
 
         prog_idx = push_program(arena, 'main', [forall_idx])
 

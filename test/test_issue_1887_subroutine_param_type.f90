@@ -13,7 +13,7 @@ program test_issue_1887_subroutine_param_type
     print *, "=== Issue #1887: infer subroutine parameter types from call site ==="
 
     call read_example('examples/lf/issue_1887_subroutine_param_type.lf', &
-                      input_code)
+        input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

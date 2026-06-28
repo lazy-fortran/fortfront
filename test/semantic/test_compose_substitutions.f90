@@ -1,7 +1,7 @@
 program test_compose_substitutions
     use type_system_unified, only: substitution_t, compose_substitutions, &
-                                   type_var_t, mono_type_t, &
-                                   create_type_var, create_mono_type, TINT
+        type_var_t, mono_type_t, &
+        create_type_var, create_mono_type, TINT
     implicit none
 
     type(type_var_t) :: a, b
@@ -51,6 +51,6 @@ contains
     function var_to_mono(v) result(mt)
         type(type_var_t), intent(in) :: v
         type(mono_type_t) :: mt
-        mt = create_mono_type(1, var=v)  ! TVAR = 1
+        mt = create_mono_type(1, var=v) ! TVAR = 1
     end function var_to_mono
 end program test_compose_substitutions

@@ -1,9 +1,9 @@
 program test_cst_trivia_query
     use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
-                         get_trivia_for_ast_node, get_source_trivia_at, &
-                         get_node_type_id_from_arena, &
-                         get_trivia_for_ast_node_tokens, tokenize_core_with_trivia, &
-                         token_t
+        get_trivia_for_ast_node, get_source_trivia_at, &
+        get_node_type_id_from_arena, &
+        get_trivia_for_ast_node_tokens, tokenize_core_with_trivia, &
+        token_t
     use fortfront_types, only: NODE_ASSIGNMENT
     use cst_nodes, only: CST_COMMENT, CST_NEWLINE, CST_WHITESPACE, trivia_t
     implicit none
@@ -32,7 +32,7 @@ contains
 
     logical function test_source_trivia_at()
         character(len=*), parameter :: source = "! header" // new_line('A') // &
-                                       "   x = 1"
+            "   x = 1"
         type(trivia_t), allocatable :: trivia(:)
 
         test_source_trivia_at = .true.
@@ -89,7 +89,7 @@ contains
 
     logical function test_trivia_for_assignment_node()
         character(len=*), parameter :: source = "! header" // new_line('A') // &
-                                       "   x = 1"
+            "   x = 1"
         type(ast_arena_t) :: arena
         integer :: root_index
         character(len=:), allocatable :: error_msg
@@ -123,7 +123,7 @@ contains
         end if
 
         call get_trivia_for_ast_node(source, arena, assignment_index, leading, &
-                                     trailing, found)
+            trailing, found)
         if (.not. found) then
             print *, '  FAIL: trivia lookup returned found=false'
             test_trivia_for_assignment_node = .false.
@@ -185,7 +185,7 @@ contains
 
     logical function test_trivia_for_assignment_node_reuse_tokens()
         character(len=*), parameter :: source = "! header" // new_line('A') // &
-                                       "   x = 1"
+            "   x = 1"
         type(ast_arena_t) :: arena
         integer :: root_index
         character(len=:), allocatable :: error_msg
@@ -224,11 +224,11 @@ contains
         call tokenize_core_with_trivia(source, tokens)
 
         call get_trivia_for_ast_node_tokens(tokens, arena, assignment_index, &
-                                            leading_1, trailing_1, found_1)
+            leading_1, trailing_1, found_1)
         call get_trivia_for_ast_node_tokens(tokens, arena, assignment_index, &
-                                            leading_2, trailing_2, found_2)
+            leading_2, trailing_2, found_2)
         call get_trivia_for_ast_node(source, arena, assignment_index, leading_ref, &
-                                     trailing_ref, found_ref)
+            trailing_ref, found_ref)
 
         if (.not. found_1 .or. .not. found_2 .or. .not. found_ref) then
             print *, '  FAIL: expected found=true for all trivia queries'

@@ -1,5 +1,5 @@
 program main
-implicit none
+    implicit none
     integer :: x
 
 

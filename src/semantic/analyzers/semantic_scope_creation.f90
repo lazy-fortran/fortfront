@@ -1,13 +1,13 @@
 module semantic_scope_creation
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   create_poly_type, TCHAR, TARRAY
+        create_poly_type, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
     use semantic_procedure_utils, only: detect_result_name
     use semantic_validation_utils, only: update_identifier_type_in_arena, &
-                                         rename_identifier_in_arena
+        rename_identifier_in_arena
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
@@ -27,11 +27,11 @@ contains
         func_name = select_function_name(func_node)
         call scopes%enter_function(func_name)
         call register_function_scope_details(arena, func_node, func_index, func_name, &
-                                             return_type, scopes)
+            return_type, scopes)
     end subroutine create_function_scope
 
     subroutine register_function_scope_details(arena, func_node, func_index, &
-                                               func_name, return_type, scopes)
+            func_name, return_type, scopes)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
         integer, intent(in) :: func_index
@@ -105,7 +105,7 @@ contains
 
         type_string = build_function_return_string(return_type, type_success)
         call apply_result_metadata(arena, func_index, result_name, return_type, &
-                                   type_string, type_success)
+            type_string, type_success)
     end subroutine update_function_metadata
 
     function build_function_return_string(return_type, success) result(text)
@@ -119,7 +119,7 @@ contains
         call resolved_type%sync_from_arena()
 
         text = mono_type_to_string(resolved_type, include_shape=.false., &
-                                   success=success)
+            success=success)
         if (.not. success) text = ''
         if (success) then
             if (resolved_type%kind == TCHAR .and. resolved_type%size <= 0) then
@@ -128,13 +128,13 @@ contains
                 end if
             else if (resolved_type%kind == TARRAY) then
                 text = mono_type_to_string(resolved_type, include_shape=.true., &
-                                           success=success)
+                    success=success)
             end if
         end if
     end function build_function_return_string
 
     subroutine apply_result_metadata(arena, func_index, result_name, return_type, &
-                                     type_string, type_success)
+            type_string, type_success)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: func_index
         character(len=*), intent(in) :: result_name
@@ -157,10 +157,10 @@ contains
         end if
 
         select type (node => arena%entries(func_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (len_trim(resolved_result_name) > 0) then
                 call update_identifier_type_in_arena(arena, resolved_result_name, &
-                                                     return_copy)
+                    return_copy)
             end if
             if (allocated(node%name)) then
                 function_name = trim(node%name)
@@ -171,7 +171,7 @@ contains
                 if (len_trim(resolved_result_name) > 0) then
                     if (trim(function_name) /= trim(resolved_result_name)) then
                         if (has_assignment_to_function(arena, node, &
-                                                       function_name)) then
+                            function_name)) then
                             resolved_result_name = function_name
                         else if (allocated(node%body_indices)) then
                             call rename_identifier_in_arena( &
@@ -185,23 +185,23 @@ contains
             if (len_trim(function_name) > 0) then
                 if (trim(resolved_result_name) /= trim(function_name)) then
                     call update_identifier_type_in_arena(arena, function_name, &
-                                                         return_copy)
+                        return_copy)
                 end if
             end if
             call refine_return_type_from_body(arena, func_index, &
-                                              resolved_result_name, &
-                                              function_name, return_copy)
+                resolved_result_name, &
+                function_name, return_copy)
             if (type_success .and. len_trim(type_string) > 0) then
                 node%return_type = type_string
             end if
             if (requires_explicit_result_name(return_type, resolved_result_name, &
-                                              function_name)) then
+                function_name)) then
                 resolved_result_name = trim(function_name) // "_result"
                 call rename_identifier_in_arena(arena, trim(function_name), &
-                                                trim(resolved_result_name), &
-                                                node%body_indices, func_index)
+                    trim(resolved_result_name), &
+                    node%body_indices, func_index)
                 call update_identifier_type_in_arena(arena, resolved_result_name, &
-                                                     return_copy)
+                    return_copy)
             end if
             node%result_variable = resolved_result_name
             node%inferred_type = return_copy
@@ -210,9 +210,9 @@ contains
     end subroutine apply_result_metadata
 
     subroutine refine_return_type_from_body(arena, func_index, result_name, &
-                                            function_name, return_type)
+            function_name, return_type)
         use ast_nodes_core, only: assignment_node, identifier_node, &
-                                  call_or_subscript_node
+            call_or_subscript_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: func_index
         character(len=*), intent(in) :: result_name
@@ -230,19 +230,19 @@ contains
         if (len_trim(target_name) == 0) return
 
         select type (func => arena%entries(func_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(func%body_indices)) return
             do i = 1, size(func%body_indices)
                 stmt_index = func%body_indices(i)
                 if (.not. arena%has_node_at(stmt_index)) cycle
                 select type (stmt => arena%entries(stmt_index)%node)
-                type is (assignment_node)
+                    type is (assignment_node)
                     target_index = stmt%target_index
                     if (.not. arena%has_node_at(target_index)) cycle
                     select type (target => arena%entries(target_index)%node)
-                    type is (identifier_node)
+                        type is (identifier_node)
                         if (trim(target%name) /= trim(target_name)) cycle
-                    type is (call_or_subscript_node)
+                        type is (call_or_subscript_node)
                         if (.not. allocated(target%name)) cycle
                         if (trim(target%name) /= trim(target_name)) cycle
                     class default
@@ -253,7 +253,7 @@ contains
                             return_type = stmt%inferred_type
                             call return_type%sync_from_arena()
                         else if (stmt%inferred_type%kind == TARRAY .and. &
-                                 return_type%kind /= TARRAY) then
+                                return_type%kind /= TARRAY) then
                             return_type = stmt%inferred_type
                             call return_type%sync_from_arena()
                         end if
@@ -264,7 +264,7 @@ contains
     end subroutine refine_return_type_from_body
 
     logical function requires_explicit_result_name(return_type, result_name, &
-                                                   function_name) result(required)
+            function_name) result(required)
         use type_system_unified, only: TARRAY
         type(mono_type_t), intent(in) :: return_type
         character(len=*), intent(in) :: result_name
@@ -289,26 +289,26 @@ contains
         integer :: target_index
 
         has_assignment_to_function = .false.
-        if (len_trim(function_name) == 0) return
-        if (.not. allocated(func_node%body_indices)) return
+            if (len_trim(function_name) == 0) return
+            if (.not. allocated(func_node%body_indices)) return
 
-        do i = 1, size(func_node%body_indices)
-            stmt_index = func_node%body_indices(i)
-            if (.not. arena%has_node_at(stmt_index)) cycle
-            select type (stmt => arena%entries(stmt_index)%node)
-            type is (assignment_node)
-                target_index = stmt%target_index
-                if (.not. arena%has_node_at(target_index)) cycle
-                select type (target => arena%entries(target_index)%node)
-                type is (identifier_node)
-                    if (.not. allocated(target%name)) cycle
-                    if (trim(target%name) == trim(function_name)) then
-                        has_assignment_to_function = .true.
-                        return
-                    end if
-                end select
-            end select
-        end do
-    end function has_assignment_to_function
+            do i = 1, size(func_node%body_indices)
+                stmt_index = func_node%body_indices(i)
+                if (.not. arena%has_node_at(stmt_index)) cycle
+                select type (stmt => arena%entries(stmt_index)%node)
+                    type is (assignment_node)
+                    target_index = stmt%target_index
+                    if (.not. arena%has_node_at(target_index)) cycle
+                    select type (target => arena%entries(target_index)%node)
+                        type is (identifier_node)
+                        if (.not. allocated(target%name)) cycle
+                        if (trim(target%name) == trim(function_name)) then
+                            has_assignment_to_function = .true.
+                                return
+                            end if
+                        end select
+                    end select
+                end do
+            end function has_assignment_to_function
 
-end module semantic_scope_creation
+        end module semantic_scope_creation

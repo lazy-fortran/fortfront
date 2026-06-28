@@ -17,10 +17,10 @@ module parser_declarations_construction_module
 contains
 
     integer function add_single_declaration(arena, type_spec, attr_info, &
-                                            var_name, initializer_index, &
-                                            has_local_dimensions, &
-                                            local_dimension_indices) &
-        result(decl_index)
+            var_name, initializer_index, &
+            has_local_dimensions, &
+            local_dimension_indices) &
+            result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -34,8 +34,8 @@ contains
 
         if (attr_info%has_global_dimensions) then
             decl_index = create_dimensional_declaration( &
-                         arena, type_spec, attr_info, name_buffer, initializer_index, &
-                         attr_info%global_dimension_indices)
+                arena, type_spec, attr_info, name_buffer, initializer_index, &
+                attr_info%global_dimension_indices)
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer, &
                 attr_info%global_dimension_indices)
@@ -44,22 +44,22 @@ contains
 
         if (has_local_dimensions .and. present(local_dimension_indices)) then
             decl_index = create_dimensional_declaration( &
-                         arena, type_spec, attr_info, name_buffer, initializer_index, &
-                         local_dimension_indices)
+                arena, type_spec, attr_info, name_buffer, initializer_index, &
+                local_dimension_indices)
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer, &
                 local_dimension_indices)
         else
             decl_index = create_scalar_declaration( &
-                         arena, type_spec, attr_info, name_buffer, initializer_index)
+                arena, type_spec, attr_info, name_buffer, initializer_index)
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer)
         end if
     end function add_single_declaration
 
     integer function create_dimensional_declaration( &
-        arena, type_spec, attr_info, name_buffer, initializer_index, &
-        dimension_indices) result(decl_index)
+            arena, type_spec, attr_info, name_buffer, initializer_index, &
+            dimension_indices) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -69,98 +69,98 @@ contains
 
         if (type_spec%has_kind .and. type_spec%has_character_length) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         kind_value=type_spec%kind_value, &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value, &
-                         character_length_expr=type_spec%character_length_expr)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value, &
+                character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         kind_value=type_spec%kind_value, &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value, &
-                         character_length_expr=type_spec%character_length_expr)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value, &
+                character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value)
         end if
     end function create_dimensional_declaration
 
     integer function create_scalar_declaration( &
-        arena, type_spec, attr_info, name_buffer, initializer_index) &
-        result(decl_index)
+            arena, type_spec, attr_info, name_buffer, initializer_index) &
+            result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -169,88 +169,88 @@ contains
 
         if (type_spec%has_kind .and. type_spec%has_character_length) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         kind_value=type_spec%kind_value, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value, &
-                         character_length_expr=type_spec%character_length_expr)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value, &
+                character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         kind_value=type_spec%kind_value, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value, &
-                         character_length_expr=type_spec%character_length_expr)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value, &
+                character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, &
-                         build_name_array(name_buffer), &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         is_external=attr_info%is_external, &
-                         is_unsigned=attr_info%is_unsigned, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter, &
-                         is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile, &
-                         is_protected=attr_info%is_protected, &
-                         is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                         is_contiguous=attr_info%is_contiguous, &
-                         is_value=attr_info%is_value)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
+                is_unsigned=attr_info%is_unsigned, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter, &
+                is_save=attr_info%is_save, &
+                is_volatile=attr_info%is_volatile, &
+                is_protected=attr_info%is_protected, &
+                is_asynchronous=attr_info%is_asynchronous, &
+                accessibility=attr_info%accessibility, &
+                is_contiguous=attr_info%is_contiguous, &
+                is_value=attr_info%is_value)
         end if
     end function create_scalar_declaration
 
@@ -284,7 +284,7 @@ contains
     end function trim_name_array
 
     subroutine register_declaration_annotation(decl_index, type_spec, attr_info, &
-                                               name_buffer, dimension_indices)
+            name_buffer, dimension_indices)
         integer, intent(in) :: decl_index
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -318,7 +318,7 @@ contains
     end subroutine register_declaration_annotation
 
     integer function emit_multi_declaration(arena, type_spec, attr_info, &
-                                            var_names) result(decl_index)
+            var_names) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -329,82 +329,82 @@ contains
         if (type_spec%has_kind) then
             if (attr_info%has_global_dimensions) then
                 decl_index = push_declaration( &
-                             arena, type_spec%type_name, trim_name_array(var_names), &
-                             kind_value=type_spec%kind_value, &
-                             dimension_indices=attr_info%global_dimension_indices, &
-                             is_external=attr_info%is_external, &
-                             is_unsigned=attr_info%is_unsigned, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_target=attr_info%is_target, &
-                             intent_value=attr_info%intent, &
-                             is_optional=attr_info%is_optional, &
-                             is_parameter=attr_info%is_parameter, &
-                             is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile, &
-                             is_protected=attr_info%is_protected, &
-                             is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous, &
-                             is_value=attr_info%is_value)
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    kind_value=type_spec%kind_value, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    is_external=attr_info%is_external, &
+                    is_unsigned=attr_info%is_unsigned, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
+                    is_parameter=attr_info%is_parameter, &
+                    is_save=attr_info%is_save, &
+                    is_volatile=attr_info%is_volatile, &
+                    is_protected=attr_info%is_protected, &
+                    is_asynchronous=attr_info%is_asynchronous, &
+                    accessibility=attr_info%accessibility, &
+                    is_contiguous=attr_info%is_contiguous, &
+                    is_value=attr_info%is_value)
             else
                 decl_index = push_declaration( &
-                             arena, type_spec%type_name, trim_name_array(var_names), &
-                             kind_value=type_spec%kind_value, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_target=attr_info%is_target, &
-                             is_external=attr_info%is_external, &
-                             is_unsigned=attr_info%is_unsigned, &
-                             intent_value=attr_info%intent, &
-                             is_optional=attr_info%is_optional, &
-                             is_parameter=attr_info%is_parameter, &
-                             is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile, &
-                             is_protected=attr_info%is_protected, &
-                             is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous, &
-                             is_value=attr_info%is_value)
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    kind_value=type_spec%kind_value, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    is_external=attr_info%is_external, &
+                    is_unsigned=attr_info%is_unsigned, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
+                    is_parameter=attr_info%is_parameter, &
+                    is_save=attr_info%is_save, &
+                    is_volatile=attr_info%is_volatile, &
+                    is_protected=attr_info%is_protected, &
+                    is_asynchronous=attr_info%is_asynchronous, &
+                    accessibility=attr_info%accessibility, &
+                    is_contiguous=attr_info%is_contiguous, &
+                    is_value=attr_info%is_value)
             end if
         else
             if (attr_info%has_global_dimensions) then
                 decl_index = push_declaration( &
-                             arena, type_spec%type_name, trim_name_array(var_names), &
-                             dimension_indices=attr_info%global_dimension_indices, &
-                             intent_value=attr_info%intent, &
-                             is_optional=attr_info%is_optional, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_target=attr_info%is_target, &
-                             is_external=attr_info%is_external, &
-                             is_unsigned=attr_info%is_unsigned, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter, &
-                             is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile, &
-                             is_protected=attr_info%is_protected, &
-                             is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous, &
-                             is_value=attr_info%is_value)
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_target=attr_info%is_target, &
+                    is_external=attr_info%is_external, &
+                    is_unsigned=attr_info%is_unsigned, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter, &
+                    is_save=attr_info%is_save, &
+                    is_volatile=attr_info%is_volatile, &
+                    is_protected=attr_info%is_protected, &
+                    is_asynchronous=attr_info%is_asynchronous, &
+                    accessibility=attr_info%accessibility, &
+                    is_contiguous=attr_info%is_contiguous, &
+                    is_value=attr_info%is_value)
             else
                 decl_index = push_declaration( &
-                             arena, type_spec%type_name, trim_name_array(var_names), &
-                             intent_value=attr_info%intent, &
-                             is_optional=attr_info%is_optional, &
-                             is_external=attr_info%is_external, &
-                             is_unsigned=attr_info%is_unsigned, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_target=attr_info%is_target, &
-                             is_parameter=attr_info%is_parameter, &
-                             is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile, &
-                             is_protected=attr_info%is_protected, &
-                             is_asynchronous=attr_info%is_asynchronous, &
-                         accessibility=attr_info%accessibility, &
-                             is_contiguous=attr_info%is_contiguous, &
-                             is_value=attr_info%is_value)
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
+                    is_external=attr_info%is_external, &
+                    is_unsigned=attr_info%is_unsigned, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    is_parameter=attr_info%is_parameter, &
+                    is_save=attr_info%is_save, &
+                    is_volatile=attr_info%is_volatile, &
+                    is_protected=attr_info%is_protected, &
+                    is_asynchronous=attr_info%is_asynchronous, &
+                    accessibility=attr_info%accessibility, &
+                    is_contiguous=attr_info%is_contiguous, &
+                    is_value=attr_info%is_value)
             end if
         end if
 
@@ -467,7 +467,7 @@ contains
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()
                 complex_index = push_complex_literal(arena, real_index, imag_index, &
-                                                     token%line, token%column)
+                    token%line, token%column)
             else
                 complex_index = real_index
             end if

@@ -35,7 +35,7 @@ contains
         write (output_unit, '(A)') "Testing array constructor in argument list..."
 
         call read_example('examples/f90/issue_2455_array_constructor_arg.f90', &
-                          source)
+            source)
 
         ! First pass: parse original source
         arena1 = create_ast_arena()
@@ -103,7 +103,7 @@ contains
         write (output_unit, '(A)') "Testing nested function calls with keyword args..."
 
         call read_example('examples/f90/issue_2455_nested_function_args.f90', &
-                          source)
+            source)
 
         ! First pass: parse original source
         arena1 = create_ast_arena()
@@ -172,7 +172,7 @@ contains
             "Testing multi-variable parameter declaration..."
 
         call read_example('examples/f90/issue_2455_multi_variable_decl.f90', &
-                          source)
+            source)
 
         ! First pass: parse original source
         arena1 = create_ast_arena()
@@ -240,7 +240,7 @@ contains
         write (output_unit, '(A)') "Testing nested array constructor..."
 
         call read_example('examples/f90/issue_2455_nested_array_constructor.f90', &
-                          source)
+            source)
 
         ! First pass: parse original source
         arena1 = create_ast_arena()

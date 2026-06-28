@@ -1,6 +1,6 @@
 program test_variable_usage_block_construct
     use fortfront, only: ast_arena_t, create_ast_arena, lex_source, parse_tokens, &
-                         token_t
+        token_t
     use variable_usage_tracker_module, only: count_variable_usage
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none

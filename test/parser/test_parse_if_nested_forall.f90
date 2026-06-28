@@ -19,10 +19,10 @@ program test_parse_if_nested_forall
     print *, '=== Test: parse_if handles nested FORALL without placeholders ==='
 
     source = 'if (flag) then' // new_line('a') // &
-             '  forall (i = 1:5)' // new_line('a') // &
-             '    a(i) = i' // new_line('a') // &
-             '  end forall' // new_line('a') // &
-             'end if'
+        '  forall (i = 1:5)' // new_line('a') // &
+        '    a(i) = i' // new_line('a') // &
+        '  end forall' // new_line('a') // &
+        'end if'
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -40,13 +40,13 @@ program test_parse_if_nested_forall
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (forall_node)
+            type is (forall_node)
             has_forall = .true.
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) then
                 if (index(node%value, '! Unparsed') > 0) has_unparsed = .true.
             end if
-        type is (if_node)
+            type is (if_node)
             cycle
         class default
             cycle

@@ -56,9 +56,9 @@ contains
         integer, intent(in) :: x
         integer :: y
 
-        y = 0  ! Default value
+        y = 0 ! Default value
 
-        if (x < 0) return  ! Early return with default
+        if (x < 0) return ! Early return with default
 
         y = x * 2
     end function test_early_return

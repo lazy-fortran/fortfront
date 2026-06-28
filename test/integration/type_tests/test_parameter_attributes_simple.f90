@@ -2,7 +2,7 @@ program test_parameter_attributes_simple
     use transformation_api, only: transform_lazy_fortran_string
     use ast_visitor
     use ast_traversal
- use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed = .true.

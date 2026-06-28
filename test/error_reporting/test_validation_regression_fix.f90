@@ -13,27 +13,27 @@ program test_validation_regression_fix
 
     ! Test 1: Comments-only input should be accepted (mentioned in issue description)
     call run_test('Comments-only input should be accepted', &
-                  test_comments_only_input())
+        test_comments_only_input())
 
     ! Test 2: Simple expressions without keywords should be accepted
     call run_test('Simple expressions without keywords should be accepted', &
-                  test_simple_expressions())
+        test_simple_expressions())
 
     ! Test 3: Valid lazy Fortran constructs should not be rejected
     call run_test('Valid lazy Fortran constructs should not be rejected', &
-                  test_valid_lazy_fortran())
+        test_valid_lazy_fortran())
 
     ! Test 4: Complete garbage should produce meaningful error messages (not silent fallback)
     call run_test('Complete garbage should produce meaningful errors', &
-                  test_complete_garbage_error())
+        test_complete_garbage_error())
 
     ! Test 5: Invalid syntax should produce error output, not empty programs
     call run_test('Invalid syntax should produce error output', &
-                  test_invalid_syntax_error_output())
+        test_invalid_syntax_error_output())
 
     ! Test 6: Mixed valid/invalid should handle gracefully
     call run_test('Mixed valid/invalid should handle gracefully', &
-                  test_mixed_content())
+        test_mixed_content())
 
     ! Report results
     print *
@@ -75,15 +75,15 @@ contains
 
         ! Given: A source file with only comments
         source = '! This is just a comment' // new_line('a') // &
-                 '! Another comment line'
+            '! Another comment line'
 
         ! When: We process the input
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Then: Should be accepted without error and produce valid output
         passed = len_trim(error_msg) == 0 .and. &
-                 len_trim(output) > 0 .and. &
-                 index(output, '! COMPILATION FAILED') == 0
+            len_trim(output) > 0 .and. &
+            index(output, '! COMPILATION FAILED') == 0
     end function
 
     ! Test that simple expressions without keywords are accepted
@@ -99,8 +99,8 @@ contains
 
         ! Then: Should be accepted and produce valid Fortran
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'x = 42') > 0 .and. &
-                 index(output, 'program main') > 0
+            index(output, 'x = 42') > 0 .and. &
+            index(output, 'program main') > 0
     end function
 
     ! Test that valid lazy Fortran constructs are not rejected
@@ -110,17 +110,17 @@ contains
 
         ! Given: Valid lazy Fortran with multiple statements
         source = 'x = 5' // new_line('a') // &
-                 'y = x * 2' // new_line('a') // &
-                 'print *, y'
+            'y = x * 2' // new_line('a') // &
+            'print *, y'
 
         ! When: We process the input
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Then: Should be accepted and produce valid Fortran
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'x = 5') > 0 .and. &
-                 (index(output, 'y = x * 2') > 0 .or. index(output, 'y = x*2') > 0) .and. &
-                 index(output, 'print') > 0
+            index(output, 'x = 5') > 0 .and. &
+            (index(output, 'y = x * 2') > 0 .or. index(output, 'y = x*2') > 0) .and. &
+            index(output, 'print') > 0
     end function
 
     ! Test that complete garbage produces meaningful error messages
@@ -137,8 +137,8 @@ contains
         ! Then: Should produce error message (not silent fallback)
         ! Either error_msg should be populated OR output should contain error comments
         passed = len_trim(error_msg) > 0 .or. &
-                 index(output, '! COMPILATION FAILED') > 0 .or. &
-                 index(output, '! Error:') > 0
+            index(output, '! COMPILATION FAILED') > 0 .or. &
+            index(output, '! Error:') > 0
     end function
 
     ! Test that invalid syntax produces error output instead of empty programs
@@ -154,8 +154,8 @@ contains
 
         ! Then: Output should indicate compilation failure, not look like valid code
         passed = index(output, '! COMPILATION FAILED') > 0 .or. &
-                 index(output, '! Error:') > 0 .or. &
-                 len_trim(error_msg) > 0
+            index(output, '! Error:') > 0 .or. &
+            len_trim(error_msg) > 0
     end function
 
     ! Test mixed valid/invalid content handling
@@ -165,16 +165,16 @@ contains
 
         ! Given: Mix of valid comments and potentially problematic content
         source = '! Valid comment' // new_line('a') // &
-                 'x = 42' // new_line('a') // &
-                 '! Another comment'
+            'x = 42' // new_line('a') // &
+            '! Another comment'
 
         ! When: We process the input
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Then: Should handle gracefully (this is valid lazy Fortran)
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'x = 42') > 0 .and. &
-                 index(output, '! COMPILATION FAILED') == 0
+            index(output, 'x = 42') > 0 .and. &
+            index(output, '! COMPILATION FAILED') == 0
     end function
 
 end program test_validation_regression_fix

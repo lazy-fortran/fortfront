@@ -89,20 +89,20 @@ contains
 
         ! Build library and modules first
         call execute_command_line('make libfortfront.a > /dev/null 2>&1', &
-                                  exitstat=exit_code, wait=.true.)
+            exitstat=exit_code, wait=.true.)
 
         ! Define required modules for pure Fortran integration
         required_modules = [ &
-                           "fortfront_c_interface       ", &
-                           "frontend                    ", &
-                           "lexer_core                  ", &
-                           "parser_expressions_module   ", &
-                           "semantic_analyzer           ", &
-                           "codegen_core                ", &
-                           "ast_arena_modern            ", &
-                           "type_system_unified         ", &
-                           "error_handling              ", &
-                           "scope_manager               "]
+            "fortfront_c_interface       ", &
+            "frontend                    ", &
+            "lexer_core                  ", &
+            "parser_expressions_module   ", &
+            "semantic_analyzer           ", &
+            "codegen_core                ", &
+            "ast_arena_modern            ", &
+            "type_system_unified         ", &
+            "error_handling              ", &
+            "scope_manager               "]
 
         found_count = 0
         ! Check if modules are in expected location (build/fortfront_modules)
@@ -136,7 +136,7 @@ contains
 
         ! Check key interface module exists
         inquire (file='build/fortfront_modules/fortfront_c_interface.mod', &
-                 exist=mod_exists)
+            exist=mod_exists)
 
         interfaces_complete = mod_exists
 
@@ -160,12 +160,12 @@ contains
         ! Check key dependency chains
         inquire (file='build/fortfront_modules/lexer_core.mod', exist=lex_exists)
         inquire (file='build/fortfront_modules/parser_expressions_module.mod', &
-                 exist=parse_exists)
+            exist=parse_exists)
         inquire (file='build/fortfront_modules/ast_arena_modern.mod', exist=ast_exists)
         inquire (file='build/fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
 
         dependencies_resolved = (lex_exists .and. parse_exists .and. &
-                                 ast_exists .and. sem_exists)
+            ast_exists .and. sem_exists)
 
         call test_result(dependencies_resolved)
         if (dependencies_resolved) then
@@ -221,7 +221,7 @@ contains
                 exitstat=exit_code, wait=.true.)
         end if
         call execute_command_line('rm -f /tmp/test_mod.f90 /tmp/test_mod.o', &
-                                  exitstat=exit_code, wait=.true.)
+            exitstat=exit_code, wait=.true.)
 
         version_compatible = (exit_code == 0)
 

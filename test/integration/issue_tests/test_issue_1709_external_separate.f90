@@ -1,6 +1,6 @@
 program test_issue_1709_external_separate
     use transformation_api, only: transform_lazy_fortran_string
- use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     logical :: passed
 
@@ -57,7 +57,7 @@ contains
         end if
 
         if (index(generated, 'end program') > 0) then
-        if (index(generated, 'function my_func') > index(generated, 'end program')) then
+            if (index(generated, 'function my_func') > index(generated, 'end program')) then
             else
                 write (error_unit, '(A)') &
                     'FAIL: Function not after end program (not separate unit)'
