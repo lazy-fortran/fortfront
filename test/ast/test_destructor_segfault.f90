@@ -11,7 +11,7 @@ program test_destructor_segfault
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_factory_control, only: push_select_case, push_case_block
     use ast_factory_procedures, only: push_module, push_function_def, &
-                                      push_subroutine_def
+        push_subroutine_def
     use ast_factory_core, only: push_literal
     use ast_base, only: LITERAL_INTEGER
     implicit none
@@ -96,7 +96,7 @@ contains
         case1_idx = push_case_block(arena, [val1_idx], line=2, column=1)
         case2_idx = push_case_block(arena, [val2_idx], line=3, column=1)
         sel_idx = push_select_case(arena, expr_idx, [case1_idx, case2_idx], &
-                                   line=1, column=1)
+            line=1, column=1)
 
         if (sel_idx > 0 .and. case1_idx > 0 .and. case2_idx > 0) then
             call pass_test()
@@ -120,7 +120,7 @@ contains
                 arena = create_ast_arena()
                 write (val_str, '(I0)') i
                 idx = push_literal(arena, trim(val_str), LITERAL_INTEGER, &
-                                   line=1, column=1)
+                    line=1, column=1)
                 idx = push_case_block(arena, [idx], line=1, column=1)
                 ! Arena finalized at end of block
             end block
@@ -140,8 +140,8 @@ contains
         func_idx = push_function_def(arena, "my_func", line=2, column=1)
         sub_idx = push_subroutine_def(arena, "my_sub", line=5, column=1)
         mod_idx = push_module(arena, "my_module", &
-                              body_indices=[func_idx, sub_idx], &
-                              line=1, column=1)
+            body_indices=[func_idx, sub_idx], &
+            line=1, column=1)
 
         if (mod_idx > 0 .and. func_idx > 0 .and. sub_idx > 0) then
             call pass_test()
@@ -168,9 +168,9 @@ contains
                     integer :: inner_idx, case_idx, val_idx
                     inner_arena = create_ast_arena()
                     val_idx = push_literal(inner_arena, "1", LITERAL_INTEGER, &
-                                           line=1, column=1)
+                        line=1, column=1)
                     case_idx = push_case_block(inner_arena, [val_idx], &
-                                               line=1, column=1)
+                        line=1, column=1)
                     inner_idx = push_module(inner_arena, "inner_mod", line=1, column=1)
                     ! Inner arena finalized here
                 end block

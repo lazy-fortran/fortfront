@@ -5,7 +5,7 @@ module codegen_expressions
     use ast_nodes_data
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
-                                range_expression_node
+        range_expression_node
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use ast_nodes_io, only: io_implied_do_node

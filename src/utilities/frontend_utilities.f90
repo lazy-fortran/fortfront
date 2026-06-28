@@ -4,7 +4,7 @@ module frontend_utilities
 
     use string_utils_mod, only: int_to_string
     use lexer_core, only: token_t, TK_COMMENT, TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, &
-                          TK_WHITESPACE, to_lower
+        TK_WHITESPACE, to_lower
     implicit none
     private
 
@@ -21,7 +21,7 @@ contains
         character(len=:), allocatable :: sanitized
 
         open (newunit=unit, file=filename, status='replace', action='write', &
-              iostat=iostat)
+            iostat=iostat)
         if (iostat /= 0) then
             error_msg = "Cannot create output file: " // filename
             return

@@ -1,9 +1,9 @@
 program test_frontend_lexer_edge_cases
     use lexer_core, only: TK_IDENTIFIER, TK_NEWLINE, TK_NUMBER, &
-                          TK_OPERATOR, TK_STRING, TK_COMMENT, TK_WHITESPACE, &
-                          TK_UNKNOWN, token_t, tokenize_core, &
-                          tokenize_core_with_trivia, tokenize_result_t, &
-                          tokenize_safe
+        TK_OPERATOR, TK_STRING, TK_COMMENT, TK_WHITESPACE, &
+        TK_UNKNOWN, token_t, tokenize_core, &
+        tokenize_core_with_trivia, tokenize_result_t, &
+        tokenize_safe
     implicit none
 
     logical :: all_passed
@@ -115,7 +115,7 @@ contains
             print '(a)', "FAIL: leading trivia missing before identifier"
             test_trivia_preservation = .false.
         else if (tokens(x_index)%leading_trivia(1)%kind /= TK_WHITESPACE .or. &
-                 tokens(x_index)%leading_trivia(1)%text /= "  ") then
+                tokens(x_index)%leading_trivia(1)%text /= "  ") then
             print '(a)', "FAIL: leading whitespace trivia not preserved"
             test_trivia_preservation = .false.
         end if

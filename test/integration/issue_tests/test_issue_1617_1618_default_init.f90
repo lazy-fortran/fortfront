@@ -17,9 +17,9 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: Superclass" // new_line('A') // &
-                     "  integer :: stop_at = -1" // new_line('A') // &
-                     "  real :: x = 0.0" // new_line('A') // &
-                     "end type Superclass"
+            "  integer :: stop_at = -1" // new_line('A') // &
+            "  real :: x = 0.0" // new_line('A') // &
+            "end type Superclass"
 
         print *, ""
         print *, "=== Test 1: Integer and real default initialization (issue #1617) ==="
@@ -50,9 +50,9 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: Array" // new_line('A') // &
-                     "  real, pointer :: values(:) => null()" // new_line('A') // &
-                     "  integer :: size = 0" // new_line('A') // &
-                     "end type Array"
+            "  real, pointer :: values(:) => null()" // new_line('A') // &
+            "  integer :: size = 0" // new_line('A') // &
+            "end type Array"
 
         print *, ""
         print *, "=== Test 2: Pointer null initialization (issue #1618) ==="
@@ -83,9 +83,9 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: Config" // new_line('A') // &
-                     "  logical :: enabled = .true." // new_line('A') // &
-                     "  logical :: verbose = .false." // new_line('A') // &
-                     "end type Config"
+            "  logical :: enabled = .true." // new_line('A') // &
+            "  logical :: verbose = .false." // new_line('A') // &
+            "end type Config"
 
         print *, ""
         print *, "=== Test 3: Logical default initialization ==="
@@ -116,10 +116,10 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: Mixed" // new_line('A') // &
-                     "  integer :: initialized = 42" // new_line('A') // &
-                     "  integer :: uninitialized" // new_line('A') // &
-                     "  real :: value = 3.14" // new_line('A') // &
-                     "end type Mixed"
+            "  integer :: initialized = 42" // new_line('A') // &
+            "  integer :: uninitialized" // new_line('A') // &
+            "  real :: value = 3.14" // new_line('A') // &
+            "end type Mixed"
 
         print *, ""
         print *, "=== Test 4: Mixed initialized and uninitialized fields ==="
@@ -155,10 +155,10 @@ contains
         character(:), allocatable :: error_msg
 
         input_code = "type :: Container" // new_line('A') // &
-                     "  real, pointer :: ptr(:) => null()" // new_line('A') // &
-                     "  real :: scale = 1.0" // new_line('A') // &
-                     "  logical :: active = .true." // new_line('A') // &
-                     "end type Container"
+            "  real, pointer :: ptr(:) => null()" // new_line('A') // &
+            "  real :: scale = 1.0" // new_line('A') // &
+            "  logical :: active = .true." // new_line('A') // &
+            "end type Container"
 
         print *, ""
         print *, "=== Test 5: Pointer array with multiple initialized fields ==="

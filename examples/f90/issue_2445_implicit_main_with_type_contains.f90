@@ -1,5 +1,5 @@
 type :: config_t
-  integer :: value
+    integer :: value
 end type config_t
 
 type(config_t) :: cfg
@@ -9,8 +9,8 @@ print *, cfg%value
 
 contains
 
-  subroutine helper()
-    implicit none
-    print *, 'Helper called'
-  end subroutine helper
-end
+    subroutine helper()
+        implicit none
+        print *, 'Helper called'
+    end subroutine helper
+    end

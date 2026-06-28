@@ -1,6 +1,6 @@
 program test_issue_1582_simple_goto
     use fortfront, only: transform_lazy_fortran_string, tooling_parse_options_t, &
-                         tooling_load_ast_from_string, ast_arena_t, token_t
+        tooling_load_ast_from_string, ast_arena_t, token_t
     implicit none
 
     logical :: all_passed

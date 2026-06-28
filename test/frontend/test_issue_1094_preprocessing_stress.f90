@@ -59,7 +59,7 @@ contains
         end if
 
         select type (p => arena%entries(prog_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (size(p%body_indices) < 61) then
                 print *, '  FAIL: expected >= 61 statements, got', size(p%body_indices)
                 run_stress_case = .false.

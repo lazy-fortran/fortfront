@@ -3,7 +3,7 @@ program test_issue_2024_char_function_duplicate_and_missing
     implicit none
 
     character(len=*), parameter :: example_path = 'examples/f90/' // &
-                                   'issue_2024_char_function_duplicate_and_missing.f90'
+        'issue_2024_char_function_duplicate_and_missing.f90'
     character(len=:), allocatable :: source, output, error_msg
     character(len=512) :: line_buffer
     integer :: unit, ios
@@ -117,7 +117,7 @@ contains
         obj_file = trim(temp_dir) // '/' // trim(basename) // '.o'
 
         open (newunit=unit, file=filename, status='replace', action='write', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) error stop 'Failed to create temporary file'
 
         write (unit, '(A)') source_text

@@ -36,7 +36,7 @@ contains
 
         call initialize_codegen()
         call read_example('examples/f90/issue_1818_assumed_size_array.f90', &
-                          source)
+            source)
 
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) then

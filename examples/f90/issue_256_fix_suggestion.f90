@@ -1,3 +1,3 @@
 if x > 0
-  print *, x
+print *, x
 end if

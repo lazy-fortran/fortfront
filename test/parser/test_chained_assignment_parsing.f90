@@ -28,9 +28,9 @@ contains
 
         ! This is the exact case from issue #2159
         source = "a = b = c = 5" // new_line('a') // &
-                 'print *, "a:", a' // new_line('a') // &
-                 'print *, "b:", b' // new_line('a') // &
-                 'print *, "c:", c'
+            'print *, "a:", a' // new_line('a') // &
+            'print *, "b:", b' // new_line('a') // &
+            'print *, "c:", c'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

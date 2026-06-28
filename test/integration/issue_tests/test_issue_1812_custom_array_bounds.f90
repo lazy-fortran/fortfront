@@ -4,8 +4,8 @@ program test_issue_1812_custom_array_bounds
     ! converted to allocatable arrays, losing the custom bounds
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
 
     logical :: all_passed
     integer :: n_tests, n_passed

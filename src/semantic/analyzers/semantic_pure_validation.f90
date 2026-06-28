@@ -6,7 +6,7 @@ module semantic_pure_validation
     ! body restrictions apply.
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
-                            read_statement_node
+        read_statement_node
     use ast_nodes_transfer, only: stop_node, pause_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_conditional, only: if_node
@@ -85,22 +85,22 @@ contains
         type(error_collection_t), intent(inout) :: errors
 
         select type (stmt => arena%entries(stmt_index)%node)
-        type is (print_statement_node)
+            type is (print_statement_node)
             call report_impure_stmt(errors, 'PRINT', stmt%line, stmt%column)
-        type is (write_statement_node)
+            type is (write_statement_node)
             call report_impure_stmt(errors, 'WRITE', stmt%line, stmt%column)
-        type is (read_statement_node)
+            type is (read_statement_node)
             call report_impure_stmt(errors, 'READ', stmt%line, stmt%column)
-        type is (stop_node)
+            type is (stop_node)
             call report_impure_stmt(errors, 'STOP', stmt%line, stmt%column)
-        type is (pause_node)
+            type is (pause_node)
             call report_impure_stmt(errors, 'PAUSE', stmt%line, stmt%column)
-        type is (if_node)
+            type is (if_node)
             call check_pure_if(arena, stmt, errors)
-        type is (do_loop_node)
+            type is (do_loop_node)
             if (allocated(stmt%body_indices)) &
                 call check_pure_body(arena, stmt%body_indices, errors)
-        type is (do_while_node)
+            type is (do_while_node)
             if (allocated(stmt%body_indices)) &
                 call check_pure_body(arena, stmt%body_indices, errors)
         end select
@@ -119,7 +119,7 @@ contains
             do i = 1, size(node%elseif_blocks)
                 if (allocated(node%elseif_blocks(i)%body_indices)) &
                     call check_pure_body(arena, &
-                                         node%elseif_blocks(i)%body_indices, errors)
+                    node%elseif_blocks(i)%body_indices, errors)
             end do
         end if
         if (allocated(node%else_body_indices)) &

@@ -779,7 +779,7 @@ contains
 
         ! Ensure item is ast_node_arena_t
         select type (item)
-        type is (ast_node_arena_t)
+            type is (ast_node_arena_t)
             ! Store using the public store_ast_node function
             ast_handle = store_ast_node(this, item)
 

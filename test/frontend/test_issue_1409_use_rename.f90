@@ -14,14 +14,14 @@ contains
         integer :: idx_use
 
         input_code = "module constants" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    integer, parameter :: ten = 10" // new_line('A') // &
-                     "end module constants" // new_line('A') // new_line('A') // &
-                     "program rename_test" // new_line('A') // &
-                     "    use constants, only: dozen => ten" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    print *, dozen" // new_line('A') // &
-                     "end program rename_test"
+            "    implicit none" // new_line('A') // &
+            "    integer, parameter :: ten = 10" // new_line('A') // &
+            "end module constants" // new_line('A') // new_line('A') // &
+            "program rename_test" // new_line('A') // &
+            "    use constants, only: dozen => ten" // new_line('A') // &
+            "    implicit none" // new_line('A') // &
+            "    print *, dozen" // new_line('A') // &
+            "end program rename_test"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

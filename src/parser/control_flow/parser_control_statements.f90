@@ -2,20 +2,20 @@ module parser_control_statements_module
     ! Parser module for control flow statements such as stop, return,
     ! goto, cycle, exit, and error stop
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_stop, push_return, push_entry, push_continue, &
-                           push_end_statement, push_goto, push_error_stop, &
-                           push_cycle, push_exit, push_pause, push_nullify
+        push_end_statement, push_goto, push_error_stop, &
+        push_cycle, push_exit, push_pause, push_nullify
     use ast_factory
     implicit none
     private
 
     public :: parse_stop_statement, parse_return_statement, parse_entry_statement, &
-              parse_continue_statement, parse_end_statement
+        parse_continue_statement, parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement, parse_pause_statement
     public :: parse_nullify_statement
@@ -54,10 +54,10 @@ contains
         ! Create STOP node
         if (len_trim(stop_message) > 0) then
             stop_index = push_stop(arena, stop_message=stop_message, &
-                                   line=line, column=column)
+                line=line, column=column)
         else
             stop_index = push_stop(arena, stop_code_index=stop_code_index, &
-                                   line=line, column=column)
+                line=line, column=column)
         end if
     end function parse_stop_statement
 
@@ -78,7 +78,7 @@ contains
 
         ! Create RETURN node
         return_index = push_return(arena, line=line, column=column, &
-                                   parent_index=parent_index)
+            parent_index=parent_index)
     end function parse_return_statement
 
     function parse_entry_statement(parser, arena, parent_index) result(entry_index)
@@ -147,7 +147,7 @@ contains
                     if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
                         paren_depth = paren_depth + 1
                     else if (token%kind == TK_OPERATOR .and. &
-                             trim(token%text) == ")") then
+                            trim(token%text) == ")") then
                         paren_depth = paren_depth - 1
                         if (paren_depth == 0) then
                             i = i + 1
@@ -162,11 +162,11 @@ contains
 
         ! Create ENTRY node
         entry_index = push_entry(arena, name=entry_name, params_text=params_text, &
-                                 line=line, column=column, parent_index=parent_index)
+            line=line, column=column, parent_index=parent_index)
     end function parse_entry_statement
 
     function parse_continue_statement(parser, arena, parent_index) &
-        result(continue_index)
+            result(continue_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -181,7 +181,7 @@ contains
         token = parser%consume()
 
         continue_index = push_continue(arena, line=line, column=column, &
-                                       parent_index=parent_index)
+            parent_index=parent_index)
     end function parse_continue_statement
 
     function parse_end_statement(parser, arena, parent_index) result(end_index)
@@ -201,7 +201,7 @@ contains
 
         ! Create END statement node
         end_index = push_end_statement(arena, line=line, column=column, &
-                                       parent_index=parent_index)
+            parent_index=parent_index)
     end function parse_end_statement
 
     function parse_goto_statement(parser, arena) result(goto_index)
@@ -343,12 +343,12 @@ contains
         if (is_computed) then
             if (len_trim(label_list) > 0 .and. selector_index > 0) then
                 goto_index = push_goto(arena, label_list=label_list, &
-                                       selector_index=selector_index, line=line, &
-                                       column=column)
+                    selector_index=selector_index, line=line, &
+                    column=column)
             else
                 ! Invalid computed GOTO
                 goto_index = push_goto(arena, label="INVALID_LABEL", line=line, &
-                                       column=column)
+                    column=column)
             end if
         else
             ! Simple GOTO
@@ -404,7 +404,7 @@ contains
 
         ! Create ERROR STOP node
         error_stop_index = push_error_stop(arena, error_code_index, error_message, &
-                                           line=line, column=column)
+            line=line, column=column)
     end function parse_error_stop_statement
 
     function parse_pause_statement(parser, arena) result(pause_index)
@@ -439,10 +439,10 @@ contains
         ! Create PAUSE node
         if (len_trim(pause_message) > 0) then
             pause_index = push_pause(arena, pause_message=pause_message, &
-                                     line=line, column=column)
+                line=line, column=column)
         else
             pause_index = push_pause(arena, pause_code_index=pause_code_index, &
-                                     line=line, column=column)
+                line=line, column=column)
         end if
     end function parse_pause_statement
 
@@ -473,7 +473,7 @@ contains
         ! Create CYCLE node
         if (len_trim(loop_label) > 0) then
             cycle_index = push_cycle(arena, loop_label=loop_label, &
-                                     line=line, column=column)
+                line=line, column=column)
         else
             cycle_index = push_cycle(arena, line=line, column=column)
         end if
@@ -506,7 +506,7 @@ contains
         ! Create EXIT node
         if (len_trim(loop_label) > 0) then
             exit_index = push_exit(arena, loop_label=loop_label, &
-                                   line=line, column=column)
+                line=line, column=column)
         else
             exit_index = push_exit(arena, line=line, column=column)
         end if
@@ -574,7 +574,7 @@ contains
 
         ! Create NULLIFY node
         nullify_index = push_nullify(arena, pointer_indices=pointer_indices, &
-                                     line=line, column=column)
+            line=line, column=column)
     end function parse_nullify_statement
 
 end module parser_control_statements_module

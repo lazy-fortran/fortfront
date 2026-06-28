@@ -5,20 +5,20 @@ module frontend_transformation_structure
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, module_node, &
-                              mixed_construct_container_node, &
-                              multi_unit_container_node
+        mixed_construct_container_node, &
+        multi_unit_container_node
     use procedure_classification, only: should_hoist_procedure, &
-                                        procedure_has_entry_statement
+        procedure_has_entry_statement
     use frontend_transformation_common, only: transform_context_t, format_options_t
     use compiler_arena, only: compiler_arena_t
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
     use codegen_indent, only: set_indent_config, get_indent_config, &
-                              set_line_length_config, get_line_length_config
+        set_line_length_config, get_line_length_config
     use codegen_type_utils, only: set_type_standardization, &
-                                  get_type_standardization
+        get_type_standardization
     use standardizer, only: set_standardizer_type_standardization, &
-                            get_standardizer_type_standardization
+        get_standardizer_type_standardization
     implicit none
     private
 

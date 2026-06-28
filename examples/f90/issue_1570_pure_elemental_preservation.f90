@@ -38,7 +38,7 @@ end module pure_elemental_demo
 
 program test_pure_elemental
     use pure_elemental_demo, only: square, add_one, compute_sum, double_value, &
-                                   factorial
+        factorial
     implicit none
     integer :: arr(3), result_arr(3), val
 

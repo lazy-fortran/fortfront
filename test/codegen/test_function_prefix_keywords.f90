@@ -1,8 +1,8 @@
 program test_function_prefix_keywords
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -122,7 +122,7 @@ program test_function_prefix_keywords
         goto 999
     end if
 
-999 continue
+    999 continue
     call cleanup_temp_directory(temp_dir, is_windows)
     stop exit_code
 end program test_function_prefix_keywords

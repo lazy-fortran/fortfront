@@ -12,7 +12,7 @@ module type_utils_safe
     ! Type variable - safe version with fixed-size name
     type :: safe_type_var_t
         integer :: id
-        character(len=64) :: name = ""  ! Fixed size to avoid allocatable
+        character(len=64) :: name = "" ! Fixed size to avoid allocatable
     end type safe_type_var_t
 
     ! Safe monomorphic type - uses interface access patterns to avoid

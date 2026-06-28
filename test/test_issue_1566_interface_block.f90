@@ -15,16 +15,16 @@ program test_issue_1566_interface_block
     test_passed = .true.
 
     input_code = "program test_interface" // new_line('A') // &
-                 "    implicit none" // new_line('A') // &
-                 new_line('A') // &
-                 "    interface" // new_line('A') // &
-                 "        subroutine external_sub(x)" // new_line('A') // &
-                 "            integer, intent(in) :: x" // new_line('A') // &
-                 "        end subroutine external_sub" // new_line('A') // &
-                 "    end interface" // new_line('A') // &
-                 new_line('A') // &
-                 "    call external_sub(42)" // new_line('A') // &
-                 "end program test_interface" // new_line('A')
+        "    implicit none" // new_line('A') // &
+        new_line('A') // &
+        "    interface" // new_line('A') // &
+        "        subroutine external_sub(x)" // new_line('A') // &
+        "            integer, intent(in) :: x" // new_line('A') // &
+        "        end subroutine external_sub" // new_line('A') // &
+        "    end interface" // new_line('A') // &
+        new_line('A') // &
+        "    call external_sub(42)" // new_line('A') // &
+        "end program test_interface" // new_line('A')
 
     arena = create_ast_arena()
     call lex_source(input_code, tokens, error_msg)
@@ -83,9 +83,9 @@ program test_issue_1566_interface_block
     end if
 
     if (index(output_code, "subroutine external_sub(x)" // new_line('A') // &
-              "    integer, intent(in) :: x" // new_line('A') // &
-              "end subroutine external_sub" // new_line('A') // &
-              "    call external_sub") > 0) then
+        "    integer, intent(in) :: x" // new_line('A') // &
+        "end subroutine external_sub" // new_line('A') // &
+        "    call external_sub") > 0) then
         write (output_unit, '(A)') &
             "FAIL: interface block structure stripped and placed incorrectly"
         test_passed = .false.

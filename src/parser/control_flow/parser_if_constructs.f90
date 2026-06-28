@@ -1,12 +1,12 @@
 module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
     use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+        TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: statement_callbacks_t, &
-                                            null_statement_callbacks, &
-                                            skip_whitespace_and_semicolons
+        null_statement_callbacks, &
+        skip_whitespace_and_semicolons
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
     use parser_arithmetic_if_module, only: is_arithmetic_if, parse_arithmetic_if
@@ -91,7 +91,7 @@ contains
         ! Check for arithmetic IF: IF (expr) label1, label2, label3
         if (is_arithmetic_if(parser)) then
             if_index = parse_arithmetic_if(parser, arena, condition_index, if_token, &
-                                           parent_index)
+                parent_index)
             return
         end if
 
@@ -101,16 +101,16 @@ contains
         if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == &
             "then") then
             if_index = parse_block_if(parser, arena, condition_index, if_token, &
-                                      parent_index, callbacks)
+                parent_index, callbacks)
         else
             if_index = parse_inline_if(parser, arena, condition_index, if_token, &
-                                       then_token, parent_index, callbacks)
+                then_token, parent_index, callbacks)
         end if
     end function parse_if
 
     ! Parse block IF with THEN/ELSEIF/ELSE/ENDIF
     recursive function parse_block_if(parser, arena, condition_index, if_token, &
-                                      parent_index, callbacks) result(if_index)
+            parent_index, callbacks) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
@@ -136,8 +136,8 @@ contains
 
         ! Create if node placeholder first to get the parent index
         if_index = push_if(arena, condition_index, [integer ::], &
-                           line=if_token%line, column=if_token%column, &
-                           parent_index=parent_index)
+            line=if_token%line, column=if_token%column, &
+            parent_index=parent_index)
 
         ! Parse then body statements with the if node as parent
         then_body_indices = parse_if_body(parser, arena, if_index, callbacks)
@@ -145,17 +145,17 @@ contains
         ! Parse elseif/else blocks and endif
         allocate (elseif_indices(0))
         call parse_elseif_else_chain(parser, arena, if_index, elseif_indices, &
-                                     else_body_indices, callbacks)
+            else_body_indices, callbacks)
 
         ! Update the if node with the actual body indices
         call update_if_node_bodies(arena, if_index, then_body_indices, &
-                                   elseif_indices, else_body_indices)
+            elseif_indices, else_body_indices)
     end function parse_block_if
 
     ! Parse ELSEIF/ELSE chain and ENDIF
     recursive subroutine parse_elseif_else_chain(parser, arena, if_index, &
-                                                 elseif_indices, else_body_indices, &
-                                                 callbacks)
+            elseif_indices, else_body_indices, &
+            callbacks)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: if_index
@@ -185,7 +185,7 @@ contains
                     cycle
                 end if
                 call parse_else_body(parser, arena, if_index, else_body_indices, &
-                                     callbacks)
+                    callbacks)
                 cycle
             case ("endif")
                 token = parser%consume()
@@ -217,8 +217,8 @@ contains
 
         integer :: elseif_pair(2)
 
-        elseif_pair = parse_elseif_block(parser, arena)
-        elseif_indices = [elseif_indices, elseif_pair]
+    elseif_pair = parse_elseif_block(parser, arena)
+    elseif_indices = [elseif_indices, elseif_pair]
     end subroutine append_elseif_block
 
     ! Parse else body block
@@ -301,7 +301,7 @@ contains
 
     ! Update if_node with body indices
     subroutine update_if_node_bodies(arena, if_index, then_body_indices, &
-                                     elseif_indices, else_body_indices)
+            elseif_indices, else_body_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: if_index
         integer, allocatable, intent(in) :: then_body_indices(:)
@@ -313,7 +313,7 @@ contains
         if (.not. allocated(arena%entries(if_index)%node)) return
 
         select type (node => arena%entries(if_index)%node)
-        type is (if_node)
+            type is (if_node)
             if (allocated(then_body_indices)) then
                 node%then_body_indices = then_body_indices
                 call link_children_to_parent(arena, if_index, then_body_indices)
@@ -459,21 +459,21 @@ contains
         type(statement_callbacks_t) :: callbacks
 
         ! Consume 'elseif' or 'else if'
-        elseif_token = parser%consume()
+    elseif_token = parser%consume()
         ! Check if we consumed 'else' and need to consume 'if' as well
         if (to_lower(elseif_token%text) == "else") then
             ! This should be "else if", consume the "if" token too
-            elseif_token = parser%consume()
+        elseif_token = parser%consume()
         end if
 
         ! Parse condition
-        elseif_indices(1) = parse_if_condition(parser, arena)
+    elseif_indices(1) = parse_if_condition(parser, arena)
 
         ! Look for 'then' keyword
-        elseif_token = parser%peek()
+    elseif_token = parser%peek()
         if (elseif_token%kind == TK_KEYWORD .and. to_lower(elseif_token%text) == &
             "then") then
-            elseif_token = parser%consume()
+        elseif_token = parser%consume()
         end if
 
         ! Parse body
@@ -482,9 +482,9 @@ contains
             integer, allocatable :: body_indices(:)
             body_indices = parse_if_body(parser, arena, callbacks=callbacks)
             if (allocated(body_indices) .and. size(body_indices) > 0) then
-                elseif_indices(2) = body_indices(1) ! Store first body statement index
+            elseif_indices(2) = body_indices(1) ! Store first body statement index
             else
-                elseif_indices(2) = 0
+            elseif_indices(2) = 0
             end if
         end block
 

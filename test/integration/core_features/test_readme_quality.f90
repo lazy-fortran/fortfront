@@ -77,15 +77,15 @@ contains
 
         ! Check for issue-specific references (Issue #XXX, #XXX)
         has_issue_refs = index(readme_content, "Issue #") > 0 .or. &
-                         index(readme_content, "#27") > 0 .or. &
-                         index(readme_content, "#26") > 0 .or. &
-                         index(readme_content, "#20") > 0
+            index(readme_content, "#27") > 0 .or. &
+            index(readme_content, "#26") > 0 .or. &
+            index(readme_content, "#20") > 0
 
         ! Check for implementation details that should be in separate docs
         has_impl_details = index(readme_content, "semantic_pipeline") > 0 .or. &
-                           index(readme_content, "mono_type_t") > 0 .or. &
-                           index(readme_content, "ast_arena") > 0 .or. &
-                           index(readme_content, "input_validation module") > 0
+            index(readme_content, "mono_type_t") > 0 .or. &
+            index(readme_content, "ast_arena") > 0 .or. &
+            index(readme_content, "input_validation module") > 0
 
         ! Check for excessive code examples (should be max 2-3 simple examples)
         has_excessive_examples = count_code_blocks(readme_content) > 5
@@ -104,14 +104,14 @@ contains
 
         ! Check for required sections (case insensitive)
         has_installation = index(readme_content, "## Building") > 0 .or. &
-                           index(readme_content, "## Installation") > 0 .or. &
-                           index(readme_content, "fpm build") > 0
+            index(readme_content, "## Installation") > 0 .or. &
+            index(readme_content, "fpm build") > 0
 
         has_features = index(readme_content, "## Features") > 0 .or. &
-                       index(readme_content, "## Overview") > 0
+            index(readme_content, "## Overview") > 0
 
         has_usage = index(readme_content, "## Usage") > 0 .or. &
-                    index(readme_content, "fortfront") > 0
+            index(readme_content, "fortfront") > 0
 
         structure_ok = has_installation .and. has_features .and. has_usage
     end subroutine test_required_structure

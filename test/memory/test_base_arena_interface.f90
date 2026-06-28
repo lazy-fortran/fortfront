@@ -304,7 +304,7 @@ contains
 
         ! Initialize through type-specific interface
         select type (arena)
-        type is (basic_arena_t)
+            type is (basic_arena_t)
             call arena%init(chunk_size=4096)
         end select
 
@@ -341,7 +341,7 @@ contains
 
         ! Cleanup
         select type (arena)
-        type is (basic_arena_t)
+            type is (basic_arena_t)
             call arena%destroy()
         end select
 

@@ -1,8 +1,8 @@
 module test_module_discovery
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-                                       directory_from_path, find_last_separator, &
-                                       join_path, &
-                                       path_separator_for
+        directory_from_path, find_last_separator, &
+        join_path, &
+        path_separator_for
     implicit none
     private
     public :: get_module_directory
@@ -26,7 +26,7 @@ contains
 
         env_dir = ''
         call get_environment_variable('FORTFRONT_MODULE_DIR', env_dir, &
-                                      status=env_status)
+            status=env_status)
         if (env_status == 0) then
             candidate = trim(env_dir)
             if (len_trim(candidate) > 0) then
@@ -129,7 +129,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(commands_path), status='old', &
-              action='read', iostat=ios)
+            action='read', iostat=ios)
         if (ios /= 0) return
 
         do
@@ -195,8 +195,8 @@ contains
 
         if (is_win) then
             call execute_command_line('cmd /C "dir /s /b fortfront.mod > '// &
-                                      trim(search_file)//' 2>nul"', &
-                                      exitstat=exit_code)
+                trim(search_file)//' 2>nul"', &
+                exitstat=exit_code)
         else
             call execute_command_line( &
                 'find build -name "fortfront.mod" -print -quit > '// &
@@ -209,7 +209,7 @@ contains
         end if
 
         open (newunit=unit_num, file=trim(search_file), status='old', action='read', &
-              iostat=ios)
+            iostat=ios)
         if (ios /= 0) then
             call cleanup_file(search_file)
             return

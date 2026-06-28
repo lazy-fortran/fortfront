@@ -1,6 +1,6 @@
 program debug_ast
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-                         ast_arena_t, token_t, ast_to_json
+        ast_arena_t, token_t, ast_to_json
     implicit none
 
     type(ast_arena_t) :: arena
@@ -29,7 +29,7 @@ program debug_ast
     options%run_semantics = .false.
 
     call tooling_load_ast_from_string(lazy_code, arena, root_index, error_msg, &
-                                      options, tokens)
+        options, tokens)
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then

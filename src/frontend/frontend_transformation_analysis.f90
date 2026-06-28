@@ -3,19 +3,19 @@ module frontend_transformation_analysis
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: mixed_construct_container_node
     use frontend_analysis_helpers, only: build_procedure_membership, &
-                                         analyze_ast_content, analyze_single_unit, &
-                                         collect_host_assignment_names, &
-                                         collect_program_assignment_names, &
-                                         collect_procedure_assignment_names, &
-                                         collect_assignment_from_node, &
-                                         record_identifier_name, append_unique_name, &
-                                         requires_lazy_internalization, &
-                                         has_existing_module_in_ast
+        analyze_ast_content, analyze_single_unit, &
+        collect_host_assignment_names, &
+        collect_program_assignment_names, &
+        collect_procedure_assignment_names, &
+        collect_assignment_from_node, &
+        record_identifier_name, append_unique_name, &
+        requires_lazy_internalization, &
+        has_existing_module_in_ast
     use frontend_program_builders, only: handle_mixed_construct_container, &
-                                         scan_multi_unit_program, &
-                                         create_program_from_bare_statements, &
-                                         merge_procedures_into_program, &
-                                         filter_procs_with_entry
+        scan_multi_unit_program, &
+        create_program_from_bare_statements, &
+        merge_procedures_into_program, &
+        filter_procs_with_entry
     implicit none
     private
 
@@ -49,13 +49,13 @@ contains
         candidate_prog_index = 0
 
         select type (root => arena%entries(root_index)%node)
-        type is (mixed_construct_container_node)
+            type is (mixed_construct_container_node)
             call handle_mixed_construct_container(arena, root_index, root, &
-                                                  proc_indices, main_stmts)
+                proc_indices, main_stmts)
             return
-        type is (program_node)
+            type is (program_node)
             call scan_multi_unit_program(arena, root, main_prog_index, &
-                                         candidate_prog_index, proc_indices, main_stmts)
+                candidate_prog_index, proc_indices, main_stmts)
         class default
             return
         end select
@@ -65,12 +65,12 @@ contains
         call filter_procs_with_entry(arena, proc_indices)
 
         call create_program_from_bare_statements(arena, root_index, &
-                                                 main_prog_index, proc_indices, &
-                                                 main_stmts)
+            main_prog_index, proc_indices, &
+            main_stmts)
         if (main_prog_index > 0 .and. size(proc_indices) == 0) return
 
         call merge_procedures_into_program(arena, main_prog_index, &
-                                           proc_indices, main_stmts)
+            proc_indices, main_stmts)
 
         if (main_prog_index > 0) root_index = main_prog_index
     end subroutine promote_functions_to_internal_program

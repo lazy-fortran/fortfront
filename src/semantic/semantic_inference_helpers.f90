@@ -2,14 +2,14 @@ module semantic_inference_helpers
     ! Helper module for type inference of control flow and declarations
     ! This avoids circular dependencies with semantic_analyzer
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   create_mono_type, create_type_var, &
-                                   create_poly_type, TVAR, TINT, TREAL, TCHAR, &
-                                   TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
+        create_mono_type, create_type_var, &
+        create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+        TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_loop_node, do_while_node, where_node, &
-                                 where_stmt_node, forall_node, select_case_node, &
-                                 associate_node, stop_node, pause_node, nullify_node
+        where_stmt_node, forall_node, select_case_node, &
+        associate_node, stop_node, pause_node, nullify_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     implicit none
@@ -48,7 +48,7 @@ contains
 
         ! Create integer type scheme for loop variable
         int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                      mono=create_mono_type(TINT))
+            mono=create_mono_type(TINT))
 
         ! Do loops don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
@@ -89,7 +89,7 @@ contains
 
         ! Create integer type scheme for index variables
         int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                      mono=create_mono_type(TINT))
+            mono=create_mono_type(TINT))
 
         ! Forall constructs don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
@@ -175,7 +175,7 @@ contains
         ! Create element type
         if (var_type_kind == TINT) then
             element_type = create_mono_type(var_type_kind, &
-                                            is_unsigned=decl%is_unsigned)
+                is_unsigned=decl%is_unsigned)
         else
             element_type = create_mono_type(var_type_kind)
         end if
@@ -230,7 +230,7 @@ contains
                     prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (implicit_statement_node)
+                            type is (implicit_statement_node)
                             implicit_count = implicit_count + 1
                             ! True when implicit none statement sets is_none flag
                             if (stmt%is_none) then

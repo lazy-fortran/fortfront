@@ -1,7 +1,7 @@
 program test_source_text_retrieval_api
     use fortfront, only: ast_arena_t, tooling_load_ast_from_string, &
-                         tooling_parse_options_t, has_source_text, &
-                         get_source_text, get_source_line, get_source_range
+        tooling_parse_options_t, has_source_text, &
+        get_source_text, get_source_line, get_source_range
     implicit none
 
     logical :: all_passed
@@ -38,7 +38,7 @@ contains
         source = 'x = 1' // crlf // 'y = 2' // crlf
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          tooling_parse_options_t())
+            tooling_parse_options_t())
         if (len(error_msg) > 0) then
             print *, '  FAIL: Unexpected parse error: ', trim(error_msg)
             test_crlf_roundtrip = .false.
@@ -82,7 +82,7 @@ contains
         source = 'abc' // new_line('A') // 'def' // new_line('A')
 
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-                                          tooling_parse_options_t())
+            tooling_parse_options_t())
         if (len(error_msg) > 0) then
             print *, '  FAIL: Unexpected parse error: ', trim(error_msg)
             test_line_and_range_queries = .false.

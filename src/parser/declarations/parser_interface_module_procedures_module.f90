@@ -5,7 +5,7 @@ module parser_interface_module_procedures_module
     use parser_state_module, only: parser_state_t
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &
-                          TK_WHITESPACE, TK_NEWLINE, TK_COMMENT
+        TK_WHITESPACE, TK_NEWLINE, TK_COMMENT
     implicit none
     private
     public :: parse_module_procedure_statement
@@ -25,14 +25,14 @@ contains
         allocate (procedure_names(0))
 
         if (.not. consume_module_procedure_header(parser, line, column, &
-                                                  has_double_colon)) return
+            has_double_colon)) return
 
         call collect_module_procedure_names(parser, procedure_names)
 
         if (size(procedure_names) > 0) then
             stmt_index = push_module_procedure(arena, procedure_names, line, &
-                                               column, &
-                                               has_double_colon=has_double_colon)
+                column, &
+                has_double_colon=has_double_colon)
         end if
     end function parse_module_procedure_statement
 
@@ -49,20 +49,20 @@ contains
         allocate (procedure_names(0))
 
         if (.not. consume_plain_procedure_header(parser, line, column, &
-                                                 has_double_colon)) return
+            has_double_colon)) return
 
         call collect_module_procedure_names(parser, procedure_names)
 
         if (size(procedure_names) > 0) then
             stmt_index = push_module_procedure(arena, procedure_names, line, column, &
-                                               has_module_prefix=.false., &
-                                               has_double_colon=has_double_colon)
+                has_module_prefix=.false., &
+                has_double_colon=has_double_colon)
         end if
     end function parse_plain_procedure_statement
 
     logical function consume_module_procedure_header(parser, line, column, &
-                                                     has_double_colon) &
-        result(is_valid)
+            has_double_colon) &
+            result(is_valid)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: line, column
         logical, intent(out) :: has_double_colon
@@ -99,8 +99,8 @@ contains
     end function consume_module_procedure_header
 
     logical function consume_plain_procedure_header(parser, line, column, &
-                                                    has_double_colon) &
-        result(is_valid)
+            has_double_colon) &
+            result(is_valid)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: line, column
         logical, intent(out) :: has_double_colon
@@ -143,8 +143,8 @@ contains
                     exit
                 else
                     call parser%error("Unexpected operator '"// &
-                                      trim(token%text)// &
-                                      "' in module procedure list.")
+                        trim(token%text)// &
+                        "' in module procedure list.")
                     token = parser%consume()
                     exit
                 end if
@@ -154,7 +154,7 @@ contains
                 token = parser%consume()
             case default
                 call parser%error("Unexpected token '"//trim(token%text)// &
-                                  "' in module procedure list.")
+                    "' in module procedure list.")
                 token = parser%consume()
                 exit
             end select
@@ -264,9 +264,9 @@ contains
 
         lowered = trim(text)
         is_attr = lowered == "pass" .or. lowered == "nopass" .or. &
-                  lowered == "pointer" .or. lowered == "protected" .or. &
-                  lowered == "private" .or. lowered == "public" .or. &
-                  lowered == "save" .or. lowered == "bind"
+            lowered == "pointer" .or. lowered == "protected" .or. &
+            lowered == "private" .or. lowered == "public" .or. &
+            lowered == "save" .or. lowered == "bind"
     end function is_procedure_attribute_keyword
 
     subroutine skip_interface_trivia(parser)

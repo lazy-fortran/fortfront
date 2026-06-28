@@ -7,9 +7,9 @@ module lexer_scanners
 
     ! Public scanning functions
     public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
-              scan_logical_token
+        scan_logical_token
     public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
-              scan_identifier_safe
+        scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
 contains
@@ -100,7 +100,7 @@ contains
                 pos = pos + 1
                 col_num = col_num + 1
             else if (((c == 'e' .or. c == 'E') .or. (c == 'd' .or. c == 'D')) .and. &
-                     .not. has_exp) then
+                    .not. has_exp) then
                 has_exp = .true.
                 e_count = 1
                 pos = pos + 1
@@ -261,7 +261,7 @@ contains
 
     ! Safe string scanning with error handling
     subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, &
-                                scan_result)
+            scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -446,7 +446,7 @@ contains
 
     ! Safe scanning functions
     subroutine scan_number_safe(source, pos, line_num, col_num, tokens, token_count, &
-                                scan_result)
+            scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -463,8 +463,8 @@ contains
     end subroutine scan_number_safe
 
     subroutine scan_identifier_safe(source, pos, line_num, col_num, tokens, &
-                                    token_count, &
-                                    scan_result)
+            token_count, &
+            scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -481,7 +481,7 @@ contains
     end subroutine scan_identifier_safe
 
     subroutine scan_comment_safe(source, pos, line_num, col_num, tokens, token_count, &
-                                 scan_result)
+            scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -498,8 +498,8 @@ contains
     end subroutine scan_comment_safe
 
     subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, &
-                                  token_count, &
-                                  scan_result)
+            token_count, &
+            scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -516,7 +516,7 @@ contains
     end subroutine scan_operator_safe
 
     subroutine scan_logical_token_safe(source, pos, line_num, col_num, tokens, &
-                                       token_count, scan_result)
+            token_count, scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -542,36 +542,36 @@ contains
 
         select case (trim(lower_word))
         case ('program', 'end', 'function', 'subroutine', 'if', &
-              'then', 'else', &
-              'go', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', &
-              'entry', 'error', &
-              'continue', 'nullify', 'do', 'while', 'concurrent', 'for', &
-              'integer', &
-              'real', 'logical', 'character', 'complex', 'double', &
-              'precision', &
-              'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
-              'intent', 'use', 'module', 'contains', 'public', 'private', &
-              'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'import', 'include', 'generic', &
-              'operator', &
-              'assignment', 'print', 'read', 'write', 'open', 'close', &
-              'inquire', &
-              'backspace', 'rewind', &
-              'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
-              'default', &
-              'where', 'associate', 'forall', 'block', 'enum', 'file', &
-              'submodule', 'rank', 'elseif', 'elsewhere', 'blockdata', &
-              'doubleprecision', 'doublecomplex', 'selectcase', 'equivalence', &
-              'common', 'endif', 'enddo', 'endwhere', 'endforall', &
-              'endassociate', 'endblock', 'endblockdata', 'endenum', &
-              'endfile', &
-              'endfunction', 'endinterface', 'endmodule', 'endprogram', &
-              'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
-              'template', 'endtemplate', 'instantiate', &
-              'trait', 'endtrait', 'requirement', 'endrequirement', &
-              'implements', 'endimplements', &
-              'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
-              'non_recursive', 'intrinsic', 'non_intrinsic')
+                'then', 'else', &
+                'go', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', &
+                'entry', 'error', &
+                'continue', 'nullify', 'do', 'while', 'concurrent', 'for', &
+                'integer', &
+                'real', 'logical', 'character', 'complex', 'double', &
+                'precision', &
+                'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
+                'intent', 'use', 'module', 'contains', 'public', 'private', &
+                'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
+                'procedure', 'interface', 'import', 'include', 'generic', &
+                'operator', &
+                'assignment', 'print', 'read', 'write', 'open', 'close', &
+                'inquire', &
+                'backspace', 'rewind', &
+                'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
+                'default', &
+                'where', 'associate', 'forall', 'block', 'enum', 'file', &
+                'submodule', 'rank', 'elseif', 'elsewhere', 'blockdata', &
+                'doubleprecision', 'doublecomplex', 'selectcase', 'equivalence', &
+                'common', 'endif', 'enddo', 'endwhere', 'endforall', &
+                'endassociate', 'endblock', 'endblockdata', 'endenum', &
+                'endfile', &
+                'endfunction', 'endinterface', 'endmodule', 'endprogram', &
+                'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
+                'template', 'endtemplate', 'instantiate', &
+                'trait', 'endtrait', 'requirement', 'endrequirement', &
+                'implements', 'endimplements', &
+                'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
+                'non_recursive', 'intrinsic', 'non_intrinsic')
             keyword = .true.
         case default
             keyword = .false.

@@ -74,7 +74,7 @@ contains
 
         call test_start("Arena lifecycle management")
 
-        arena = create_compiler_arena(65536)  ! 64KB chunks
+        arena = create_compiler_arena(65536) ! 64KB chunks
         initial_gen = arena%generation
 
         ! Reset arena
@@ -146,7 +146,7 @@ contains
         arena = create_compiler_arena()
 
         ! Create type using integrated type arena
-        test_type%kind = 2  ! TINT
+        test_type%kind = 2 ! TINT
         test_type%var_id = 42
         test_type%var_name = "test_type"
         test_type%size = 4
@@ -200,8 +200,8 @@ contains
         call arena%checkpoint()
         checkpoint_gen = arena%checkpoint_generation
 
-        call arena%reset()  ! Change state
-        call arena%rollback()  ! Rollback to checkpoint
+        call arena%reset() ! Change state
+        call arena%rollback() ! Rollback to checkpoint
 
         current_gen = arena%generation
 
@@ -242,11 +242,11 @@ contains
 
         call test_start("Bulk operations performance")
 
-        arena = create_compiler_arena(1048576)  ! 1MB for bulk test
+        arena = create_compiler_arena(1048576) ! 1MB for bulk test
         allocate (handles(1000))
 
         ! Create 1000 types to test bulk performance
-        test_type%kind = 2  ! TINT
+        test_type%kind = 2 ! TINT
         test_type%args = null_args_handle()
 
         do i = 1, 1000
@@ -277,7 +277,7 @@ contains
 
         call test_start("Memory efficiency and utilization")
 
-        arena = create_compiler_arena(32768)  ! 32KB chunks
+        arena = create_compiler_arena(32768) ! 32KB chunks
         stats_before = arena%get_stats()
 
         ! Reset should maintain memory efficiency

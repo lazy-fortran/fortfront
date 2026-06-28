@@ -2,12 +2,12 @@ module semantic_assignment_inference
     ! Assignment inference logic extracted from semantic_analyzer
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   create_mono_type, create_poly_type, &
-                                   TCHAR, TARRAY, TINT, TREAL, TLOGICAL, &
-                                   TCOMPLEX, TDOUBLE, TDERIVED
+        create_mono_type, create_poly_type, &
+        TCHAR, TARRAY, TINT, TREAL, TLOGICAL, &
+        TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
-                              call_or_subscript_node, literal_node
+        call_or_subscript_node, literal_node
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
@@ -33,7 +33,7 @@ contains
 
     ! Set assignment node type fields for standardizer (Issue #1851)
     subroutine set_assignment_type_fields(arena, assignment_index, &
-                                          value_index, expr_typ)
+            value_index, expr_typ)
         use type_string_utils, only: mono_type_to_string
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: assignment_index, value_index
@@ -44,13 +44,13 @@ contains
         if (.not. arena%has_node_at(assignment_index)) return
 
         select type (assign_node => arena%entries(assignment_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             assign_type = expr_typ
             ! Check for complex literal override
             if (value_index > 0 .and. value_index <= arena%size) then
                 if (allocated(arena%entries(value_index)%node)) then
                     select type (v => arena%entries(value_index)%node)
-                    type is (complex_literal_node)
+                        type is (complex_literal_node)
                         assign_type = create_mono_type(TCOMPLEX)
                     end select
                 end if
@@ -63,10 +63,10 @@ contains
 
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
-                                            lhs_index, expr_typ, updated_expr_typ, &
-                                            scopes, errors, input_mode, &
-                                            next_var_id, &
-                                            type_hints)
+            lhs_index, expr_typ, updated_expr_typ, &
+            scopes, errors, input_mode, &
+            next_var_id, &
+            type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index, lhs_index
@@ -90,7 +90,7 @@ contains
         if (lhs_index > 0 .and. lhs_index <= arena%size) then
             if (allocated(arena%entries(lhs_index)%node)) then
                 select type (lhs_node => arena%entries(lhs_index)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     block
                         type(mono_type_t) :: lhs_typ
                         type(poly_type_t), allocatable :: scheme
@@ -107,36 +107,36 @@ contains
                             call scheme%sync_mono()
                             lhs_typ = scheme%get_mono()
                         else if (.not. fetch_declaration_type(arena, &
-                                                              lhs_node%name, &
-                                                              lhs_typ)) then
+                                lhs_node%name, &
+                                lhs_typ)) then
                             lhs_typ = lhs_node%inferred_type
                         end if
 
                         call extract_integer_signedness(lhs_typ, lhs_is_int, &
-                                                        lhs_is_unsigned)
+                            lhs_is_unsigned)
                         rhs_is_int_literal = is_integer_literal_expr(arena, &
-                                                                     assignment% &
-                                                                     value_index)
+                            assignment% &
+                            value_index)
 
                         rhs_is_int = .false.
                         rhs_is_unsigned = .false.
                         call extract_integer_signedness(updated_expr_typ, &
-                                                        rhs_is_int, &
-                                                        rhs_is_unsigned)
+                            rhs_is_int, &
+                            rhs_is_unsigned)
 
                         if (arena%has_node_at(assignment%value_index)) then
                             select type (rhs_node => arena%entries( &
-                                         assignment%value_index)%node)
-                            type is (call_or_subscript_node)
+                                    assignment%value_index)%node)
+                                type is (call_or_subscript_node)
                                 if (allocated(rhs_node%name)) then
                                     lowered = to_lower(trim(rhs_node%name))
                                     select case (lowered)
                                     case ("uint", "wrap_add", "wrap_sub", &
-                                          "wrap_mul")
+                                            "wrap_mul")
                                         rhs_is_int = .true.
                                         rhs_is_unsigned = .true.
                                         updated_expr_typ = create_mono_type( &
-                                                           TINT, is_unsigned=.true.)
+                                            TINT, is_unsigned=.true.)
                                         rhs_node%inferred_type = updated_expr_typ
                                     case ("int")
                                         rhs_is_int = .true.
@@ -157,13 +157,13 @@ contains
                         end if
                     end block
                     call process_identifier_assignment(arena, assignment, &
-                                                       assignment_index, lhs_node, &
-                                                       updated_expr_typ, scopes, &
-                                                       input_mode, type_hints)
-                type is (call_or_subscript_node)
+                        assignment_index, lhs_node, &
+                        updated_expr_typ, scopes, &
+                        input_mode, type_hints)
+                    type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, &
-                                                 lhs_node, &
-                                                 expr_typ, updated_expr_typ, scopes)
+                        lhs_node, &
+                        expr_typ, updated_expr_typ, scopes)
                 end select
             end if
         end if
@@ -178,7 +178,7 @@ contains
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
-                type is (complex_literal_node)
+                    type is (complex_literal_node)
                     expr_typ = create_mono_type(TCOMPLEX)
                 end select
             end if
@@ -198,7 +198,7 @@ contains
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     if (allocated(value_node%name)) then
                         call_name_lower = to_lower(trim(value_node%name))
                         select case (call_name_lower)
@@ -215,7 +215,7 @@ contains
                                     type(mono_type_t) :: int_type
                                     int_type = create_mono_type(TINT)
                                     expr_typ = rebuild_array_with_base( &
-                                               value_node%inferred_type, int_type)
+                                        value_node%inferred_type, int_type)
                                 end block
                                 override_expr_type = .true.
                             end if
@@ -234,8 +234,8 @@ contains
 
     ! Process identifier assignment with scope management
     subroutine process_identifier_assignment(arena, assignment, assignment_index, &
-                                             identifier, expr_typ, scopes, &
-                                             input_mode, type_hints)
+            identifier, expr_typ, scopes, &
+            input_mode, type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index
@@ -254,10 +254,10 @@ contains
         if (.not. allocated(existing_scheme)) then
             if (present(type_hints)) then
                 call ensure_declared_from_arena_local(scopes, arena, &
-                                                      identifier%name, type_hints)
+                    identifier%name, type_hints)
             else
                 call ensure_declared_from_arena_local(scopes, arena, &
-                                                      identifier%name)
+                    identifier%name)
             end if
             call scopes%lookup(identifier%name, existing_scheme)
         end if
@@ -265,7 +265,7 @@ contains
         ! Handle allocatable character detection
         if (expr_typ%kind == TCHAR) then
             call handle_character_allocation(arena, assignment, expr_typ, &
-                                             identifier%name)
+                identifier%name)
         end if
 
         ! Handle allocatable array assignment from function returns (Issue #2075)
@@ -303,18 +303,18 @@ contains
         ! Update all identifier nodes in the arena with the inferred type
         ! Skip propagation for standard Fortran (input_mode == INPUT_MODE_STANDARD)
         call update_identifier_type_in_arena(arena, identifier%name, final_type, &
-                                             input_mode)
+            input_mode)
 
         scheme = create_poly_type(forall_vars=[type_var_t ::], mono=final_type)
         call scopes%define(identifier%name, scheme)
 
         ! Set assignment node fields for standardizer (Issue #1851)
         call set_assignment_type_fields(arena, assignment_index, &
-                                        assignment%value_index, expr_typ)
+            assignment%value_index, expr_typ)
     end subroutine process_identifier_assignment
 
     recursive logical function array_has_explicit_extents(typ) &
-        result(has_explicit)
+            result(has_explicit)
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: element_type
 
@@ -334,7 +334,7 @@ contains
 
     ! Get final type for assignment, handling complex literal override
     function get_final_assignment_type(arena, assignment, expr_typ) &
-        result(final_type)
+            result(final_type)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         type(mono_type_t), intent(in) :: expr_typ
@@ -350,7 +350,7 @@ contains
             associate (entry => arena%entries(value_idx))
                 if (allocated(entry%node)) then
                     select type (v => entry%node)
-                    type is (complex_literal_node)
+                        type is (complex_literal_node)
                         final_type = create_mono_type(TCOMPLEX)
                     end select
                 end if
@@ -374,7 +374,7 @@ contains
                     if (trim(type_hints(i)%var_names(j)) == trim(name)) then
                         call type_from_annotation(type_hints(i), decl_type)
                         scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                                  mono=decl_type)
+                            mono=decl_type)
                         call scopes%define(name, scheme)
                         return
                     end if
@@ -399,7 +399,7 @@ contains
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
-                type is (binary_op_node)
+                    type is (binary_op_node)
                     if (value_node%operator == "//") then
                         ! Only mark as allocatable if size was not calculated
                         if (expr_typ%size < 0) then
@@ -426,7 +426,7 @@ contains
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
-                type is (call_or_subscript_node)
+                    type is (call_or_subscript_node)
                     ! Check if the call returns an allocatable array
                     if (value_node%inferred_type%kind == TARRAY) then
                         if (value_node%inferred_type%alloc_info% &
@@ -444,7 +444,7 @@ contains
 
     ! Process array element assignments and infer multi-dimensional array types
     subroutine handle_array_assignment(arena, assignment_index, call_node, expr_typ, &
-                                       updated_expr_typ, scopes)
+            updated_expr_typ, scopes)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: assignment_index
         class(call_or_subscript_node), intent(inout) :: call_node
@@ -473,7 +473,7 @@ contains
         allocate (dim_sizes(rank))
         do i = 1, rank
             dim_sizes(i) = infer_dimension_size_from_index(arena, assignment_index, &
-                                                           call_node%arg_indices(i))
+                call_node%arg_indices(i))
         end do
 
         element_type = expr_typ
@@ -497,7 +497,7 @@ contains
         if (assignment_index > 0 .and. assignment_index <= arena%size) then
             if (allocated(arena%entries(assignment_index)%node)) then
                 select type (assign_node => arena%entries(assignment_index)%node)
-                type is (assignment_node)
+                    type is (assignment_node)
                     assign_node%type_was_inferred = .true.
                     assign_node%inferred_type_name = decl_string
                 end select
@@ -509,7 +509,7 @@ contains
 
     ! Determine inferred dimension size from an index expression
     integer function infer_dimension_size_from_index(arena, assignment_index, &
-                                                     expr_index) result(dim_size)
+            expr_index) result(dim_size)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: assignment_index, expr_index
 
@@ -517,10 +517,10 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (arg_node => arena%entries(expr_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             dim_size = find_loop_extent_for_variable(arena, assignment_index, &
-                                                     arg_node%name)
-        type is (literal_node)
+                arg_node%name)
+            type is (literal_node)
             dim_size = 0
         class default
             dim_size = 0
@@ -529,7 +529,7 @@ contains
 
     ! Traverse parent nodes to find the loop bounds for a given index variable
     integer function find_loop_extent_for_variable(arena, start_index, var_name) &
-        result(extent)
+            result(extent)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: start_index
         character(len=*), intent(in) :: var_name
@@ -546,13 +546,13 @@ contains
         do while (parent_idx > 0 .and. parent_idx <= arena%size)
             if (allocated(arena%entries(parent_idx)%node)) then
                 select type (loop_node => arena%entries(parent_idx)%node)
-                type is (do_loop_node)
+                    type is (do_loop_node)
                     if (allocated(loop_node%var_name)) then
                         if (trim(loop_node%var_name) == trim(var_name)) then
                             extent = calculate_loop_size(arena, &
-                                                         loop_node%start_expr_index, &
-                                                         loop_node%end_expr_index, &
-                                                         loop_node%step_expr_index)
+                                loop_node%start_expr_index, &
+                                loop_node%end_expr_index, &
+                                loop_node%step_expr_index)
                             if (extent < 0) extent = 0
                             return
                         end if
@@ -571,7 +571,7 @@ contains
             end if
 
             select type (container => arena%entries(parent_idx)%node)
-            type is (do_loop_node)
+                type is (do_loop_node)
                 if (allocated(container%body_indices)) then
                     body_pos = 0
                     do body_idx = 1, size(container%body_indices)
@@ -590,16 +590,16 @@ contains
                                 allocated(arena%entries(candidate_idx)%node)) cycle
 
                             select type (sibling_loop => &
-                                         arena%entries(candidate_idx)%node)
-                            type is (do_loop_node)
+                                    arena%entries(candidate_idx)%node)
+                                type is (do_loop_node)
                                 if (allocated(sibling_loop%var_name)) then
                                     if (trim(sibling_loop%var_name) == &
                                         trim(var_name)) then
                                         extent = calculate_loop_size( &
-                                                 arena, &
-                                                 sibling_loop%start_expr_index, &
-                                                 sibling_loop%end_expr_index, &
-                                                 sibling_loop%step_expr_index)
+                                            arena, &
+                                            sibling_loop%start_expr_index, &
+                                            sibling_loop%end_expr_index, &
+                                            sibling_loop%step_expr_index)
                                         if (extent < 0) extent = 0
                                         if (extent > 0) return
                                     end if
@@ -617,13 +617,13 @@ contains
             if (parent_idx > arena%size) cycle
             if (.not. allocated(arena%entries(parent_idx)%node)) cycle
             select type (loop_node => arena%entries(parent_idx)%node)
-            type is (do_loop_node)
+                type is (do_loop_node)
                 if (allocated(loop_node%var_name)) then
                     if (trim(loop_node%var_name) == trim(var_name)) then
                         extent = calculate_loop_size(arena, &
-                                                     loop_node%start_expr_index, &
-                                                     loop_node%end_expr_index, &
-                                                     loop_node%step_expr_index)
+                            loop_node%start_expr_index, &
+                            loop_node%end_expr_index, &
+                            loop_node%step_expr_index)
                         if (extent < 0) extent = 0
                         if (extent > 0) return
                     end if
@@ -652,7 +652,7 @@ contains
             args(1) = current_type
             if (dim_sizes(idx) > 0) then
                 current_type = create_mono_type(TARRAY, args=args, &
-                                                array_size=dim_sizes(idx))
+                    array_size=dim_sizes(idx))
             else
                 current_type = create_mono_type(TARRAY, args=args)
                 current_type%alloc_info%is_allocatable = .true.
@@ -665,7 +665,7 @@ contains
     end function build_array_type_from_dims
 
     function build_array_declaration_string(element_type, dim_sizes) &
-        result(decl_string)
+            result(decl_string)
         type(mono_type_t), intent(in) :: element_type
         integer, intent(in) :: dim_sizes(:)
         character(len=:), allocatable :: decl_string
@@ -728,7 +728,7 @@ contains
     end function call_has_dim_argument
 
     recursive function rebuild_array_with_base(original, base_type) &
-        result(result_type)
+            result(result_type)
         type(mono_type_t), intent(in) :: original
         type(mono_type_t), intent(in) :: base_type
         type(mono_type_t) :: result_type
@@ -755,7 +755,7 @@ contains
     end function rebuild_array_with_base
 
     subroutine ensure_var_declared_from_arena(arena, name, scopes, &
-                                              generalize_fn, next_var_id)
+            generalize_fn, next_var_id)
         use ast_nodes_data, only: declaration_node
         use semantic_inference_helpers, only: process_declaration_variables
         type(ast_arena_t), intent(inout) :: arena
@@ -776,7 +776,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (allocated(node%var_name)) then
                     if (trim(node%var_name) == trim(name)) then
                         call process_declaration_variables(node, decl_type)

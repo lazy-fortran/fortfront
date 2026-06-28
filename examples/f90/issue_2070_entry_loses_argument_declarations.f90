@@ -22,6 +22,6 @@ function func1(x) result(res)
     integer, intent(in) :: a, b
     res = x * 2
     return
-entry func2(a, b) result(res)
+    entry func2(a, b) result(res)
     res = a + b
 end function func1

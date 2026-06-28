@@ -25,11 +25,11 @@ contains
         call assert_no_errors('issue_1534_allocatable', errors)
 
         call require_contains(output, 'allocatable :: vec(:)', &
-                              'allocatable attribute uses deferred shape')
+            'allocatable attribute uses deferred shape')
         call require_contains(output, 'allocate(vec(3))', &
-                              'allocatable allocation statement preserved')
+            'allocatable allocation statement preserved')
         call require_absent(output, ':: vec(3)', &
-                            'allocatable declaration does not use allocation extent')
+            'allocatable declaration does not use allocation extent')
     end subroutine assert_allocatable_preserved
 
     subroutine assert_pointer_declared_before_use()
@@ -69,17 +69,17 @@ contains
         call assert_no_errors('monomorphization_add_three_types', errors)
 
         call require_contains(output, 'module auto_add', &
-                              'monomorphization module generated')
+            'monomorphization module generated')
         call require_contains(output, 'interface add', &
-                              'monomorphization generic interface generated')
+            'monomorphization generic interface generated')
         call require_contains(output, 'add__i32_i32', &
-                              'integer specialization generated')
+            'integer specialization generated')
         call require_contains(output, 'add__r64_r64', &
-                              'real64 specialization generated')
+            'real64 specialization generated')
         call require_contains(output, 'add__c64_c64', &
-                              'complex specialization generated')
+            'complex specialization generated')
         call require_absent(output, 'external :: add', &
-                            'monomorphized procedure avoids external declaration')
+            'monomorphized procedure avoids external declaration')
     end subroutine assert_monomorphized_variants
 
     subroutine assert_no_errors(label, errors)

@@ -2,10 +2,10 @@ module standardizer_function_param_scanner
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
-                              identifier_node
+        identifier_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_parameter, only: metadata_find_param, node_exists, &
-                                      param_metadata_t
+        param_metadata_t
     implicit none
     private
     public :: analyze_parameter_usage
@@ -47,19 +47,19 @@ contains
         if (.not. node_exists(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             call scan_assignment_children(arena, node, metadata)
-        type is (binary_op_node)
+            type is (binary_op_node)
             call scan_binary_children(arena, node, metadata)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             call handle_call_or_subscript(arena, node, metadata)
             call scan_optional_child(arena, node%base_expr_index, metadata)
             call scan_argument_list(arena, node, metadata)
-        type is (component_access_node)
+            type is (component_access_node)
             call scan_optional_child(arena, node%base_expr_index, metadata)
-        type is (array_slice_node)
+            type is (array_slice_node)
             call scan_array_slice_children(arena, node, metadata)
-        type is (array_bounds_node)
+            type is (array_bounds_node)
             call scan_array_bounds_children(arena, node, metadata)
         class default
             call scan_generic_children(arena, node_index, metadata)
@@ -79,9 +79,9 @@ contains
         call scan_optional_child(arena, node%value_index, metadata)
 
         call collect_param_indices(arena, node%target_index, metadata, &
-                                   target_params)
+            target_params)
         call collect_param_indices(arena, node%value_index, metadata, &
-                                   value_params)
+            value_params)
 
         target_has_array = has_array_parameter(metadata, target_params)
         if (target_has_array) then
@@ -167,9 +167,9 @@ contains
         lowered = to_lower(trim(name))
         select case (lowered)
         case ("size", "lbound", "ubound", "shape", "allocated", &
-              "maxloc", "minloc", "sum", "product", "maxval", "minval", &
-              "any", "all", "count", "matmul", "transpose", "pack", &
-              "unpack", "reshape", "spread", "merge", "cshift", "eoshift")
+                "maxloc", "minloc", "sum", "product", "maxval", "minval", &
+                "any", "all", "count", "matmul", "transpose", "pack", &
+                "unpack", "reshape", "spread", "merge", "cshift", "eoshift")
             is_array_fn = .true.
         case default
             is_array_fn = .false.
@@ -191,7 +191,7 @@ contains
         if (.not. node_exists(arena, first_arg_idx)) return
 
         select type (arg => arena%entries(first_arg_idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. allocated(arg%name)) return
             arg_name = trim(arg%name)
             param_idx = metadata_find_param(metadata, arg_name)
@@ -251,15 +251,15 @@ contains
         if (.not. arena%has_node_at(idx)) return
 
         select type (base => arena%entries(idx)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(base%name)) name = trim(base%name)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(base%name)) then
                 name = trim(base%name)
             else if (base%base_expr_index > 0) then
                 name = resolve_name_from_index(arena, base%base_expr_index)
             end if
-        type is (component_access_node)
+            type is (component_access_node)
             name = resolve_name_from_index(arena, base%base_expr_index)
         class default
             name = ""
@@ -303,12 +303,12 @@ contains
             if (.not. node_exists(arena, current_index)) return
 
             select type (node => arena%entries(current_index)%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 if (allocated(node%name)) then
                     param_idx = metadata_find_param(metadata, trim(node%name))
                     if (param_idx > 0) call append_param(param_idx)
                 end if
-            type is (call_or_subscript_node)
+                type is (call_or_subscript_node)
                 if (allocated(node%name)) then
                     param_idx = metadata_find_param(metadata, trim(node%name))
                     if (param_idx > 0) call append_param(param_idx)
@@ -320,7 +320,7 @@ contains
                         call collect_recursive(node%arg_indices(j))
                     end do
                 end if
-            type is (binary_op_node)
+                type is (binary_op_node)
                 if (node%left_index > 0) call collect_recursive(node%left_index)
                 if (node%right_index > 0) call collect_recursive(node%right_index)
             class default

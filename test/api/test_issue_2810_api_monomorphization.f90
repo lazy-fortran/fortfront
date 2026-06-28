@@ -1,7 +1,7 @@
 program test_issue_2810_api_monomorphization
     use fortfront, only: compiler_frontend_result_t, &
-                         compiler_frontend_options_t, &
-                         compile_frontend_from_string, emit_fortran
+        compiler_frontend_options_t, &
+        compile_frontend_from_string, emit_fortran
     implicit none
 
     logical :: all_passed

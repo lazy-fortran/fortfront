@@ -1,17 +1,17 @@
 module parser_forall_module
     ! Parser module for FORALL constructs
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_forall
     use ast_nodes_loops, only: forall_triplet_t
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, &
-                                            null_statement_callbacks, &
-                                            find_statement_end
+        statement_callbacks_t, &
+        null_statement_callbacks, &
+        find_statement_end
     use parser_utilities, only: consume_token
     implicit none
     private
@@ -67,7 +67,7 @@ contains
     end function parse_where_dispatch
 
     integer function parse_associate_dispatch(parser, arena) &
-        result(associate_index)
+            result(associate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
 
@@ -118,14 +118,14 @@ contains
         call consume_token(parser)
 
         if (.not. parse_forall_header(parser, arena, triplets, triplet_count, &
-                                      mask_index)) then
+            mask_index)) then
             return
         end if
 
         callbacks = build_forall_callbacks()
         call collect_forall_body(parser, arena, callbacks, body_indices)
         forall_index = build_forall_node(arena, triplets, triplet_count, mask_index, &
-                                         body_indices, line, column)
+            body_indices, line, column)
     end function parse_forall
 
     logical function is_forall_keyword(token) result(is_forall)
@@ -134,8 +134,8 @@ contains
     end function is_forall_keyword
 
     logical function parse_forall_header(parser, arena, triplets, triplet_count, &
-                                         mask_index) &
-        result(success)
+            mask_index) &
+            result(success)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(forall_triplet_t), allocatable, intent(inout) :: triplets(:)
@@ -150,7 +150,7 @@ contains
 
         do
             if (.not. parse_forall_triplet(parser, arena, triplets, &
-                                           triplet_count)) return
+                triplet_count)) return
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -174,7 +174,7 @@ contains
     end function parse_forall_header
 
     logical function parse_forall_triplet(parser, arena, triplets, triplet_count) &
-        result(success)
+            result(success)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(forall_triplet_t), allocatable, intent(inout) :: triplets(:)
@@ -194,14 +194,14 @@ contains
 
         triplets(triplet_count)%lower_expr_index = &
             parse_bound_expression(parser, arena, &
-                                   [":", ",", ")"])
+            [":", ",", ")"])
         if (triplets(triplet_count)%lower_expr_index <= 0) return
 
         if (.not. expect_operator(parser, ":")) return
 
         triplets(triplet_count)%upper_expr_index = &
             parse_bound_expression(parser, arena, &
-                                   [":", ",", ")"])
+            [":", ",", ")"])
         if (triplets(triplet_count)%upper_expr_index <= 0) return
 
         token = parser%peek()
@@ -209,7 +209,7 @@ contains
             call consume_token(parser)
             triplets(triplet_count)%stride_expr_index = &
                 parse_bound_expression(parser, arena, &
-                                       [",", ")"])
+                [",", ")"])
         else
             triplets(triplet_count)%stride_expr_index = 0
         end if
@@ -218,7 +218,7 @@ contains
     end function parse_forall_triplet
 
     integer function parse_bound_expression(parser, arena, terminators) &
-        result(expr_index)
+            result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: terminators(:)
@@ -245,7 +245,7 @@ contains
         if (idx + 1 > size(parser%tokens)) return
 
         is_triplet = parser%tokens(idx + 1)%kind == TK_OPERATOR .and. &
-                     parser%tokens(idx + 1)%text == "="
+            parser%tokens(idx + 1)%text == "="
     end function next_triplet_follows
 
     subroutine ensure_triplet_capacity(triplets, required)
@@ -285,7 +285,7 @@ contains
 
         if (is_inline) then
             call collect_inline_forall_body(parser, arena, callbacks, stmt_start, &
-                                            body_indices)
+                body_indices)
         else
             call collect_block_forall_body(parser, arena, callbacks, body_indices)
         end if
@@ -320,7 +320,7 @@ contains
     end subroutine determine_body_start
 
     subroutine collect_inline_forall_body(parser, arena, callbacks, stmt_start, &
-                                          body_indices)
+            body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(statement_callbacks_t), intent(in) :: callbacks
@@ -333,7 +333,7 @@ contains
         stmt_end = find_statement_end(parser%tokens, stmt_start)
         if (stmt_end < stmt_start) stmt_end = stmt_start
         call append_statement_range(parser, arena, callbacks, stmt_start, stmt_end, &
-                                    body_indices)
+            body_indices)
         parser%current_token = stmt_end + 1
     end subroutine collect_inline_forall_body
 
@@ -354,7 +354,7 @@ contains
             if (stmt_end < stmt_start) stmt_end = stmt_start
 
             call append_statement_range(parser, arena, callbacks, stmt_start, &
-                                        stmt_end, body_indices)
+                stmt_end, body_indices)
             parser%current_token = stmt_end + 1
         end do
     end subroutine collect_block_forall_body
@@ -410,7 +410,7 @@ contains
     end function reached_end_forall
 
     subroutine append_statement_range(parser, arena, callbacks, start_idx, end_idx, &
-                                      body_indices)
+            body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(statement_callbacks_t), intent(in) :: callbacks
@@ -431,7 +431,7 @@ contains
         stmt_tokens(token_count + 1)%column = parser%tokens(end_idx)%column + 1
 
         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                  callbacks=callbacks)
+            callbacks=callbacks)
         if (allocated(stmt_indices)) then
             do k = 1, size(stmt_indices)
                 if (stmt_indices(k) > 0) body_indices = [body_indices, stmt_indices(k)]
@@ -448,8 +448,8 @@ contains
     end subroutine append_statement_range
 
     integer function build_forall_node(arena, triplets, triplet_count, mask_index, &
-                                       body_indices, line, column) &
-        result(forall_index)
+            body_indices, line, column) &
+            result(forall_index)
         type(ast_arena_t), intent(inout) :: arena
         type(forall_triplet_t), intent(in) :: triplets(:)
         integer, intent(in) :: triplet_count
@@ -465,10 +465,10 @@ contains
 
         if (triplet_count == 1) then
             forall_index = push_forall(arena, triplets(1)%index_name, &
-                                       triplets(1)%lower_expr_index, &
-                                       triplets(1)%upper_expr_index, &
-                                       triplets(1)%stride_expr_index, mask_index, &
-                                       body_indices, line, column)
+                triplets(1)%lower_expr_index, &
+                triplets(1)%upper_expr_index, &
+                triplets(1)%stride_expr_index, mask_index, &
+                body_indices, line, column)
             return
         end if
 
@@ -490,16 +490,16 @@ contains
         end do
 
         forall_index = push_forall(arena, triplets(1)%index_name, &
-                                   triplets(1)%lower_expr_index, &
-                                   triplets(1)%upper_expr_index, &
-                                   triplets(1)%stride_expr_index, &
-                                   mask_index=mask_index, &
-                                   body_indices=body_indices, line=line, &
-                                   column=column, &
-                                   index_vars_all=index_names, &
-                                   start_indices_all=lower_bounds, &
-                                   end_indices_all=upper_bounds, &
-                                   stride_indices_all=stride_bounds)
+            triplets(1)%lower_expr_index, &
+            triplets(1)%upper_expr_index, &
+            triplets(1)%stride_expr_index, &
+            mask_index=mask_index, &
+            body_indices=body_indices, line=line, &
+            column=column, &
+            index_vars_all=index_names, &
+            start_indices_all=lower_bounds, &
+            end_indices_all=upper_bounds, &
+            stride_indices_all=stride_bounds)
     end function build_forall_node
 
 end module parser_forall_module

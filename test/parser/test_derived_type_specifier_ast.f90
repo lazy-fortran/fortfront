@@ -9,7 +9,7 @@ program test_derived_type_specifier_ast
     implicit none
 
     character(len=*), parameter :: source = &
-                                   "type(point_mod::point_t(3)) :: value"
+        "type(point_mod::point_t(3)) :: value"
     character(len=*), parameter :: unlimited_source = "class(*), pointer :: p"
     type(token_t), allocatable :: tokens(:)
     character(len=:), allocatable :: error_msg

@@ -3,16 +3,16 @@ module parser_declarations_core_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_construction_module, only: add_single_declaration, &
-                                                       emit_multi_declaration, &
-                                                       handle_complex_initializer
+        emit_multi_declaration, &
+        handle_complex_initializer
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_declarations_type_spec_module, only: parse_type_specifier
     use parser_result_types, only: parse_result_t, success_parse_result, &
-                                   error_parse_result
+        error_parse_result
     use error_handling, only: ERROR_PARSER
     use parser_expressions_module, only: parse_comparison
     use parser_declaration_attributes_module, only: parse_declaration_attributes, &
-                                                    parse_array_dimensions
+        parse_array_dimensions
     use declaration_attribute_utils, only: declaration_attribute_info_t
     use parser_utilities, only: peek_next_nontrivial_token
     use parser_keyword_disambiguation_module, only: looks_like_implicit_statement
@@ -57,25 +57,25 @@ contains
         end if
 
         handled_multi = handle_multi_variable_declaration( &
-                        parser, arena, type_spec, attr_info, identifier_token, &
-                        decl_index)
+            parser, arena, type_spec, attr_info, identifier_token, &
+            decl_index)
         if (handled_multi) then
             return
         end if
 
         var_name = identifier_token%text
         call parse_variable_dimensions(parser, arena, local_dimension_indices, &
-                                       has_local_dimensions)
+            has_local_dimensions)
         initializer_index = parse_variable_initializer(parser, arena, type_spec)
 
         if (has_local_dimensions .and. allocated(local_dimension_indices)) then
             decl_index = add_single_declaration( &
-                         arena, type_spec, attr_info, var_name, initializer_index, &
-                         .true., local_dimension_indices)
+                arena, type_spec, attr_info, var_name, initializer_index, &
+                .true., local_dimension_indices)
         else
             decl_index = add_single_declaration( &
-                         arena, type_spec, attr_info, var_name, initializer_index, &
-                         .false.)
+                arena, type_spec, attr_info, var_name, initializer_index, &
+                .false.)
         end if
     end function parse_declaration
 
@@ -99,8 +99,8 @@ contains
     end subroutine skip_declaration_separator
 
     logical function handle_multi_variable_declaration(parser, arena, type_spec, &
-                                                       attr_info, first_token, &
-                                                       decl_index) result(is_multi)
+            attr_info, first_token, &
+            decl_index) result(is_multi)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
@@ -154,7 +154,7 @@ contains
         end do
 
         decl_index = emit_multi_declaration( &
-                     arena, type_spec, attr_info, var_names(1:var_count))
+            arena, type_spec, attr_info, var_names(1:var_count))
         if (decl_index > 0) then
             is_multi = .true.
         end if
@@ -179,7 +179,7 @@ contains
 
 
     subroutine parse_variable_dimensions(parser, arena, dimension_indices, &
-                                         has_dimensions)
+            has_dimensions)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: dimension_indices(:)
@@ -211,7 +211,7 @@ contains
     end subroutine parse_variable_dimensions
 
     integer function parse_variable_initializer(parser, arena, type_spec) &
-        result(initializer_index)
+            result(initializer_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
@@ -228,7 +228,7 @@ contains
             token = parser%consume()
             if (type_spec%base_keyword == "complex") then
                 initializer_index = handle_complex_initializer( &
-                                    parser, arena, type_spec%base_keyword)
+                    parser, arena, type_spec%base_keyword)
             else
                 initializer_index = parse_comparison(parser, arena)
             end if
@@ -276,9 +276,9 @@ contains
                 next_lower = to_lower(trim(next_token%text))
                 select case (next_lower)
                 case ("type", "module", "subroutine", "function", "program", &
-                      "interface", "procedure", "select", "if", "do", &
-                      "forall", "where", "associate", "block", "team", &
-                      "critical", "blockdata")
+                        "interface", "procedure", "select", "if", "do", &
+                        "forall", "where", "associate", "block", "team", &
+                        "critical", "blockdata")
                     return
                 end select
             end if
@@ -289,10 +289,10 @@ contains
         case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
         case ("stop", "call", "cycle", "exit", "return", "continue", "goto", &
-              "go", "entry", "select", "contains", "else", "dimension", &
-              "common", "program", "module", "if", "format", &
-              "read", "write", "print", "open", "close", "inquire", &
-              "backspace", "rewind", "endfile")
+                "go", "entry", "select", "contains", "else", "dimension", &
+                "common", "program", "module", "if", "format", &
+                "read", "write", "print", "open", "close", "inquire", &
+                "backspace", "rewind", "endfile")
             ! Allow executable keywords in identifier positions
         case ("implicit")
             parser_copy = parser

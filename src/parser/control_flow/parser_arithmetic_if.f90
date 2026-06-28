@@ -18,7 +18,7 @@ module parser_arithmetic_if_module
     !       GO TO label3
     !   END IF
     use lexer_core, only: token_t, TK_OPERATOR, TK_NEWLINE, TK_EOF, &
-                          TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER
+        TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_INTEGER
@@ -127,7 +127,7 @@ contains
     !       GO TO label3
     !   END IF
     function parse_arithmetic_if(parser, arena, condition_index, if_token, &
-                                 parent_index) result(if_index)
+            parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
@@ -152,35 +152,35 @@ contains
 
         ! Build: IF (expr < 0) GOTO label1
         zero_index = push_literal(arena, "0", LITERAL_INTEGER, if_token%line, &
-                                  if_token%column)
+            if_token%column)
         cond_lt_zero_index = push_binary_op(arena, condition_index, zero_index, "<", &
-                                            if_token%line, if_token%column)
+            if_token%line, if_token%column)
         goto1_index = push_goto(arena, label=label1, line=if_token%line, &
-                                column=if_token%column)
+            column=if_token%column)
         allocate (then_body_indices(1))
         then_body_indices(1) = goto1_index
 
         ! Build: ELSEIF (expr == 0) GOTO label2
         cond_eq_zero_index = push_binary_op(arena, condition_index, zero_index, "==", &
-                                            if_token%line, if_token%column)
+            if_token%line, if_token%column)
         goto2_index = push_goto(arena, label=label2, line=if_token%line, &
-                                column=if_token%column)
+            column=if_token%column)
         allocate (elseif_indices(2))
-        elseif_indices(1) = cond_eq_zero_index
-        elseif_indices(2) = goto2_index
+    elseif_indices(1) = cond_eq_zero_index
+    elseif_indices(2) = goto2_index
 
         ! Build: ELSE GOTO label3
         goto3_index = push_goto(arena, label=label3, line=if_token%line, &
-                                column=if_token%column)
+            column=if_token%column)
         allocate (else_body_indices(1))
         else_body_indices(1) = goto3_index
 
         ! Create IF node
         if_index = push_if(arena, cond_lt_zero_index, then_body_indices, &
-                           elseif_indices=elseif_indices, &
-                           else_body_indices=else_body_indices, &
-                           line=if_token%line, column=if_token%column, &
-                           parent_index=parent_index)
+            elseif_indices=elseif_indices, &
+            else_body_indices=else_body_indices, &
+            line=if_token%line, column=if_token%column, &
+            parent_index=parent_index)
     end function parse_arithmetic_if
 
     logical function fetch_next_label_token(parser, token)

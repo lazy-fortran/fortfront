@@ -2,14 +2,14 @@ module ast_traversal_predicates
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control, only: if_node, select_case_node
     use ast_nodes_core, only: assignment_node, binary_op_node, &
-                              call_or_subscript_node, identifier_node, &
-                              literal_node, program_node
+        call_or_subscript_node, identifier_node, &
+        literal_node, program_node
     use ast_nodes_data, only: declaration_node, derived_type_node, module_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_misc, only: interface_block_node, use_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     implicit none
     private
 
@@ -33,7 +33,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (program_node)
+            type is (program_node)
             is_program = .true.
         end select
     end function is_program_node
@@ -47,7 +47,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             is_assignment = .true.
         end select
     end function is_assignment_node
@@ -61,7 +61,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (binary_op_node)
+            type is (binary_op_node)
             is_binary_op = .true.
         end select
     end function is_binary_op_node
@@ -75,7 +75,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             is_function_def = .true.
         end select
     end function is_function_def_node
@@ -89,7 +89,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             is_subroutine_def = .true.
         end select
     end function is_subroutine_def_node
@@ -103,7 +103,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             is_identifier = .true.
         end select
     end function is_identifier_node
@@ -117,7 +117,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (literal_node)
+            type is (literal_node)
             is_literal = .true.
         end select
     end function is_literal_node
@@ -131,7 +131,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             is_declaration = .true.
         end select
     end function is_declaration_node
@@ -145,7 +145,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (if_node)
+            type is (if_node)
             is_if = .true.
         end select
     end function is_if_node
@@ -159,7 +159,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             is_do_loop = .true.
         end select
     end function is_do_loop_node
@@ -173,7 +173,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (do_while_node)
+            type is (do_while_node)
             is_do_while = .true.
         end select
     end function is_do_while_node
@@ -187,7 +187,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             is_call_or_subscript = .true.
         end select
     end function is_call_or_subscript_node
@@ -201,7 +201,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             is_subroutine_call = .true.
         end select
     end function is_subroutine_call_node
@@ -215,7 +215,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (print_statement_node)
+            type is (print_statement_node)
             is_print_statement = .true.
         end select
     end function is_print_statement_node
@@ -229,7 +229,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (use_statement_node)
+            type is (use_statement_node)
             is_use_statement = .true.
         end select
     end function is_use_statement_node
@@ -243,7 +243,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (select_case_node)
+            type is (select_case_node)
             is_select_case = .true.
         end select
     end function is_select_case_node
@@ -257,7 +257,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             is_derived_type = .true.
         end select
     end function is_derived_type_node
@@ -271,7 +271,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (module_node)
+            type is (module_node)
             is_module = .true.
         end select
     end function is_module_node
@@ -285,7 +285,7 @@ contains
         if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
-        type is (interface_block_node)
+            type is (interface_block_node)
             is_interface_block = .true.
         end select
     end function is_interface_block_node

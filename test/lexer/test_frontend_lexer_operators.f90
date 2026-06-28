@@ -34,7 +34,7 @@ contains
         ! Test single character operators
         do i = 1, size(single_ops)
             call tokenize_core(single_ops(i), tokens)
-            if (size(tokens) /= 2) then  ! operator + EOF
+            if (size(tokens) /= 2) then ! operator + EOF
                 print '(a,a)', "FAIL: Wrong token count for operator: ", single_ops(i)
                 test_arithmetic_operators = .false.
                 return
@@ -82,7 +82,7 @@ contains
         ! Test two-character comparison operators
         do i = 1, size(comp_ops)
             call tokenize_core(comp_ops(i), tokens)
-            if (size(tokens) /= 2) then  ! operator + EOF
+            if (size(tokens) /= 2) then ! operator + EOF
                 print '(a,a)', "FAIL: Wrong token count for operator: ", comp_ops(i)
                 test_comparison_operators = .false.
                 return
@@ -156,7 +156,7 @@ contains
         ! Test all delimiters
         do i = 1, size(delims)
             call tokenize_core(delims(i), tokens)
-            if (size(tokens) /= 2) then  ! delimiter + EOF
+            if (size(tokens) /= 2) then ! delimiter + EOF
                 print '(a,a)', "FAIL: Wrong token count for delimiter: ", delims(i)
                 test_delimiters = .false.
                 return

@@ -26,7 +26,7 @@ module parser_statements_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module, only: parse_comparison, &
-                                         parse_range
+        parse_range
     use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -149,7 +149,7 @@ contains
 
         ! Create if node
         if_index = push_if(arena, condition_index, then_body_indices, &
-                           line=token%line, column=token%column)
+            line=token%line, column=token%column)
     end function parse_if_simple
 
     ! Simple associate parser (utility function)
@@ -165,7 +165,7 @@ contains
 
         ! Simplified associate parsing
         assoc_index = push_literal(arena, "! Simplified associate statement", &
-                                   LITERAL_STRING, token%line, token%column)
+            LITERAL_STRING, token%line, token%column)
     end function parse_associate_simple
 
     ! Parse if condition (utility function)

@@ -1,9 +1,9 @@
 program test_frontend_analysis_cycle_guard
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, destroy_ast_arena
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
-                              identifier_node
+        identifier_node
     use frontend_analysis_helpers, only: collect_assignment_from_node, &
-                                         record_identifier_name
+        record_identifier_name
     implicit none
 
     call test_collect_assignment_uses_child_count()
@@ -40,7 +40,7 @@ contains
         arena%entries(carrier_idx)%child_count = 1
 
         call collect_assignment_from_node(arena, carrier_idx, names, &
-                                          skip_procedures=.false.)
+            skip_procedures=.false.)
 
         if (.not. allocated(names)) error stop 'assignment name not collected'
         if (size(names) /= 1) error stop 'unexpected assignment name count'
@@ -62,7 +62,7 @@ contains
         call_idx = arena%size
 
         select type (node => arena%entries(call_idx)%node)
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             node%base_expr_index = call_idx
         end select
 

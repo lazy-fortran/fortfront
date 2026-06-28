@@ -13,7 +13,7 @@ program test_basic_allocate_codegen
     call transform_lazy_fortran_string(source, output, error_msg)
 
     ok = index(output, 'allocate(dyn_arr(n))') > 0 .and. &
-         index(output, 'deallocate(dyn_arr)') > 0
+        index(output, 'deallocate(dyn_arr)') > 0
 
     if (.not. ok) then
         print *, 'FAIL: allocate/deallocate statement(s) not preserved in output'
@@ -27,12 +27,12 @@ program test_basic_allocate_codegen
     print *, '=== Codegen: allocate inference for missing declarations ==='
 
     call read_example('examples/lf/allocate_inference_missing_declaration.lf', &
-                      source)
+        source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
     ok = index(output, 'integer, allocatable :: arr(:)') > 0 .and. &
-         index(output, 'allocate(arr(5))') > 0
+        index(output, 'allocate(arr(5))') > 0
 
     if (.not. ok) then
         print *, 'FAIL: allocate inference missing allocatable declaration'

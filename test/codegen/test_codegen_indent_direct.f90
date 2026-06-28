@@ -54,7 +54,7 @@ contains
         call increase_indent()
         indent = get_indent()
 
-        if (len(indent) == 4) then  ! INDENT_SIZE = 4
+        if (len(indent) == 4) then ! INDENT_SIZE = 4
             call decrease_indent()
             indent = get_indent()
             if (len(indent) == 0) then

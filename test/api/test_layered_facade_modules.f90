@@ -1,9 +1,9 @@
 program test_layered_facade_modules
     use fortfront_ast, only: ast_arena_t
     use fortfront_compiler, only: compiler_frontend_options_t, &
-                                  compiler_frontend_result_t, &
-                                  compile_frontend_from_string, &
-                                  INPUT_MODE_STANDARD
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        INPUT_MODE_STANDARD
     use fortfront_lexer, only: token_t
     use fortfront_tooling, only: tooling_load_ast_from_string
     use fortfront_transform, only: transform_lazy_fortran_string
@@ -35,8 +35,8 @@ contains
         character(len=:), allocatable :: error_msg
 
         call tooling_load_ast_from_string('program p'//new_line('a')// &
-                                          'end program p', arena, root_index, &
-                                          error_msg)
+            'end program p', arena, root_index, &
+            error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             error stop 'fortfront_tooling returned an error'
         end if
@@ -50,7 +50,7 @@ contains
 
         options%input_mode = INPUT_MODE_STANDARD
         call compile_frontend_from_string('program p'//new_line('a')// &
-                                          'end program p', result, options)
+            'end program p', result, options)
         if (.not. result%success()) then
             error stop 'fortfront_compiler returned an error'
         end if

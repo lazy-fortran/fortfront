@@ -52,7 +52,7 @@ contains
 
         call create_scope_stack(stack)
 
-        if (stack%depth == 1) then  ! Should have global scope
+        if (stack%depth == 1) then ! Should have global scope
             call test_pass()
         else
             call test_fail("Stack not initialized with global scope")

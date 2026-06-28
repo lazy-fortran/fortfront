@@ -43,17 +43,17 @@ contains
         write (*, *) '--- Testing Memory Allocation Failure Scenarios ---'
 
         ! Test 1: Large error collection stress test
-        collection = create_error_collection(2)  ! Deliberately small initial capacity
+        collection = create_error_collection(2) ! Deliberately small initial capacity
 
         ! Fill beyond initial capacity to test reallocation robustness (Windows-friendly)
         do i = 1, 20
             result = create_error_result( &
-                     'Simulated memory allocation error ' // char(48 + mod(i, 10)), &
-                     ERROR_MEMORY, &
-                     component='memory_test', &
-                     context='allocation_stress_test', &
-                     suggestion='Check available memory' &
-                     )
+                'Simulated memory allocation error ' // char(48 + mod(i, 10)), &
+                ERROR_MEMORY, &
+                component='memory_test', &
+                context='allocation_stress_test', &
+                suggestion='Check available memory' &
+                )
             call collection%add_result(result)
         end do
 
@@ -69,15 +69,15 @@ contains
 
         ! Test 2: Error message allocation with very long strings
         result = create_error_result( &
-                 'This is an extremely long error message designed to test ' // &
-                 'the robustness of memory allocation for error messages when ' // &
-                 'dealing with very long strings that might cause allocation ' // &
-                 'issues in production environments with limited memory resources', &
-                 ERROR_MEMORY, &
-                 component='extremely_long_component_name_for_testing_purposes', &
-                 context='very_long_context_name_that_tests_string_handling_limits', &
-                 suggestion='Consider using shorter identifiers and error messages' &
-                 )
+            'This is an extremely long error message designed to test ' // &
+            'the robustness of memory allocation for error messages when ' // &
+            'dealing with very long strings that might cause allocation ' // &
+            'issues in production environments with limited memory resources', &
+            ERROR_MEMORY, &
+            component='extremely_long_component_name_for_testing_purposes', &
+            context='very_long_context_name_that_tests_string_handling_limits', &
+            suggestion='Consider using shorter identifiers and error messages' &
+            )
 
         call assert_test( &
             result%is_failure() .and. len_trim(result%get_message()) > 100, &
@@ -95,12 +95,12 @@ contains
 
         ! Test 1: Parse result error propagation
         parse_result = error_parse_result( &
-                       'Unexpected token in expression', &
-                       ERROR_PARSER, &
-                       component='parser_expressions_module', &
-                       context='parse_expression', &
-                       suggestion='Check for missing operators or parentheses' &
-                       )
+            'Unexpected token in expression', &
+            ERROR_PARSER, &
+            component='parser_expressions_module', &
+            context='parse_expression', &
+            suggestion='Check for missing operators or parentheses' &
+            )
 
         call assert_test( &
             parse_result%is_failure(), &
@@ -134,12 +134,12 @@ contains
 
         ! Test 3: Error recovery with multiple parser errors
         compile_result = error_compile_result( &
-                         'Multiple syntax errors detected', &
-                         ERROR_PARSER, &
-                         component='parser_expressions_module', &
-                         context='parse_program', &
-                         suggestion='Fix syntax errors and retry compilation' &
-                         )
+            'Multiple syntax errors detected', &
+            ERROR_PARSER, &
+            component='parser_expressions_module', &
+            context='parse_program', &
+            suggestion='Fix syntax errors and retry compilation' &
+            )
 
         call compile_result%add_warning( &
             'First warning during failed compilation', &
@@ -204,7 +204,7 @@ contains
             cloned = symbol_result1%clone_result()
 
             select type (cloned_symbol => cloned)
-            type is (symbol_result_t)
+                type is (symbol_result_t)
                 call assert_test( &
                     cloned_symbol%symbols_found == symbol_result1%symbols_found, &
                     'Semantic analysis robustness - symbol result cloning' &
@@ -286,7 +286,7 @@ contains
             case (2)
                 temp_result = warning_result('Warning ' // counter_str, ERROR_VALIDATION)
             case (3)
-                temp_result = success_result()  ! Should not be added
+                temp_result = success_result() ! Should not be added
             end select
 
             call collection%add_result(temp_result)
@@ -377,12 +377,12 @@ contains
 
         ! Test 5: Full message formatting with all fields
         result = create_error_result( &
-                 'Complete error with all fields', &
-                 ERROR_TYPE_SYSTEM, &
-                 component='boundary_test_component', &
-                 context='test_all_fields_function', &
-                 suggestion='Verify all error formatting works correctly' &
-                 )
+            'Complete error with all fields', &
+            ERROR_TYPE_SYSTEM, &
+            component='boundary_test_component', &
+            context='test_all_fields_function', &
+            suggestion='Verify all error formatting works correctly' &
+            )
 
         message = result%get_full_message()
         call assert_test( &

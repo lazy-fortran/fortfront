@@ -22,15 +22,15 @@ contains
     subroutine check_registry()
         ! IEEE procedures must be recognized as intrinsic.
         call expect(is_intrinsic_function("ieee_is_nan"), &
-                    "ieee_is_nan is intrinsic function")
+            "ieee_is_nan is intrinsic function")
         call expect(is_intrinsic_function("ieee_value"), &
-                    "ieee_value is intrinsic function")
+            "ieee_value is intrinsic function")
         call expect(is_intrinsic_function("ieee_copy_sign"), &
-                    "ieee_copy_sign is intrinsic function")
+            "ieee_copy_sign is intrinsic function")
         call expect(is_intrinsic_subroutine("ieee_set_rounding_mode"), &
-                    "ieee_set_rounding_mode is intrinsic subroutine")
+            "ieee_set_rounding_mode is intrinsic subroutine")
         call expect(is_intrinsic_subroutine("ieee_get_flag"), &
-                    "ieee_get_flag is intrinsic subroutine")
+            "ieee_get_flag is intrinsic subroutine")
     end subroutine check_registry
 
     subroutine check_inference()
@@ -41,16 +41,16 @@ contains
 
         call expect(len_trim(errors) == 0, "transform produced no errors")
         call expect(has_decl(output, "logical", "is_bad"), &
-                    "ieee_is_nan result declared logical")
+            "ieee_is_nan result declared logical")
         call expect(has_decl(output, "logical", "finite"), &
-                    "ieee_is_finite result declared logical")
+            "ieee_is_finite result declared logical")
         call expect(has_decl(output, "real(dp)", "y"), &
-                    "ieee_copy_sign result declared real")
+            "ieee_copy_sign result declared real")
         ok = index(output, "external :: ieee_") == 0 .and. &
-             index(output, "external::ieee_") == 0
+            index(output, "external::ieee_") == 0
         call expect(ok, "no spurious external IEEE declaration")
         call expect(index(output, "use, intrinsic :: ieee_arithmetic") > 0, &
-                    "intrinsic use of ieee_arithmetic preserved")
+            "intrinsic use of ieee_arithmetic preserved")
     end subroutine check_inference
 
     logical function has_decl(buffer, type_name, var_name) result(found)

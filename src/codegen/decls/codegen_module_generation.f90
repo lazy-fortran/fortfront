@@ -3,9 +3,9 @@ module codegen_module_generation
     use ast_nodes_core, only: literal_node
     use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: implicit_statement_node, interface_block_node, &
-                              module_procedure_node, use_statement_node, &
-                              import_statement_node, include_statement_node, &
-                              comment_node, directive_node, blank_line_node
+        module_procedure_node, use_statement_node, &
+        import_statement_node, include_statement_node, &
+        comment_node, directive_node, blank_line_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_grouped_body, only: generate_grouped_body
     use codegen_program_body, only: maybe_require_dp_kind_use
@@ -40,7 +40,7 @@ contains
         prefix_count = count_leading_use_entries(arena, node)
         use_block = collect_module_declarations(arena, node, 1, prefix_count)
         remainder_block = collect_module_declarations(arena, node, &
-                                                      prefix_count + 1)
+            prefix_count + 1)
         has_implicit = module_has_implicit_statement(arena, node)
         needs_implicit = .not. has_implicit
 
@@ -73,7 +73,7 @@ contains
         prefix_count = count_leading_use_entries_submodule(arena, node)
         use_block = collect_submodule_declarations(arena, node, 1, prefix_count)
         remainder_block = collect_submodule_declarations(arena, node, &
-                                                         prefix_count + 1)
+            prefix_count + 1)
         has_implicit = submodule_has_implicit_statement(arena, node)
         needs_implicit = .not. has_implicit
 
@@ -95,11 +95,11 @@ contains
         character(len=:), allocatable :: header
 
         header = "submodule ("//node%parent_identifier//") "//node%name// &
-                 new_line('A')
+            new_line('A')
     end function build_submodule_header
 
     logical function submodule_has_implicit_statement(arena, node) &
-        result(has_implicit)
+            result(has_implicit)
         type(ast_arena_t), intent(in) :: arena
         type(submodule_node), intent(in) :: node
         integer :: i
@@ -114,10 +114,10 @@ contains
             if (.not. arena%has_node_at(decl_index)) cycle
 
             select type (decl => arena%entries(decl_index)%node)
-            type is (implicit_statement_node)
+                type is (implicit_statement_node)
                 has_implicit = .true.
                 return
-            type is (literal_node)
+                type is (literal_node)
                 if (allocated(decl%value)) then
                     lowered_value = to_lower(adjustl(decl%value))
                     if (index(lowered_value, "implicit") == 1) then
@@ -130,7 +130,7 @@ contains
     end function submodule_has_implicit_statement
 
     function collect_submodule_declarations(arena, node, start_idx, end_idx) &
-        result(body_code)
+            result(body_code)
         type(ast_arena_t), intent(in) :: arena
         type(submodule_node), intent(in) :: node
         integer, intent(in), optional :: start_idx
@@ -157,8 +157,8 @@ contains
         end if
 
         body_code = generate_grouped_body(arena, &
-                                          node%declaration_indices(first:last), &
-                                          1)
+            node%declaration_indices(first:last), &
+            1)
     end function collect_submodule_declarations
 
     integer function count_leading_use_entries_submodule(arena, node) result(count)
@@ -197,12 +197,12 @@ contains
 
         do i = 1, size(node%procedure_indices)
             procedure_code = collect_contained_procedure(arena, &
-                                                         node%procedure_indices(i))
+                node%procedure_indices(i))
             if (len(procedure_code) == 0) cycle
             has_entries = .true.
             has_more = i < size(node%procedure_indices)
             section_code = section_code//format_contained_procedure( &
-                           procedure_code, has_more)
+                procedure_code, has_more)
         end do
 
         if (.not. has_entries) section_code = ""
@@ -227,7 +227,7 @@ contains
         header_line = header_line//"block data"
         if (allocated(node%name)) then
             if (len_trim(node%name) > 0) header_line = header_line//" "// &
-                                                       trim(node%name)
+                trim(node%name)
         end if
 
         code = header_line//new_line('A')
@@ -278,10 +278,10 @@ contains
             if (.not. arena%has_node_at(decl_index)) cycle
 
             select type (decl => arena%entries(decl_index)%node)
-            type is (implicit_statement_node)
+                type is (implicit_statement_node)
                 has_implicit = .true.
                 return
-            type is (literal_node)
+                type is (literal_node)
                 if (allocated(decl%value)) then
                     lowered_value = to_lower(adjustl(decl%value))
                     if (index(lowered_value, "implicit") == 1) then
@@ -294,7 +294,7 @@ contains
     end function module_has_implicit_statement
 
     function collect_module_declarations(arena, node, start_idx, end_idx) &
-        result(body_code)
+            result(body_code)
         type(ast_arena_t), intent(in) :: arena
         type(module_node), intent(in) :: node
         integer, intent(in), optional :: start_idx
@@ -321,8 +321,8 @@ contains
         end if
 
         body_code = generate_grouped_body(arena, &
-                                          node%declaration_indices(first:last), &
-                                          1)
+            node%declaration_indices(first:last), &
+            1)
     end function collect_module_declarations
 
     integer function count_leading_use_entries(arena, node) result(count)
@@ -352,17 +352,17 @@ contains
         if (.not. allocated(arena%entries(decl_index)%node)) return
 
         select type (decl => arena%entries(decl_index)%node)
-        type is (use_statement_node)
+            type is (use_statement_node)
             is_prefix = .true.
-        type is (import_statement_node)
+            type is (import_statement_node)
             is_prefix = .true.
-        type is (include_statement_node)
+            type is (include_statement_node)
             is_prefix = .true.
-        type is (comment_node)
+            type is (comment_node)
             is_prefix = .true.
-        type is (directive_node)
+            type is (directive_node)
             is_prefix = .true.
-        type is (blank_line_node)
+            type is (blank_line_node)
             is_prefix = .true.
         class default
             is_prefix = .false.
@@ -388,12 +388,12 @@ contains
 
         do i = 1, size(node%procedure_indices)
             procedure_code = collect_contained_procedure(arena, &
-                                                         node%procedure_indices(i))
+                node%procedure_indices(i))
             if (len(procedure_code) == 0) cycle
             has_entries = .true.
             has_more = i < size(node%procedure_indices)
             section_code = section_code//format_contained_procedure( &
-                           procedure_code, has_more)
+                procedure_code, has_more)
         end do
 
         if (.not. has_entries) section_code = ""
@@ -497,8 +497,8 @@ contains
         logical :: allow_module_prefix
 
         allow_module_prefix = node%has_module_prefix .and. &
-                              (in_module_context .or. &
-                               in_operator_or_assignment_interface)
+            (in_module_context .or. &
+            in_operator_or_assignment_interface)
 
         if (allow_module_prefix) then
             code = "module procedure"

@@ -14,7 +14,7 @@ module lexer_core
 
     ! Re-export types
     public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, &
-              scan_result_t
+        scan_result_t
 
     ! Re-export main functions
     public :: tokenize_safe, tokenize_core, tokenize_core_safe
@@ -24,9 +24,9 @@ module lexer_core
 
     ! Re-export scanning functions
     public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
-              scan_logical_token
+        scan_logical_token
     public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
-              scan_identifier_safe
+        scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
     ! Re-export utilities
@@ -170,36 +170,36 @@ contains
 
             case (char(10), char(13)) ! Newline
                 call handle_newline(src, pos, line_num, col_num, &
-                                    tokenize_res%tokens, tokenize_res%token_count)
+                    tokenize_res%tokens, tokenize_res%token_count)
 
             case ('!', '#') ! Comment or preprocessor directive
                 call scan_comment(src, pos, line_num, col_num, &
-                                  tokenize_res%tokens, tokenize_res%token_count)
+                    tokenize_res%tokens, tokenize_res%token_count)
 
             case ('''', '"') ! String
                 call scan_string(src, pos, line_num, col_num, &
-                                 tokenize_res%tokens, tokenize_res%token_count)
+                    tokenize_res%tokens, tokenize_res%token_count)
 
             case ('0':'9') ! Number
                 call scan_number(src, pos, line_num, col_num, &
-                                 tokenize_res%tokens, tokenize_res%token_count)
+                    tokenize_res%tokens, tokenize_res%token_count)
 
             case ('a':'z', 'A':'Z', '_') ! Identifier
                 call scan_identifier(src, pos, line_num, col_num, &
-                                     tokenize_res%tokens, &
-                                     tokenize_res%token_count)
+                    tokenize_res%tokens, &
+                    tokenize_res%token_count)
 
             case ('.')
                 ! Logical token, decimal number, assumed-rank, or separator
                 call scan_dot_token(src, pos, line_num, col_num, &
-                                    tokenize_res%tokens, &
-                                    tokenize_res%token_count)
+                    tokenize_res%tokens, &
+                    tokenize_res%token_count)
 
             case default ! Operator or unknown
                 if (is_operator_char(c)) then
                     call scan_operator(src, pos, line_num, col_num, &
-                                       tokenize_res%tokens, &
-                                       tokenize_res%token_count)
+                        tokenize_res%tokens, &
+                        tokenize_res%token_count)
                 else
                     ! Unknown character - skip
                     pos = pos + 1
@@ -242,9 +242,9 @@ contains
 
         do while (pos <= source_len)
             call process_token_with_trivia(src, pos, line_num, col_num, &
-                                           tokenize_res%tokens, &
-                                           tokenize_res%token_count, &
-                                           pending_trivia)
+                tokenize_res%tokens, &
+                tokenize_res%token_count, &
+                pending_trivia)
 
             if (tokenize_res%token_count >= size(tokenize_res%tokens)) then
                 call resize_tokens(tokenize_res%tokens)
@@ -252,7 +252,7 @@ contains
         end do
 
         call attach_final_trivia(tokenize_res%tokens, tokenize_res%token_count, &
-                                 pending_trivia)
+            pending_trivia)
 
         if (tokenize_res%token_count < size(tokenize_res%tokens)) then
             tokenize_res%token_count = tokenize_res%token_count + 1
@@ -266,7 +266,7 @@ contains
     end subroutine tokenize_core_safe_with_trivia
 
     subroutine process_token_with_trivia(source_text, pos, line_num, col_num, &
-                                         tokens, token_count, pending_trivia)
+            tokens, token_count, pending_trivia)
         character(len=*), intent(in) :: source_text
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -280,47 +280,47 @@ contains
         select case (c)
         case (' ', char(9)) ! Space, tab
             call collect_whitespace_trivia(source_text, pos, &
-                                           line_num, col_num, &
-                                           pending_trivia)
+                line_num, col_num, &
+                pending_trivia)
         case (char(10), char(13)) ! Newline
             call collect_newline_trivia(source_text, pos, line_num, col_num, &
-                                        pending_trivia)
+                pending_trivia)
         case ('!', '#') ! Comment or preprocessor directive
             call collect_comment_trivia(source_text, pos, line_num, col_num, &
-                                        pending_trivia)
+                pending_trivia)
         case ('''', '"') ! String
             previous_count = token_count
             call scan_string(source_text, pos, line_num, col_num, tokens, &
-                             token_count)
+                token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
-                                       pending_trivia)
+                pending_trivia)
         case ('0':'9') ! Number
             previous_count = token_count
             call scan_number(source_text, pos, line_num, col_num, tokens, &
-                             token_count)
+                token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
-                                       pending_trivia)
+                pending_trivia)
         case ('a':'z', 'A':'Z', '_') ! Identifier
             previous_count = token_count
             call scan_identifier(source_text, pos, line_num, col_num, tokens, &
-                                 token_count)
+                token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
-                                       pending_trivia)
+                pending_trivia)
         case ('.') ! Logical token, decimal number, assumed-rank, or separator
             previous_count = token_count
             call scan_dot_token(source_text, pos, line_num, col_num, tokens, &
-                                token_count)
+                token_count)
             call attach_pending_trivia(tokens, previous_count, token_count, &
-                                       pending_trivia)
+                pending_trivia)
         case default ! Operator or unknown
             if (is_operator_char(c)) then
                 previous_count = token_count
                 call scan_operator(source_text, pos, line_num, &
-                                   col_num, tokens, &
-                                   token_count)
+                    col_num, tokens, &
+                    token_count)
                 call attach_pending_trivia(tokens, previous_count, &
-                                           token_count, &
-                                           pending_trivia)
+                    token_count, &
+                    pending_trivia)
             else
                 pos = pos + 1
                 col_num = col_num + 1
@@ -329,7 +329,7 @@ contains
     end subroutine process_token_with_trivia
 
     subroutine scan_dot_token(source, pos, line_num, col_num, tokens, &
-                              token_count)
+            token_count)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -348,23 +348,23 @@ contains
             next_char = source(pos + 1:pos + 1)
             if (next_char == '.') then
                 call scan_assumed_rank_operator(source, pos, &
-                                                line_num, col_num, &
-                                                tokens, token_count)
+                    line_num, col_num, &
+                    tokens, token_count)
             else if (next_char >= '0' .and. next_char <= '9') then
                 if (pos > 1) then
                     prev_is_digit = (source(pos - 1:pos - 1) >= '0' .and. &
-                                     source(pos - 1:pos - 1) <= '9')
+                        source(pos - 1:pos - 1) <= '9')
                 end if
                 if (prev_is_digit) then
                     call scan_operator(source, pos, line_num, col_num, tokens, &
-                                       token_count)
+                        token_count)
                 else
                     call scan_number(source, pos, line_num, col_num, tokens, &
-                                     token_count)
+                        token_count)
                 end if
             else if ((next_char >= 'a' .and. next_char <= 'z') .or. &
-                     (next_char >= 'A' .and. next_char <= 'Z') .or. &
-                     next_char == '_') then
+                    (next_char >= 'A' .and. next_char <= 'Z') .or. &
+                    next_char == '_') then
                 ! Disambiguation:
                 ! - .and. / .or. / .op. / .true. etc: dot + identifier + dot
                 ! - LFortran member access: identifier.identifier (no trailing dot)
@@ -386,20 +386,20 @@ contains
 
                 if (looks_like_dot_word_dot) then
                     call scan_logical_token(source, pos, line_num, &
-                                            col_num, tokens, &
-                                            token_count)
+                        col_num, tokens, &
+                        token_count)
                 else
                     call scan_operator(source, pos, line_num, col_num, tokens, &
-                                       token_count)
+                        token_count)
                 end if
             else
                 call scan_logical_token(source, pos, line_num, &
-                                        col_num, tokens, &
-                                        token_count)
+                    col_num, tokens, &
+                    token_count)
             end if
         else
             call scan_operator(source, pos, line_num, col_num, tokens, &
-                               token_count)
+                token_count)
         end if
     end subroutine scan_dot_token
 
@@ -455,8 +455,8 @@ contains
         end do
 
         call append_trivia(buffer, TK_WHITESPACE, &
-                           source_text(start_pos:pos - 1), &
-                           line, start_col)
+            source_text(start_pos:pos - 1), &
+            line, start_col)
     end subroutine collect_whitespace_trivia
 
     subroutine collect_newline_trivia(source_text, pos, line, column, buffer)
@@ -469,7 +469,7 @@ contains
         start_col = column
 
         call append_trivia(buffer, TK_NEWLINE, new_line('A'), &
-                           start_line, start_col)
+            start_line, start_col)
 
         call skip_newline(source_text, pos, line, column)
     end subroutine collect_newline_trivia
@@ -493,8 +493,8 @@ contains
 
         if (end_pos > start_pos) then
             call append_trivia(buffer, TK_COMMENT, &
-                               source_text(start_pos:end_pos - 1), &
-                               line, start_col)
+                source_text(start_pos:end_pos - 1), &
+                line, start_col)
         end if
 
         column = column + (end_pos - start_pos)
@@ -502,7 +502,7 @@ contains
     end subroutine collect_comment_trivia
 
     subroutine attach_pending_trivia(tokens, previous_count, &
-                                     current_count, buffer)
+            current_count, buffer)
         type(token_t), intent(inout) :: tokens(:)
         integer, intent(in) :: previous_count
         integer, intent(in) :: current_count
@@ -634,7 +634,7 @@ contains
 
         select case (c)
         case ('+', '-', '*', '/', '=', '<', '>', '(', ')', '[', ']', &
-              '{', '}', ',', ';', ':', '%', '&', '^')
+                '{', '}', ',', ';', ':', '%', '&', '^')
             is_op = .true.
         case default
             is_op = .false.
@@ -688,7 +688,7 @@ contains
 
     ! Scan assumed-rank operator (..) - Fortran 2018 feature for SELECT RANK
     subroutine scan_assumed_rank_operator(source, pos, line_num, col_num, &
-                                          tokens, token_count)
+            tokens, token_count)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)

@@ -1,6 +1,6 @@
 module ast_nodes_core
     use ast_base, only: ast_node, &
-                        ast_visitor_base_t, copy_ast_node_base
+        ast_visitor_base_t, copy_ast_node_base
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: subroutine_call_node
     implicit none
@@ -352,7 +352,7 @@ contains
 
     ! Factory functions
     function create_pointer_assignment(pointer_index, target_index, &
-                                       line, column) result(node)
+            line, column) result(node)
         integer, intent(in) :: pointer_index
         integer, intent(in) :: target_index
         integer, intent(in), optional :: line, column
@@ -366,7 +366,7 @@ contains
     end function create_pointer_assignment
 
     function create_array_literal(element_indices, line, column, syntax_style, &
-                                  type_spec) result(node)
+            type_spec) result(node)
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column
         character(len=*), intent(in), optional :: syntax_style
@@ -408,7 +408,7 @@ contains
 
     ! Factory function for component access
     function create_component_access(base_expr_index, component_name, &
-                                     line, column) result(node)
+            line, column) result(node)
         integer, intent(in) :: base_expr_index
         character(len=*), intent(in) :: component_name
         integer, intent(in), optional :: line, column
@@ -443,7 +443,7 @@ contains
 
     ! Factory function for range subscript
     function create_range_subscript(base_expr_index, start_index, end_index, &
-                                    line, column) result(node)
+            line, column) result(node)
         integer, intent(in) :: base_expr_index
         integer, intent(in), optional :: start_index, end_index
         integer, intent(in), optional :: line, column
@@ -492,7 +492,7 @@ contains
     end function create_literal
 
     function create_binary_op(left_index, right_index, operator, line, column) &
-        result(node)
+            result(node)
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
         integer, intent(in), optional :: line, column
@@ -526,7 +526,7 @@ contains
     end function create_call_or_subscript
 
     function create_assignment(target_index, value_index, line, column, &
-                               inferred_type, inferred_type_name) result(node)
+            inferred_type, inferred_type_name) result(node)
         use type_system_unified, only: mono_type_t
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column

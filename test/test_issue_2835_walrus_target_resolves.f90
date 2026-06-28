@@ -5,10 +5,10 @@ program test_issue_2835_walrus_target_resolves
     ! "identifier index does not reference an AST node" during lowering.
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: compiler_frontend_options_t, &
-                         compiler_frontend_result_t, &
-                         compile_frontend_from_string, &
-                         get_program_body_info, get_identifier_name, &
-                         assignment_node, INPUT_MODE_LAZY
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        get_program_body_info, get_identifier_name, &
+        assignment_node, INPUT_MODE_LAZY
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -23,7 +23,7 @@ program test_issue_2835_walrus_target_resolves
     options%standardize = .false.
 
     call compile_frontend_from_string('z := 42'//new_line('a')//'print *, z', &
-                                      result, options)
+        result, options)
     if (.not. result%success()) then
         write (error_unit, '(A)') 'FAIL: frontend rejected walrus source: '// &
             trim(result%diagnostic_text)
@@ -31,7 +31,7 @@ program test_issue_2835_walrus_target_resolves
     end if
 
     call get_program_body_info(result%arena, result%root_index, prog_name, &
-                               body_indices, error_msg)
+        body_indices, error_msg)
     if (len_trim(error_msg) > 0) then
         write (error_unit, '(A)') 'FAIL: get_program_body_info: '//trim(error_msg)
         error stop 1
@@ -42,7 +42,7 @@ program test_issue_2835_walrus_target_resolves
     do i = 1, size(body_indices)
         if (.not. result%arena%has_node_at(body_indices(i))) cycle
         select type (stmt => result%arena%entries(body_indices(i))%node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (stmt%is_walrus) then
                 walrus_count = walrus_count + 1
                 walrus_target = stmt%target_index

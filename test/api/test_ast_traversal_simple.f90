@@ -49,20 +49,20 @@ contains
 
     logical function test_module_complete()
         character(len=*), parameter :: source = &
-                                       "module mymod" // new_line('A') // &
-                                       "    implicit none" // new_line('A') // &
-                                       "    real :: x = 1.0" // new_line('A') // &
-                                       "    integer :: n = 10" // new_line('A') // &
-                                       "contains" // new_line('A') // &
-                                       "    subroutine sub1(a)" // new_line('A') // &
-                                       "        real :: a" // new_line('A') // &
-                                       "        x = x + a" // new_line('A') // &
-                                       "    end subroutine sub1" // new_line('A') // &
-                                       "    function func1(b) result(c)" // new_line('A') // &
-                                       "        real :: b, c" // new_line('A') // &
-                                       "        c = b * x" // new_line('A') // &
-                                       "    end function func1" // new_line('A') // &
-                                       "end module mymod"
+            "module mymod" // new_line('A') // &
+            "    implicit none" // new_line('A') // &
+            "    real :: x = 1.0" // new_line('A') // &
+            "    integer :: n = 10" // new_line('A') // &
+            "contains" // new_line('A') // &
+            "    subroutine sub1(a)" // new_line('A') // &
+            "        real :: a" // new_line('A') // &
+            "        x = x + a" // new_line('A') // &
+            "    end subroutine sub1" // new_line('A') // &
+            "    function func1(b) result(c)" // new_line('A') // &
+            "        real :: b, c" // new_line('A') // &
+            "        c = b * x" // new_line('A') // &
+            "    end function func1" // new_line('A') // &
+            "end module mymod"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -101,11 +101,11 @@ contains
 
     logical function test_function_complete()
         character(len=*), parameter :: source = &
-                                       "function add(a, b, c) result(sum)" // new_line('A') // &
-                                       "    real :: a, b, c, sum" // new_line('A') // &
-                                       "    sum = a + b + c" // new_line('A') // &
-                                       "    sum = sum * 2.0" // new_line('A') // &
-                                       "end function add"
+            "function add(a, b, c) result(sum)" // new_line('A') // &
+            "    real :: a, b, c, sum" // new_line('A') // &
+            "    sum = a + b + c" // new_line('A') // &
+            "    sum = sum * 2.0" // new_line('A') // &
+            "end function add"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -130,14 +130,14 @@ contains
 
     logical function test_do_with_step()
         character(len=*), parameter :: source = &
-                                       "program test" // new_line('A') // &
-                                       "    integer :: i, sum" // new_line('A') // &
-                                       "    sum = 0" // new_line('A') // &
-                                       "    do i = 1, 10, 2" // new_line('A') // &
-                                       "        sum = sum + i" // new_line('A') // &
-                                       "    end do" // new_line('A') // &
-                                       "    print *, sum" // new_line('A') // &
-                                       "end program test"
+            "program test" // new_line('A') // &
+            "    integer :: i, sum" // new_line('A') // &
+            "    sum = 0" // new_line('A') // &
+            "    do i = 1, 10, 2" // new_line('A') // &
+            "        sum = sum + i" // new_line('A') // &
+            "    end do" // new_line('A') // &
+            "    print *, sum" // new_line('A') // &
+            "end program test"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -162,17 +162,17 @@ contains
 
     logical function test_select_default()
         character(len=*), parameter :: source = &
-                                       "subroutine grade(score)" // new_line('A') // &
-                                       "    integer :: score" // new_line('A') // &
-                                       "    select case (score)" // new_line('A') // &
-                                       "        case (90:)" // new_line('A') // &
-                                       "            print *, 'A'" // new_line('A') // &
-                                       "        case (80:89)" // new_line('A') // &
-                                       "            print *, 'B'" // new_line('A') // &
-                                       "        case default" // new_line('A') // &
-                                       "            print *, 'C or below'" // new_line('A') // &
-                                       "    end select" // new_line('A') // &
-                                       "end subroutine grade"
+            "subroutine grade(score)" // new_line('A') // &
+            "    integer :: score" // new_line('A') // &
+            "    select case (score)" // new_line('A') // &
+            "        case (90:)" // new_line('A') // &
+            "            print *, 'A'" // new_line('A') // &
+            "        case (80:89)" // new_line('A') // &
+            "            print *, 'B'" // new_line('A') // &
+            "        case default" // new_line('A') // &
+            "            print *, 'C or below'" // new_line('A') // &
+            "    end select" // new_line('A') // &
+            "end subroutine grade"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -197,16 +197,16 @@ contains
 
     logical function test_if_else()
         character(len=*), parameter :: source = &
-                                       "program iftest" // new_line('A') // &
-                                       "    real :: x = 5.0" // new_line('A') // &
-                                       "    if (x > 10) then" // new_line('A') // &
-                                       "        print *, 'large'" // new_line('A') // &
-                                       "    else if (x > 0) then" // new_line('A') // &
-                                       "        print *, 'positive'" // new_line('A') // &
-                                       "    else" // new_line('A') // &
-                                       "        print *, 'non-positive'" // new_line('A') // &
-                                       "    end if" // new_line('A') // &
-                                       "end program iftest"
+            "program iftest" // new_line('A') // &
+            "    real :: x = 5.0" // new_line('A') // &
+            "    if (x > 10) then" // new_line('A') // &
+            "        print *, 'large'" // new_line('A') // &
+            "    else if (x > 0) then" // new_line('A') // &
+            "        print *, 'positive'" // new_line('A') // &
+            "    else" // new_line('A') // &
+            "        print *, 'non-positive'" // new_line('A') // &
+            "    end if" // new_line('A') // &
+            "end program iftest"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -231,14 +231,14 @@ contains
 
     logical function test_do_while_body()
         character(len=*), parameter :: source = &
-                                       "subroutine iterate()" // new_line('A') // &
-                                       "    integer :: i" // new_line('A') // &
-                                       "    i = 0" // new_line('A') // &
-                                       "    do while (i < 10)" // new_line('A') // &
-                                       "        i = i + 1" // new_line('A') // &
-                                       "        print *, i" // new_line('A') // &
-                                       "    end do" // new_line('A') // &
-                                       "end subroutine iterate"
+            "subroutine iterate()" // new_line('A') // &
+            "    integer :: i" // new_line('A') // &
+            "    i = 0" // new_line('A') // &
+            "    do while (i < 10)" // new_line('A') // &
+            "        i = i + 1" // new_line('A') // &
+            "        print *, i" // new_line('A') // &
+            "    end do" // new_line('A') // &
+            "end subroutine iterate"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -263,13 +263,13 @@ contains
 
     logical function test_derived_type()
         character(len=*), parameter :: source = &
-                                       "module types" // new_line('A') // &
-                                       "    type :: person" // new_line('A') // &
-                                       "        character(len=50) :: name" // new_line('A') // &
-                                       "        integer :: age" // new_line('A') // &
-                                       "        real :: height" // new_line('A') // &
-                                       "    end type person" // new_line('A') // &
-                                       "end module types"
+            "module types" // new_line('A') // &
+            "    type :: person" // new_line('A') // &
+            "        character(len=50) :: name" // new_line('A') // &
+            "        integer :: age" // new_line('A') // &
+            "        real :: height" // new_line('A') // &
+            "    end type person" // new_line('A') // &
+            "end module types"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -294,12 +294,12 @@ contains
 
     logical function test_interface()
         character(len=*), parameter :: source = &
-                                       "module interfaces" // new_line('A') // &
-                                       "    interface operator(.add.)" // new_line('A') // &
-                                       "        module procedure add_int" // new_line('A') // &
-                                       "        module procedure add_real" // new_line('A') // &
-                                       "    end interface" // new_line('A') // &
-                                       "end module interfaces"
+            "module interfaces" // new_line('A') // &
+            "    interface operator(.add.)" // new_line('A') // &
+            "        module procedure add_int" // new_line('A') // &
+            "        module procedure add_real" // new_line('A') // &
+            "    end interface" // new_line('A') // &
+            "end module interfaces"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -324,12 +324,12 @@ contains
 
     logical function test_use_include()
         character(len=*), parameter :: source = &
-                                       "program uses" // new_line('A') // &
-                                       "    use iso_fortran_env" // new_line('A') // &
-                                       "    use mymod, only: func1" // new_line('A') // &
-                                       "    include 'common.inc'" // new_line('A') // &
-                                       "    implicit none" // new_line('A') // &
-                                       "end program uses"
+            "program uses" // new_line('A') // &
+            "    use iso_fortran_env" // new_line('A') // &
+            "    use mymod, only: func1" // new_line('A') // &
+            "    include 'common.inc'" // new_line('A') // &
+            "    implicit none" // new_line('A') // &
+            "end program uses"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -354,13 +354,13 @@ contains
 
     logical function test_calls()
         character(len=*), parameter :: source = &
-                                       "program calls" // new_line('A') // &
-                                       "    real :: x, arr(10)" // new_line('A') // &
-                                       "    x = sin(3.14)" // new_line('A') // &
-                                       "    arr(5) = x" // new_line('A') // &
-                                       "    call process(x, arr(1))" // new_line('A') // &
-                                       "    print *, x, arr(5)" // new_line('A') // &
-                                       "end program calls"
+            "program calls" // new_line('A') // &
+            "    real :: x, arr(10)" // new_line('A') // &
+            "    x = sin(3.14)" // new_line('A') // &
+            "    arr(5) = x" // new_line('A') // &
+            "    call process(x, arr(1))" // new_line('A') // &
+            "    print *, x, arr(5)" // new_line('A') // &
+            "end program calls"
 
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena

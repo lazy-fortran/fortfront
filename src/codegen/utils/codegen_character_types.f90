@@ -48,14 +48,14 @@ contains
             decl_index = node%body_indices(i)
             if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (len_trim(stmt%var_name) == 0) cycle
                 if (trim(stmt%var_name) /= target_name) cycle
                 if (.not. allocated(stmt%type_name)) cycle
                 lowered = to_lower(trim(stmt%type_name))
                 if (index(lowered, "len=") > 0) then
                     if (.not. character_len_references_params(arena, node, &
-                                                              stmt%type_name)) then
+                        stmt%type_name)) then
                         override = trim(stmt%type_name)
                         return
                     end if
@@ -65,7 +65,7 @@ contains
     end subroutine derive_character_return_type
 
     logical function character_len_references_params(arena, node, type_spec) &
-        result(refs_params)
+            result(refs_params)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=*), intent(in) :: type_spec
@@ -89,11 +89,11 @@ contains
             if (.not. allocated(arena%entries(node%param_indices(i))%node)) cycle
 
             select type (param_node => arena%entries(node%param_indices(i))%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 param_name = trim(param_node%name)
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 param_name = trim(param_node%name)
-            type is (declaration_node)
+                type is (declaration_node)
                 param_name = trim(param_node%var_name)
             class default
                 cycle
@@ -112,7 +112,7 @@ contains
 
         lowered = to_lower(trim(text))
         is_deferred = (index(lowered, 'character') == 1) .and. &
-                      (index(lowered, 'len=:') > 0)
+            (index(lowered, 'len=:') > 0)
         if (is_deferred) then
             if (index(lowered, 'allocatable') == 0) then
                 is_deferred = .false.
@@ -126,8 +126,8 @@ contains
 
         lowered = to_lower(trim(text))
         is_alloc_array = (index(lowered, 'dimension') > 0 .or. &
-                          index(lowered, '(') > 0) .and. &
-                         (index(lowered, 'allocatable') > 0)
+            index(lowered, '(') > 0) .and. &
+            (index(lowered, 'allocatable') > 0)
     end function is_allocatable_array_return
 
     pure logical function is_deferred_shape_array(text) result(is_deferred)
@@ -183,7 +183,7 @@ contains
             decl_index = node%body_indices(i)
             if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (is_character_len_declaration(stmt%type_name)) then
                     if (trim(stmt%var_name) == target_name) then
                         has_decl = .true.
@@ -214,8 +214,8 @@ contains
         end if
 
         matches = (index(lowered, 'character') == 1) .and. &
-                  (index(lowered, 'len=') > 0) .and. &
-                  (index(lowered, 'len=*') == 0) .and. &
-                  (index(lowered, 'len=:') == 0)
+            (index(lowered, 'len=') > 0) .and. &
+            (index(lowered, 'len=*') == 0) .and. &
+            (index(lowered, 'len=:') == 0)
     end function is_character_len_declaration
 end module codegen_character_types

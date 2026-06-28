@@ -14,12 +14,12 @@ contains
         integer :: idx
 
         input_code = "program pointer_init" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "    integer, pointer :: p => null()" // new_line('A') // &
-                     "    allocate(p)" // new_line('A') // &
-                     "    p = 5" // new_line('A') // &
-                     "    print *, p" // new_line('A') // &
-                     "end program pointer_init"
+            "    implicit none" // new_line('A') // &
+            "    integer, pointer :: p => null()" // new_line('A') // &
+            "    allocate(p)" // new_line('A') // &
+            "    p = 5" // new_line('A') // &
+            "    print *, p" // new_line('A') // &
+            "end program pointer_init"
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 

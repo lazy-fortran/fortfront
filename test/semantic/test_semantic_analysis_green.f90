@@ -1,8 +1,8 @@
 program test_semantic_analysis_green
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     implicit none
 
     logical :: all_passed
@@ -109,7 +109,7 @@ contains
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    real :: arr(3)'
-        write (unit, '(a)') '    arr = [1, 2.0, 3]'  ! Mixed integer and real
+        write (unit, '(a)') '    arr = [1, 2.0, 3]' ! Mixed integer and real
         write (unit, '(a)') 'end program'
         close (unit)
 
@@ -141,7 +141,7 @@ contains
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10), j'
         write (unit, '(a)') '    j = 5'
-        write (unit, '(a)') '    arr = [(i*j, i=1,10)]'  ! j should be accessible
+        write (unit, '(a)') '    arr = [(i*j, i=1,10)]' ! j should be accessible
         write (unit, '(a)') 'end program'
         close (unit)
 

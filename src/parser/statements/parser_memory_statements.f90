@@ -2,8 +2,8 @@ module parser_memory_statements_module
     ! Parser module for memory management statement types (allocate, deallocate)
     use fortfront_constants, only: MAX_TYPE_SPEC_BUFFER_LEN
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
@@ -18,7 +18,7 @@ contains
 
     ! Helper subroutine to parse allocate variable with optional dimensions
     subroutine parse_allocate_variable(parser, arena, var_indices, &
-                                       shape_indices)
+            shape_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: var_indices(:)
@@ -43,7 +43,7 @@ contains
                 ! Parse dimension expressions
                 do
                     shape_indices = [shape_indices, &
-                                     parse_comparison(parser, arena)]
+                        parse_comparison(parser, arena)]
 
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -64,8 +64,8 @@ contains
 
     ! Parse allocate parameters (stat, errmsg, source, mold)
     subroutine parse_allocate_params(parser, arena, param_name, &
-                                     stat_var_index, errmsg_var_index, &
-                                     source_expr_index, mold_expr_index)
+            stat_var_index, errmsg_var_index, &
+            source_expr_index, mold_expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: param_name
@@ -91,7 +91,7 @@ contains
     end subroutine parse_allocate_params
 
     subroutine skip_to_matching_paren(parser, type_spec_str, type_token, &
-                                      saved_pos)
+            saved_pos)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: type_spec_str
         type(token_t), intent(in) :: type_token
@@ -123,9 +123,9 @@ contains
                             token%text == "::") then
                             token = parser%consume()
                             call build_type_spec(parser, type_token, &
-                                                 spec_start_pos, &
-                                                 spec_end_pos, &
-                                                 type_spec_str)
+                                spec_start_pos, &
+                                spec_end_pos, &
+                                type_spec_str)
                             return
                         else
                             parser%current_token = saved_pos
@@ -139,7 +139,7 @@ contains
     end subroutine skip_to_matching_paren
 
     subroutine build_type_spec(parser, type_token, start_pos, end_pos, &
-                               type_spec_str)
+            type_spec_str)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: type_token
         integer, intent(in) :: start_pos, end_pos
@@ -174,7 +174,7 @@ contains
         integer, allocatable :: var_indices(:)
         integer, allocatable :: shape_indices(:)
         integer :: stat_var_index, errmsg_var_index, source_expr_index, &
-                   mold_expr_index
+            mold_expr_index
         integer :: line, column, saved_pos
         logical :: in_variable_list
         character(len=:), allocatable :: type_spec_str
@@ -213,9 +213,9 @@ contains
                     ! TypeName(params) :: pattern - skip parameter list
                     token = parser%consume()
                     call skip_to_matching_paren(parser, type_spec_str, &
-                                                type_token, saved_pos)
+                        type_token, saved_pos)
                 else if (lookahead%kind == TK_OPERATOR .and. &
-                         lookahead%text == "::") then
+                        lookahead%text == "::") then
                     ! TypeName :: pattern - consume ::
                     token = parser%consume()
                     type_spec_str = trim(type_token%text)
@@ -238,17 +238,17 @@ contains
                         select case (token%text)
                         case ("stat", "errmsg", "source", "mold")
                             call parse_allocate_params(parser, arena, &
-                                                       token%text, &
-                                                       stat_var_index, &
-                                                       errmsg_var_index, &
-                                                       source_expr_index, &
-                                                       mold_expr_index)
+                                token%text, &
+                                stat_var_index, &
+                                errmsg_var_index, &
+                                source_expr_index, &
+                                mold_expr_index)
                             in_variable_list = .false.
                         case default
                             if (in_variable_list) then
                                 call parse_allocate_variable(parser, arena, &
-                                                             var_indices, &
-                                                             shape_indices)
+                                    var_indices, &
+                                    shape_indices)
                             else
                                 token = parser%consume()
                             end if
@@ -256,8 +256,8 @@ contains
                     case default
                         if (in_variable_list) then
                             call parse_allocate_variable(parser, arena, &
-                                                         var_indices, &
-                                                         shape_indices)
+                                var_indices, &
+                                shape_indices)
                         else
                             token = parser%consume()
                         end if
@@ -282,19 +282,19 @@ contains
         ! Create allocate statement node
         if (allocated(type_spec_str)) then
             allocate_index = push_allocate(arena, var_indices, shape_indices, &
-                                           stat_var_index, &
-                                           errmsg_var_index, &
-                                           source_expr_index, &
-                                           mold_expr_index, &
-                                           line, column, &
-                                           type_spec=type_spec_str)
+                stat_var_index, &
+                errmsg_var_index, &
+                source_expr_index, &
+                mold_expr_index, &
+                line, column, &
+                type_spec=type_spec_str)
         else
             allocate_index = push_allocate(arena, var_indices, shape_indices, &
-                                           stat_var_index, &
-                                           errmsg_var_index, &
-                                           source_expr_index, &
-                                           mold_expr_index, &
-                                           line, column)
+                stat_var_index, &
+                errmsg_var_index, &
+                source_expr_index, &
+                mold_expr_index, &
+                line, column)
         end if
     end function parse_allocate_statement
 
@@ -353,13 +353,13 @@ contains
                                 token%text == "=") then
                                 token = parser%consume()
                                 errmsg_var_index = parse_comparison(parser, &
-                                                                    arena)
+                                    arena)
                             end if
                             in_variable_list = .false.
                         case default
                             if (in_variable_list) then
                                 var_indices = [var_indices, &
-                                               parse_comparison(parser, arena)]
+                                    parse_comparison(parser, arena)]
                             else
                                 token = parser%consume()
                             end if
@@ -367,7 +367,7 @@ contains
                     case default
                         if (in_variable_list) then
                             var_indices = [var_indices, &
-                                           parse_comparison(parser, arena)]
+                                parse_comparison(parser, arena)]
                         else
                             token = parser%consume()
                         end if
@@ -391,9 +391,9 @@ contains
 
         ! Create deallocate statement node
         deallocate_index = push_deallocate(arena, var_indices, &
-                                           stat_var_index, &
-                                           errmsg_var_index, &
-                                           line, column)
+            stat_var_index, &
+            errmsg_var_index, &
+            line, column)
     end function parse_deallocate_statement
 
 end module parser_memory_statements_module

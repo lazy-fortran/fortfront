@@ -1,10 +1,10 @@
 module frontend_statement_token_parsing
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
+        TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                        get_additional_indices, &
-                                        clear_additional_indices, &
-                                        get_last_parser_errors
+        get_additional_indices, &
+        clear_additional_indices, &
+        get_last_parser_errors
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
 
@@ -19,7 +19,7 @@ module frontend_statement_token_parsing
 contains
 
     subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, &
-                                         body_indices)
+            body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: i
         type(ast_arena_t), intent(inout) :: arena
@@ -42,7 +42,7 @@ contains
     end subroutine process_comment_statement
 
     subroutine process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-                                         prefix_buffer, stmt_index, body_indices)
+            prefix_buffer, stmt_index, body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
@@ -58,10 +58,10 @@ contains
         end if
 
         effective_start = compute_effective_statement_start(tokens, stmt_start, &
-                                                            stmt_end)
+            stmt_end)
         call build_statement_tokens(tokens, effective_start, stmt_end, stmt_tokens)
         call parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
-                                                        prefix_buffer, stmt_index)
+            prefix_buffer, stmt_index)
         if (stmt_index <= 0) return
 
         body_indices = [body_indices, stmt_index]
@@ -69,7 +69,7 @@ contains
     end subroutine process_regular_statement
 
     integer function compute_effective_statement_start(tokens, stmt_start, stmt_end) &
-        result(effective_start)
+            result(effective_start)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start
         integer, intent(in) :: stmt_end
@@ -129,7 +129,7 @@ contains
     end subroutine build_statement_tokens
 
     subroutine parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
-                                                          prefix_buffer, stmt_index)
+            prefix_buffer, stmt_index)
         type(token_t), allocatable, intent(inout), target :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -192,7 +192,7 @@ contains
     end function parse_explicit_program_unit
 
     logical function is_prefix_only_statement(tokens, start_idx, end_idx) &
-        result(is_prefix)
+            result(is_prefix)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
         integer :: idx
@@ -209,7 +209,7 @@ contains
                 lowered = to_lower(tokens(idx)%text)
                 select case (trim(lowered))
                 case ('elemental', 'pure', 'impure', 'recursive', 'module', &
-                      'nonrecursive', 'non_recursive')
+                        'nonrecursive', 'non_recursive')
                     is_prefix = .true.
                 case default
                     is_prefix = .false.

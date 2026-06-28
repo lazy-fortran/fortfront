@@ -1,6 +1,6 @@
 program test_issue_2072_pointer_not_declared
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-     &                                         iostat_end, iostat_eor
+        &                                         iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 

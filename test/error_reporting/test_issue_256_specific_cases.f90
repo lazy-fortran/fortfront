@@ -13,31 +13,31 @@ program test_issue_256_specific_cases
 
     ! Test the exact case mentioned in the issue description
     call run_test('Comments-only input from issue description', &
-                  test_issue_example())
+        test_issue_example())
 
     ! Test cases that should pass validation
     call run_test('Valid lazy Fortran without keywords should pass', &
-                  test_valid_lazy_fortran())
+        test_valid_lazy_fortran())
 
     call run_test('Mixed comments and code should pass', &
-                  test_mixed_comments_code())
+        test_mixed_comments_code())
 
     call run_test('Expression without keywords should pass', &
-                  test_expression_without_keywords())
+        test_expression_without_keywords())
 
     ! Test cases that should fail validation with meaningful errors
     call run_test('Complete nonsense should fail with error', &
-                  test_complete_nonsense())
+        test_complete_nonsense())
 
     call run_test('Invalid syntax should fail with error', &
-                  test_invalid_syntax())
+        test_invalid_syntax())
 
     ! Test boundary cases
     call run_test('Many random words should fail appropriately', &
-                  test_many_random_words())
+        test_many_random_words())
 
     call run_test('Single comment line should pass', &
-                  test_single_comment())
+        test_single_comment())
 
     ! Report results
     print *
@@ -87,8 +87,8 @@ contains
         ! The issue mentions this currently produces:
         ! "Input does not appear to be valid Fortran code. No recognized Fortran keywords found."
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, '! COMPILATION FAILED') == 0 .and. &
-                 index(error_msg, 'No recognized Fortran keywords found') == 0
+            index(output, '! COMPILATION FAILED') == 0 .and. &
+            index(error_msg, 'No recognized Fortran keywords found') == 0
 
         if (.not. passed) then
             print *, '    Error message: "', error_msg, '"'
@@ -101,14 +101,14 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         source = 'x = 42' // new_line('a') // &
-                 'y = sin(x)' // new_line('a') // &
-                 'print *, y'
+            'y = sin(x)' // new_line('a') // &
+            'print *, y'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'x = 42') > 0 .and. &
-                 index(output, '! COMPILATION FAILED') == 0
+            index(output, 'x = 42') > 0 .and. &
+            index(output, '! COMPILATION FAILED') == 0
     end function
 
     function test_mixed_comments_code() result(passed)
@@ -116,14 +116,14 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         source = '! Calculate the result' // new_line('a') // &
-                 'result = a + b' // new_line('a') // &
-                 '! Print the result' // new_line('a') // &
-                 'print *, result'
+            'result = a + b' // new_line('a') // &
+            '! Print the result' // new_line('a') // &
+            'print *, result'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'result = a + b') > 0
+            index(output, 'result = a + b') > 0
     end function
 
     function test_expression_without_keywords() result(passed)
@@ -135,7 +135,7 @@ contains
         call transform_lazy_fortran_string(source, output, error_msg)
 
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, 'area = 3.14159') > 0
+            index(output, 'area = 3.14159') > 0
     end function
 
     function test_complete_nonsense() result(passed)
@@ -148,7 +148,7 @@ contains
 
         ! Should fail with meaningful error message (not silent fallback)
         passed = len_trim(error_msg) > 0 .or. &
-                 index(output, '! COMPILATION FAILED') > 0
+            index(output, '! COMPILATION FAILED') > 0
 
         if (.not. passed) then
             print *, '    Silent fallback detected - no error for garbage input'
@@ -167,7 +167,7 @@ contains
 
         ! Should fail with error (not produce empty/minimal program)
         passed = len_trim(error_msg) > 0 .or. &
-                 index(output, '! COMPILATION FAILED') > 0
+            index(output, '! COMPILATION FAILED') > 0
     end function
 
     function test_many_random_words() result(passed)
@@ -181,7 +181,7 @@ contains
 
         ! Should produce error for clearly non-Fortran input
         passed = len_trim(error_msg) > 0 .or. &
-                 index(output, '! COMPILATION FAILED') > 0
+            index(output, '! COMPILATION FAILED') > 0
     end function
 
     function test_single_comment() result(passed)
@@ -193,7 +193,7 @@ contains
         call transform_lazy_fortran_string(source, output, error_msg)
 
         passed = len_trim(error_msg) == 0 .and. &
-                 index(output, '! COMPILATION FAILED') == 0
+            index(output, '! COMPILATION FAILED') == 0
     end function
 
 end program test_issue_256_specific_cases

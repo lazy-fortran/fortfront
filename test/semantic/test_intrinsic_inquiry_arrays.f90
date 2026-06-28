@@ -1,8 +1,8 @@
 program test_intrinsic_inquiry_arrays
     use transformation_api, only: compile_source, compilation_options_t
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-                                                                           iostat_end, &
-                                                                              iostat_eor
+        iostat_end, &
+        iostat_eor
     implicit none
 
     character(len=*), parameter :: example_path = 'examples/lf/intrinsic_functions.lf'
@@ -26,15 +26,15 @@ program test_intrinsic_inquiry_arrays
 
     all_passed = .true.
     call assert_contains(generated_code, 'real, allocatable :: transposed(:,:)', &
-                         'transpose result stays rank-2', all_passed)
+        'transpose result stays rank-2', all_passed)
     call assert_contains(generated_code, 'integer, allocatable :: min_loc(:)', &
-                         'minloc result inferred as integer array', all_passed)
+        'minloc result inferred as integer array', all_passed)
     call assert_contains(generated_code, 'integer, allocatable :: max_loc(:)', &
-                         'maxloc result inferred as integer array', all_passed)
+        'maxloc result inferred as integer array', all_passed)
     call assert_contains(generated_code, 'integer, allocatable :: lb(:)', &
-                         'lbound result inferred as integer array', all_passed)
+        'lbound result inferred as integer array', all_passed)
     call assert_contains(generated_code, 'integer, allocatable :: ub(:)', &
-                         'ubound result inferred as integer array', all_passed)
+        'ubound result inferred as integer array', all_passed)
 
     call cleanup_output_file(output_path)
 

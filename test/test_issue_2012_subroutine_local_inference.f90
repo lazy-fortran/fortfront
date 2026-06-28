@@ -18,7 +18,7 @@ contains
         character(len=:), allocatable :: error_msg
 
         call read_example('examples/lf/issue_2012_subroutine_local_not_inferred.lf', &
-                          source)
+            source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

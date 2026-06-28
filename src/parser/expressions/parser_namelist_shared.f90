@@ -1,6 +1,6 @@
 module parser_namelist_shared_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_NEWLINE, &
-                          TK_COMMENT
+        TK_COMMENT
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -11,7 +11,7 @@ module parser_namelist_shared_module
 contains
 
     logical function consume_namelist_group(parser, group_name, names) &
-        result(success)
+            result(success)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: group_name
         character(len=:), allocatable, intent(out) :: names(:)

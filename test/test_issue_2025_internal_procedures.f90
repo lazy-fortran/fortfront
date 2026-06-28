@@ -49,7 +49,7 @@ contains
         end if
 
         if (index(output_code, 'contains'//new_line('A')//new_line('A')// &
-                  '    subroutine test_function') == 0) then
+            '    subroutine test_function') == 0) then
             write (error_unit, '(A)') 'FAIL: contains section formatting incorrect'
             write (error_unit, '(A)') trim(output_code)
             error stop 1

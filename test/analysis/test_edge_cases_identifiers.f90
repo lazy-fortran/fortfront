@@ -139,7 +139,7 @@ contains
                     block
                         use ast_nodes_core, only: assignment_node
                         select type (node => arena%entries(i)%node)
-                        type is (assignment_node)
+                            type is (assignment_node)
                             identifiers = get_identifiers_in_subtree(arena, node%value_index)
                             print '(a,i0,a)', "Found ", size(identifiers), &
                                 " identifiers in nested expression"

@@ -2,8 +2,8 @@ program test_monomorphization_simple
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     use test_shell_commands, only: build_compile_command
     implicit none
     character(len=:), allocatable :: input, output, error_msg
@@ -17,11 +17,11 @@ program test_monomorphization_simple
     character(len=:), allocatable :: compile_cmd
 
     input = 'function add(a, b)' // new_line('A') // &
-            '    add = a + b' // new_line('A') // &
-            'end function' // new_line('A') // &
-            '' // new_line('A') // &
-            'x = add(5, 3)' // new_line('A') // &
-            'y = add(2.5d0, 1.5d0)'
+        '    add = a + b' // new_line('A') // &
+        'end function' // new_line('A') // &
+        '' // new_line('A') // &
+        'x = add(5, 3)' // new_line('A') // &
+        'y = add(2.5d0, 1.5d0)'
 
     call transform_lazy_fortran_string(input, output, error_msg)
 

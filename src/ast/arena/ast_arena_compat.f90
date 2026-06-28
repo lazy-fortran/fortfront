@@ -4,7 +4,7 @@ module ast_arena_compat
 
     use ast_base, only: ast_node
     use ast_arena_core, only: ast_arena_core_t, &
-                              ast_arena_stats_t, create_ast_arena_core
+        ast_arena_stats_t, create_ast_arena_core
     use fortfront_constants, only: AST_ARENA_GROWTH_MINIMUM
     implicit none
     private
@@ -85,7 +85,7 @@ contains
             if (allocated(this%entries(parent_index)%child_indices)) then
                 allocate (child_indices(this%entries(parent_index)%child_count))
                 child_indices = this%entries(parent_index)%child_indices( &
-                                1:this%entries(parent_index)%child_count)
+                    1:this%entries(parent_index)%child_count)
             else
                 allocate (child_indices(0))
             end if
@@ -152,7 +152,7 @@ contains
 
     ! Compatibility method: get previous sibling
     function ast_arena_get_previous_sibling_compat(this, node_index) &
-        result(prev_sibling)
+            result(prev_sibling)
         class(ast_arena_compat_t), intent(in) :: this
         integer, intent(in) :: node_index
         integer :: prev_sibling
@@ -179,7 +179,7 @@ contains
 
     ! Compatibility method: get block statements
     function ast_arena_get_block_statements_compat(this, block_index) &
-        result(stmt_indices)
+            result(stmt_indices)
         class(ast_arena_compat_t), intent(in) :: this
         integer, intent(in) :: block_index
         integer, allocatable :: stmt_indices(:)
@@ -217,15 +217,15 @@ contains
 
                 ! Check for known block types
                 is_block = (node_type == "if_statement" .or. &
-                            node_type == "do_loop" .or. &
-                            node_type == "do_while" .or. &
-                            node_type == "forall" .or. &
-                            node_type == "where" .or. &
-                            node_type == "select_case" .or. &
-                            node_type == "function_def" .or. &
-                            node_type == "subroutine_def" .or. &
-                            node_type == "program" .or. &
-                            node_type == "module")
+                    node_type == "do_loop" .or. &
+                    node_type == "do_while" .or. &
+                    node_type == "forall" .or. &
+                    node_type == "where" .or. &
+                    node_type == "select_case" .or. &
+                    node_type == "function_def" .or. &
+                    node_type == "subroutine_def" .or. &
+                    node_type == "program" .or. &
+                    node_type == "module")
             end if
         end if
     end function ast_arena_is_block_node_compat
@@ -343,11 +343,11 @@ contains
             ! Only reallocate when we exceed capacity
             if (new_count > size(arena%entries(parent_index)%child_indices)) then
                 ! Double the capacity for amortized O(1) performance
-           allocate (temp_children(size(arena%entries(parent_index)%child_indices) * 2))
+                allocate (temp_children(size(arena%entries(parent_index)%child_indices) * 2))
                 temp_children(1:arena%entries(parent_index)%child_count) = &
-    arena%entries(parent_index)%child_indices(1:arena%entries(parent_index)%child_count)
+                    arena%entries(parent_index)%child_indices(1:arena%entries(parent_index)%child_count)
                 call move_alloc(temp_children, &
-                                arena%entries(parent_index)%child_indices)
+                    arena%entries(parent_index)%child_indices)
             end if
 
             ! Add new child at the end
@@ -379,13 +379,13 @@ contains
         ! Grow compatibility array if needed (also ensure capacity growth)
         if (this%compat_size >= size(this%entries)) then
             new_capacity = max(size(this%entries) * 2, &
-                               this%compat_size + AST_ARENA_GROWTH_MINIMUM)
+                this%compat_size + AST_ARENA_GROWTH_MINIMUM)
 
             allocate (temp_entries(new_capacity))
             if (this%compat_size > 0) then
                 ! PERFORMANCE FIX: Manually move entries to avoid expensive deep copying
                 call move_entries_fast(this%entries(1:this%compat_size), &
-                                       temp_entries(1:this%compat_size))
+                    temp_entries(1:this%compat_size))
             end if
 
             call move_alloc(temp_entries, this%entries)

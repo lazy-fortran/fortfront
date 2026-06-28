@@ -6,10 +6,10 @@ program test_issue_1777_negative_stride
     character(len=:), allocatable :: error_msg
 
     source = 'program test_stride' // new_line('a') // &
-             '    integer :: arr(10)' // new_line('a') // &
-             '    arr = [(i, i=10, 1, -2)]' // new_line('a') // &
-             '    print *, arr' // new_line('a') // &
-             'end program test_stride'
+        '    integer :: arr(10)' // new_line('a') // &
+        '    arr = [(i, i=10, 1, -2)]' // new_line('a') // &
+        '    print *, arr' // new_line('a') // &
+        'end program test_stride'
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 

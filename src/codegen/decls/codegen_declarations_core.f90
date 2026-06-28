@@ -1,20 +1,20 @@
 module codegen_declarations_core
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string, derived_type_node, &
-                              type_binding_node
+        intent_type_to_string, derived_type_node, &
+        type_binding_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
-                                   TDOUBLE, TDERIVED
+        TDOUBLE, TDERIVED
     use type_string_utils, only: is_character_type_string
     use codegen_character_normalization, only: normalize_character_type, &
-                                               normalize_character_type_param
+        normalize_character_type_param
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
     use declaration_attribute_utils, only: declaration_attribute_info_t, &
-                                           reset_declaration_attributes, &
-                                           set_declaration_intent, &
-                                           append_declaration_attributes
+        reset_declaration_attributes, &
+        set_declaration_intent, &
+        append_declaration_attributes
     implicit none
     private
     public :: generate_code_declaration
@@ -45,13 +45,13 @@ contains
 
         has_dimension_attr = index(to_lower(trim(code)), "dimension(") > 0
         code = code // " :: " // build_declaration_entity_list(arena, node, &
-                                                               has_dimension_attr)
+            has_dimension_attr)
         code = code // build_declaration_initializer(arena, node)
         code = fix_character_len_placeholder(code)
     end function generate_code_declaration
 
     function resolve_declaration_type(node, standardize_types_enabled) &
-        result(type_str)
+            result(type_str)
         type(declaration_node), intent(in) :: node
         logical, intent(in) :: standardize_types_enabled
         character(len=:), allocatable :: type_str
@@ -60,7 +60,7 @@ contains
         type_str = select_declared_type(node, standardize_types_enabled)
 
         treat_as_character = is_character_type_string(type_str) .or. &
-                             node%inferred_type%kind == TCHAR
+            node%inferred_type%kind == TCHAR
         if (.not. treat_as_character) return
 
         type_str = normalize_character_type(node, type_str)
@@ -115,7 +115,7 @@ contains
             type_str = "double precision"
         case (TDERIVED)
             type_str = merge(node%type_name, "type(unknown_t)", &
-                             len_trim(node%type_name) > 0)
+                len_trim(node%type_name) > 0)
         case default
             type_str = "real"
         end select
@@ -198,7 +198,7 @@ contains
         if (is_character_type_string(result_type)) return
 
         result_type = result_type // "(" // &
-                      trim(adjustl(int_to_string(node%kind_value))) // ")"
+            trim(adjustl(int_to_string(node%kind_value))) // ")"
     end function apply_kind_modifier
 
     subroutine populate_declaration_attributes(node, attr_info)
@@ -252,14 +252,14 @@ contains
             if (size(node%dimension_indices) > 0) then
                 attr_info%has_global_dimensions = .true.
                 allocate (attr_info%global_dimension_indices(size( &
-                                                             node%dimension_indices)))
+                    node%dimension_indices)))
                 attr_info%global_dimension_indices = node%dimension_indices
             end if
         end if
     end subroutine populate_declaration_attributes
 
     function build_declaration_entity_list(arena, node, has_dimension_attr) &
-        result(entities)
+            result(entities)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         logical, intent(in) :: has_dimension_attr
@@ -275,8 +275,8 @@ contains
                     if (.not. has_dimension_attr) then
                         ! Parameters cannot be allocatable (fixes #1810)
                         entities = trim(entities) // build_dimension_clause( &
-                                   arena, node%dimension_indices, &
-                                   node%is_allocatable .and. .not. node%is_parameter)
+                            arena, node%dimension_indices, &
+                            node%is_allocatable .and. .not. node%is_parameter)
                     end if
                 end if
             end do
@@ -286,15 +286,15 @@ contains
                 if (.not. has_dimension_attr) then
                     ! Parameters cannot be allocatable (fixes #1810)
                     entities = trim(entities) // build_dimension_clause( &
-                               arena, node%dimension_indices, &
-                               node%is_allocatable .and. .not. node%is_parameter)
+                        arena, node%dimension_indices, &
+                        node%is_allocatable .and. .not. node%is_parameter)
                 end if
             end if
         end if
     end function build_declaration_entity_list
 
     function build_dimension_clause(arena, dimension_indices, is_allocatable) &
-        result(clause)
+            result(clause)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: dimension_indices(:)
         logical, intent(in) :: is_allocatable
@@ -349,7 +349,7 @@ contains
     end function build_declaration_initializer
 
     function generate_code_parameter_declaration(arena, node, node_index) &
-        result(code)
+            result(code)
         type(ast_arena_t), intent(in) :: arena
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -397,7 +397,7 @@ contains
                 type_code = "character(len=" // trim(node%character_length_expr) // ")"
             else
                 type_code = normalize_character_type_param(type_code, node%has_kind, &
-                                                           node%kind_value)
+                    node%kind_value)
             end if
             return
         end if
@@ -537,7 +537,7 @@ contains
             if (.not. arena%has_node_at(component_index)) cycle
 
             select type (child => arena%entries(component_index)%node)
-            type is (derived_type_node)
+                type is (derived_type_node)
                 cycle
             class default
                 component_code = generate_code_from_arena(arena, component_index)
@@ -545,7 +545,7 @@ contains
 
             if (len_trim(component_code) == 0) cycle
             component_block = component_block // "    " // component_code // &
-                              new_line('A')
+                new_line('A')
         end do
     end function collect_derived_components
 
@@ -603,11 +603,11 @@ contains
             if (.not. arena%has_node_at(binding_index)) cycle
 
             select type (binding => arena%entries(binding_index)%node)
-            type is (type_binding_node)
+                type is (type_binding_node)
                 binding_code = generate_type_binding_code(binding)
                 if (len_trim(binding_code) > 0) then
                     bindings_block = bindings_block // "    " // binding_code // &
-                                     new_line('A')
+                        new_line('A')
                 end if
             end select
         end do

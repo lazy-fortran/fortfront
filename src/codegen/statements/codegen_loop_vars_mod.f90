@@ -6,7 +6,7 @@ module codegen_loop_vars_mod
 contains
 
     pure logical function is_var_declared_in_code(code, var_name) &
-        result(declared)
+            result(declared)
         character(len=*), intent(in) :: code
         character(len=*), intent(in) :: var_name
         integer :: search_start, decl_pos_rel, decl_pos_abs, var_search_start
@@ -36,10 +36,10 @@ contains
                     next_char = code(var_pos_abs + name_len:var_pos_abs + name_len)
                 end if
                 if ((prev_char == ' ' .or. prev_char == ',' .or. &
-                     prev_char == ':') .and. &
+                    prev_char == ':') .and. &
                     (next_char == ' ' .or. next_char == ',' .or. &
-                     next_char == new_line('A') .or. next_char == '(' .or. &
-                     next_char == char(13))) then
+                    next_char == new_line('A') .or. next_char == '(' .or. &
+                    next_char == char(13))) then
                     declared = .true.
                     return
                 end if
@@ -112,7 +112,7 @@ contains
         integer :: impl_pos
 
         if (n_vars == 0 .and. .not. (index(body_code, "[(") > 0 .and. &
-                                     index(body_code, ")]") > 0)) return
+            index(body_code, ")]") > 0)) return
 
         impl_pos = index(body_code, "implicit none")
         if (impl_pos > 0) then
@@ -149,7 +149,7 @@ contains
                 already_declared = is_var_declared_in_code(body_code, name_buf)
                 if (.not. already_declared) then
                     before_code = before_code // "    integer :: " // &
-                                  name_buf // new_line('A')
+                        name_buf // new_line('A')
                 end if
             end do
         else

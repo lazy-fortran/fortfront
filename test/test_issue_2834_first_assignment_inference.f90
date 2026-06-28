@@ -80,14 +80,14 @@ contains
         ok = standardize('examples/lf/docs_character_arrays.lf', output)
         if (.not. ok) return
         if (.not. expect(output, 'character(len=7) :: names(3)', &
-                         'character array')) ok = .false.
+            'character array')) ok = .false.
     end function test_character_array_declares_character
 
     logical function test_derived_constructor_declares_type() result(ok)
         character(len=:), allocatable :: output
 
         ok = standardize('examples/lf/issue_2827_derived_constructor_inference.lf', &
-                         output)
+            output)
         if (.not. ok) return
         if (.not. expect(output, 'type(point_t) :: p', 'derived')) ok = .false.
         if (index(output, 'external') > 0) then

@@ -1,8 +1,8 @@
 program test_issue_2014_elemental_only
     use transformation_api, only: compile_source, compilation_options_t
     use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-                                       cleanup_temp_directory, join_path, &
-                                       path_separator_for
+        cleanup_temp_directory, join_path, &
+        path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -29,7 +29,7 @@ program test_issue_2014_elemental_only
 
     input_file = join_path(temp_dir, 'test_issue_2014_elemental_only_input.f90', sep)
     output_file = join_path(temp_dir, 'test_issue_2014_elemental_only_output.f90', &
-                            sep)
+        sep)
 
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'program test_elemental_function'
@@ -76,7 +76,7 @@ program test_issue_2014_elemental_only
     end if
 
     print *, 'PASS: ELEMENTAL-only function prefix preserved'
-999 continue
+    999 continue
     call cleanup_temp_directory(temp_dir, is_windows)
     stop exit_code
 end program test_issue_2014_elemental_only

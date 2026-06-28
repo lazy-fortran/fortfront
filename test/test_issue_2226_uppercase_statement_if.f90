@@ -24,7 +24,7 @@ contains
         integer :: prog_index
 
         call read_example('examples/f90/issue_2226_uppercase_statement_if.f90', &
-                          input_code)
+            input_code)
 
         print *, ""
         print *, "Test: uppercase keywords in statement IF are accepted"

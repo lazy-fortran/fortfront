@@ -7,7 +7,7 @@ program if_multiline_guard
     tolerance = 0.1
 
     if (any(abs(samples) &
-            > tolerance)) then
+        > tolerance)) then
         print *, "values exceed tolerance"
     else
         print *, "values within tolerance"

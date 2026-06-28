@@ -2,8 +2,8 @@ program test_strict_call_argument_type_validation
     use, intrinsic :: iso_fortran_env, only: &
         error_unit, input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_context_t, transform_with_context, &
-                                  INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+        INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     implicit none
 
     character(len=:), allocatable :: source
@@ -15,7 +15,7 @@ program test_strict_call_argument_type_validation
     ctx%has_filename = .false.
 
     call read_example('examples/f90/issue_2593_call_argument_type_mismatch.f90', &
-                      source)
+        source)
 
     ctx%operating_mode = OPERATING_MODE_INFER
     call transform_with_context(source, output, error_msg, ctx)

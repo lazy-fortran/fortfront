@@ -53,30 +53,30 @@ program test_cycle_exit
     ! Test labeled loops with CYCLE
     count = 0
     outer: do i = 1, 3
-        inner: do j = 1, 3
-            if (i == j) cycle outer
-            count = count + 1
-        end do inner
-    end do outer
+    inner: do j = 1, 3
+    if (i == j) cycle outer
+    count = count + 1
+end do inner
+end do outer
 
-    if (count /= 3) then
-        print *, "Labeled CYCLE test failed: count should be 3"
-        stop 1
-    end if
+if (count /= 3) then
+    print *, "Labeled CYCLE test failed: count should be 3"
+    stop 1
+end if
 
-    ! Test labeled loops with EXIT
-    count = 0
-    outer2: do i = 1, 5
-        inner2: do j = 1, 5
-            count = count + 1
-            if (i == 2 .and. j == 3) exit outer2
-        end do inner2
-    end do outer2
+! Test labeled loops with EXIT
+count = 0
+outer2: do i = 1, 5
+inner2: do j = 1, 5
+count = count + 1
+if (i == 2 .and. j == 3) exit outer2
+end do inner2
+end do outer2
 
-    if (count /= 8) then
-        print *, "Labeled EXIT test failed: count should be 8"
-        stop 1
-    end if
+if (count /= 8) then
+    print *, "Labeled EXIT test failed: count should be 8"
+    stop 1
+end if
 
-    print *, "All tests passed!"
+print *, "All tests passed!"
 end program test_cycle_exit

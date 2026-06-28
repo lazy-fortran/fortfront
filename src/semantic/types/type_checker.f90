@@ -9,10 +9,10 @@ module type_checker
     public :: get_common_type, type_error
 
     ! Type compatibility levels
-    integer, parameter, public :: COMPAT_EXACT = 1  ! Exact type match
-    integer, parameter, public :: COMPAT_PROMOTE = 2  ! Type promotion allowed
-    integer, parameter, public :: COMPAT_CONVERT = 3  ! Type conversion allowed
-    integer, parameter, public :: COMPAT_NONE = 0  ! Not compatible
+    integer, parameter, public :: COMPAT_EXACT = 1 ! Exact type match
+    integer, parameter, public :: COMPAT_PROMOTE = 2 ! Type promotion allowed
+    integer, parameter, public :: COMPAT_CONVERT = 3 ! Type conversion allowed
+    integer, parameter, public :: COMPAT_NONE = 0 ! Not compatible
 
     interface get_common_type
         module procedure get_common_type_simple
@@ -27,7 +27,7 @@ contains
 
         ! Handle type variables
         if (from_type%kind == TVAR .or. to_type%kind == TVAR) then
-            assignable = .true.  ! Type variables can unify with anything
+            assignable = .true. ! Type variables can unify with anything
             return
         end if
 
@@ -41,7 +41,7 @@ contains
                 ! Arrays must have compatible element types and sizes
                 if (type_has_args(from_type) .and. type_has_args(to_type)) then
                     assignable = is_assignable(type_get_arg(from_type, 1), &
-                                               type_get_arg(to_type, 1))
+                        type_get_arg(to_type, 1))
                     if (assignable .and. from_type%size > 0 .and. to_type%size > 0) then
                         assignable = (from_type%size == to_type%size)
                     end if
@@ -137,7 +137,7 @@ contains
         end if
 
         ! Otherwise, no common type
-        common_type%kind = 0  ! Invalid type
+        common_type%kind = 0 ! Invalid type
 
     end function get_common_type_simple
 
@@ -179,7 +179,7 @@ contains
         ! Check element types are compatible
         if (type_has_args(array1) .and. type_has_args(array2)) then
             if (.not. is_assignable(type_get_arg(array1, 1), type_get_arg(array2, &
-                                                                          1))) return
+                1))) return
         else
             return
         end if
@@ -188,7 +188,7 @@ contains
         if (array1%size > 0 .and. array2%size > 0) then
             conformant = (array1%size == array2%size)
         else
-            conformant = .true.  ! Dynamic arrays assumed conformant
+            conformant = .true. ! Dynamic arrays assumed conformant
         end if
 
     end function check_array_conformance
@@ -200,7 +200,7 @@ contains
         character(len=:), allocatable :: msg
 
         msg = "Type error in " // trim(context) // ": expected " // &
-              expected%to_string() // " but got " // actual%to_string()
+            expected%to_string() // " but got " // actual%to_string()
 
     end function type_error
 

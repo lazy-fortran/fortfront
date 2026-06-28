@@ -50,7 +50,7 @@ contains
         integer :: unit, ios
 
         open (newunit=unit, file=path, status='replace', action='write', &
-              iostat=ios)
+            iostat=ios)
         call assert_equal_int(ios, 0, 'Failed to create empty input file')
         close (unit)
     end subroutine write_empty_file

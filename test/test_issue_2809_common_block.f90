@@ -30,10 +30,10 @@ program test_issue_2809_common_block
     do i = 1, arena%size
         if (.not. allocated(arena%entries(i)%node)) cycle
         select type (n => arena%entries(i)%node)
-        type is (common_block_node)
+            type is (common_block_node)
             common_count = common_count + 1
             call inspect_block(n, saw_shared, saw_blank)
-        type is (comment_node)
+            type is (comment_node)
             comment_count = comment_count + 1
         end select
     end do
@@ -91,7 +91,7 @@ contains
         if (.not. allocated(n%member_names)) return
         if (idx > size(n%member_names)) return
         if (allocated(n%member_names(idx)%s)) ok = trim(n%member_names(idx)%s) == &
-                                                   expected
+            expected
     end function member_is
 
     subroutine fail_on_error(error_msg, phase)

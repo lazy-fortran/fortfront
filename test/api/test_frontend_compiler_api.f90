@@ -1,8 +1,8 @@
 program test_frontend_compiler_api
     use fortfront, only: compiler_frontend_result_t, &
-                         compiler_frontend_options_t, &
-                         compile_frontend_from_string, &
-                         compile_frontend_from_file, get_node_type_at
+        compiler_frontend_options_t, &
+        compile_frontend_from_string, &
+        compile_frontend_from_file, get_node_type_at
     use ast_nodes_control, only: if_node
     use ast_nodes_io, only: print_statement_node
     implicit none
@@ -32,11 +32,11 @@ contains
     logical function test_compile_string()
         type(compiler_frontend_result_t) :: result
         character(len=*), parameter :: source = &
-                                       'program sample'//new_line('a')// &
-                                       '  implicit none'//new_line('a')// &
-                                       '  integer :: x'//new_line('a')// &
-                                       '  x = 3'//new_line('a')// &
-                                       'end program sample'
+            'program sample'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            '  x = 3'//new_line('a')// &
+            'end program sample'
 
         test_compile_string = .true.
         print *, 'Testing compile_frontend_from_string...'
@@ -81,15 +81,15 @@ contains
         type(compiler_frontend_result_t) :: result
         type(compiler_frontend_options_t) :: options
         character(len=*), parameter :: source = &
-                                       'program branch_sample'//new_line('a')// &
-                                       '  integer :: x'//new_line('a')// &
-                                       '  x = 5'//new_line('a')// &
-                                       '  if (x == 5) then'//new_line('a')// &
-                                       '    print *, 1'//new_line('a')// &
-                                       '  else'//new_line('a')// &
-                                       '    print *, 0'//new_line('a')// &
-                                       '  end if'//new_line('a')// &
-                                       'end program branch_sample'
+            'program branch_sample'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            '  x = 5'//new_line('a')// &
+            '  if (x == 5) then'//new_line('a')// &
+            '    print *, 1'//new_line('a')// &
+            '  else'//new_line('a')// &
+            '    print *, 0'//new_line('a')// &
+            '  end if'//new_line('a')// &
+            'end program branch_sample'
         integer :: i
         integer :: if_count
         integer :: then_index
@@ -114,7 +114,7 @@ contains
         do i = 1, result%arena%size
             if (.not. result%arena%has_node_at(i)) cycle
             select type (node => result%arena%entries(i)%node)
-            type is (if_node)
+                type is (if_node)
                 if_count = if_count + 1
                 branch_shape_ok = validate_block_if_node(result, i, node)
                 if (branch_shape_ok) then
@@ -185,7 +185,7 @@ contains
         if (.not. result%arena%has_node_at(node_index)) return
 
         select type (node => result%arena%entries(node_index)%node)
-        type is (print_statement_node)
+            type is (print_statement_node)
             is_print_node = .true.
         end select
     end function is_print_node
@@ -193,7 +193,7 @@ contains
     logical function test_file_diagnostics()
         type(compiler_frontend_result_t) :: result
         character(len=*), parameter :: file_path = &
-                                       'compiler_api_missing_sample.f90'
+            'compiler_api_missing_sample.f90'
 
         test_file_diagnostics = .true.
         print *, 'Testing file diagnostics retention...'
@@ -238,7 +238,7 @@ contains
         print *, 'Testing compile_frontend_from_file...'
 
         open (newunit=unit, file=file_path, status='replace', action='write', &
-              iostat=io_stat)
+            iostat=io_stat)
         if (io_stat /= 0) then
             print *, '  FAIL: unable to create sample file'
             test_compile_file = .false.

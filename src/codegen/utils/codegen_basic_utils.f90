@@ -57,15 +57,15 @@ contains
                 if (input_code(line_end:line_end) == char(13)) then
                     if (line_end + 1 <= len_input) then
                         if (input_code(line_end + 1:line_end + 1) == char(10)) then
-                            pos = line_end + 2  ! CRLF
+                            pos = line_end + 2 ! CRLF
                         else
-                            pos = line_end + 1  ! Lone CR
+                            pos = line_end + 1 ! Lone CR
                         end if
                     else
                         pos = line_end + 1
                     end if
                 else
-                    pos = line_end + 1  ! LF
+                    pos = line_end + 1 ! LF
                 end if
             else
                 pos = line_end + 1
@@ -108,10 +108,10 @@ contains
             if (remaining <= max_len) then
                 if (first_segment) then
                     output_code = output_code // input_line(segment_start:) // &
-                                  new_line('A')
+                        new_line('A')
                 else
                     output_code = output_code // continuation_str // &
-                                  input_line(segment_start:) // new_line('A')
+                        input_line(segment_start:) // new_line('A')
                 end if
                 exit
             end if
@@ -150,7 +150,7 @@ contains
             if (last_break == 0) then
                 if (in_string) then
                     output_code = output_code // input_line(segment_start:) // &
-                                  new_line('A')
+                        new_line('A')
                     exit
                 else
                     last_break = limit
@@ -161,10 +161,10 @@ contains
 
             if (first_segment) then
                 output_code = output_code // &
-                              input_line(segment_start:last_break)
+                    input_line(segment_start:last_break)
             else
                 output_code = output_code // continuation_str // &
-                              input_line(segment_start:last_break)
+                    input_line(segment_start:last_break)
             end if
 
             if (has_more) then

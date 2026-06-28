@@ -1,46 +1,46 @@
 module procedure_attribute_analyzer
-    use semantic_analyzer_base, only: semantic_analyzer_t
-    use semantic_context_types, only: semantic_context_base_t
-    use semantic_result_types, only: semantic_result_base_t
-    use ast_arena_modern, only: ast_arena_t
-    implicit none
-    private
+use semantic_analyzer_base, only: semantic_analyzer_t
+use semantic_context_types, only: semantic_context_base_t
+use semantic_result_types, only: semantic_result_base_t
+use ast_arena_modern, only: ast_arena_t
+implicit none
+private
 
-    public :: procedure_attribute_analyzer_t, procedure_info_t, procedure_registry_t
+public :: procedure_attribute_analyzer_t, procedure_info_t, procedure_registry_t
 
-    ! Parameter attribute information
-    type :: parameter_attribute_t
-        character(:), allocatable :: name
-        character(len=10) :: intent = ""  ! IN, OUT, INOUT, or empty
-        logical :: is_optional = .false.
-        logical :: is_allocatable = .false.
-        logical :: is_pointer = .false.
-        character(:), allocatable :: type_spec
-    end type
+! Parameter attribute information
+type :: parameter_attribute_t
+    character(:), allocatable :: name
+    character(len=10) :: intent = "" ! IN, OUT, INOUT, or empty
+    logical :: is_optional = .false.
+    logical :: is_allocatable = .false.
+    logical :: is_pointer = .false.
+    character(:), allocatable :: type_spec
+end type
 
-    ! Comprehensive procedure information
-    type :: procedure_info_t
-        character(:), allocatable :: name
-        integer :: node_index  ! AST node reference
-        integer :: declaration_line  ! Source location
+! Comprehensive procedure information
+type :: procedure_info_t
+    character(:), allocatable :: name
+    integer :: node_index ! AST node reference
+    integer :: declaration_line ! Source location
 
-        ! Core attributes
-        logical :: is_pure = .false.
-        logical :: is_elemental = .false.
-        logical :: is_recursive = .false.
-        logical :: is_module_procedure = .false.
-        logical :: is_abstract = .false.
-        logical :: is_interface = .false.
+    ! Core attributes
+    logical :: is_pure = .false.
+    logical :: is_elemental = .false.
+    logical :: is_recursive = .false.
+    logical :: is_module_procedure = .false.
+    logical :: is_abstract = .false.
+    logical :: is_interface = .false.
 
-        ! C interoperability
-        logical :: has_bind_c = .false.
-        character(:), allocatable :: bind_name  ! BIND(C, name="...")
+    ! C interoperability
+    logical :: has_bind_c = .false.
+    character(:), allocatable :: bind_name ! BIND(C, name="...")
 
-        ! Parameter attributes
-        type(parameter_attribute_t), allocatable :: parameters(:)
+    ! Parameter attributes
+    type(parameter_attribute_t), allocatable :: parameters(:)
 
-        ! Function-specific
-        logical :: is_function = .false.
+    ! Function-specific
+    logical :: is_function = .false.
         character(:), allocatable :: result_name
         character(:), allocatable :: result_type
 
@@ -110,7 +110,7 @@ contains
         ! Return the procedure registry
         allocate (procedure_registry_t :: results)
         select type (results)
-        type is (procedure_registry_t)
+            type is (procedure_registry_t)
             results = this%registry
         end select
     end function
@@ -130,7 +130,7 @@ contains
         class(semantic_analyzer_t), intent(in) :: rhs
 
         select type (rhs)
-        type is (procedure_attribute_analyzer_t)
+            type is (procedure_attribute_analyzer_t)
             lhs%registry = rhs%registry
             lhs%analysis_complete = rhs%analysis_complete
         class default
@@ -206,7 +206,7 @@ contains
         end if
 
         ! Build attribute list
-        allocate (temp_attrs(10))  ! Maximum possible attributes
+        allocate (temp_attrs(10)) ! Maximum possible attributes
         attr_count = 0
 
         if (proc_info%is_pure) then
@@ -363,7 +363,7 @@ contains
 
         allocate (procedure_registry_t :: cloned)
         select type (cloned)
-        type is (procedure_registry_t)
+            type is (procedure_registry_t)
             cloned = this
         end select
     end function
@@ -373,7 +373,7 @@ contains
         class(semantic_result_base_t), intent(in) :: other
 
         select type (other)
-        type is (procedure_registry_t)
+            type is (procedure_registry_t)
             ! Merge other registry into this one
             ! For now, just copy errors and warnings
             this%has_errors = this%has_errors .or. other%has_errors

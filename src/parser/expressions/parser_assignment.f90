@@ -1,12 +1,12 @@
 module parser_assignment_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_EOF, &
-                          TK_STRING, &
-                          TK_KEYWORD, TK_NEWLINE
+        TK_STRING, &
+        TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_range, parse_logical_eqv
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
-                           push_identifier, push_literal, push_complex_literal
+        push_identifier, push_literal, push_complex_literal
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
     private
@@ -31,7 +31,7 @@ contains
 
         if (is_multi_assignment) then
             call parse_multi_variable_assignment(parser, arena, stmt_index, &
-                                                 extra_indices)
+                extra_indices)
         else
             id_token = parser%consume()
             op_token = parser%peek()
@@ -48,43 +48,43 @@ contains
                 case ("=")
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, &
-                                                   id_token%line, &
-                                                   id_token%column)
+                        id_token%line, &
+                        id_token%column)
                     ! Use parse_logical_eqv to exclude = operator (prevents chained
                     ! assignment like a = b = c which is not valid Fortran)
                     value_index = parse_logical_eqv(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, &
-                                                     value_index, &
-                                                     id_token%line, id_token%column)
+                            value_index, &
+                            id_token%line, id_token%column)
                     end if
                 case (":=")
                     ! Walrus declaration-with-inference (LFortran extension):
                     ! name := expr declares name and infers its type from expr.
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, &
-                                                   id_token%line, &
-                                                   id_token%column)
+                        id_token%line, &
+                        id_token%column)
                     value_index = parse_logical_eqv(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, &
-                                                     value_index, &
-                                                     id_token%line, id_token%column, &
-                                                     is_walrus=.true.)
+                            value_index, &
+                            id_token%line, id_token%column, &
+                            is_walrus=.true.)
                     end if
                 case ("=>")
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, &
-                                                   id_token%line, &
-                                                   id_token%column)
+                        id_token%line, &
+                        id_token%column)
                     ! Use parse_logical_eqv to exclude = operator (prevents chained
                     ! pointer assignment)
                     value_index = parse_logical_eqv(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_pointer_assignment(arena, target_index, &
-                                                             value_index, &
-                                                             id_token%line, &
-                                                             id_token%column)
+                            value_index, &
+                            id_token%line, &
+                            id_token%column)
                     end if
                 case ("(", "%", ".")
                     block
@@ -146,15 +146,15 @@ contains
                         if (.not. allocated(assignment_op)) assignment_op = "="
                         if (assignment_op == "=>") then
                             stmt_index = push_pointer_assignment(arena, target_index, &
-                                                                 value_index, &
-                                                                 id_token%line, &
-                                                                 id_token%column)
+                                value_index, &
+                                id_token%line, &
+                                id_token%column)
                         else
                             stmt_index = push_assignment(arena, target_index, &
-                                                         value_index, &
-                                                         id_token%line, &
-                                                         id_token%column, &
-                                                         operator_text=assignment_op)
+                                value_index, &
+                                id_token%line, &
+                                id_token%column, &
+                                operator_text=assignment_op)
                         end if
                     end if
                 end select
@@ -216,7 +216,7 @@ contains
     end function is_multi_var_assignment
 
     subroutine parse_multi_variable_assignment(parser, arena, stmt_index, &
-                                               extra_indices)
+            extra_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -224,7 +224,7 @@ contains
         integer, allocatable :: assignment_indices(:)
 
         call parse_multi_variable_assignment_core(parser, arena, stmt_index, &
-                                                  assignment_indices)
+            assignment_indices)
 
         if (stmt_index == 0) then
             if (allocated(assignment_indices)) then

@@ -16,11 +16,11 @@ program test_issue_2141_interface_result
 
     ! Test case from issue #2141: interface block with result() clause
     input_code = "interface" // new_line('A') // &
-                 "    function external_func(x) result(y)" // new_line('A') // &
-                 "        real, intent(in) :: x" // new_line('A') // &
-                 "        real :: y" // new_line('A') // &
-                 "    end function external_func" // new_line('A') // &
-                 "end interface" // new_line('A')
+        "    function external_func(x) result(y)" // new_line('A') // &
+        "        real, intent(in) :: x" // new_line('A') // &
+        "        real :: y" // new_line('A') // &
+        "    end function external_func" // new_line('A') // &
+        "end interface" // new_line('A')
 
     arena = create_ast_arena()
     call lex_source(input_code, tokens, error_msg)

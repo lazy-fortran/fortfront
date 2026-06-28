@@ -1,7 +1,7 @@
 program test_semantic_integration
     use fortfront, only: lex_source, parse_tokens, analyze_semantics, &
-                          semantic_context_t, create_semantic_context, &
-                          emit_fortran, token_t
+        semantic_context_t, create_semantic_context, &
+        emit_fortran, token_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 

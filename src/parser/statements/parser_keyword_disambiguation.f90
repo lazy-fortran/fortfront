@@ -1,7 +1,7 @@
 module parser_keyword_disambiguation_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_COMMENT, TK_WHITESPACE, &
-                          TK_NEWLINE, TK_EOF, TK_KEYWORD, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, to_lower
+        TK_NEWLINE, TK_EOF, TK_KEYWORD, TK_IDENTIFIER, &
+        TK_NUMBER, TK_STRING, to_lower
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -13,7 +13,7 @@ module parser_keyword_disambiguation_module
 contains
 
     logical function keyword_should_parse_as_identifier(first_token, parser) &
-        result(as_identifier)
+            result(as_identifier)
         type(token_t), intent(in) :: first_token
         type(parser_state_t), intent(in) :: parser
         character(len=:), allocatable :: lowered
@@ -41,16 +41,16 @@ contains
     end function keyword_should_parse_as_identifier
 
     logical function keyword_supports_assignment_disambiguation(keyword) &
-        result(is_supported)
+            result(is_supported)
         character(len=*), intent(in) :: keyword
 
         select case (keyword)
         case ("call", "stop", "cycle", "exit", "return", &
-              "continue", "goto", "go", "entry", "select", &
-              "contains", "else", "dimension", "common", &
-              "program", "module", "if", "data", &
-              "read", "write", "print", "open", "close", &
-              "inquire", "backspace", "rewind", "endfile", "format")
+                "continue", "goto", "go", "entry", "select", &
+                "contains", "else", "dimension", "common", &
+                "program", "module", "if", "data", &
+                "read", "write", "print", "open", "close", &
+                "inquire", "backspace", "rewind", "endfile", "format")
             is_supported = .true.
         case default
             is_supported = .false.
@@ -191,7 +191,7 @@ contains
     end function statement_contains_assignment
 
     logical function assignment_operator_immediately_follows(parser) &
-        result(has_assignment)
+            result(has_assignment)
         type(parser_state_t), intent(in) :: parser
         integer :: idx, token_count
         type(token_t) :: tok
@@ -243,7 +243,7 @@ contains
     end function looks_like_format_statement
 
     logical function find_format_opening_paren(parser, idx, token_count) &
-        result(found)
+            result(found)
         type(parser_state_t), intent(in) :: parser
         integer, intent(inout) :: idx
         integer, intent(in) :: token_count
@@ -283,7 +283,7 @@ contains
     end function find_format_opening_paren
 
     logical function walk_format_specifier(parser, idx, depth, token_count) &
-        result(valid)
+            result(valid)
         type(parser_state_t), intent(in) :: parser
         integer, intent(inout) :: idx
         integer, intent(inout) :: depth
@@ -317,7 +317,7 @@ contains
     end function walk_format_specifier
 
     logical function check_format_statement_end(parser, idx, token_count) &
-        result(is_valid)
+            result(is_valid)
         type(parser_state_t), intent(in) :: parser
         integer, intent(inout) :: idx
         integer, intent(in) :: token_count
@@ -413,7 +413,7 @@ contains
         lowered = to_lower(trim(tok%text))
         select case (lowered)
         case ("none", "integer", "real", "logical", "character", "complex", &
-              "double", "type", "class", "procedure")
+                "double", "type", "class", "procedure")
             is_implicit = .true.
         case default
             is_implicit = .false.

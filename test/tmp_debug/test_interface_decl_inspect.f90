@@ -1,6 +1,6 @@
 program test_interface_decl_inspect
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_file, &
-                         ast_arena_t
+        ast_arena_t
     use ast_nodes_data, only: declaration_node
     use ast_nodes_procedure, only: function_def_node
     use standardizer_core, only: standardize_ast
@@ -15,7 +15,7 @@ program test_interface_decl_inspect
     options%run_semantics = .false.
 
     call tooling_load_ast_from_file('examples/f90/issue_2250_pure_interface.f90', &
-                                    arena, root_index, error_msg, options)
+        arena, root_index, error_msg, options)
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) stop 1
     end if
@@ -35,7 +35,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 print *, 'function idx', i
                 if (allocated(node%return_type)) then
                     print *, '  return_type=', trim(node%return_type)
@@ -56,7 +56,7 @@ contains
 
         if (.not. arena%has_node_at(idx)) return
         select type (decl => arena%entries(idx)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (allocated(decl%var_name)) then
                 print *, '  decl', idx, trim(decl%var_name), 'type=', &
                     trim(decl%type_name)

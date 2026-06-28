@@ -27,7 +27,7 @@ program test_multi_param_intent
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
     test_passed = index(result, "integer, intent(in) :: a, b, c") > 0 .or. &
-                  index(result, "integer :: a, b, c") > 0
+        index(result, "integer :: a, b, c") > 0
     if (test_passed) then
         print *, "  PASS: Multiple parameters with intent(in)"
     else
@@ -55,18 +55,18 @@ program test_multi_param_intent
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
     has_real_inputs = index(result, "real(dp), intent(in) :: x, y") > 0 .or. &
-                      index(result, "real(8), intent(in) :: x, y") > 0 .or. &
-                      index(result, "real, intent(in) :: x, y") > 0 .or. &
-                      index(result, "real(dp) :: x, y") > 0 .or. &
-                      index(result, "real(8) :: x, y") > 0 .or. &
-                      index(result, "real :: x, y") > 0
+        index(result, "real(8), intent(in) :: x, y") > 0 .or. &
+        index(result, "real, intent(in) :: x, y") > 0 .or. &
+        index(result, "real(dp) :: x, y") > 0 .or. &
+        index(result, "real(8) :: x, y") > 0 .or. &
+        index(result, "real :: x, y") > 0
 
     has_flag_param = index(result, "logical, intent(in) :: flag") > 0 .or. &
-                     index(result, "logical :: flag") > 0
+        index(result, "logical :: flag") > 0
 
     has_output_buffer = index(result, "real(dp), intent(out) :: output") > 0 .or. &
-                        index(result, "real(8), intent(out) :: output") > 0 .or. &
-                        index(result, "real, intent(out) :: output") > 0
+        index(result, "real(8), intent(out) :: output") > 0 .or. &
+        index(result, "real, intent(out) :: output") > 0
 
     test_passed = has_real_inputs .and. has_flag_param .and. has_output_buffer
 
@@ -92,11 +92,11 @@ program test_multi_param_intent
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
     test_passed = index(result, "real(dp) :: a, b, c, d") > 0 .or. &
-                  index(result, "real(8) :: a, b, c, d") > 0 .or. &
-                  index(result, "real :: a, b, c, d") > 0 .or. &
-                  index(result, "real(dp), intent(in) :: a, b, c, d") > 0 .or. &
-                  index(result, "real(8), intent(in) :: a, b, c, d") > 0 .or. &
-                  index(result, "real, intent(in) :: a, b, c, d") > 0
+        index(result, "real(8) :: a, b, c, d") > 0 .or. &
+        index(result, "real :: a, b, c, d") > 0 .or. &
+        index(result, "real(dp), intent(in) :: a, b, c, d") > 0 .or. &
+        index(result, "real(8), intent(in) :: a, b, c, d") > 0 .or. &
+        index(result, "real, intent(in) :: a, b, c, d") > 0
 
     if (test_passed) then
         print *, "  PASS: Parameters with kind specifiers"
@@ -122,10 +122,10 @@ program test_multi_param_intent
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
     test_passed = (index(result, "integer, intent(in) :: a") > 0 .or. &
-                   index(result, "integer :: a") > 0) .and. &
-                  (index(result, "integer, intent(in), optional :: b, c") > 0 .or. &
-                   index(result, "integer, optional :: b, c") > 0 .or. &
-                   index(result, "integer :: b, c") > 0)
+        index(result, "integer :: a") > 0) .and. &
+        (index(result, "integer, intent(in), optional :: b, c") > 0 .or. &
+        index(result, "integer, optional :: b, c") > 0 .or. &
+        index(result, "integer :: b, c") > 0)
 
     if (test_passed) then
         print *, "  PASS: Optional parameters"

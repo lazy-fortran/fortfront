@@ -3,7 +3,7 @@ module parser_template_blocks_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_template_block, push_trait_block, &
-                           push_requirement_block, push_implements_block
+        push_requirement_block, push_implements_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_module_structures_module, only: parse_module_body
     implicit none
@@ -47,16 +47,16 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                               has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices, &
-                               compact_end_keyword="endtemplate", &
-                               paired_end_keyword="template")
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword="endtemplate", &
+            paired_end_keyword="template")
 
         template_index = push_template_block(arena, template_name, &
-                                             parameter_names, &
-                                             declaration_indices, &
-                                             procedure_indices, &
-                                             has_contains, line, column)
+            parameter_names, &
+            declaration_indices, &
+            procedure_indices, &
+            has_contains, line, column)
     end function parse_template_block
 
     function parse_trait_block(parser, arena) result(trait_index)
@@ -90,14 +90,14 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                               has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices, &
-                               compact_end_keyword="endtrait", &
-                               paired_end_keyword="trait")
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword="endtrait", &
+            paired_end_keyword="trait")
 
         trait_index = push_trait_block(arena, trait_name, parameter_names, &
-                                       declaration_indices, procedure_indices, &
-                                       has_contains, line, column)
+            declaration_indices, procedure_indices, &
+            has_contains, line, column)
     end function parse_trait_block
 
     function parse_requirement_block(parser, arena) result(requirement_index)
@@ -131,16 +131,16 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                               has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices, &
-                               compact_end_keyword="endrequirement", &
-                               paired_end_keyword="requirement")
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword="endrequirement", &
+            paired_end_keyword="requirement")
 
         requirement_index = push_requirement_block(arena, requirement_name, &
-                                                   parameter_names, &
-                                                   declaration_indices, &
-                                                   procedure_indices, &
-                                                   has_contains, line, column)
+            parameter_names, &
+            declaration_indices, &
+            procedure_indices, &
+            has_contains, line, column)
     end function parse_requirement_block
 
     function parse_implements_block(parser, arena) result(implements_index)
@@ -174,16 +174,16 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                               has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices, &
-                               compact_end_keyword="endimplements", &
-                               paired_end_keyword="implements")
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword="endimplements", &
+            paired_end_keyword="implements")
 
         implements_index = push_implements_block(arena, implements_name, &
-                                                 parameter_names, &
-                                                 declaration_indices, &
-                                                 procedure_indices, has_contains, &
-                                                 line, column)
+            parameter_names, &
+            declaration_indices, &
+            procedure_indices, has_contains, &
+            line, column)
     end function parse_implements_block
 
     subroutine parse_optional_template_parameters(parser, parameter_names)

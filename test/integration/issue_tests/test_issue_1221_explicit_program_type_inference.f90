@@ -72,7 +72,7 @@ contains
 
         ! Check that array declaration was added (expected to fail - issue #1221)
         success = (index(output, "integer, dimension(3) :: arr") > 0) .or. &
-                  (index(output, "integer :: arr(3)") > 0)
+            (index(output, "integer :: arr(3)") > 0)
         if (success) then
             print *, "PASSED: Array type inference works for explicit program"
         else
@@ -97,8 +97,8 @@ contains
 
         ! Check that assignments are preserved (minimal requirement)
         success = (index(output, "x = 42") > 0) .and. &
-                  (index(output, "y = 3.14") > 0) .and. &
-                  (index(output, "flag = .true.") > 0)
+            (index(output, "y = 3.14") > 0) .and. &
+            (index(output, "flag = .true.") > 0)
         if (.not. success) then
             print *, "FAILED: Code transformation not working for explicit program"
             print *, "Output:"
@@ -108,8 +108,8 @@ contains
 
         ! Check that all declarations were added (expected to fail - issue #1221)
         success = (index(output, "integer :: x") > 0) .and. &
-                  (index(output, "real :: y") > 0) .and. &
-                  (index(output, "logical :: flag") > 0)
+            (index(output, "real :: y") > 0) .and. &
+            (index(output, "logical :: flag") > 0)
         if (success) then
             print *, "PASSED: Mixed type inference works for explicit program"
         else

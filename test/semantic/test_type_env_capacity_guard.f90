@@ -1,6 +1,6 @@
 program test_type_env_capacity_guard
     use type_system_unified, only: type_env_t, mono_type_t, poly_type_t, &
-                                   type_var_t, create_mono_type, create_poly_type, TINT
+        type_var_t, create_mono_type, create_poly_type, TINT
     use identifier_table, only: identifier_table_t, identifier_table_init
     implicit none
 

@@ -39,7 +39,7 @@ contains
         call get_standardizer_type_standardization( &
             standardizer_type_standardization_enabled)
         skip_result_standardization = function_in_interface_block(arena, &
-                                                                  func_index)
+            func_index)
         if (skip_result_standardization) then
             arena%entries(func_index)%node = local_def
             return
@@ -62,8 +62,8 @@ contains
         if (allocated(local_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                          line=1, column=1, &
-                                                          parent_index=func_index)
+                line=1, column=1, &
+                parent_index=func_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(local_def%body_indices) + 1))
@@ -95,7 +95,7 @@ contains
 
         call get_standardizer_type_standardization(type_std_enabled)
         call determine_preferred_result_name(arena, func_def, func_index, &
-                                             preferred_name)
+            preferred_name)
         call apply_result_variable(arena, func_def, func_index, preferred_name)
 
         if (.not. allocated(func_def%result_variable)) return

@@ -1,6 +1,6 @@
 module semantic_literal_type_helpers
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
-                                   TDOUBLE
+        TDOUBLE
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_nodes_core, only: literal_node
     use string_utils_mod, only: to_lower
@@ -110,7 +110,7 @@ contains
 
         code = iachar(ch)
         is_valid = (ch == '+') .or. (ch == '-') .or. &
-                   (code >= iachar('0') .and. code <= iachar('9'))
+            (code >= iachar('0') .and. code <= iachar('9'))
     end function is_digit_or_sign
 
 end module semantic_literal_type_helpers

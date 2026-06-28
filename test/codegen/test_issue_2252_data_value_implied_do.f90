@@ -22,7 +22,7 @@ contains
 
         ok = allocated(output)
         if (ok) ok = index(output, "data coeff/(i*1.0, i = 1, 2) /") > 0 .or. &
-                     index(output, "data coeff/(i*1.0_8, i = 1, 2) /") > 0
+            index(output, "data coeff/(i*1.0_8, i = 1, 2) /") > 0
         if (ok) ok = .not. allocated(error_msg) .or. len_trim(error_msg) == 0
 
         if (.not. ok) then

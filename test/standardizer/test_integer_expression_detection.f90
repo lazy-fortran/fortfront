@@ -12,18 +12,18 @@ program test_integer_expression_detection
     print *, '=== Integer Expression Detection Tests ==='
 
     call run_case('deep integer operations', &
-                  'program case1' // nl // &
-                  'integer :: a' // nl // &
-                  'a = ((1 + 2) * (3 + 4)) - (5 - 6)' // nl // &
-                  'end program case1', &
-                  'a', 'integer')
+        'program case1' // nl // &
+        'integer :: a' // nl // &
+        'a = ((1 + 2) * (3 + 4)) - (5 - 6)' // nl // &
+        'end program case1', &
+        'a', 'integer')
 
     call run_case('division downgrade', &
-                  'program case2' // nl // &
-                  'integer :: b' // nl // &
-                  'b = ((1 + 2) * (3 - 4)) / (5 + 6)' // nl // &
-                  'end program case2', &
-                  'b', 'real')
+        'program case2' // nl // &
+        'integer :: b' // nl // &
+        'b = ((1 + 2) * (3 - 4)) / (5 + 6)' // nl // &
+        'end program case2', &
+        'b', 'real')
 
     print *, 'All integer expression detection tests passed.'
 
@@ -62,7 +62,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 assignment_index = i
                 exit
             end select
@@ -80,7 +80,7 @@ contains
         allocate (function_names(0))
 
         call collect_assignment_vars(arena, assignment_index, var_names, var_types, &
-                                     var_declared, var_count, function_names, 0)
+            var_declared, var_count, function_names, 0)
 
         if (var_count /= 1) then
             print *, 'FAIL:', trim(test_name), 'unexpected var count', var_count

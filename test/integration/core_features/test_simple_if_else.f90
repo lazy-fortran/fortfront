@@ -15,11 +15,11 @@ program test_simple_if_else
 
     ! Test the exact case from the GitHub issue
     source = 'x = 5'//new_line('A')// &
-             'if (x > 3) then'//new_line('A')// &
-             '  print *, "big"'//new_line('A')// &
-             'else'//new_line('A')// &
-             '  print *, "small"'//new_line('A')// &
-             'end if'
+        'if (x > 3) then'//new_line('A')// &
+        '  print *, "big"'//new_line('A')// &
+        'else'//new_line('A')// &
+        '  print *, "small"'//new_line('A')// &
+        'end if'
 
     print *, "INPUT SOURCE:"
     print *, source

@@ -7,8 +7,8 @@ module frontend_program_builders
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &
-                              end_statement_node, comment_node, directive_node, &
-                              blank_line_node
+        end_statement_node, comment_node, directive_node, &
+        blank_line_node
     use ast_factory, only: push_implicit_statement
     use standardizer_program, only: insert_contains_statement
     use procedure_classification, only: procedure_has_entry_statement
@@ -29,7 +29,7 @@ module frontend_program_builders
 contains
 
     subroutine handle_mixed_construct_container(arena, root_index, root, &
-                                                proc_indices, main_stmts)
+            proc_indices, main_stmts)
         use ast_nodes_data, only: mixed_construct_container_node
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
@@ -41,7 +41,7 @@ contains
         integer, allocatable :: new_body(:)
 
         select type (mixed_root => root)
-        type is (mixed_construct_container_node)
+            type is (mixed_construct_container_node)
             if (allocated(mixed_root%implicit_declaration_indices)) then
                 do i = 1, size(mixed_root%implicit_declaration_indices)
                     child_index = mixed_root%implicit_declaration_indices(i)
@@ -55,9 +55,9 @@ contains
                     child_index = mixed_root%explicit_program_indices(i)
                     if (.not. arena%has_node_at(child_index)) cycle
                     select type (child => arena%entries(child_index)%node)
-                    type is (function_def_node)
+                        type is (function_def_node)
                         proc_indices = [proc_indices, child_index]
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         proc_indices = [proc_indices, child_index]
                     end select
                 end do
@@ -71,8 +71,8 @@ contains
                 if (size(main_stmts) == 0) return
 
                 implicit_none_index = push_implicit_statement(arena, .true., &
-                                                              line=1, column=1, &
-                                                              parent_index=0)
+                    line=1, column=1, &
+                    parent_index=0)
 
                 body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
                 allocate (new_body(body_size))
@@ -119,7 +119,7 @@ contains
     end subroutine handle_mixed_construct_container
 
     subroutine scan_multi_unit_program(arena, root, main_prog_index, &
-                                       candidate_prog_index, proc_indices, main_stmts)
+            candidate_prog_index, proc_indices, main_stmts)
         type(ast_arena_t), intent(inout) :: arena
         class(*), intent(in) :: root
         integer, intent(inout) :: main_prog_index
@@ -130,7 +130,7 @@ contains
         logical :: child_is_main_candidate, has_exec, has_procs
 
         select type (prog_root => root)
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             if (.not. allocated(prog_root%body_indices)) return
 
             do i = 1, size(prog_root%body_indices)
@@ -138,7 +138,7 @@ contains
                 if (.not. arena%has_node_at(child_index)) cycle
 
                 select type (child => arena%entries(child_index)%node)
-                type is (program_node)
+                    type is (program_node)
                     child_is_main_candidate = .false.
                     has_exec = program_has_executable_statements(arena, child_index)
                     has_procs = program_contains_procedures(arena, child_index)
@@ -156,14 +156,14 @@ contains
                     if (.not. child_is_main_candidate) then
                         if (.not. has_procs) then
                             call append_program_statements(arena, child_index, &
-                                                           main_stmts)
+                                main_stmts)
                         end if
                     else
                         cycle
                     end if
-                type is (function_def_node)
+                    type is (function_def_node)
                     proc_indices = [proc_indices, child_index]
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     proc_indices = [proc_indices, child_index]
                 class default
                     if (is_host_level_statement(arena, child_index)) then
@@ -179,8 +179,8 @@ contains
     end subroutine scan_multi_unit_program
 
     subroutine create_program_from_bare_statements(arena, root_index, &
-                                                   main_prog_index, proc_indices, &
-                                                   main_stmts)
+            main_prog_index, proc_indices, &
+            main_stmts)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, intent(inout) :: main_prog_index
@@ -193,7 +193,7 @@ contains
         if (size(main_stmts) == 0) return
 
         implicit_none_index = push_implicit_statement(arena, .true., &
-                                                      line=1, column=1, parent_index=0)
+            line=1, column=1, parent_index=0)
 
         body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
         allocate (new_body(body_size))
@@ -235,7 +235,7 @@ contains
         end do
 
         select type (root_prog => arena%entries(root_index)%node)
-        type is (program_node)
+            type is (program_node)
             deallocate (root_prog%body_indices)
             allocate (root_prog%body_indices(1))
             root_prog%body_indices(1) = main_prog_index
@@ -244,7 +244,7 @@ contains
     end subroutine create_program_from_bare_statements
 
     subroutine merge_procedures_into_program(arena, main_prog_index, &
-                                             proc_indices, main_stmts)
+            proc_indices, main_stmts)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: main_prog_index
         integer, allocatable, intent(in) :: proc_indices(:)
@@ -257,7 +257,7 @@ contains
         if (size(proc_indices) == 0) return
 
         select type (main_prog => arena%entries(main_prog_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(main_prog%body_indices)) then
                 allocate (main_prog%body_indices(0))
             end if
@@ -267,14 +267,14 @@ contains
                 idx = main_prog%body_indices(i)
                 if (.not. arena%has_node_at(idx)) cycle
                 select type (body_node => arena%entries(idx)%node)
-                type is (contains_node)
+                    type is (contains_node)
                     has_contains = .true.
                 end select
             end do
 
             if (.not. has_contains) then
                 call insert_contains_statement(arena, main_prog, main_prog_index, &
-                                               size(main_prog%body_indices) + 1)
+                    size(main_prog%body_indices) + 1)
             end if
 
             if (allocated(main_prog%body_indices)) then
@@ -283,9 +283,9 @@ contains
                     idx = main_prog%body_indices(i)
                     if (.not. arena%has_node_at(idx)) cycle
                     select type (body_node => arena%entries(idx)%node)
-                    type is (function_def_node)
+                        type is (function_def_node)
                         cycle
-                    type is (subroutine_def_node)
+                        type is (subroutine_def_node)
                         cycle
                     class default
                         filtered_body = [filtered_body, idx]
@@ -304,7 +304,7 @@ contains
                 idx = filtered_body(i)
                 if (.not. arena%has_node_at(idx)) cycle
                 select type (body_node => arena%entries(idx)%node)
-                type is (contains_node)
+                    type is (contains_node)
                     contains_pos = i
                     exit
                 end select
@@ -359,15 +359,15 @@ contains
         if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
                 if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     proc_indices = [proc_indices, stmt_idx]
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     proc_indices = [proc_indices, stmt_idx]
                 end select
             end do
@@ -383,21 +383,21 @@ contains
         if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
                 if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     cycle
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     cycle
-                type is (implicit_statement_node)
+                    type is (implicit_statement_node)
                     cycle
-                type is (contains_node)
+                    type is (contains_node)
                     cycle
-                type is (end_statement_node)
+                    type is (end_statement_node)
                     cycle
                 class default
                     if (is_host_level_statement(arena, stmt_idx)) then
@@ -409,7 +409,7 @@ contains
     end subroutine append_program_statements
 
     logical function program_has_executable_statements(arena, program_idx) &
-        result(has_exec)
+            result(has_exec)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: program_idx
         integer :: j, stmt_idx
@@ -418,29 +418,29 @@ contains
         if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
                 if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     cycle
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     cycle
-                type is (implicit_statement_node)
+                    type is (implicit_statement_node)
                     cycle
-                type is (contains_node)
+                    type is (contains_node)
                     exit
-                type is (end_statement_node)
+                    type is (end_statement_node)
                     cycle
-                type is (comment_node)
+                    type is (comment_node)
                     cycle
-                type is (directive_node)
+                    type is (directive_node)
                     cycle
-                type is (blank_line_node)
+                    type is (blank_line_node)
                     cycle
-                type is (declaration_node)
+                    type is (declaration_node)
                     cycle
                 class default
                     has_exec = .true.
@@ -451,7 +451,7 @@ contains
     end function program_has_executable_statements
 
     logical function program_contains_procedures(arena, program_idx) &
-        result(has_procs)
+            result(has_procs)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: program_idx
         integer :: j, stmt_idx
@@ -460,16 +460,16 @@ contains
         if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
-        type is (program_node)
+            type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
                 if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
-                type is (function_def_node)
+                    type is (function_def_node)
                     has_procs = .true.
                     return
-                type is (subroutine_def_node)
+                    type is (subroutine_def_node)
                     has_procs = .true.
                     return
                 end select
@@ -485,15 +485,15 @@ contains
         if (.not. arena%has_node_at(node_idx)) return
 
         select type (stmt => arena%entries(node_idx)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             is_host = .true.
-        type is (print_statement_node)
+            type is (print_statement_node)
             is_host = .true.
-        type is (if_node)
+            type is (if_node)
             is_host = .true.
-        type is (do_loop_node)
+            type is (do_loop_node)
             is_host = .true.
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             is_host = .true.
         end select
     end function is_host_level_statement

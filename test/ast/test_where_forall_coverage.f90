@@ -257,7 +257,7 @@ contains
 
         ! Verify preservation
         select type (node => arena%entries(where_idx)%node)
-        type is (where_node)
+            type is (where_node)
             if (.not. node%mask_is_simple) then
                 print *, "mask_is_simple not preserved in arena"
                 stop 1
@@ -308,7 +308,7 @@ contains
 
         ! Verify preservation
         select type (node => arena%entries(forall_idx)%node)
-        type is (forall_node)
+            type is (forall_node)
             if (node%has_dependencies) then
                 print *, "has_dependencies not preserved in arena"
                 stop 1

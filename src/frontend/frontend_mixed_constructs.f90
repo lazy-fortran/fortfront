@@ -4,13 +4,13 @@ module frontend_mixed_constructs
 
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_UNKNOWN, TK_WHITESPACE
+        TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+        TK_UNKNOWN, TK_WHITESPACE
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: mixed_construct_container_node, &
-                              create_mixed_construct_container
+        create_mixed_construct_container
     use mixed_construct_detector, only: &
         mixed_construct_result_t
 
@@ -25,7 +25,7 @@ contains
 
     ! Parse mixed constructs (Issue #511 support)
     subroutine parse_mixed_constructs(tokens, arena, mixed_result, &
-                                      prog_index, error_msg)
+            prog_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(mixed_construct_result_t), intent(in) :: mixed_result
@@ -64,7 +64,7 @@ contains
 
                 ! Parse this declaration range
                 call parse_declaration_range(range_tokens, arena, &
-                                             stmt_index, error_msg)
+                    stmt_index, error_msg)
 
                 if (len_trim(error_msg) > 0) then
                     return
@@ -105,7 +105,7 @@ contains
             used_tokens = .false.
 
             call get_environment_variable('FORTFRONT_DEBUG_MIXED', dump_flag, &
-                                          status=env_status)
+                status=env_status)
             if (env_status == 0 .and. len_trim(dump_flag) > 0) then
                 write (error_unit, '(A)') 'DEBUG mixed implicit ranges'
                 do i = 1, mixed_result%num_implicit_ranges
@@ -134,13 +134,13 @@ contains
             end do
 
             call parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-                                                     implicit_indices, error_msg)
+                implicit_indices, error_msg)
             if (len_trim(error_msg) > 0) return
         end if
 
         prog_index = create_mixed_construct_container_arena(arena, module_name, &
-                                                            implicit_indices, &
-                                                            explicit_indices)
+            implicit_indices, &
+            explicit_indices)
     end subroutine parse_mixed_constructs
 
     ! Parse declaration range
@@ -198,9 +198,9 @@ contains
 
     ! Create mixed construct container in arena
     function create_mixed_construct_container_arena(arena, module_name, &
-                                                    implicit_indices, &
-                                                    explicit_indices) &
-        result(container_index)
+            implicit_indices, &
+            explicit_indices) &
+            result(container_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         integer, intent(in) :: implicit_indices(:)
@@ -211,8 +211,8 @@ contains
 
         ! Create the mixed construct container node
         container_node = create_mixed_construct_container(module_name, &
-                                                          implicit_indices, &
-                                                          explicit_indices)
+            implicit_indices, &
+            explicit_indices)
 
         ! Add to arena using standard push method
         call arena%push(container_node, "mixed_construct_container", 0)
@@ -255,7 +255,7 @@ contains
     end subroutine mark_token_range
 
     subroutine parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-                                                   implicit_indices, error_msg)
+            implicit_indices, error_msg)
         type(token_t), intent(in) :: tokens(:)
         logical, intent(inout) :: used_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
@@ -280,10 +280,10 @@ contains
                 if (in_sequence) then
                     seq_end = i - 1
                     call parse_sequence(tokens, seq_start, seq_end, arena, &
-                                        stmt_index, error_msg)
+                        stmt_index, error_msg)
                     if (len_trim(error_msg) > 0) return
                     if (stmt_index > 0) call append_implicit(implicit_indices, &
-                                                             stmt_index)
+                        stmt_index)
                     call mark_token_range(used_tokens, seq_start, seq_end)
                     in_sequence = .false.
                 end if
@@ -293,7 +293,7 @@ contains
         if (in_sequence) then
             seq_end = size(tokens)
             call parse_sequence(tokens, seq_start, seq_end, arena, stmt_index, &
-                                error_msg)
+                error_msg)
             if (len_trim(error_msg) > 0) return
             if (stmt_index > 0) call append_implicit(implicit_indices, stmt_index)
             call mark_token_range(used_tokens, seq_start, seq_end)
@@ -311,7 +311,7 @@ contains
         end function token_has_content
 
         subroutine parse_sequence(all_tokens, start_idx, end_idx, arena, &
-                                  stmt_index, error_msg)
+                stmt_index, error_msg)
             type(token_t), intent(in) :: all_tokens(:)
             integer, intent(in) :: start_idx, end_idx
             type(ast_arena_t), intent(inout) :: arena
@@ -324,7 +324,7 @@ contains
 
             local_tokens = all_tokens(start_idx:end_idx)
             call parse_tokens_with_dispatcher(local_tokens, arena, stmt_index, &
-                                              error_msg)
+                error_msg)
         end subroutine parse_sequence
 
         subroutine append_implicit(implicit_indices, stmt_index)

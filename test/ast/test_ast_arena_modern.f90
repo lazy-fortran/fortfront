@@ -4,9 +4,9 @@ program test_ast_arena_modern
     ! Demonstrates 5-10x parsing speedup and 8x cache improvement
 
     use ast_arena_modern, only: ast_arena_t, ast_arena_stats_t, ast_node_arena_t, &
-                                ast_handle_t, create_ast_arena, destroy_ast_arena, &
-                                store_ast_node, get_ast_node, is_valid_ast_handle, &
-                                null_ast_handle
+        ast_handle_t, create_ast_arena, destroy_ast_arena, &
+        store_ast_node, get_ast_node, is_valid_ast_handle, &
+        null_ast_handle
     use ast_nodes_core, only: program_node
     implicit none
 

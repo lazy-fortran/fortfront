@@ -1,11 +1,11 @@
 module parser_assignment_shared_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, &
-                          TK_STRING, TK_KEYWORD, TK_NEWLINE
+        TK_STRING, TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_types, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_REAL, &
-                         LITERAL_STRING
+        LITERAL_STRING
     implicit none
     private
 
@@ -14,7 +14,7 @@ module parser_assignment_shared_module
 contains
 
     subroutine parse_multi_variable_assignment_core(parser, arena, stmt_index, &
-                                                    assignment_indices)
+            assignment_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -38,7 +38,7 @@ contains
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
                 target_index = push_identifier(arena, token%text, token%line, &
-                                               token%column)
+                    token%column)
                 var_indices = [var_indices, target_index]
 
                 token = parser%peek()
@@ -72,7 +72,7 @@ contains
                 token = parser%consume()
                 literal_type = determine_literal_type(token%kind, token%text)
                 value_index = push_literal(arena, token%text, literal_type, &
-                                           token%line, token%column)
+                    token%line, token%column)
                 value_indices = [value_indices, value_index]
 
                 token = parser%peek()
@@ -109,10 +109,10 @@ contains
                 assignment_line = parser%tokens(parser%current_token - 1)%line
                 assignment_column = parser%tokens(parser%current_token - 1)%column
                 local_assignment_indices = [local_assignment_indices, &
-                                            push_assignment(arena, target_index, &
-                                                            value_index, &
-                                                            assignment_line, &
-                                                            assignment_column)]
+                    push_assignment(arena, target_index, &
+                    value_index, &
+                    assignment_line, &
+                    assignment_column)]
             end if
         end do
 
@@ -129,8 +129,8 @@ contains
             type(token_t), intent(in) :: current_token
 
             is_logical = current_token%kind == TK_OPERATOR .and. &
-                         (current_token%text == ".true." .or. &
-                          current_token%text == ".false.")
+                (current_token%text == ".true." .or. &
+                current_token%text == ".false.")
         end function is_logical_operator_literal
 
         subroutine release_local_assignments(indices)
@@ -146,7 +146,7 @@ contains
     end subroutine parse_multi_variable_assignment_core
 
     integer function determine_literal_type(token_kind, token_text) &
-        result(literal_type)
+            result(literal_type)
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
 

@@ -17,7 +17,7 @@ program test_issue_2559_select_type_case_variations
     print *, '=== Test: SELECT TYPE handles mixed-case keywords ==='
 
     call read_example('examples/f90/issue_2559_select_type_case_variations.f90', &
-                      source)
+        source)
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -39,7 +39,7 @@ program test_issue_2559_select_type_case_variations
     do i = 1, arena%size
         if (.not. arena%has_node_at(i)) cycle
         select type (node => arena%entries(i)%node)
-        type is (select_type_node)
+            type is (select_type_node)
             has_select_type = .true.
             exit
         class default

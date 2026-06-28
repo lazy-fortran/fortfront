@@ -1,10 +1,10 @@
 program test_strict_allocatable_lhs_reallocation_implied_do
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_context_t, &
-                                  transform_with_context, &
-                                  INPUT_MODE_LAZY, &
-                                  OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+        transform_with_context, &
+        INPUT_MODE_LAZY, &
+        OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     implicit none
 
     character(len=:), allocatable :: error_msg
@@ -16,7 +16,7 @@ program test_strict_allocatable_lhs_reallocation_implied_do
     ctx%has_filename = .false.
 
     call read_example('examples/lf/issue_2691_implied_do_static_size_known.lf', &
-                      source)
+        source)
     ctx%operating_mode = OPERATING_MODE_INFER
     call transform_with_context(source, output, error_msg, ctx)
     call assert_no_error(error_msg)
@@ -24,10 +24,10 @@ program test_strict_allocatable_lhs_reallocation_implied_do
     ctx%operating_mode = OPERATING_MODE_STRICT
     call transform_with_context(source, output, error_msg, ctx)
     call assert_contains(error_msg, 'forbids automatic allocatable array '// &
-                         'reallocation')
+        'reallocation')
 
     call read_example('examples/lf/issue_2691_implied_do_static_size_unknown.lf', &
-                      source)
+        source)
     ctx%operating_mode = OPERATING_MODE_INFER
     call transform_with_context(source, output, error_msg, ctx)
     call assert_no_error(error_msg)

@@ -1,11 +1,11 @@
 program issue_2285_openmp_directives
     implicit none
     integer :: i
-!$omp parallel do
+    !$omp parallel do
     do i = 1, 2
         call emit_value(i)
     end do
-!$omp end parallel do
+    !$omp end parallel do
 contains
     subroutine emit_value(value)
         use, intrinsic :: iso_fortran_env, only: output_unit

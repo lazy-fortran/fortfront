@@ -72,7 +72,7 @@ contains
     end subroutine cache_store_results
 
     subroutine cache_retrieve_results(this, analyzer_name, pass_num, results, &
-                                      success)
+            success)
         class(analysis_cache_t), intent(in) :: this
         character(len=*), intent(in) :: analyzer_name
         integer, intent(in) :: pass_num

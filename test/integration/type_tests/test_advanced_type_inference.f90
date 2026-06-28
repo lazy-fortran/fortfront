@@ -22,7 +22,7 @@ program test_advanced_type_inference
         real :: result
 
         int_arr = [10, 20, 30, 40, 50]
-        result = sum(int_arr) / size(int_arr)  ! Should promote to real
+        result = sum(int_arr) / size(int_arr) ! Should promote to real
 
         if (abs(result - 30.0) > 1e-6) then
             print *, "Type inference test failed: mixed arithmetic incorrect"
@@ -50,7 +50,7 @@ program test_advanced_type_inference
 
         x = 2.0
         y = 3.0
-        result = sqrt(x * x + y * y)  ! Should infer real throughout
+        result = sqrt(x * x + y * y) ! Should infer real throughout
 
         if (abs(result - sqrt(13.0)) > 1e-6) then
             print *, "Type inference test failed: function composition incorrect"

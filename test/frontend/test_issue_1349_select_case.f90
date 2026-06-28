@@ -13,7 +13,7 @@ program test_issue_1349_select_case
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     call require(.not. allocated(error_msg) .or. len_trim(error_msg) == 0, &
-                 'Unexpected parser error: '//merge(error_msg, '', allocated(error_msg)))
+        'Unexpected parser error: '//merge(error_msg, '', allocated(error_msg)))
     call require(allocated(output_code), 'No output generated')
 
     call require(index(output_code, 'case (1)') > 0, 'Missing case (1) block')
@@ -23,13 +23,13 @@ program test_issue_1349_select_case
     call require(index(output_code, 'case default') > 0, 'Missing default case block')
     call require(index(output_code, 'print *, ''One''') > 0, 'Missing first case body')
     call require(index(output_code, 'print *, ''Two or Three''') > 0, &
-                 'Missing range case body')
+        'Missing range case body')
     call require(index(output_code, 'print *, ''Four''') > 0, 'Missing third case body')
     call require(index(output_code, 'print *, ''FiveSixSeven''') > 0, 'Missing multi-value case body')
     call require(index(output_code, 'print *, ''Other''') > 0, 'Missing default body')
     call require(index(output_code, 'select case (i)'//new_line('a')// &
-                       '        end select') == 0, &
-                 'Case bodies emitted outside of SELECT construct')
+        '        end select') == 0, &
+        'Case bodies emitted outside of SELECT construct')
 
 contains
 

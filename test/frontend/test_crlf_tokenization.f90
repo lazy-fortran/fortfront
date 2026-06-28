@@ -1,7 +1,7 @@
 program test_crlf_tokenization
     use lexer_core, only: tokenize_core, token_t, TK_KEYWORD, TK_IDENTIFIER
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-                         ast_arena_t, ast_to_json
+        ast_arena_t, ast_to_json
     implicit none
 
     type(token_t), allocatable :: tokens(:)

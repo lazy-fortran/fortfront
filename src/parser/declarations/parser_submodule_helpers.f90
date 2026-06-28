@@ -3,26 +3,26 @@ module parser_submodule_helpers_module
     ! Handles statement-level parsing within submodule bodies
     ! ISO/IEC 1539-1:2008 Section 11.2
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_visibility_statement, push_namelist_statement, &
-                           push_assignment, push_identifier, push_literal, &
-                           push_error_node, push_subroutine_def
+        push_assignment, push_identifier, push_literal, &
+        push_error_node, push_subroutine_def
     use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
-                                   parser_is_at_type_definition
+        parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
-                                                   parse_subroutine_definition, &
-                                                   parse_interface_block
+        parse_subroutine_definition, &
+        parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_procedure_definition_bodies_module, only: parse_procedure_body
     use parser_import_resolution_module, only: parse_use_statement
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
-                                                 take_implicit_additional_indices
+        take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     implicit none
     private
@@ -44,7 +44,7 @@ module parser_submodule_helpers_module
 contains
 
     function parse_submodule_declaration_statement(parser, arena, &
-                                                   prefix_buffer) result(stmt_index)
+            prefix_buffer) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -88,12 +88,12 @@ contains
             stmt_index = parse_interface_block(parser, arena, prefix_buffer)
         case ("abstract")
             stmt_index = parse_abstract_interface_in_submodule(parser, arena, &
-                                                               prefix_buffer)
+                prefix_buffer)
         end select
     end function parse_submodule_declaration_statement
 
     function handle_procedure_keyword_in_contains(parser, arena, prefix_buffer, &
-                                                  lowered) result(stmt_index)
+            lowered) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -117,7 +117,7 @@ contains
     end function handle_procedure_keyword_in_contains
 
     function handle_prefix_modifier_in_contains(parser, prefix_buffer, lowered) &
-        result(handled)
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=*), intent(in) :: lowered
@@ -129,7 +129,7 @@ contains
 
         select case (trim(lowered))
         case ("pure", "elemental", "impure", "recursive", &
-              "nonrecursive", "non_recursive")
+                "nonrecursive", "non_recursive")
             call prefix_buffer%get_all(stored)
             call append_prefix_token(stored, trim(lowered))
             call prefix_buffer%set(stored)
@@ -209,7 +209,7 @@ contains
     end function is_separate_module_procedure_start
 
     function handle_type_prefix_in_contains(parser, prefix_buffer, lowered) &
-        result(handled)
+            result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=*), intent(in) :: lowered
@@ -222,7 +222,7 @@ contains
 
         select case (trim(lowered))
         case ("integer", "real", "logical", "character", "complex", &
-              "double", "procedure")
+                "double", "procedure")
             call prefix_buffer%get_all(stored)
             if (trim(lowered) == "double") then
                 lookahead = parser%get_token_at_index(parser%current_token + 1)
@@ -267,7 +267,7 @@ contains
     end function handle_type_prefix_in_contains
 
     function parse_contains_section_item_submodule(parser, arena, prefix_buffer) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -280,7 +280,7 @@ contains
         lowered = to_lower(token%text)
 
         stmt_index = handle_procedure_keyword_in_contains(parser, arena, &
-                                                          prefix_buffer, lowered)
+            prefix_buffer, lowered)
         if (stmt_index /= 0) return
 
         ! Check for separate module procedure definition
@@ -288,14 +288,14 @@ contains
         if (token%kind == TK_KEYWORD .and. lowered == "module") then
             if (is_separate_module_procedure_start(parser)) then
                 stmt_index = parse_separate_module_procedure(parser, arena, &
-                                                             prefix_buffer)
+                    prefix_buffer)
                 return
             end if
         end if
 
         if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
             if (handle_prefix_modifier_in_contains(parser, prefix_buffer, &
-                                                   lowered)) then
+                lowered)) then
                 stmt_index = -1
                 return
             end if
@@ -307,7 +307,7 @@ contains
     end function parse_contains_section_item_submodule
 
     function parse_separate_module_procedure(parser, arena, prefix_buffer) &
-        result(proc_index)
+            result(proc_index)
         ! Parse a separate module procedure definition
         ! ISO/IEC 1539-1:2008 Section 12.6.2.5
         ! Syntax: module procedure <name>
@@ -370,8 +370,8 @@ contains
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
             proc_index = push_error_node(arena, "Expected procedure name after " &
-                                         //"module procedure", &
-                                         line=line, column=column)
+                //"module procedure", &
+                line=line, column=column)
             return
         end if
         procedure_name = trim(token%text)
@@ -379,14 +379,14 @@ contains
 
         ! Parse the procedure body until end procedure
         call parse_procedure_body(parser, arena, procedure_name, "procedure", &
-                                  body_indices, infer_recursive)
+            body_indices, infer_recursive)
 
         ! Create subroutine def node with module prefix
         ! Note: module procedure has no parameters - they come from the interface
         proc_index = push_subroutine_def(arena, procedure_name, &
-                                         body_indices=body_indices, &
-                                         line=line, column=column, &
-                                         prefix_keywords=prefix_keywords)
+            body_indices=body_indices, &
+            line=line, column=column, &
+            prefix_keywords=prefix_keywords)
     end function parse_separate_module_procedure
 
     function parse_visibility_statement_in_submodule(parser, arena) result(stmt_index)
@@ -442,14 +442,14 @@ contains
 
         if (allocated(names)) then
             stmt_index = push_visibility_statement(arena, is_private, names, &
-                                                   keyword_token%line, &
-                                                   keyword_token%column, &
-                                                   has_double_colon=has_double_colon)
+                keyword_token%line, &
+                keyword_token%column, &
+                has_double_colon=has_double_colon)
         else
             stmt_index = push_visibility_statement(arena, is_private, &
-                                                   line=keyword_token%line, &
-                                                   column=keyword_token%column, &
-                                                   has_double_colon=has_double_colon)
+                line=keyword_token%line, &
+                column=keyword_token%column, &
+                has_double_colon=has_double_colon)
         end if
     end function parse_visibility_statement_in_submodule
 
@@ -475,10 +475,10 @@ contains
 
         if (allocated(names)) then
             stmt_index = push_namelist_statement(arena, group_name, names, &
-                                                 line, column)
+                line, column)
         else
             stmt_index = push_namelist_statement(arena, group_name, line=line, &
-                                                 column=column)
+                column=column)
         end if
     end function parse_namelist_statement_in_submodule
 
@@ -491,7 +491,7 @@ contains
     end subroutine parse_simple_implicit_in_submodule
 
     subroutine handle_submodule_identifier_assignment(parser, arena, &
-                                                      declaration_indices)
+            declaration_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: declaration_indices(:)
@@ -510,7 +510,7 @@ contains
         assignment_op = eq_token%text
 
         target_index = push_identifier(arena, id_token%text, id_token%line, &
-                                       id_token%column)
+            id_token%column)
 
         rhs_token = parser%peek()
         if (rhs_token%kind /= TK_NUMBER .and. rhs_token%kind /= TK_IDENTIFIER) then
@@ -520,25 +520,25 @@ contains
         rhs_token = parser%consume()
         if (rhs_token%kind == TK_IDENTIFIER) then
             rhs_index = push_identifier(arena, rhs_token%text, rhs_token%line, &
-                                        rhs_token%column)
+                rhs_token%column)
         else
             rhs_index = push_literal(arena, rhs_token%text, rhs_token%line, &
-                                     rhs_token%column, LITERAL_STRING)
+                rhs_token%column, LITERAL_STRING)
         end if
 
         if (rhs_index <= 0 .or. target_index <= 0) return
 
         if (.not. allocated(assignment_op)) assignment_op = "="
         assign_index = push_assignment(arena, target_index, rhs_index, &
-                                       id_token%line, id_token%column, &
-                                       operator_text=assignment_op)
+            id_token%line, id_token%column, &
+            operator_text=assignment_op)
         if (assign_index > 0) then
             declaration_indices = [declaration_indices, assign_index]
         end if
     end subroutine handle_submodule_identifier_assignment
 
     function parse_abstract_interface_in_submodule(parser, arena, prefix_buffer) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -570,7 +570,7 @@ contains
         if (is_abstract_interface) then
             token = parser%consume()
             stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
-                                               is_abstract=.true.)
+                is_abstract=.true.)
         end if
     end function parse_abstract_interface_in_submodule
 

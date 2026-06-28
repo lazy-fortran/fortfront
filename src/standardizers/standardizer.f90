@@ -90,23 +90,23 @@ module standardizer
 
     ! Re-export all public interfaces
     public :: &
-        ! Core functionality
-        standardize_ast, &
+    ! Core functionality
+    standardize_ast, &
         standardize_multi_unit_children, &
         set_standardizer_type_standardization, &
         get_standardizer_type_standardization, &
         set_standardizer_input_mode, &
         string_result_t, &
         INVALID_INTEGER, &
-        ! Program standardization
-        standardize_program, &
+    ! Program standardization
+    standardize_program, &
         analyze_program_content, &
         find_contains_insertion_point, &
         insert_contains_statement, &
-        ! Module standardization
-        standardize_module, &
-        ! Declaration generation
-        insert_variable_declarations, &
+    ! Module standardization
+    standardize_module, &
+    ! Declaration generation
+    insert_variable_declarations, &
         has_implicit_none, &
         program_has_variable_declarations, &
         find_declaration_insertion_point, &
@@ -119,8 +119,8 @@ module standardizer
         add_variable, &
         mark_variable_declared, &
         standardize_declarations, &
-        ! Subprogram standardization
-        standardize_subprograms, &
+    ! Subprogram standardization
+    standardize_subprograms, &
         standardize_function_def, &
         standardize_subroutine_def, &
         standardize_function_parameters, &
@@ -128,8 +128,8 @@ module standardizer
         wrap_function_in_program, &
         wrap_subroutine_in_program, &
         infer_parameter_type, &
-        ! Type utilities
-        is_array_type, &
+    ! Type utilities
+    is_array_type, &
         get_expression_type, &
         has_array_slice_args, &
         is_array_expression, &
@@ -140,8 +140,8 @@ module standardizer
         get_array_var_type, &
         infer_element_type_from_literal, &
         get_fortran_type_string, &
-        ! Allocatable marking
-        mark_allocatable_for_array_reassignments, &
+    ! Allocatable marking
+    mark_allocatable_for_array_reassignments, &
         mark_allocatable_for_string_length_changes, &
         count_variable_assignments, &
         mark_declarations_allocatable, &
@@ -152,7 +152,7 @@ module standardizer
         is_procedure_parameter, &
         is_type_component, &
         collect_string_vars_needing_allocatable, &
-        ! Pointer attribute helpers
-        mark_pointer_targets
+    ! Pointer attribute helpers
+    mark_pointer_targets
 
 end module standardizer

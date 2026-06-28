@@ -18,8 +18,8 @@ program test_parse_forall_construct_body
     print *, '=== Test: parse_forall constructs body assignments ==='
 
     source = 'forall (i = 1:5)' // new_line('a') // &
-             '  a(i) = i' // new_line('a') // &
-             'end forall'
+        '  a(i) = i' // new_line('a') // &
+        'end forall'
 
     call tokenize_core(source, tokens)
     parser = create_parser_state(tokens)
@@ -40,7 +40,7 @@ program test_parse_forall_construct_body
     end if
 
     select type (node => arena%entries(forall_index)%node)
-    type is (forall_node)
+        type is (forall_node)
         if (.not. allocated(node%body_indices)) then
             write (error_unit, '(a)') 'ERROR: Forall body indices not allocated'
             stop 1
@@ -50,9 +50,9 @@ program test_parse_forall_construct_body
             if (node%body_indices(i) <= 0) cycle
             if (.not. arena%has_node_at(node%body_indices(i))) cycle
             select type (body_node => arena%entries(node%body_indices(i))%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 has_assignment = .true.
-            type is (literal_node)
+                type is (literal_node)
                 if (allocated(body_node%value)) then
                     if (index(body_node%value, '! Unparsed') > 0) has_unparsed = .true.
                 end if

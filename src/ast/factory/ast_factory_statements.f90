@@ -3,14 +3,14 @@ module ast_factory_statements
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
-                              intrinsic_statement_node, visibility_statement_node, &
-                              namelist_statement_node, data_statement_node, &
-                              include_statement_node, import_statement_node, &
-                              end_statement_node, allocate_statement_node, &
-                              deallocate_statement_node, create_implicit_statement
+        intrinsic_statement_node, visibility_statement_node, &
+        namelist_statement_node, data_statement_node, &
+        include_statement_node, import_statement_node, &
+        end_statement_node, allocate_statement_node, &
+        deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
-                                 error_stop_node, cycle_node, exit_node, &
-                                 continue_node, pause_node, nullify_node
+        error_stop_node, cycle_node, exit_node, &
+        continue_node, pause_node, nullify_node
     use ast_nodes_io, only: io_implied_do_node
     use ast_nodes_legacy, only: common_block_node, enum_node
     implicit none
@@ -18,12 +18,12 @@ module ast_factory_statements
 
     ! Public statement node creation functions
     public :: push_use_statement, push_intrinsic_statement, &
-              push_visibility_statement, push_namelist_statement, &
-              push_data_statement, push_implicit_statement, &
-              push_include_statement, push_import_statement
+        push_visibility_statement, push_namelist_statement, &
+        push_data_statement, push_implicit_statement, &
+        push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_entry, push_continue, push_goto, &
-              push_error_stop
+        push_error_stop
     public :: push_cycle, push_exit, push_pause, push_nullify
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
@@ -33,16 +33,16 @@ contains
 
     ! Create use statement node and add to stack
     function push_use_statement(arena, module_name, only_list, rename_list, &
-                                has_only, line, column, parent_index, &
-                                url_spec, has_double_colon, is_intrinsic, &
-                                is_non_intrinsic) result(use_index)
+            has_only, line, column, parent_index, &
+            url_spec, has_double_colon, is_intrinsic, &
+            is_non_intrinsic) result(use_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         logical, intent(in), optional :: has_double_colon, is_intrinsic, &
-                                         is_non_intrinsic
+            is_non_intrinsic
         integer, intent(in), optional :: line, column, parent_index
         integer :: use_index
         type(use_statement_node) :: use_stmt
@@ -78,8 +78,8 @@ contains
     end function push_use_statement
 
     function push_intrinsic_statement(arena, procedure_names, line, column, &
-                                      parent_index, has_double_colon) &
-        result(stmt_index)
+            parent_index, has_double_colon) &
+            result(stmt_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: procedure_names(:)
         integer, intent(in), optional :: line, column, parent_index
@@ -106,8 +106,8 @@ contains
     end function push_intrinsic_statement
 
     function push_visibility_statement(arena, is_private, names, line, column, &
-                                       parent_index, has_double_colon) &
-        result(vis_index)
+            parent_index, has_double_colon) &
+            result(vis_index)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: is_private
         character(len=*), intent(in), optional :: names(:)
@@ -138,7 +138,7 @@ contains
     end function push_visibility_statement
 
     function push_namelist_statement(arena, group_name, variable_names, line, column, &
-                                     parent_index) result(namelist_index)
+            parent_index) result(namelist_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: group_name
         character(len=*), intent(in), optional :: variable_names(:)
@@ -166,7 +166,7 @@ contains
     end function push_namelist_statement
 
     function push_data_statement(arena, object_indices, value_indices, line, column, &
-                                 parent_index) result(data_index)
+            parent_index) result(data_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: object_indices(:)
         integer, intent(in) :: value_indices(:)
@@ -191,7 +191,7 @@ contains
     end function push_data_statement
 
     function push_common_block(arena, block_names, member_names, member_block, &
-                               line, column, parent_index) result(common_index)
+            line, column, parent_index) result(common_index)
         type(ast_arena_t), intent(inout) :: arena
         type(string_t), intent(in) :: block_names(:)
         type(string_t), intent(in) :: member_names(:)
@@ -211,7 +211,7 @@ contains
     end function push_common_block
 
     function push_enum(arena, enumerator_names, enumerator_values, is_bind_c, &
-                       line, column, parent_index) result(enum_index)
+            line, column, parent_index) result(enum_index)
         type(ast_arena_t), intent(inout) :: arena
         type(string_t), intent(in) :: enumerator_names(:)
         integer, intent(in) :: enumerator_values(:)
@@ -232,8 +232,8 @@ contains
 
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &
-                                end_expr_index, step_expr_index, line, column, &
-                                parent_index, object_indices) result(node_index)
+            end_expr_index, step_expr_index, line, column, &
+            parent_index, object_indices) result(node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
@@ -266,9 +266,9 @@ contains
 
     ! Create implicit statement node and add to stack
     function push_implicit_statement(arena, is_none, type_name, kind_value, has_kind, &
-                                     length_value, has_length, letter_ranges, &
-                                     line, column, parent_index, none_spec) &
-        result(implicit_index)
+            length_value, has_length, letter_ranges, &
+            line, column, parent_index, none_spec) &
+            result(implicit_index)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: is_none
         character(len=*), intent(in), optional :: type_name
@@ -283,16 +283,16 @@ contains
         type(implicit_statement_node) :: implicit_stmt
 
         implicit_stmt = create_implicit_statement(is_none, type_name, kind_value, &
-                                                  has_kind, length_value, &
-                                                  has_length, letter_ranges, &
-                                                  line, column, none_spec)
+            has_kind, length_value, &
+            has_length, letter_ranges, &
+            line, column, none_spec)
         call arena%push(implicit_stmt, "implicit_statement", parent_index)
         implicit_index = arena%size
     end function push_implicit_statement
 
     ! Create include statement node and add to stack
     function push_include_statement(arena, filename, line, column, &
-                                    parent_index) result(include_index)
+            parent_index) result(include_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: filename
         integer, intent(in), optional :: line, column, parent_index
@@ -308,8 +308,8 @@ contains
     end function push_include_statement
 
     function push_import_statement(arena, import_list, has_double_colon, is_all, &
-                                   is_none, line, column, parent_index) &
-        result(import_index)
+            is_none, line, column, parent_index) &
+            result(import_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: import_list(:)
         logical, intent(in), optional :: has_double_colon, is_all, is_none
@@ -354,7 +354,7 @@ contains
 
     ! Create STOP statement node and add to stack
     function push_stop(arena, stop_code_index, stop_message, line, column, &
-                       parent_index) result(stop_index)
+            parent_index) result(stop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: stop_code_index
         character(len=*), intent(in), optional :: stop_message
@@ -387,7 +387,7 @@ contains
 
     ! Create ENTRY statement node and add to stack
     function push_entry(arena, name, params_text, param_indices, line, column, &
-                        parent_index) result(entry_index)
+            parent_index) result(entry_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: params_text
@@ -422,7 +422,7 @@ contains
 
     ! Create GOTO statement node and add to stack
     function push_goto(arena, label, label_list, selector_index, line, column, &
-                       parent_index) result(goto_index)
+            parent_index) result(goto_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: label
         character(len=*), intent(in), optional :: label_list
@@ -443,7 +443,7 @@ contains
 
     ! Create ERROR STOP statement node and add to stack
     function push_error_stop(arena, error_code_index, error_message, line, column, &
-                             parent_index) result(error_stop_index)
+            parent_index) result(error_stop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: error_code_index
         character(len=*), intent(in), optional :: error_message
@@ -462,7 +462,7 @@ contains
     end function push_error_stop
 
     function push_pause(arena, pause_code_index, pause_message, line, column, &
-                        parent_index) result(pause_index)
+            parent_index) result(pause_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: pause_code_index
         character(len=*), intent(in), optional :: pause_message
@@ -482,7 +482,7 @@ contains
 
     ! Create NULLIFY statement node and add to stack
     function push_nullify(arena, pointer_indices, line, column, &
-                          parent_index) result(nullify_index)
+            parent_index) result(nullify_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: pointer_indices(:)
         integer, intent(in), optional :: line, column, parent_index
@@ -503,7 +503,7 @@ contains
 
     ! Create CYCLE statement node and add to stack
     function push_cycle(arena, loop_label, line, column, parent_index) &
-        result(cycle_index)
+            result(cycle_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: loop_label
         integer, intent(in), optional :: line, column, parent_index
@@ -520,7 +520,7 @@ contains
 
     ! Create EXIT statement node and add to stack
     function push_exit(arena, loop_label, line, column, parent_index) &
-        result(exit_index)
+            result(exit_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: loop_label
         integer, intent(in), optional :: line, column, parent_index
@@ -537,8 +537,8 @@ contains
 
     ! Create allocate statement node and add to stack
     function push_allocate(arena, var_indices, shape_indices, stat_var_index, &
-                           errmsg_var_index, source_expr_index, mold_expr_index, &
-                           line, column, parent_index, type_spec) result(alloc_index)
+            errmsg_var_index, source_expr_index, mold_expr_index, &
+            line, column, parent_index, type_spec) result(alloc_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: var_indices(:)
         integer, intent(in), optional :: shape_indices(:)
@@ -583,7 +583,7 @@ contains
 
     ! Create deallocate statement node and add to stack
     function push_deallocate(arena, var_indices, stat_var_index, errmsg_var_index, &
-                             line, column, parent_index) result(dealloc_index)
+            line, column, parent_index) result(dealloc_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: var_indices(:)
         integer, intent(in), optional :: stat_var_index

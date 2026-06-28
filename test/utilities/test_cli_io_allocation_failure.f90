@@ -1,7 +1,7 @@
 program test_cli_io_allocation_failure
     use, intrinsic :: iso_fortran_env, only: error_unit
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-                                       make_temp_file_path
+        make_temp_file_path
     implicit none
 
     character(len=:), allocatable :: text
@@ -63,7 +63,7 @@ contains
         close (u)
 
         call read_all_stdin_or_file(.true., fname, text, status, &
-                                    test_force_alloc_failure=.true.)
+            test_force_alloc_failure=.true.)
 
         if (status /= 5) then
             write (error_unit, '(A,I0)') &

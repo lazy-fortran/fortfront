@@ -1,6 +1,6 @@
 program test_basic_function_inference
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+        iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     logical :: basic_pass
@@ -33,50 +33,50 @@ contains
         logical :: passed
         character(len=:), allocatable :: source
         character(len=40), parameter :: required_fragments(3) = [ &
-                                        character(len=32) :: &
-                                        'integer function square', &
-                                        'integer, intent(in) :: x', &
-                                        'integer :: val, squared']
+            character(len=32) :: &
+            'integer function square', &
+            'integer, intent(in) :: x', &
+            'integer :: val, squared']
         character(len=32), parameter :: forbidden_fragments(5) = [ &
-                                        character(len=32) :: &
-                                        'real function square', &
-                                        'real :: square', &
-                                        'real(dp) function square', &
-                                        'real(8) function square', &
-                                        'real, external :: square']
+            character(len=32) :: &
+            'real function square', &
+            'real :: square', &
+            'real(dp) function square', &
+            'real(8) function square', &
+            'real, external :: square']
 
         call read_example('examples/lf/function_inference_basic.lf', source)
 
         passed = run_function_inference_case(source, required_fragments, &
-                                             forbidden_fragments, 'basic')
+            forbidden_fragments, 'basic')
     end function run_basic_function_test
 
     function run_reordered_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
         character(len=48), parameter :: required_fragments(4) = [ &
-                                        character(len=48) :: &
-                                        'integer :: val, squared', &
-                                        'integer, external :: square', &
-                                        'integer function square', &
-                                        'integer, intent(in) :: x']
+            character(len=48) :: &
+            'integer :: val, squared', &
+            'integer, external :: square', &
+            'integer function square', &
+            'integer, intent(in) :: x']
         character(len=40), parameter :: forbidden_fragments(5) = [ &
-                                        character(len=40) :: &
-                                        'real :: squared', &
-                                        'real, external :: square', &
-                                        'real function square', &
-                                        'real(dp) function square', &
-                                        'real(8) function square']
+            character(len=40) :: &
+            'real :: squared', &
+            'real, external :: square', &
+            'real function square', &
+            'real(dp) function square', &
+            'real(8) function square']
 
         call read_example('examples/lf/function_inference_reordered.lf', source)
 
         passed = run_function_inference_case(source, required_fragments, &
-                                             forbidden_fragments, 'reordered')
+            forbidden_fragments, 'reordered')
     end function run_reordered_function_test
 
     function run_function_inference_case(source, required_fragments, &
-                                         forbidden_fragments, context) &
-        result(passed)
+            forbidden_fragments, context) &
+            result(passed)
         character(len=*), intent(in) :: source
         character(len=*), intent(in) :: required_fragments(:)
         character(len=*), intent(in) :: forbidden_fragments(:)
@@ -105,14 +105,14 @@ contains
         end if
 
         if (.not. verify_fragments(generated, required_fragments, .true., &
-                                   context)) passed = .false.
+            context)) passed = .false.
         if (.not. verify_fragments(generated, forbidden_fragments, .false., &
-                                   context)) passed = .false.
+            context)) passed = .false.
     end function run_function_inference_case
 
     logical function verify_fragments(generated, fragments, expect_present, &
-                                      context) &
-        result(all_valid)
+            context) &
+            result(all_valid)
         character(len=*), intent(in) :: generated
         character(len=*), intent(in) :: fragments(:)
         logical, intent(in) :: expect_present

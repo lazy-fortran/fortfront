@@ -67,7 +67,7 @@ program test_issue_2164_derived_type_field_lost
     end if
 
     if (.not. found_correct_assignment) then
-     write (error_unit, '(A)') 'FAIL: correct assignment obj%data not found (BUG #2164)'
+        write (error_unit, '(A)') 'FAIL: correct assignment obj%data not found (BUG #2164)'
         write (error_unit, '(A)') 'Output:'
         write (error_unit, '(A)') output_code
         error stop 1

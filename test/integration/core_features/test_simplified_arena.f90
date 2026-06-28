@@ -25,16 +25,16 @@ program test_simplified_arena
     do i = 1, arena%size
         if (allocated(arena%entries(i)%node)) then
             select type (node => arena%entries(i)%node)
-            type is (program_node)
+                type is (program_node)
                 print *, "  Index", i, ": program_node"
                 if (allocated(node%body_indices)) then
                     print *, "    Body indices:", node%body_indices
                 end if
-            type is (assignment_node)
+                type is (assignment_node)
                 print *, "  Index", i, ": assignment_node"
-            type is (identifier_node)
+                type is (identifier_node)
                 print *, "  Index", i, ": identifier_node '", node%name, "'"
-            type is (literal_node)
+                type is (literal_node)
                 print *, "  Index", i, ": literal_node"
             class default
                 print *, "  Index", i, ": other node"

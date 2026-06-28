@@ -1,6 +1,6 @@
 module parser_instantiate_statement_module
     use lexer_core, only: token_t, TK_EOF, TK_NEWLINE, TK_COMMENT, TK_OPERATOR, &
-                          TK_IDENTIFIER, TK_KEYWORD, TK_NUMBER, TK_STRING
+        TK_IDENTIFIER, TK_KEYWORD, TK_NUMBER, TK_STRING
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_instantiate_statement
@@ -50,7 +50,7 @@ contains
         end do
 
         stmt_index = push_instantiate_statement(arena, template_name, spec_text, &
-                                                line, column)
+            line, column)
     end function parse_instantiate_statement
 
     subroutine append_instantiate_token(spec_text, token)

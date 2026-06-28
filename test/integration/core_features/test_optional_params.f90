@@ -44,7 +44,7 @@ contains
             tolerance = 1.0e-6
         end if
 
-        result = x + y + tolerance * 0.0  ! Just to use tolerance
+        result = x + y + tolerance * 0.0 ! Just to use tolerance
     end subroutine compute
 
     function add_numbers(a, b, c) result(sum)

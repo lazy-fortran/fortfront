@@ -17,7 +17,7 @@ contains
 
         if (present(user_data)) then
             select type (user_data)
-            type is (traverse_counter_t)
+                type is (traverse_counter_t)
                 user_data%count = user_data%count + 1
             end select
         end if

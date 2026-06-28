@@ -64,11 +64,11 @@ contains
         ! Optional: file logging (open only if tracing enabled)
         if (enabled) then
             call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, &
-                                          status=stat)
+                status=stat)
             if (stat == 0 .and. len_trim(file_name) > 0) then
                 ! Preserve any early CLI trace lines by appending instead of replacing.
                 open (newunit=file_u, file=trim(file_name), status='unknown', &
-                      position='append', action='write')
+                    position='append', action='write')
             end if
         end if
 
@@ -234,7 +234,7 @@ contains
     end subroutine trace_profile_reset
 
     subroutine trace_profile_get_stat(name, call_count, total_counts, self_counts, &
-                                      found)
+            found)
         character(len=*), intent(in) :: name
         integer(int64), intent(out) :: call_count
         integer(int64), intent(out) :: total_counts
@@ -298,9 +298,9 @@ contains
 
             do i = 1, n_active
                 total_ms = counts_to_ms( &
-                           profile_sections(section_order(i))%total_counts)
+                    profile_sections(section_order(i))%total_counts)
                 self_ms = counts_to_ms( &
-                          profile_sections(section_order(i))%self_counts)
+                    profile_sections(section_order(i))%self_counts)
                 write (unit_out, '(A,1X,I0,1X,A,F10.3,1X,A,F10.3)') &
                     trim(profile_sections(section_order(i))%name), &
                     profile_sections(section_order(i))%call_count, &
@@ -396,7 +396,7 @@ contains
         end if
 
         precedes = trim(profile_sections(left)%name) < &
-                   trim(profile_sections(right)%name)
+            trim(profile_sections(right)%name)
     end function profile_section_precedes
 
 end module debug_trace

@@ -2,14 +2,14 @@ module parser_procedure_bodies_module
     ! Procedure body parsing for subroutines and functions in module contexts
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_subroutine_def, push_function_def, &
-                           push_parameter_declaration, push_subroutine_call, &
-                           push_assignment, push_identifier, push_literal, &
-                           push_binary_op
+        push_parameter_declaration, push_subroutine_call, &
+        push_assignment, push_identifier, push_literal, &
+        push_binary_op
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
@@ -18,10 +18,10 @@ module parser_procedure_bodies_module
     use parser_common_statement_module, only: parse_common_statement
     use parser_prefix_buffer_module, only: append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
-                                              keyword_can_be_function_name
+        keyword_can_be_function_name
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
-                                               parse_select_rank
+        parse_select_rank
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement
     use parser_control_statements_module, only: parse_entry_statement
@@ -58,7 +58,7 @@ contains
     end function token_is_identifier_like
 
     function try_parse_keyword_assignment(parser, arena, allow_keyword_tokens) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in), optional :: allow_keyword_tokens
@@ -105,7 +105,7 @@ contains
         end if
 
         stmt_index = push_assignment(arena, lhs_index, rhs_index, &
-                                     assign_token%line, assign_token%column)
+            assign_token%line, assign_token%column)
     end function try_parse_keyword_assignment
 
     subroutine parse_prefix_keywords(parser, prefix_keywords, has_recursive_keyword)
@@ -156,7 +156,7 @@ contains
         ! Consume subroutine keyword
         token = parser%peek()
         if (.not. (token%kind == TK_KEYWORD .and. &
-                   to_lower(token%text) == "subroutine")) then
+            to_lower(token%text) == "subroutine")) then
             sub_index = 0
             return
         end if
@@ -225,14 +225,14 @@ contains
 
         if (allocated(prefix_keywords)) then
             sub_index = push_subroutine_def(arena, subroutine_name, &
-                                            param_indices, body_indices, &
-                                            line, column, &
-                                            is_recursive=has_recursive_keyword, &
-                                            prefix_keywords=prefix_keywords)
+                param_indices, body_indices, &
+                line, column, &
+                is_recursive=has_recursive_keyword, &
+                prefix_keywords=prefix_keywords)
         else
             sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
-                                            body_indices, line, column, &
-                                            is_recursive=has_recursive_keyword)
+                body_indices, line, column, &
+                is_recursive=has_recursive_keyword)
         end if
     end function parse_subroutine_in_module
 
@@ -275,7 +275,7 @@ contains
             function_name = token%text
             token = parser%consume()
         else if (token%kind == TK_KEYWORD .and. &
-                 keyword_can_be_function_name(parser, token)) then
+                keyword_can_be_function_name(parser, token)) then
             function_name = token%text
             token = parser%consume()
         else
@@ -341,7 +341,7 @@ contains
 
             if (token%kind == TK_KEYWORD) then
                 stmt_index_local = try_parse_keyword_assignment(parser, arena, &
-                                                                .true.)
+                    .true.)
                 if (stmt_index_local > 0) then
                     body_indices = [body_indices, stmt_index_local]
                     cycle
@@ -359,16 +359,16 @@ contains
 
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
-                                       return_type_str, body_indices, &
-                                       line, column, &
-                                       result_variable=result_variable_name, &
-                                       is_recursive=has_recursive_keyword, &
-                                       prefix_keywords=prefix_keywords)
+            return_type_str, body_indices, &
+            line, column, &
+            result_variable=result_variable_name, &
+            is_recursive=has_recursive_keyword, &
+            prefix_keywords=prefix_keywords)
     end function parse_function_in_module
 
     ! Basic statement parsing for subroutine/function bodies (avoiding circular deps)
     function parse_basic_statement_in_subroutine(parser, arena, body_indices) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout), optional :: body_indices(:)
@@ -391,20 +391,20 @@ contains
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "procedure", "class", "type")
+                    "double", "procedure", "class", "type")
                 ! Check if this is a multi-variable declaration
                 block
                     logical :: has_initializer, has_comma
                     integer, allocatable :: decl_indices(:)
                     call analyze_declaration_structure(parser, has_initializer, &
-                                                       has_comma)
+                        has_comma)
                     if (has_comma) then
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
                             stmt_index = decl_indices(1)
                             if (size(decl_indices) > 1 .and. present(body_indices)) then
                                 call append_multi_declarations(body_indices, &
-                                                               decl_indices)
+                                    decl_indices)
                             end if
                         else
                             stmt_index = 0
@@ -432,7 +432,7 @@ contains
             case ("equivalence")
                 ! Handle legacy statements
                 stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
-                                                    parser, arena)
+                    parser, arena)
             case ("common")
                 stmt_index = parse_common_statement(parser, arena)
             case ("entry")
@@ -515,7 +515,7 @@ contains
 
             if (stmt_index == 0) then
                 stmt_index = parse_basic_statement_in_subroutine(parser, arena, &
-                                                                 body_indices)
+                    body_indices)
             end if
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
@@ -566,7 +566,7 @@ contains
 
                 ! Create assignment node
                 stmt_index = push_assignment(arena, lhs_index, rhs_index, &
-                                             token%line, token%column)
+                    token%line, token%column)
             else
                 ! No assignment operator
                 stmt_index = 0
@@ -609,12 +609,12 @@ contains
                         integer, allocatable :: empty_dims(:)
                         allocate (empty_dims(0))
                         param_index = push_parameter_declaration( &
-                                      arena, name=token%text, type_name="", &
-                                      kind_value=0, intent_value=0, &
-                                      is_optional=.false., is_target=.false., &
-                                      is_unsigned=.false., &
-                                      dimension_indices=empty_dims, &
-                                      line=token%line, column=token%column)
+                            arena, name=token%text, type_name="", &
+                            kind_value=0, intent_value=0, &
+                            is_optional=.false., is_target=.false., &
+                            is_unsigned=.false., &
+                            dimension_indices=empty_dims, &
+                            line=token%line, column=token%column)
                     end block
                     local_indices = [local_indices, param_index]
                 end block
@@ -646,15 +646,15 @@ contains
         token = parser%peek()
         if (token%kind == TK_STRING) then
             left_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                      token%line, token%column)
+                token%line, token%column)
             token = parser%consume()
         else if (token%kind == TK_NUMBER) then
             left_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                      token%line, token%column)
+                token%line, token%column)
             token = parser%consume()
         else if (token_is_identifier_like(token)) then
             left_index = push_identifier(arena, token%text, &
-                                         token%line, token%column)
+                token%line, token%column)
             token = parser%consume()
         else
             return ! Invalid expression
@@ -664,8 +664,8 @@ contains
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. &
             (token%text == "+" .or. token%text == "-" .or. &
-             token%text == "*" .or. token%text == "/" .or. &
-             token%text == "**")) then
+            token%text == "*" .or. token%text == "/" .or. &
+            token%text == "**")) then
             op_text = token%text
             token = parser%consume() ! consume operator
 
@@ -673,15 +673,15 @@ contains
             token = parser%peek()
             if (token%kind == TK_STRING) then
                 right_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                           token%line, token%column)
+                    token%line, token%column)
                 token = parser%consume()
             else if (token%kind == TK_NUMBER) then
                 right_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                           token%line, token%column)
+                    token%line, token%column)
                 token = parser%consume()
             else if (token_is_identifier_like(token)) then
                 right_index = push_identifier(arena, token%text, &
-                                              token%line, token%column)
+                    token%line, token%column)
                 token = parser%consume()
             else
                 expr_index = left_index ! Return just the left operand
@@ -690,7 +690,7 @@ contains
 
             ! Create binary operation node
             expr_index = push_binary_op(arena, left_index, right_index, op_text, &
-                                        token%line, token%column)
+                token%line, token%column)
         else
             ! No operator, just return the single operand
             expr_index = left_index

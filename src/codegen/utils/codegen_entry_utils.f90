@@ -76,7 +76,7 @@ contains
     end subroutine expand_param_list
 
     logical function is_entry_parameter_decl(decl, entry_params, num_params) &
-        result(is_entry_param)
+            result(is_entry_param)
         type(declaration_node), intent(in) :: decl
         character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params
@@ -93,19 +93,19 @@ contains
         if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
             do i = 1, size(decl%var_names)
                 if (is_in_entry_params(decl%var_names(i), entry_params, &
-                                       max_params)) then
+                    max_params)) then
                     is_entry_param = .true.
                     return
                 end if
             end do
         else if (allocated(decl%var_name)) then
             is_entry_param = is_in_entry_params(decl%var_name, entry_params, &
-                                                max_params)
+                max_params)
         end if
     end function is_entry_parameter_decl
 
     logical function is_in_entry_params(var_name, entry_params, num_params) &
-        result(found)
+            result(found)
         character(len=*), intent(in) :: var_name
         character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params

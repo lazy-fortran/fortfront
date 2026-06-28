@@ -1,17 +1,17 @@
 module parser_array_constructs_module
     ! Parser module for WHERE and ASSOCIATE constructs
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, TK_IDENTIFIER
+        TK_COMMENT, TK_WHITESPACE, TK_IDENTIFIER
     use string_utils_mod, only: to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression, &
-                                         parse_expression_until
+        parse_expression_until
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, &
-                                            null_statement_callbacks, &
-                                            find_statement_end, &
-                                            allocate_stmt_tokens_with_eof, &
-                                            skip_whitespace_and_semicolons
+        statement_callbacks_t, &
+        null_statement_callbacks, &
+        find_statement_end, &
+        allocate_stmt_tokens_with_eof, &
+        skip_whitespace_and_semicolons
     use parser_basic_statement_module, only: parse_statement_body
     use parser_if_constructs_module, only: parse_if, parse_if_condition
     use parser_select_constructs_module, only: parse_select_case
@@ -54,7 +54,7 @@ contains
         type(statement_callbacks_t) :: callbacks
         logical :: single_line
         character(len=9), parameter :: where_end_keywords(2) = [ &
-                                       'elsewhere', 'end where']
+            'elsewhere', 'end where']
 
         ! Consume 'where' keyword
         token = parser%peek()
@@ -110,11 +110,11 @@ contains
             if (single_line) then
                 callbacks = build_where_callbacks()
                 call parse_single_line_where_body(parser, arena, callbacks, &
-                                                  where_body_indices)
+                    where_body_indices)
 
                 ! Create WHERE node with single statement
                 where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                         line=line, column=column)
+                    line=line, column=column)
 
                 return
             end if
@@ -122,7 +122,7 @@ contains
             ! Attempt lazy single-line WHERE using colon separator
             callbacks = build_where_callbacks()
             mask_expr_index = parse_expression_until(parser, arena, &
-                                                     [character(len=1) :: ":"])
+                [character(len=1) :: ":"])
             if (mask_expr_index <= 0) then
                 where_index = 0
                 return
@@ -136,33 +136,33 @@ contains
             token = parser%consume()
 
             call parse_single_line_where_body(parser, arena, callbacks, &
-                                              where_body_indices)
+                where_body_indices)
 
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                     line=line, column=column)
+                line=line, column=column)
             return
         end if
 
         ! Multi-line WHERE - parse body statements using shared statement body parser
         callbacks = build_where_callbacks()
         where_body_indices = parse_statement_body(parser, arena, &
-                                                  where_end_keywords, callbacks)
+            where_end_keywords, callbacks)
 
         ! Parse all ELSEWHERE clauses (including masked ones)
         where_index = create_where_with_elsewhere_clauses(arena, parser, &
-                                                          mask_expr_index, &
-                                                          where_body_indices, &
-                                                          callbacks, &
-                                                          where_end_keywords, &
-                                                          line, column)
+            mask_expr_index, &
+            where_body_indices, &
+            callbacks, &
+            where_end_keywords, &
+            line, column)
     end function parse_where_construct
 
     function create_where_with_elsewhere_clauses(arena, parser, &
-                                                 mask_expr_index, &
-                                                 where_body_indices, &
-                                                 callbacks, &
-                                                 where_end_keywords, &
-                                                 line, column) result(where_index)
+            mask_expr_index, &
+            where_body_indices, &
+            callbacks, &
+            where_end_keywords, &
+            line, column) result(where_index)
         use ast_nodes_control, only: elsewhere_clause_t
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t), intent(inout) :: parser
@@ -204,8 +204,8 @@ contains
             end if
 
             clause_body_indices = parse_statement_body(parser, arena, &
-                                                       where_end_keywords, &
-                                                       callbacks)
+                where_end_keywords, &
+                callbacks)
 
             num_clauses = num_clauses + 1
             allocate (temp_clauses(num_clauses))
@@ -215,7 +215,7 @@ contains
             temp_clauses(num_clauses)%mask_index = clause_mask_index
             if (allocated(clause_body_indices)) then
                 allocate (temp_clauses(num_clauses)%body_indices( &
-                          size(clause_body_indices)))
+                    size(clause_body_indices)))
                 temp_clauses(num_clauses)%body_indices = clause_body_indices
             end if
             call move_alloc(temp_clauses, elsewhere_clauses)
@@ -235,22 +235,22 @@ contains
         if (num_clauses > 0) then
             if (allocated(where_body_indices)) then
                 where_index = push_where(arena, mask_expr_index, &
-                                         where_body_indices=where_body_indices, &
-                                         elsewhere_clauses=elsewhere_clauses, &
-                                         line=line, column=column)
+                    where_body_indices=where_body_indices, &
+                    elsewhere_clauses=elsewhere_clauses, &
+                    line=line, column=column)
             else
                 where_index = push_where(arena, mask_expr_index, &
-                                         elsewhere_clauses=elsewhere_clauses, &
-                                         line=line, column=column)
+                    elsewhere_clauses=elsewhere_clauses, &
+                    line=line, column=column)
             end if
         else
             if (allocated(where_body_indices)) then
                 where_index = push_where(arena, mask_expr_index, &
-                                         where_body_indices=where_body_indices, &
-                                         line=line, column=column)
+                    where_body_indices=where_body_indices, &
+                    line=line, column=column)
             else
                 where_index = push_where(arena, mask_expr_index, &
-                                         line=line, column=column)
+                    line=line, column=column)
             end if
         end if
     end function create_where_with_elsewhere_clauses
@@ -280,10 +280,10 @@ contains
         end if
 
         call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
-                                           stmt_start, stmt_end)
+            stmt_start, stmt_end)
 
         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                  callbacks=callbacks)
+            callbacks=callbacks)
 
         if (allocated(stmt_indices)) then
             call move_alloc(stmt_indices, body_indices)
@@ -333,7 +333,7 @@ contains
 
         ! Parse associations
         assoc_count = 0
-        allocate (associations(10))  ! Initial allocation
+        allocate (associations(10)) ! Initial allocation
 
         do while (.not. parser%is_at_end())
             ! Parse association name
@@ -374,7 +374,7 @@ contains
 
                 ! Parse expression
                 expr_index = parse_expression( &
-                             parser%tokens(parser%current_token:), arena)
+                    parser%tokens(parser%current_token:), arena)
                 if (expr_index <= 0) then
                     if (allocated(body_indices)) then
                         block
@@ -406,11 +406,11 @@ contains
                             if (current_token%text == "(") then
                                 depth = depth + 1
                             else if (current_token%text == ")") then
-                                if (depth == 0) exit  ! Found closing paren &
+                                if (depth == 0) exit ! Found closing paren &
                                 ! of association
                                 depth = depth - 1
                             else if (current_token%text == "," .and. depth == 0) then
-                                exit  ! Found comma at same level
+                                exit ! Found comma at same level
                             end if
                         end if
 
@@ -453,7 +453,7 @@ contains
 
         ! Parse body statements until 'end associate'
         body_count = 0
-        allocate (body_indices(100))  ! Initial allocation
+        allocate (body_indices(100)) ! Initial allocation
 
         do while (.not. parser%is_at_end())
             call skip_whitespace_and_semicolons(parser)
@@ -466,10 +466,10 @@ contains
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
                         TK_KEYWORD .and. to_lower(parser%tokens(parser%current_token + &
-                                                                1)%text) == &
+                        1)%text) == &
                         "associate") then
-                        token = parser%consume()  ! consume 'end'
-                        token = parser%consume()  ! consume 'associate'
+                        token = parser%consume() ! consume 'end'
+                        token = parser%consume() ! consume 'associate'
                         exit
                     end if
                 end if
@@ -496,7 +496,7 @@ contains
                 if (remaining_count <= 0) exit
 
                 call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
-                                                   parser%current_token, stmt_end)
+                    parser%current_token, stmt_end)
                 last_token_index = stmt_end
                 stmt_tokens(remaining_count + 1)%line = &
                     parser%tokens(last_token_index)%line
@@ -505,8 +505,8 @@ contains
 
                 callbacks = build_associate_callbacks()
                 stmt_indices = parse_basic_statement_core( &
-                               stmt_tokens, arena, callbacks=callbacks, &
-                               consumed_count=consumed_tokens)
+                    stmt_tokens, arena, callbacks=callbacks, &
+                    consumed_count=consumed_tokens)
 
                 if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
                     do k = 1, size(stmt_indices)
@@ -548,10 +548,10 @@ contains
                     allocate (final_body(body_count))
                     final_body = body_indices(1:body_count)
                     assoc_index = push_associate(arena, final_assocs, &
-                                                 final_body, line, column)
+                        final_body, line, column)
                 else
                     assoc_index = push_associate(arena, final_assocs, &
-                                                 line=line, column=column)
+                        line=line, column=column)
                 end if
             end block
         else
@@ -583,7 +583,7 @@ contains
 
         callbacks = build_associate_callbacks()
         body_indices = parse_statement_body(parser, arena, &
-                                            block_end_keywords, callbacks)
+            block_end_keywords, callbacks)
 
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "end") then
@@ -595,7 +595,7 @@ contains
         end if
 
         block_index = push_block_construct(arena, body_indices, &
-                                           line=line, column=column)
+            line=line, column=column)
     end function parse_block_construct
 
 end module parser_array_constructs_module

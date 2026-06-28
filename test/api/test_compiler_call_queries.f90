@@ -1,13 +1,13 @@
 program test_compiler_call_queries
     use fortfront, only: compiler_frontend_options_t, &
-                         compiler_frontend_result_t, &
-                         compile_frontend_from_string, &
-                         get_node_source_location_from_arena, &
-                         get_node_type_kind, &
-                         get_subroutine_call_arg_indices, &
-                         get_subroutine_call_name, &
-                         is_subroutine_call_statement, &
-                         INPUT_MODE_STANDARD, TINT
+        compiler_frontend_result_t, &
+        compile_frontend_from_string, &
+        get_node_source_location_from_arena, &
+        get_node_type_kind, &
+        get_subroutine_call_arg_indices, &
+        get_subroutine_call_name, &
+        is_subroutine_call_statement, &
+        INPUT_MODE_STANDARD, TINT
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -57,7 +57,7 @@ program test_compiler_call_queries
     end if
 
     call get_subroutine_call_arg_indices(result%arena, call_index, arg_indices, &
-                                         error_msg)
+        error_msg)
     if (len_trim(error_msg) > 0) then
         print *, 'FAIL: get_subroutine_call_arg_indices: ', trim(error_msg)
         stop 1
@@ -73,7 +73,7 @@ program test_compiler_call_queries
     end if
 
     call get_node_source_location_from_arena(result%arena, call_index, line, &
-                                             column)
+        column)
     if (line /= 3 .or. column <= 0) then
         print *, 'FAIL: CALL source location is not available'
         stop 1

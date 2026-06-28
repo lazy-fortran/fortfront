@@ -37,7 +37,7 @@ contains
         check_character_substring_lengths = .true.
 
         call read_example('examples/lf/issue_2163_character_substring_lengths.lf', &
-                          source)
+            source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then

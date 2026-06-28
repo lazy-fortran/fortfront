@@ -1,7 +1,7 @@
 program test_debug_trace_profile
     use, intrinsic :: iso_fortran_env, only: error_unit, int64
     use debug_trace, only: trace_enter, trace_leave, trace_profile_get_stat, &
-                           trace_profile_reset, trace_set_profile_enabled
+        trace_profile_reset, trace_set_profile_enabled
     implicit none
 
     integer(int64) :: call_count
@@ -18,7 +18,7 @@ program test_debug_trace_profile
     call trace_leave('profile:outer')
 
     call trace_profile_get_stat('profile:outer', call_count, total_counts, &
-                                self_counts, found)
+        self_counts, found)
     if (.not. found) then
         write (error_unit, '(A)') 'FAIL: Expected profile:outer section stats'
         stop 1
@@ -30,7 +30,7 @@ program test_debug_trace_profile
     end if
 
     call trace_profile_get_stat('profile:inner', call_count, total_counts, &
-                                self_counts, found)
+        self_counts, found)
     if (.not. found) then
         write (error_unit, '(A)') 'FAIL: Expected profile:inner section stats'
         stop 1

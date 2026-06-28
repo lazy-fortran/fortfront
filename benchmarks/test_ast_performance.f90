@@ -37,9 +37,9 @@ contains
 
         ! Create test source
         source = "program test"//new_line('a')// &
-                 "    integer :: x = 42"//new_line('a')// &
-                 "    print *, x"//new_line('a')// &
-                 "end program test"
+            "    integer :: x = 42"//new_line('a')// &
+            "    print *, x"//new_line('a')// &
+            "end program test"
 
         file_path = "test_cache.f90"
         checksum = "abc123" ! Mock checksum
@@ -164,9 +164,9 @@ contains
 
         ! Original source
         original_source = "program test"//new_line('a')// &
-                          "    integer :: x = 1"//new_line('a')// &
-                          "    integer :: y = 2"//new_line('a')// &
-                          "end program test"
+            "    integer :: x = 1"//new_line('a')// &
+            "    integer :: y = 2"//new_line('a')// &
+            "end program test"
 
         ! Parse original source
         call lex_source(original_source, tokens, error_msg)

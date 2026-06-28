@@ -2,17 +2,17 @@ module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
-                               array_literal_node, program_node
+        array_literal_node, program_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                               parameter_declaration_node, module_node, &
-                               submodule_node
+        parameter_declaration_node, module_node, &
+        submodule_node
     use ast_nodes_misc, only: interface_block_node, import_statement_node, &
-                               use_statement_node
+        use_statement_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
-                                     case_default_node, case_range_node, &
-                                     select_type_node, type_guard_block_node
+        case_default_node, case_range_node, &
+        select_type_node, type_guard_block_node
     implicit none
     private
 
@@ -72,7 +72,7 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             is_id = .true.
         end select
     end function is_identifier
@@ -90,7 +90,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(node%name)) name = node%name
             call set_empty(error_msg)
         class default
@@ -106,7 +106,7 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             is_lit = .true.
         end select
     end function is_literal
@@ -126,7 +126,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (literal_node)
+            type is (literal_node)
             if (allocated(node%value)) value = node%value
             if (allocated(node%literal_type)) literal_type = node%literal_type
             call set_empty(error_msg)
@@ -143,13 +143,13 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (binary_op_node)
+            type is (binary_op_node)
             is_op = .true.
         end select
     end function is_binary_op
 
     subroutine get_binary_op_info(arena, node_index, operator, left_index, &
-                                  right_index, line, column, error_msg)
+            right_index, line, column, error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: operator
@@ -170,7 +170,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (binary_op_node)
+            type is (binary_op_node)
             if (allocated(node%operator)) operator = node%operator
             left_index = node%left_index
             right_index = node%right_index
@@ -190,7 +190,7 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             is_call = .true.
         end select
     end function is_subroutine_call_statement
@@ -208,7 +208,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             if (.not. allocated(node%name)) then
                 error_msg = 'subroutine call node has no callee name'
                 return
@@ -221,7 +221,7 @@ contains
     end subroutine get_subroutine_call_name
 
     subroutine get_subroutine_call_arg_indices(arena, node_index, arg_indices, &
-                                               error_msg)
+            error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, allocatable, intent(out) :: arg_indices(:)
@@ -234,7 +234,7 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_call_node)
+            type is (subroutine_call_node)
             if (allocated(node%arg_indices)) then
                 if (size(node%arg_indices) > 0) arg_indices = node%arg_indices
             end if
@@ -254,7 +254,7 @@ contains
         init_index = 0
         if (.not. arena%has_node_at(decl_index)) return
         select type (node => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (node%has_initializer .and. node%initializer_index > 0) then
                 init_index = node%initializer_index
             end if
@@ -273,7 +273,7 @@ contains
             return
         end if
         select type (node => arena%entries(type_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             if (allocated(node%component_indices)) then
                 components = node%component_indices
             else
@@ -296,7 +296,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (array_literal_node)
+            type is (array_literal_node)
             if (allocated(node%element_indices)) then
                 elements = node%element_indices
             else
@@ -320,7 +320,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (import_statement_node)
+            type is (import_statement_node)
             if (.not. allocated(node%import_list)) then
                 allocate (character(len=1) :: names(0))
                 return
@@ -357,7 +357,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (interface_block_node)
+            type is (interface_block_node)
             if (allocated(node%procedure_indices)) then
                 body_indices = node%procedure_indices
             else
@@ -378,9 +378,9 @@ contains
         present_flag = .false.
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             present_flag = allocated(node%bind_c_clause)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             present_flag = allocated(node%bind_c_clause)
         end select
     end function has_bind_c_attribute
@@ -395,9 +395,9 @@ contains
         bind_name = ''
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(node%bind_c_clause)) bind_name = node%bind_c_clause
         end select
     end function get_bind_c_name
@@ -405,7 +405,7 @@ contains
     ! Compiler-facing query: return the selector index, the case-arm arena
     ! indices, and the optional default-arm arena index of a select_case_node.
     subroutine get_select_case_info(arena, node_index, selector_index, &
-                                    case_indices, default_index)
+            case_indices, default_index)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(out) :: selector_index
@@ -419,7 +419,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (select_case_node)
+            type is (select_case_node)
             selector_index = node%selector_index
             default_index = node%default_index
             if (allocated(node%case_indices)) then
@@ -435,7 +435,7 @@ contains
     ! Compiler-facing query: copy a case_block_node's case-value and body
     ! indices.
     subroutine get_case_block_info(arena, node_index, value_indices, &
-                                   body_indices)
+            body_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, allocatable, intent(out) :: value_indices(:)
@@ -447,7 +447,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (case_block_node)
+            type is (case_block_node)
             if (allocated(node%value_indices)) then
                 value_indices = node%value_indices
             else
@@ -475,7 +475,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (case_default_node)
+            type is (case_default_node)
             if (allocated(node%body_indices)) then
                 body_indices = node%body_indices
             else
@@ -498,7 +498,7 @@ contains
         end_value = 0
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
-        type is (case_range_node)
+            type is (case_range_node)
             start_value = node%start_value
             end_value = node%end_value
         end select
@@ -508,7 +508,7 @@ contains
     ! indices, and the optional class-default arena index of a
     ! select_type_node.
     subroutine get_select_type_info(arena, node_index, selector_index, &
-                                    guard_indices, default_index)
+            guard_indices, default_index)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(out) :: selector_index
@@ -522,7 +522,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (select_type_node)
+            type is (select_type_node)
             selector_index = node%selector_index
             default_index = node%default_index
             if (allocated(node%guard_indices)) then
@@ -539,7 +539,7 @@ contains
     ! identifier arena index, and the body statement indices of a
     ! type_guard_block_node.
     subroutine get_type_guard_info(arena, node_index, guard_type, &
-                                   type_name_index, body_indices)
+            type_name_index, body_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: guard_type
@@ -553,7 +553,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (type_guard_block_node)
+            type is (type_guard_block_node)
             guard_type = trim(node%guard_type)
             type_name_index = node%type_name_index
             if (allocated(node%body_indices)) then
@@ -576,9 +576,9 @@ contains
         is_alloc = .false.
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             is_alloc = node%is_allocatable
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             is_alloc = .false.
         end select
     end function get_dummy_allocatable_attribute
@@ -587,7 +587,7 @@ contains
     ! program_node.  Wrong node kind returns zero-length body_indices, an empty
     ! name, and a non-empty error_msg naming the expected node kind.
     subroutine get_program_body_info(arena, node_index, name, body_indices, &
-                                      error_msg)
+            error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: name
@@ -602,7 +602,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (allocated(node%name)) name = node%name
             if (allocated(node%body_indices)) then
                 body_indices = node%body_indices
@@ -616,8 +616,8 @@ contains
     ! Compiler-facing query: return the name, declaration indices, and
     ! procedure (contains-section) indices of a module_node.
     subroutine get_module_body_info(arena, node_index, name, &
-                                     declaration_indices, procedure_indices, &
-                                     error_msg)
+            declaration_indices, procedure_indices, &
+            error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: name
@@ -635,7 +635,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (module_node)
+            type is (module_node)
             if (allocated(node%name)) name = node%name
             if (allocated(node%declaration_indices)) then
                 declaration_indices = node%declaration_indices
@@ -652,7 +652,7 @@ contains
     ! Compiler-facing query: return the name, parameter indices, body indices,
     ! and result-variable name of a function_def_node.
     subroutine get_function_body_info(arena, node_index, name, param_indices, &
-                                       body_indices, result_name, error_msg)
+            body_indices, result_name, error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: name
@@ -672,7 +672,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(node%name)) name = node%name
             if (allocated(node%param_indices)) then
                 param_indices = node%param_indices
@@ -690,7 +690,7 @@ contains
     ! Compiler-facing query: return the name, parameter indices, and body
     ! indices of a subroutine_def_node.
     subroutine get_subroutine_body_info(arena, node_index, name, param_indices, &
-                                         body_indices, error_msg)
+            body_indices, error_msg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: name
@@ -708,7 +708,7 @@ contains
             return
         end if
         select type (node => arena%entries(node_index)%node)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(node%name)) name = node%name
             if (allocated(node%param_indices)) then
                 param_indices = node%param_indices
@@ -731,7 +731,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (use_statement_node)
+                type is (use_statement_node)
                 count = count + 1
             end select
         end do
@@ -741,7 +741,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (use_statement_node)
+                type is (use_statement_node)
                 k = k + 1
                 if (allocated(node%module_name)) then
                     modules(k)%module_name = node%module_name
@@ -770,7 +770,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (module_node)
+                type is (module_node)
                 if (allocated(node%name)) then
                     module_info%name = node%name
                 else
@@ -779,7 +779,7 @@ contains
                 module_info%is_submodule = .false.
                 call set_empty(error_msg)
                 return
-            type is (submodule_node)
+                type is (submodule_node)
                 if (allocated(node%name)) then
                     module_info%name = node%name
                 else

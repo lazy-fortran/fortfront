@@ -1,12 +1,12 @@
 program test_pass_manager
     use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_pass_manager, only: pass_manager_t, pass_context_t, &
-                                     pass_config_t, create_pass_manager, &
-                                     create_default_config, &
-                                     PASS_SEMANTIC, PASS_STANDARDIZATION, &
-                                     PASS_MONOMORPHIZATION, PASS_CODEGEN
+        pass_config_t, create_pass_manager, &
+        create_default_config, &
+        PASS_SEMANTIC, PASS_STANDARDIZATION, &
+        PASS_MONOMORPHIZATION, PASS_CODEGEN
     use frontend_final_passes, only: semantic_pass, standardization_pass, &
-                                     monomorphization_pass, codegen_pass
+        monomorphization_pass, codegen_pass
     use compiler_arena, only: compiler_arena_t
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
@@ -58,9 +58,9 @@ contains
         manager = create_pass_manager()
 
         call manager%add_pass(PASS_SEMANTIC, "Semantic", "phase:semantic", &
-                             .true., semantic_pass)
+            .true., semantic_pass)
         call manager%add_pass(PASS_CODEGEN, "Codegen", "phase:codegen", &
-                             .true., codegen_pass)
+            .true., codegen_pass)
 
         if (manager%num_passes == 2) then
             if (manager%passes(1)%pass_id == PASS_SEMANTIC .and. &
@@ -110,12 +110,12 @@ contains
         manager%config%stop_after_semantic = .true.
 
         call manager%add_pass(PASS_SEMANTIC, "Semantic", "phase:semantic", &
-                             .true., semantic_pass)
+            .true., semantic_pass)
         call manager%add_pass(PASS_STANDARDIZATION, "Standardization", &
-                             "phase:standardization", .true., &
-                             standardization_pass)
+            "phase:standardization", .true., &
+            standardization_pass)
         call manager%add_pass(PASS_CODEGEN, "Codegen", "phase:codegen", &
-                             .true., codegen_pass)
+            .true., codegen_pass)
 
         ! Initialize minimal context
         call arena%init()

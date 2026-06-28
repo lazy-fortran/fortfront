@@ -1,7 +1,7 @@
 program ast_node_position
     use fortfront, only: ast_arena_t, create_ast_arena, get_node_column, &
-                         get_node_line, get_node_location, &
-                         tooling_load_ast_from_string
+        get_node_line, get_node_location, &
+        tooling_load_ast_from_string
     implicit none
 
     type(ast_arena_t) :: arena

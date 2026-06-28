@@ -1,6 +1,6 @@
 program test_intrinsic_registry
     use intrinsic_registry, only: get_intrinsic_info, get_intrinsic_signature, &
-                                  is_intrinsic_function, is_intrinsic_subroutine
+        is_intrinsic_function, is_intrinsic_subroutine
     implicit none
 
     call test_intrinsic_function_identification()

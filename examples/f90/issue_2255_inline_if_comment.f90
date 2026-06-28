@@ -5,7 +5,7 @@ program issue_2255_inline_if_comment
     flag = .true.
     if (flag) &
     ! comment in continuation line
-        call say_hi()
+    call say_hi()
 
 contains
 

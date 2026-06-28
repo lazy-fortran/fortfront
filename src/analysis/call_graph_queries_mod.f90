@@ -56,7 +56,7 @@ contains
 
         if (count > 0) then
             allocate (character(len=maxval(len_trim(temp_names(1:count)))) :: &
-                      caller_names(count))
+                caller_names(count))
             do i = 1, count
                 caller_names(i) = trim(temp_names(i))
             end do
@@ -100,7 +100,7 @@ contains
 
         if (count > 0) then
             allocate (character(len=maxval(len_trim(temp_names(1:count)))) :: &
-                      callee_names(count))
+                callee_names(count))
             do i = 1, count
                 callee_names(i) = trim(temp_names(i))
             end do
@@ -123,7 +123,7 @@ contains
                 simple_name = simple_name_of(graph%procedures(i)%name)
 
                 if ((graph%procedures(i)%name == procedure_name .or. &
-                     trim(simple_name) == procedure_name) .and. &
+                    trim(simple_name) == procedure_name) .and. &
                     graph%procedures(i)%is_main_program) then
                     is_used = .true.
                     return

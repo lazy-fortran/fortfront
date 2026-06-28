@@ -1,10 +1,10 @@
 program test_issue_2694_strict_zero_sized_array_literals
     use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_context_t, &
-                                  transform_with_context, &
-                                  INPUT_MODE_LAZY, &
-                                  OPERATING_MODE_INFER, &
-                                  OPERATING_MODE_STRICT
+        transform_with_context, &
+        INPUT_MODE_LAZY, &
+        OPERATING_MODE_INFER, &
+        OPERATING_MODE_STRICT
     implicit none
 
     call check_example( &
@@ -40,7 +40,7 @@ contains
         ctx%operating_mode = OPERATING_MODE_STRICT
         call transform_with_context(source, output, error_msg, ctx)
         call assert_contains(error_msg, 'forbids automatic allocatable array '// &
-                             'reallocation')
+            'reallocation')
     end subroutine check_example
 
 

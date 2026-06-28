@@ -91,12 +91,12 @@ contains
 
         if (.not. arena%has_node_at(parent_index)) return
         select type (parent => arena%entries(parent_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             if (.not. is_abstract_type(parent)) return
             if (.not. allocated(parent%binding_indices)) return
             do i = 1, size(parent%binding_indices)
                 if (.not. binding_is_deferred(arena, parent%binding_indices(i), &
-                                              binding_name)) cycle
+                    binding_name)) cycle
                 if (concrete_overrides(arena, child, binding_name)) cycle
                 call report_unimplemented(errors, child, binding_name)
             end do
@@ -114,7 +114,7 @@ contains
         name = ''
         if (.not. arena%has_node_at(binding_index)) return
         select type (binding => arena%entries(binding_index)%node)
-        type is (type_binding_node)
+            type is (type_binding_node)
             if (.not. binding%is_deferred) return
             if (.not. allocated(binding%binding_name)) return
             deferred = .true.
@@ -151,7 +151,7 @@ contains
         overrides = .false.
         if (.not. arena%has_node_at(binding_index)) return
         select type (binding => arena%entries(binding_index)%node)
-        type is (type_binding_node)
+            type is (type_binding_node)
             if (binding%is_deferred) return
             if (.not. allocated(binding%binding_name)) return
             if (trim(binding%binding_name) == trim(binding_name)) overrides = .true.
@@ -169,7 +169,7 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-            type is (derived_type_node)
+                type is (derived_type_node)
                 if (.not. allocated(node%name)) cycle
                 if (trim(node%name) == trim(type_name)) then
                     type_index = i
@@ -189,7 +189,7 @@ contains
         parent_name = ''
         if (.not. arena%has_node_at(parent_index)) return
         select type (node => arena%entries(parent_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             if (.not. allocated(node%extends_parent)) return
             parent_name = trim(node%extends_parent)
         end select

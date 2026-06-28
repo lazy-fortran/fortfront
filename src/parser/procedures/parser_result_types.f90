@@ -1,7 +1,7 @@
 module parser_result_types
     use error_handling, only: result_t, success_result, create_error_result, &
-                              ERROR_ERROR, ERROR_PARSER, error_collection_t, &
-                              create_error_collection, ERROR_WARNING
+        ERROR_ERROR, ERROR_PARSER, error_collection_t, &
+        create_error_collection, ERROR_WARNING
     implicit none
     private
 
@@ -63,7 +63,7 @@ contains
     end function parse_result_get_node
 
     subroutine parse_result_set_error(this, message, code, component, context, &
-                                      suggestion)
+            suggestion)
         class(parse_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -113,7 +113,7 @@ contains
     end function compile_result_get_warning_count
 
     subroutine compile_result_add_warning(this, message, code, component, context, &
-                                          suggestion)
+            suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -126,12 +126,12 @@ contains
         end if
 
         call this%warnings%add_error(message, code, severity=ERROR_WARNING, &
-                                     component=component, context=context, &
-                                     suggestion=suggestion)
+            component=component, context=context, &
+            suggestion=suggestion)
     end subroutine compile_result_add_warning
 
     subroutine compile_result_set_error(this, message, code, component, context, &
-                                        suggestion)
+            suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -158,7 +158,7 @@ contains
     end function success_parse_result
 
     function error_parse_result(message, code, component, context, suggestion) &
-        result(parse_res)
+            result(parse_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -177,7 +177,7 @@ contains
     end function success_compile_result
 
     function error_compile_result(message, code, component, context, suggestion) &
-        result(compile_res)
+            result(compile_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -221,17 +221,17 @@ contains
                 if (token%kind == TK_KEYWORD) then
                     select case (token%text)
                     case ("end", "contains", "else", "elseif", "endif", &
-                          "enddo", "endfunction", "endsubroutine", &
-                          "endmodule", "endprogram", "endinterface")
+                            "enddo", "endfunction", "endsubroutine", &
+                            "endmodule", "endprogram", "endinterface")
                         exit ! Found end keyword - statement boundary
                     case ("integer", "real", "logical", "character", &
-                          "complex", "type", "procedure", "function", &
-                          "subroutine", &
-                          "program", "module", "template", "instantiate", &
-                          "trait", "requirement", "implements", &
-                          "if", "do", "select", &
-                          "use", "include", "call", "print", "write", &
-                          "read", "allocate", "deallocate")
+                            "complex", "type", "procedure", "function", &
+                            "subroutine", &
+                            "program", "module", "template", "instantiate", &
+                            "trait", "requirement", "implements", &
+                            "if", "do", "select", &
+                            "use", "include", "call", "print", "write", &
+                            "read", "allocate", "deallocate")
                         exit ! Found statement-starting keyword
                     end select
                 end if
@@ -242,12 +242,12 @@ contains
                 ! Safety check - do not skip too many tokens
                 if (tokens_skipped > 100) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: too many tokens skipped", &
-                                   ERROR_PARSER, &
-                                   "parser_result_types", &
-                                   "recover_to_statement_boundary", &
-                                   "Check for missing statement terminators" &
-                                   )
+                        "Error recovery failed: too many tokens skipped", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_statement_boundary", &
+                        "Check for missing statement terminators" &
+                        )
                     return
                 end if
             end block
@@ -277,12 +277,12 @@ contains
             closing_char = "}"
         case default
             recovery_res = create_error_result( &
-                           "Invalid opening character for recovery", &
-                           ERROR_PARSER, &
-                           "parser_result_types", &
-                           "recover_to_closing_paren", &
-                           "Use '(', '[', or '{' as opening character" &
-                           )
+                "Invalid opening character for recovery", &
+                ERROR_PARSER, &
+                "parser_result_types", &
+                "recover_to_closing_paren", &
+                "Use '(', '[', or '{' as opening character" &
+                )
             return
         end select
 
@@ -310,12 +310,12 @@ contains
                 ! Safety check
                 if (tokens_skipped > 200) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: unmatched "//opening_char, &
-                                   ERROR_PARSER, &
-                                   "parser_result_types", &
-                                   "recover_to_closing_paren", &
-                                   "Check for missing "//closing_char &
-                                   )
+                        "Error recovery failed: unmatched "//opening_char, &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_closing_paren", &
+                        "Check for missing "//closing_char &
+                        )
                     return
                 end if
             end block
@@ -323,12 +323,12 @@ contains
 
         if (nesting_level > 0) then
             recovery_res = create_error_result( &
-                           "Reached end of input with unmatched "//opening_char, &
-                           ERROR_PARSER, &
-                           "parser_result_types", &
-                           "recover_to_closing_paren", &
-                           "Add missing "//closing_char &
-                           )
+                "Reached end of input with unmatched "//opening_char, &
+                ERROR_PARSER, &
+                "parser_result_types", &
+                "recover_to_closing_paren", &
+                "Add missing "//closing_char &
+                )
         else
             recovery_res = success_result()
         end if
@@ -336,7 +336,7 @@ contains
 
     ! Recover to next occurrence of specific token
     function recover_to_next_token(parser, target_kind, target_text) &
-        result(recovery_res)
+            result(recovery_res)
         use parser_state_module, only: parser_state_t
         type(parser_state_t), intent(inout) :: parser
         integer, intent(in) :: target_kind
@@ -370,12 +370,12 @@ contains
                 ! Safety check
                 if (tokens_skipped > 150) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: target token not found", &
-                                   ERROR_PARSER, &
-                                   "parser_result_types", &
-                                   "recover_to_next_token", &
-                                   "Check for missing or malformed tokens" &
-                                   )
+                        "Error recovery failed: target token not found", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_next_token", &
+                        "Check for missing or malformed tokens" &
+                        )
                     return
                 end if
             end block
@@ -406,9 +406,9 @@ contains
                 if (token%kind == TK_KEYWORD) then
                     select case (token%text)
                     case ("program", "module", "function", "subroutine", &
-                          "interface", "type", "contains", &
-                          "end", "endprogram", "endmodule", "endfunction", &
-                          "endsubroutine", "endinterface", "endtype")
+                            "interface", "type", "contains", &
+                            "end", "endprogram", "endmodule", "endfunction", &
+                            "endsubroutine", "endinterface", "endtype")
                         exit ! Found major structural boundary
                     case ("use", "include", "implicit")
                         exit ! Found declaration boundary
@@ -421,14 +421,14 @@ contains
                 ! Safety check
                 if (tokens_skipped > 300) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: no "// &
-                                   "synchronization point found", &
-                                   ERROR_PARSER, &
-                                   "parser_result_types", &
-                                   "skip_to_synchronization_point", &
-                                   "Check for missing end statements or "// &
-                                   "malformed structure" &
-                                   )
+                        "Error recovery failed: no "// &
+                        "synchronization point found", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "skip_to_synchronization_point", &
+                        "Check for missing end statements or "// &
+                        "malformed structure" &
+                        )
                     return
                 end if
             end block

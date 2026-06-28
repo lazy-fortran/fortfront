@@ -13,7 +13,7 @@ program test_issue_1968_lazy_function
     logical :: has_return_type
 
     call read_example('examples/lf/issue_1968_lazy_function_result.lf', &
-                      input_code)
+        input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -24,7 +24,7 @@ program test_issue_1968_lazy_function
     end if
 
     has_return_type = index(output_code, 'real function array_sum') > 0 .or. &
-                      index(output_code, 'real(dp) function array_sum') > 0
+        index(output_code, 'real(dp) function array_sum') > 0
     if (.not. has_return_type) then
         write (error_unit, '(A)') 'FAIL: missing explicit return type'
         write (error_unit, '(A)') trim(output_code)
@@ -32,7 +32,7 @@ program test_issue_1968_lazy_function
     end if
 
     has_function_name_decl = index(output_code, 'real :: array_sum') > 0 .or. &
-                              index(output_code, 'real(dp) :: array_sum') > 0
+        index(output_code, 'real(dp) :: array_sum') > 0
     if (has_function_name_decl) then
         write (error_unit, '(A)') 'FAIL: function name declared as variable'
         write (error_unit, '(A)') trim(output_code)

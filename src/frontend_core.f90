@@ -6,9 +6,9 @@ module frontend_core
     use fortfront_constants, only: MAX_FRONTEND_ERROR_LEN
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, &
-                          TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
-                          to_lower
+        TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
+        TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
+        to_lower
     use parser_dispatcher_module, only: &
         get_additional_indices, clear_additional_indices
     use parser_control_flow_module, only: &
@@ -18,11 +18,11 @@ module frontend_core
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, &
         & destroy_compiler_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program, has_semantic_errors
+        analyze_program, has_semantic_errors
     use type_system_unified, only: reset_type_system
     use standardizer, only: standardize_ast, &
-                            get_standardizer_type_standardization, &
-                            standardize_multi_unit_children
+        get_standardizer_type_standardization, &
+        standardize_multi_unit_children
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_core, only: initialize_codegen
     use codegen_indent, only: &
@@ -30,7 +30,7 @@ module frontend_core
     use path_validation, only: validate_input_path, &
         & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
-                                parse_result_with_index_t
+        parse_result_with_index_t
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use frontend_utilities, only: write_output_file
     use semantic_input_mode, only: INPUT_MODE_LAZY
@@ -98,7 +98,7 @@ contains
 
         ! Read source file
         call read_source_file(input_file, source, error_msg, &
-                              fixed_form=is_fixed_form)
+            fixed_form=is_fixed_form)
         if (error_msg /= "") return
 
         ! Initialize unified compiler arena for all phases
@@ -356,8 +356,8 @@ contains
     end subroutine run_semantic_analysis
 
     subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, &
-                                                    prog_index, &
-                                                    error_msg)
+            prog_index, &
+            error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
@@ -468,7 +468,7 @@ contains
 
         do i = 1, size(tokens)
             if (should_skip_token(tokens, i, tokens(i), suppress_newline, &
-                                  skip_leading_ampersand)) then
+                skip_leading_ampersand)) then
                 cycle
             end if
             call append_token(normalized, count, tokens(i))
@@ -478,7 +478,7 @@ contains
     end subroutine normalize_line_continuations
 
     logical function should_skip_token(tokens, token_index, token, suppress_newline, &
-                                       skip_leading_ampersand)
+            skip_leading_ampersand)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: token_index
         type(token_t), intent(in) :: token
@@ -524,7 +524,7 @@ contains
     end function should_skip_token
 
     pure logical function line_starts_with_continuation(tokens, token_index) &
-        result(has_continuation)
+            result(has_continuation)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: token_index
         integer :: j
@@ -619,9 +619,9 @@ contains
 
         lower_path = to_lower(trim(path))
         is_fixed = has_suffix(lower_path, ".f") .or. &
-                   has_suffix(lower_path, ".for") .or. &
-                   has_suffix(lower_path, ".ftn") .or. &
-                   has_suffix(lower_path, ".f77")
+            has_suffix(lower_path, ".for") .or. &
+            has_suffix(lower_path, ".ftn") .or. &
+            has_suffix(lower_path, ".f77")
     end function is_fixed_form_file
 
     pure logical function has_suffix(text, suffix) result(matches)

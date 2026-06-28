@@ -27,7 +27,7 @@ program test_issue_1093_function_result_inference
     ! function name. Standardizer should add implicit none, infer result
     ! name from first assignment target, and emit a declaration.
     call read_example('examples/f90/issue_1093_function_result_inference.f90', &
-                      source)
+        source)
 
     call initialize_codegen()
     call lex_source(source, tokens, error_msg)

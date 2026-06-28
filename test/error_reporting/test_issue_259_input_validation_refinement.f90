@@ -13,43 +13,43 @@ program test_issue_259_input_validation_refinement
 
     ! Test Category 1: Comments-only input should be accepted
     call run_test('Comments-only input with single comment', &
-                  test_single_comment_input())
+        test_single_comment_input())
 
     call run_test('Comments-only input with multiple comments', &
-                  test_multiple_comment_input())
+        test_multiple_comment_input())
 
     call run_test('Comment with whitespace variations', &
-                  test_comment_whitespace_variations())
+        test_comment_whitespace_variations())
 
     ! Test Category 2: Mathematical expressions should be accepted
     call run_test('Simple addition expression', &
-                  test_simple_addition_expression())
+        test_simple_addition_expression())
 
     call run_test('Expression with parentheses', &
-                  test_expression_with_parentheses())
+        test_expression_with_parentheses())
 
     call run_test('Identifier multiplication', &
-                  test_identifier_multiplication())
+        test_identifier_multiplication())
 
     call run_test('Complex variable expression', &
-                  test_complex_variable_expression())
+        test_complex_variable_expression())
 
     ! These should pass (demonstrating current validation works for some cases)
     call run_test('Expression with numbers (should work)', &
-                  test_expression_with_numbers())
+        test_expression_with_numbers())
 
     call run_test('Expression with function call (should work)', &
-                  test_expression_with_function_call())
+        test_expression_with_function_call())
 
     ! Test Category 3: Lazy Fortran constructs should be valid
     call run_test('Variable assignment without declaration', &
-                  test_variable_assignment())
+        test_variable_assignment())
 
     call run_test('Array indexing expression', &
-                  test_array_indexing())
+        test_array_indexing())
 
     call run_test('Mixed identifier and number expressions', &
-                  test_mixed_identifier_number())
+        test_mixed_identifier_number())
 
     ! Report results
     print *
@@ -111,8 +111,8 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         source = '! Comment 1' // new_line('a') // &
-                 '! Comment 2' // new_line('a') // &
-                 '! Comment 3'
+            '! Comment 2' // new_line('a') // &
+            '! Comment 3'
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

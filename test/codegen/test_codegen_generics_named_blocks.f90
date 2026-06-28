@@ -3,12 +3,12 @@ program test_codegen_generics_named_blocks
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_factory, only: push_declaration
     use ast_nodes_generics, only: create_trait_block, create_requirement_block, &
-                                  create_implements_block, trait_block_node, &
-                                  requirement_block_node, implements_block_node
+        create_implements_block, trait_block_node, &
+        requirement_block_node, implements_block_node
     use codegen_core, only: initialize_codegen
     use codegen_generics, only: generate_code_trait_block, &
-                                generate_code_requirement_block, &
-                                generate_code_implements_block
+        generate_code_requirement_block, &
+        generate_code_implements_block
     implicit none
 
     type(ast_arena_t) :: arena
@@ -30,8 +30,8 @@ program test_codegen_generics_named_blocks
     implements_decl_index = push_declaration(arena, "integer", ["implements_value"])
 
     trait_node = create_trait_block("IComparable", parameter_names=params, &
-                                    declaration_indices=[trait_decl_index], &
-                                    has_contains=.true.)
+        declaration_indices=[trait_decl_index], &
+        has_contains=.true.)
     code = generate_code_trait_block(arena, trait_node)
     call assert_contains(code, "trait IComparable(T, U)", "trait header mismatch")
     call assert_contains(code, "integer :: trait_value", "trait declaration missing")
@@ -39,26 +39,26 @@ program test_codegen_generics_named_blocks
     call assert_contains(code, "end trait IComparable", "trait end mismatch")
 
     requirement_node = create_requirement_block("Ordered", parameter_names=params, &
-                                                declaration_indices=[ &
-                                                requirement_decl_index], &
-                                                has_contains=.true.)
+        declaration_indices=[ &
+        requirement_decl_index], &
+        has_contains=.true.)
     code = generate_code_requirement_block(arena, requirement_node)
     call assert_contains(code, "requirement Ordered(T, U)", &
-                         "requirement header mismatch")
+        "requirement header mismatch")
     call assert_contains(code, "integer :: requirement_value", &
-                         "requirement declaration missing")
+        "requirement declaration missing")
     call assert_contains(code, "contains", "requirement contains missing")
     call assert_contains(code, "end requirement Ordered", "requirement end mismatch")
 
     implements_node = create_implements_block("IComparable", parameter_names=params, &
-                                              declaration_indices=[ &
-                                              implements_decl_index], &
-                                              has_contains=.true.)
+        declaration_indices=[ &
+        implements_decl_index], &
+        has_contains=.true.)
     code = generate_code_implements_block(arena, implements_node)
     call assert_contains(code, "implements IComparable(T, U)", &
-                         "implements header mismatch")
+        "implements header mismatch")
     call assert_contains(code, "integer :: implements_value", &
-                         "implements declaration missing")
+        "implements declaration missing")
     call assert_contains(code, "contains", "implements contains missing")
     call assert_contains(code, "end implements IComparable", "implements end mismatch")
 

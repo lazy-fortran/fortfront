@@ -1,27 +1,27 @@
 module parser_module_structures_module
     ! Module structure parsing for module definitions and bodies
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+        TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_module_structured, &
-                           push_assignment, push_identifier, push_literal, &
-                           push_visibility_statement, push_namelist_statement, &
-                           push_error_node
+        push_assignment, push_identifier, push_literal, &
+        push_visibility_statement, push_namelist_statement, &
+        push_error_node
     use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
-                                   parser_is_at_type_definition
+        parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
-                                                   parse_subroutine_definition, &
-                                                   parse_interface_block
+        parse_subroutine_definition, &
+        parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_import_resolution_module, only: parse_use_statement, &
-                                               parse_include_statement
+        parse_include_statement
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
-                                                 take_implicit_additional_indices
+        take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_instantiate_statement_module, only: parse_instantiate_statement
     use parser_enum_statement_module, only: parse_enum_construct
@@ -36,9 +36,9 @@ module parser_module_structures_module
 contains
 
     function handle_contains_keyword_in_module(parser, arena, has_contains, &
-                                               in_contains_section, &
-                                               declaration_indices) &
-        result(should_cycle)
+            in_contains_section, &
+            declaration_indices) &
+            result(should_cycle)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(inout) :: has_contains, in_contains_section
@@ -81,26 +81,26 @@ contains
                         rhs_token = parser%consume()
 
                         target_index = push_identifier(arena, id_token%text, &
-                                                       id_token%line, id_token%column)
+                            id_token%line, id_token%column)
 
                         if (rhs_token%kind == TK_IDENTIFIER) then
                             rhs_index = push_identifier(arena, rhs_token%text, &
-                                                        rhs_token%line, &
-                                                        rhs_token%column)
+                                rhs_token%line, &
+                                rhs_token%column)
                         else
                             rhs_index = push_literal(arena, rhs_token%text, &
-                                                     rhs_token%line, rhs_token%column, &
-                                                     LITERAL_STRING)
+                                rhs_token%line, rhs_token%column, &
+                                LITERAL_STRING)
                         end if
 
                         if (rhs_index > 0 .and. target_index > 0) then
                             assign_index = push_assignment(arena, target_index, &
-                                                           rhs_index, id_token%line, &
-                                                           id_token%column, &
-                                                           operator_text=assignment_op)
+                                rhs_index, id_token%line, &
+                                id_token%column, &
+                                operator_text=assignment_op)
                             if (assign_index > 0) then
                                 declaration_indices = [declaration_indices, &
-                                                       assign_index]
+                                    assign_index]
                             end if
                         end if
                     end if
@@ -111,7 +111,7 @@ contains
     end function handle_contains_keyword_in_module
 
     function parse_module_declaration_statement(parser, arena, &
-                                                prefix_buffer) result(stmt_index)
+            prefix_buffer) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -161,7 +161,7 @@ contains
             stmt_index = parse_interface_block(parser, arena, prefix_buffer)
         case ("abstract")
             stmt_index = parse_abstract_interface_in_module(parser, arena, &
-                                                            prefix_buffer)
+                prefix_buffer)
         case ("instantiate")
             stmt_index = parse_instantiate_statement(parser, arena)
         case ("enum")
@@ -172,7 +172,7 @@ contains
     end function parse_module_declaration_statement
 
     function parse_contains_section_item(parser, arena, prefix_buffer) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -204,7 +204,7 @@ contains
             lowered = to_lower(token%text)
             select case (trim(lowered))
             case ("pure", "elemental", "impure", "recursive", &
-                  "nonrecursive", "non_recursive", "module")
+                    "nonrecursive", "non_recursive", "module")
                 call prefix_buffer%get_all(stored)
                 call append_prefix_token(stored, trim(lowered))
                 call prefix_buffer%set(stored)
@@ -212,7 +212,7 @@ contains
                 token = parser%consume()
                 stmt_index = -1
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "procedure")
+                    "double", "procedure")
                 call prefix_buffer%get_all(stored)
                 if (trim(lowered) == "double") then
                     lookahead = parser%get_token_at_index(parser%current_token + 1)
@@ -255,7 +255,7 @@ contains
     end function parse_contains_section_item
 
     function check_named_block_end(parser, compact_end_keyword, paired_end_keyword) &
-        result(at_end)
+            result(at_end)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: compact_end_keyword
         character(len=*), intent(in) :: paired_end_keyword
@@ -297,8 +297,8 @@ contains
                             end if
                         end if
                     else if (lookahead%kind == TK_NEWLINE .or. &
-                             lookahead%kind == TK_COMMENT .or. &
-                             lookahead%kind == TK_EOF) then
+                            lookahead%kind == TK_COMMENT .or. &
+                            lookahead%kind == TK_EOF) then
                         token = parser%consume()
                         at_end = .true.
                     end if
@@ -311,9 +311,9 @@ contains
     end function check_named_block_end
 
     subroutine parse_module_body(parser, arena, prefix_buffer, &
-                                 has_contains, in_contains_section, &
-                                 declaration_indices, procedure_indices, &
-                                 compact_end_keyword, paired_end_keyword)
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword, paired_end_keyword)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -328,7 +328,7 @@ contains
 
         do while (.not. parser%is_at_end())
             if (check_named_block_end(parser, compact_end_keyword, &
-                                      paired_end_keyword)) exit
+                paired_end_keyword)) exit
 
             token = parser%peek()
             select case (token%kind)
@@ -341,8 +341,8 @@ contains
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
                 trim(lowered) == "contains") then
                 if (handle_contains_keyword_in_module(parser, arena, has_contains, &
-                                                      in_contains_section, &
-                                                      declaration_indices)) then
+                    in_contains_section, &
+                    declaration_indices)) then
                     cycle
                 end if
             end if
@@ -351,12 +351,12 @@ contains
                 if (token%kind == TK_KEYWORD) then
                     if (keyword_should_parse_as_identifier(token, parser)) then
                         call handle_module_identifier_assignment(parser, arena, &
-                                                                 declaration_indices)
+                            declaration_indices)
                         cycle
                     end if
 
                     stmt_index = parse_module_declaration_statement(parser, arena, &
-                                                                    prefix_buffer)
+                        prefix_buffer)
                     if (stmt_index > 0) then
                         declaration_indices = [declaration_indices, stmt_index]
                         cycle
@@ -366,14 +366,14 @@ contains
                             extra_indices = take_implicit_additional_indices()
                             if (size(extra_indices) > 0) then
                                 declaration_indices = [declaration_indices, &
-                                                       extra_indices]
+                                    extra_indices]
                             end if
                         end block
                         cycle
                     end if
                 else if (token%kind == TK_IDENTIFIER) then
                     call handle_module_identifier_assignment(parser, arena, &
-                                                             declaration_indices)
+                        declaration_indices)
                     cycle
                 end if
             end if
@@ -393,8 +393,8 @@ contains
                 end if
 
                 if (.not. (token%kind == TK_KEYWORD .and. &
-                           (trim(lowered) == "function" .or. trim(lowered) == &
-                            "subroutine"))) then
+                    (trim(lowered) == "function" .or. trim(lowered) == &
+                    "subroutine"))) then
                     token = parser%consume()
                 end if
             else
@@ -432,15 +432,15 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                               has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices, &
-                               compact_end_keyword="endmodule", &
-                               paired_end_keyword="module")
+            has_contains, in_contains_section, &
+            declaration_indices, procedure_indices, &
+            compact_end_keyword="endmodule", &
+            paired_end_keyword="module")
 
         module_index = push_module_structured(arena, module_name, &
-                                              declaration_indices, &
-                                              procedure_indices, has_contains, &
-                                              line, column)
+            declaration_indices, &
+            procedure_indices, has_contains, &
+            line, column)
     end function parse_module
 
     logical function is_module_procedure_statement(parser) result(is_mod_proc)
@@ -479,7 +479,7 @@ contains
     end function is_module_procedure_statement
 
     integer function handle_enum_construct(parser, arena, keyword) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: keyword
@@ -497,7 +497,7 @@ contains
         column = token%column
 
         error_msg = "Unsupported Fortran feature: "//normalized_keyword// &
-                    " constructs are not supported"
+            " constructs are not supported"
 
         if (normalized_keyword == "enum") then
             do while (.not. parser%is_at_end())
@@ -533,7 +533,7 @@ contains
         end if
 
         stmt_index = push_error_node(arena, error_msg, normalized_keyword, &
-                                     line, column)
+            line, column)
     end function handle_enum_construct
 
     function parse_visibility_statement(parser, arena) result(stmt_index)
@@ -589,14 +589,14 @@ contains
 
         if (allocated(names)) then
             stmt_index = push_visibility_statement(arena, is_private, names, &
-                                                   keyword_token%line, &
-                                                   keyword_token%column, &
-                                                   has_double_colon=has_double_colon)
+                keyword_token%line, &
+                keyword_token%column, &
+                has_double_colon=has_double_colon)
         else
             stmt_index = push_visibility_statement(arena, is_private, &
-                                                   line=keyword_token%line, &
-                                                   column=keyword_token%column, &
-                                                   has_double_colon=has_double_colon)
+                line=keyword_token%line, &
+                column=keyword_token%column, &
+                has_double_colon=has_double_colon)
         end if
     end function parse_visibility_statement
 
@@ -622,10 +622,10 @@ contains
 
         if (allocated(names)) then
             stmt_index = push_namelist_statement(arena, group_name, names, &
-                                                 line, column)
+                line, column)
         else
             stmt_index = push_namelist_statement(arena, group_name, line=line, &
-                                                 column=column)
+                column=column)
         end if
     end function parse_namelist_statement
 
@@ -657,7 +657,7 @@ contains
         assignment_op = eq_token%text
 
         target_index = push_identifier(arena, id_token%text, id_token%line, &
-                                       id_token%column)
+            id_token%column)
 
         rhs_token = parser%peek()
         if (rhs_token%kind /= TK_NUMBER .and. rhs_token%kind /= TK_IDENTIFIER) then
@@ -667,18 +667,18 @@ contains
         rhs_token = parser%consume()
         if (rhs_token%kind == TK_IDENTIFIER) then
             rhs_index = push_identifier(arena, rhs_token%text, rhs_token%line, &
-                                        rhs_token%column)
+                rhs_token%column)
         else
             rhs_index = push_literal(arena, rhs_token%text, rhs_token%line, &
-                                     rhs_token%column, LITERAL_STRING)
+                rhs_token%column, LITERAL_STRING)
         end if
 
         if (rhs_index <= 0 .or. target_index <= 0) return
 
         if (.not. allocated(assignment_op)) assignment_op = "="
         assign_index = push_assignment(arena, target_index, rhs_index, &
-                                       id_token%line, id_token%column, &
-                                       operator_text=assignment_op)
+            id_token%line, id_token%column, &
+            operator_text=assignment_op)
         if (assign_index > 0) then
             declaration_indices = [declaration_indices, assign_index]
         end if
@@ -727,7 +727,7 @@ contains
     end subroutine skip_procedure_body
 
     function parse_abstract_interface_in_module(parser, arena, prefix_buffer) &
-        result(stmt_index)
+            result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -759,7 +759,7 @@ contains
         if (is_abstract_interface) then
             token = parser%consume()
             stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
-                                               is_abstract=.true.)
+                is_abstract=.true.)
         end if
     end function parse_abstract_interface_in_module
 

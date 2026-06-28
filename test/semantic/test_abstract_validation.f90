@@ -8,7 +8,7 @@ program test_abstract_validation
     use ast_factory_declarations, only: push_derived_type, push_type_binding
     use error_handling, only: error_collection_t, create_error_collection
     use semantic_abstract_validation, only: validate_abstract_extension, &
-                                            is_abstract_type
+        is_abstract_type
     implicit none
 
     logical :: all_tests_passed
@@ -41,11 +41,11 @@ contains
         integer :: bindings(1)
 
         bindings(1) = push_type_binding(arena, 'area', is_deferred=.true., &
-                                        interface_name='area_iface', line=1, &
-                                        column=1)
+            interface_name='area_iface', line=1, &
+            column=1)
         base_index = push_derived_type(arena, 'shape_t', &
-                                       attribute_clause='abstract', &
-                                       binding_indices=bindings, line=2, column=1)
+            attribute_clause='abstract', &
+            binding_indices=bindings, line=2, column=1)
     end function push_abstract_base
 
     subroutine test_overriding_child_accepted(passed)
@@ -59,10 +59,10 @@ contains
         errors = create_error_collection()
         base_index = push_abstract_base(arena)
         bindings(1) = push_type_binding(arena, 'area', implementation='circle_area', &
-                                        line=10, column=1)
+            line=10, column=1)
         child_index = push_derived_type(arena, 'circle_t', &
-                                        extends_parent='shape_t', &
-                                        binding_indices=bindings, line=11, column=1)
+            extends_parent='shape_t', &
+            binding_indices=bindings, line=11, column=1)
 
         call run_validation(arena, child_index, errors)
 
@@ -85,10 +85,10 @@ contains
         errors = create_error_collection()
         base_index = push_abstract_base(arena)
         comps(1) = push_type_binding(arena, 'describe', implementation='circle_desc', &
-                                     line=10, column=1)
+            line=10, column=1)
         child_index = push_derived_type(arena, 'circle_t', &
-                                        extends_parent='shape_t', &
-                                        binding_indices=comps, line=11, column=1)
+            extends_parent='shape_t', &
+            binding_indices=comps, line=11, column=1)
 
         call run_validation(arena, child_index, errors)
 
@@ -111,9 +111,9 @@ contains
         errors = create_error_collection()
         base_index = push_abstract_base(arena)
         child_index = push_derived_type(arena, 'polygon_t', &
-                                        extends_parent='shape_t', &
-                                        attribute_clause='abstract', &
-                                        line=11, column=1)
+            extends_parent='shape_t', &
+            attribute_clause='abstract', &
+            line=11, column=1)
 
         call run_validation(arena, child_index, errors)
 
@@ -136,8 +136,8 @@ contains
         ok = .true.
 
         abstract_index = push_derived_type(arena, 'shape_t', &
-                                           attribute_clause='ABSTRACT, public', &
-                                           line=1, column=1)
+            attribute_clause='ABSTRACT, public', &
+            line=1, column=1)
         plain_index = push_derived_type(arena, 'point_t', line=2, column=1)
 
         if (.not. node_is_abstract(arena, abstract_index)) ok = .false.
@@ -158,7 +158,7 @@ contains
         type(error_collection_t), intent(inout) :: errors
 
         select type (node => arena%entries(type_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             call validate_abstract_extension(arena, node, errors)
         end select
     end subroutine run_validation
@@ -171,7 +171,7 @@ contains
 
         is_abstract = .false.
         select type (node => arena%entries(type_index)%node)
-        type is (derived_type_node)
+            type is (derived_type_node)
             is_abstract = is_abstract_type(node)
         end select
     end function node_is_abstract

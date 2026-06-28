@@ -44,7 +44,7 @@ contains
         end if
 
         found_array_dim = (index(output, 'integer, dimension(n) :: arr') > 0) .or. &
-                          (index(output, 'integer :: arr(') > 0)
+            (index(output, 'integer :: arr(') > 0)
 
         if (.not. found_array_dim) then
             write (error_unit, '(A)') 'FAIL: Array dimensions lost in output'
@@ -101,15 +101,15 @@ contains
         end if
 
         has_matrix = index(output, 'real, dimension(m, n) :: matrix') > 0 .or. &
-                     index(output, 'real :: matrix(m,n)') > 0 .or. &
-                     index(output, 'real :: matrix(m, n)') > 0 .or. &
-                     index(output, 'real(8) :: matrix(m,n)') > 0 .or. &
-                     index(output, 'real(8) :: matrix(m, n)') > 0 .or. &
-                     index(output, 'real(dp) :: matrix(m,n)') > 0 .or. &
-                     index(output, 'real(dp) :: matrix(m, n)') > 0
+            index(output, 'real :: matrix(m,n)') > 0 .or. &
+            index(output, 'real :: matrix(m, n)') > 0 .or. &
+            index(output, 'real(8) :: matrix(m,n)') > 0 .or. &
+            index(output, 'real(8) :: matrix(m, n)') > 0 .or. &
+            index(output, 'real(dp) :: matrix(m,n)') > 0 .or. &
+            index(output, 'real(dp) :: matrix(m, n)') > 0
         has_tensor = index(output, 'integer, dimension(m, n, 3) :: tensor') > 0 .or. &
-                     index(output, 'integer :: tensor(m,n,3)') > 0 .or. &
-                     index(output, 'integer :: tensor(m, n, 3)') > 0
+            index(output, 'integer :: tensor(m,n,3)') > 0 .or. &
+            index(output, 'integer :: tensor(m, n, 3)') > 0
 
         if (.not. (has_matrix .and. has_tensor)) then
             write (error_unit, '(A)') 'FAIL: Multi-dimensional array dimensions lost'

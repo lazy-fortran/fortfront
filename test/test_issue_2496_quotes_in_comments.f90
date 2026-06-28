@@ -28,13 +28,13 @@ program test_issue_2496_quotes_in_comments
 
     success = .true.
     success = success .and. verify_contains(output, 'print *', &
-                                            'print statement preserved')
+        'print statement preserved')
     success = success .and. verify_contains(output, 'hello', &
-                                            'string literal preserved')
+        'string literal preserved')
     success = success .and. verify_contains(output, 'x = 5', &
-                                            'assignment preserved')
+        'assignment preserved')
     success = success .and. verify_contains(output, 'x = x + 3', &
-                                            'second assignment preserved')
+        'second assignment preserved')
 
     if (.not. success) then
         write (error_unit, '(A)') 'FAIL: Output verification failed'

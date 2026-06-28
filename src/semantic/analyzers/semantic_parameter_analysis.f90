@@ -1,24 +1,24 @@
 module semantic_parameter_analysis
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   create_mono_type, create_type_var, &
-                                   create_poly_type, TVAR, TREAL, TDOUBLE, &
-                                   TINT, TCHAR
+        create_mono_type, create_type_var, &
+        create_poly_type, TVAR, TREAL, TDOUBLE, &
+        TINT, TCHAR
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
-                              literal_node, binary_op_node, assignment_node, &
-                              program_node
+        literal_node, binary_op_node, assignment_node, &
+        program_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              module_node
+        module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use scope_manager, only: scope_stack_t
     use semantic_literal_type_helpers, only: literal_numeric_type
     use semantic_validation_utils, only: update_identifier_type_in_arena, &
-                                         int_to_str
+        int_to_str
     use semantic_type_context, only: infer_type_from_usage_context, &
-                                     infer_identifier_type_from_context, &
-                                     infer_expression_type_static
+        infer_identifier_type_from_context, &
+        infer_expression_type_static
     use semantic_procedure_utils, only: declaration_type_to_mono
     use semantic_function_helpers, only: find_return_type
     use ast_base, only: LITERAL_STRING
@@ -63,7 +63,7 @@ contains
         if (current_type%kind == TARRAY .and. candidate_type%kind == TARRAY) then
             call extract_rank_and_base_type(current_type, rank_current, base_current)
             call extract_rank_and_base_type(candidate_type, rank_candidate, &
-                                            base_candidate)
+                base_candidate)
             if (rank_current == rank_candidate) then
                 if (base_current%kind == base_candidate%kind) then
                     if (base_current%kind /= TCHAR .or. &
@@ -127,15 +127,15 @@ contains
         if (.not. arena%has_node_at(param_index)) return
 
         select type (param_node => arena%entries(param_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             param_name = param_node%name
-        type is (parameter_declaration_node)
+            type is (parameter_declaration_node)
             param_name = param_node%name
             param_type = declaration_type_to_mono(param_node%type_name)
             if (param_type%kind == 0 .and. param_node%inferred_type%kind > 0) then
                 param_type = param_node%inferred_type
             end if
-        type is (declaration_node)
+            type is (declaration_node)
             param_name = param_node%var_name
             param_type = declaration_type_to_mono(param_node%type_name)
             if (param_type%kind == 0 .and. param_node%inferred_type%kind > 0) then
@@ -158,7 +158,7 @@ contains
 
         if (param_type%var%id == 0) then
             param_type = create_mono_type(TVAR, &
-                                          var=create_type_var(next_var_id, "arg"))
+                var=create_type_var(next_var_id, "arg"))
             next_var_id = next_var_id + 1
         end if
 
@@ -171,7 +171,7 @@ contains
     end subroutine ensure_parameter_seed
 
     subroutine collect_parameter_metadata(arena, func_node, param_types, param_names, &
-                                          next_var_id)
+            next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), allocatable, intent(inout) :: param_types(:)
@@ -184,7 +184,7 @@ contains
 
         do i = 1, size(param_types)
             call fetch_parameter_metadata(arena, func_node%param_indices(i), &
-                                          source_name, source_type)
+                source_name, source_type)
             final_name = trim(source_name)
             if (len_trim(final_name) == 0) final_name = 'arg'//trim(int_to_str(i))
             final_name = trim(final_name)
@@ -198,7 +198,7 @@ contains
     end subroutine collect_parameter_metadata
 
     subroutine infer_parameter_types_from_calls(arena, func_node, param_types, &
-                                                param_names, scopes, next_var_id)
+            param_names, scopes, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), allocatable, intent(inout) :: param_types(:)
@@ -219,7 +219,7 @@ contains
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (call_node => arena%entries(idx)%node)
-            type is (call_or_subscript_node)
+                type is (call_or_subscript_node)
                 if (.not. allocated(call_node%name)) cycle
                 if (trim(call_node%name) /= func_name) cycle
                 if (.not. allocated(call_node%arg_indices)) cycle
@@ -227,16 +227,16 @@ contains
                     arg_idx = call_node%arg_indices(i)
                     if (.not. arena%has_node_at(arg_idx)) cycle
                     select type (arg_node => arena%entries(arg_idx)%node)
-                    type is (literal_node)
+                        type is (literal_node)
                         if (arg_node%literal_kind == LITERAL_STRING) then
                             literal_type = create_mono_type(TCHAR)
                         else
                             literal_type = literal_numeric_type(arg_node)
                         end if
                         call merge_parameter_type(param_types(i), literal_type)
-                    type is (identifier_node)
+                        type is (identifier_node)
                         call merge_parameter_type(param_types(i), &
-                                                  arg_node%inferred_type)
+                            arg_node%inferred_type)
                         inferred_arg_type = &
                             infer_identifier_type_from_context( &
                             arena, arg_node%name, param_names, param_types, &
@@ -256,18 +256,18 @@ contains
                             end block
                         end if
                         call merge_parameter_type(param_types(i), inferred_arg_type)
-                    type is (call_or_subscript_node)
+                        type is (call_or_subscript_node)
                         if (allocated(arg_node%name)) then
                             if (trim(arg_node%name) == func_name) cycle
                         end if
                         inferred_arg_type = infer_expression_type_static( &
-                                            arena, arg_idx, param_names, &
-                                            param_types)
+                            arena, arg_idx, param_names, &
+                            param_types)
                         if (inferred_arg_type%kind == 0 .or. &
                             inferred_arg_type%kind == TVAR) then
                             inferred_arg_type = resolve_call_argument_type( &
-                                                arena, arg_node, func_name, &
-                                                next_var_id)
+                                arena, arg_node, func_name, &
+                                next_var_id)
                         end if
                         call merge_parameter_type(param_types(i), inferred_arg_type)
                     end select
@@ -287,7 +287,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (func_node => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (.not. allocated(func_node%body_indices)) cycle
                 if (call_is_in_function_body(arena, call_index, func_node)) then
                     func_index = i
@@ -298,7 +298,7 @@ contains
     end function find_function_containing_call
 
     recursive logical function call_is_in_function_body(arena, call_index, func_node) &
-        result(is_in_body)
+            result(is_in_body)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: call_index
         type(function_def_node), intent(in) :: func_node
@@ -324,7 +324,7 @@ contains
     end function call_is_in_function_body
 
     recursive logical function node_contains_call(arena, node_idx, call_index) &
-        result(contains_call)
+            result(contains_call)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx, call_index
         integer :: i
@@ -339,7 +339,7 @@ contains
         if (.not. arena%has_node_at(node_idx)) return
 
         select type (node => arena%entries(node_idx)%node)
-        type is (assignment_node)
+            type is (assignment_node)
             if (node%value_index == call_index .or. &
                 node%target_index == call_index) then
                 contains_call = .true.
@@ -351,7 +351,7 @@ contains
                     return
                 end if
             end if
-        type is (binary_op_node)
+            type is (binary_op_node)
             if (node%left_index == call_index .or. node%right_index == call_index) &
                 then
                 contains_call = .true.
@@ -369,7 +369,7 @@ contains
                     return
                 end if
             end if
-        type is (call_or_subscript_node)
+            type is (call_or_subscript_node)
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     if (node%arg_indices(i) == call_index) then
@@ -382,9 +382,9 @@ contains
     end function node_contains_call
 
     function infer_type_from_enclosing_function_param(arena, identifier_name, &
-                                                      enclosing_func_index, &
-                                                      next_var_id) &
-        result(inferred_type)
+            enclosing_func_index, &
+            next_var_id) &
+            result(inferred_type)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: identifier_name
         integer, intent(in) :: enclosing_func_index
@@ -405,7 +405,7 @@ contains
         if (.not. allocated(arena%entries(enclosing_func_index)%node)) return
 
         select type (outer_func => arena%entries(enclosing_func_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (.not. allocated(outer_func%param_indices)) return
             if (.not. allocated(outer_func%name)) return
             outer_func_name = trim(outer_func%name)
@@ -415,13 +415,13 @@ contains
 
             do i = 1, size(outer_func%param_indices)
                 call fetch_parameter_metadata(arena, outer_func%param_indices(i), &
-                                              outer_param_names(i), &
-                                              outer_param_types(i))
+                    outer_param_names(i), &
+                    outer_param_types(i))
                 if (trim(outer_param_names(i)) == trim(identifier_name)) then
                     do idx = 1, arena%size
                         if (.not. allocated(arena%entries(idx)%node)) cycle
                         select type (call_node => arena%entries(idx)%node)
-                        type is (call_or_subscript_node)
+                            type is (call_or_subscript_node)
                             if (.not. allocated(call_node%name)) cycle
                             if (trim(call_node%name) /= outer_func_name) cycle
                             if (.not. allocated(call_node%arg_indices)) cycle
@@ -431,7 +431,7 @@ contains
                             if (.not. arena%has_node_at(arg_idx)) cycle
 
                             select type (arg_node => arena%entries(arg_idx)%node)
-                            type is (literal_node)
+                                type is (literal_node)
                                 if (arg_node%literal_kind == LITERAL_STRING) then
                                     literal_type = create_mono_type(TCHAR)
                                 else
@@ -457,8 +457,8 @@ contains
     end function infer_type_from_enclosing_function_param
 
     function resolve_call_argument_type(arena, call_node, current_name, &
-                                        next_var_id) &
-        result(arg_type)
+            next_var_id) &
+            result(arg_type)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         character(len=*), intent(in) :: current_name
@@ -495,13 +495,13 @@ contains
 
         do i = 1, size(param_types)
             select type (param_node => arena%entries(func_node%param_indices(i))%node)
-            type is (identifier_node)
+                type is (identifier_node)
                 param_node%inferred_type = param_types(i)
                 arena%entries(func_node%param_indices(i))%node = param_node
-            type is (parameter_declaration_node)
+                type is (parameter_declaration_node)
                 param_node%inferred_type = param_types(i)
                 arena%entries(func_node%param_indices(i))%node = param_node
-            type is (declaration_node)
+                type is (declaration_node)
                 param_node%inferred_type = param_types(i)
                 arena%entries(func_node%param_indices(i))%node = param_node
             end select
@@ -521,12 +521,12 @@ contains
             scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
             call scopes%define(trim(param_names(i)), scheme)
             call update_identifier_type_in_arena(arena, trim(param_names(i)), &
-                                                 param_types(i))
+                param_types(i))
         end do
     end subroutine register_parameters_in_scope
 
     subroutine analyze_function_parameters(arena, func_node, param_types, &
-                                           param_names, scopes, next_var_id)
+            param_names, scopes, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), allocatable, intent(out) :: param_types(:)
@@ -547,19 +547,19 @@ contains
         allocate (param_names(param_count))
 
         call collect_parameter_metadata(arena, func_node, param_types, param_names, &
-                                        next_var_id)
+            next_var_id)
         call infer_parameter_types_from_calls(arena, func_node, param_types, &
-                                              param_names, scopes, next_var_id)
+            param_names, scopes, next_var_id)
         call refine_parameters_from_body_usage(arena, func_node, param_types, &
-                                               param_names)
+            param_names)
         call update_parameter_nodes(arena, func_node, param_types)
         call register_parameters_in_scope(arena, param_names, param_types, scopes)
     end subroutine analyze_function_parameters
 
     function infer_base_type_from_call_site(arena, func_node, param_position) &
-        result(base_type)
+            result(base_type)
         use type_system_unified, only: TARRAY, &
-                                       type_args_size, type_args_element
+            type_args_size, type_args_element
         use semantic_type_context, only: infer_expression_type_static
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
@@ -584,7 +584,7 @@ contains
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (call_node => arena%entries(idx)%node)
-            type is (call_or_subscript_node)
+                type is (call_or_subscript_node)
                 if (.not. allocated(call_node%name)) cycle
                 if (trim(call_node%name) /= func_name) cycle
                 if (.not. allocated(call_node%arg_indices)) cycle
@@ -596,7 +596,7 @@ contains
                 if (call_scope_index <= 0) cycle
 
                 select type (arg_node => arena%entries(arg_idx)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     arg_type = arg_node%inferred_type
                     if (arg_type%kind == TARRAY) then
                         base_type = extract_array_base_type(arg_type)
@@ -609,12 +609,12 @@ contains
                         if (.not. allocated(arg_node%name)) cycle
                         arg_name = trim(arg_node%name)
                         assign_idx = find_assignment_to_variable(arena, arg_name, &
-                                                                 call_scope_index)
+                            call_scope_index)
                         if (assign_idx > 0) then
                             arg_type = infer_expression_type_static(arena, &
-                                                                    assign_idx, &
-                                                                    empty_names, &
-                                                                    empty_types)
+                                assign_idx, &
+                                empty_names, &
+                                empty_types)
                             if (arg_type%kind == TARRAY) then
                                 base_type = extract_array_base_type(arg_type)
                             else
@@ -634,12 +634,12 @@ contains
                         if (.not. allocated(arg_node%name)) cycle
                         arg_name = trim(arg_node%name)
                         assign_idx = find_assignment_to_variable(arena, arg_name, &
-                                                                 call_scope_index)
+                            call_scope_index)
                         if (assign_idx > 0) then
                             arg_type = infer_expression_type_static(arena, &
-                                                                    assign_idx, &
-                                                                    empty_names, &
-                                                                    empty_types)
+                                assign_idx, &
+                                empty_names, &
+                                empty_types)
                             if (arg_type%kind == TARRAY) then
                                 base_type = extract_array_base_type(arg_type)
                             else if (arg_type%kind > 0) then
@@ -661,7 +661,7 @@ contains
     end function infer_base_type_from_call_site
 
     function find_assignment_to_variable(arena, var_name, scope_index) &
-        result(value_index)
+            result(value_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: scope_index
@@ -674,15 +674,15 @@ contains
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (assign_node => arena%entries(idx)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 if (.not. node_within_scope(arena, idx, scope_index)) cycle
                 if (assign_node%target_index <= 0) cycle
                 if (assign_node%target_index > arena%size) cycle
                 if (.not. allocated(arena%entries(assign_node%target_index)%node)) &
                     cycle
                 select type (target_node => &
-                             arena%entries(assign_node%target_index)%node)
-                type is (identifier_node)
+                        arena%entries(assign_node%target_index)%node)
+                    type is (identifier_node)
                     if (.not. allocated(target_node%name)) cycle
                     if (trim(target_node%name) == trim(var_name)) then
                         value_index = assign_node%value_index
@@ -703,13 +703,13 @@ contains
         do while (current > 0 .and. current <= arena%size)
             if (.not. allocated(arena%entries(current)%node)) exit
             select type (scope_node => arena%entries(current)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 scope_index = current
                 return
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 scope_index = current
                 return
-            type is (program_node)
+                type is (program_node)
                 scope_index = current
                 return
             end select
@@ -743,7 +743,7 @@ contains
     end function extract_array_base_type
 
     subroutine refine_parameters_from_body_usage(arena, func_node, param_types, &
-                                                 param_names)
+            param_names)
         use type_system_unified, only: TARRAY
         use semantic_array_type_builders, only: build_deferred_shape_array
         use intrinsic_registry, only: is_intrinsic_function
@@ -762,13 +762,13 @@ contains
 
         do i = 1, size(func_node%body_indices)
             call refine_from_statement(arena, func_node%body_indices(i), &
-                                       param_types, param_names)
+                param_types, param_names)
         end do
 
     contains
 
         recursive subroutine refine_from_statement(arena, stmt_idx, param_types, &
-                                                   param_names)
+                param_names)
             use ast_nodes_loops, only: do_loop_node
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: stmt_idx
@@ -779,28 +779,28 @@ contains
             if (.not. arena%has_node_at(stmt_idx)) return
 
             select type (node => arena%entries(stmt_idx)%node)
-            type is (call_or_subscript_node)
+                type is (call_or_subscript_node)
                 call refine_from_intrinsic_call(node)
                 call refine_from_array_indexing(node)
-            type is (assignment_node)
+                type is (assignment_node)
                 if (node%value_index > 0) then
                     call refine_from_statement(arena, node%value_index, &
-                                               param_types, param_names)
+                        param_types, param_names)
                 end if
-            type is (binary_op_node)
+                type is (binary_op_node)
                 if (node%left_index > 0) then
                     call refine_from_statement(arena, node%left_index, &
-                                               param_types, param_names)
+                        param_types, param_names)
                 end if
                 if (node%right_index > 0) then
                     call refine_from_statement(arena, node%right_index, &
-                                               param_types, param_names)
+                        param_types, param_names)
                 end if
-            type is (do_loop_node)
+                type is (do_loop_node)
                 if (allocated(node%body_indices)) then
                     do k = 1, size(node%body_indices)
                         call refine_from_statement(arena, node%body_indices(k), &
-                                                   param_types, param_names)
+                            param_types, param_names)
                     end do
                 end if
             end select
@@ -828,7 +828,7 @@ contains
                 if (.not. arena%has_node_at(arg_idx)) return
 
                 select type (arg_node => arena%entries(arg_idx)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     if (.not. allocated(arg_node%name)) return
                     arg_name = trim(arg_node%name)
 
@@ -850,8 +850,8 @@ contains
                         end if
 
                         base_type = infer_base_type_from_call_site(arena, &
-                                                                   func_node, &
-                                                                   param_idx)
+                            func_node, &
+                            param_idx)
                         if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
                             base_type = param_types(param_idx)
                             if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
@@ -860,9 +860,9 @@ contains
                         end if
 
                         inferred_array_type = build_deferred_shape_array(base_type, &
-                                                                         rank)
+                            rank)
                         call merge_parameter_type(param_types(param_idx), &
-                                                  inferred_array_type)
+                            inferred_array_type)
                     end if
                 end select
             end select
@@ -894,7 +894,7 @@ contains
                 rank = size(call_node%arg_indices)
 
                 base_type = infer_base_type_from_call_site(arena, func_node, &
-                                                           param_idx)
+                    param_idx)
                 if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
                     base_type = param_types(param_idx)
                     if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
@@ -904,7 +904,7 @@ contains
 
                 inferred_array_type = build_deferred_shape_array(base_type, rank)
                 call merge_parameter_type(param_types(param_idx), &
-                                          inferred_array_type)
+                    inferred_array_type)
             end if
         end subroutine refine_from_array_indexing
 
@@ -925,7 +925,7 @@ contains
             if (.not. arena%has_node_at(dim_arg_idx)) return
 
             select type (dim_node => arena%entries(dim_arg_idx)%node)
-            type is (literal_node)
+                type is (literal_node)
                 if (allocated(dim_node%value)) then
                     read (dim_node%value, *, iostat=iostat_val) dim
                     if (iostat_val /= 0) dim = 1

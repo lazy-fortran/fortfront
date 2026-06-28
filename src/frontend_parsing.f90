@@ -3,9 +3,9 @@ module frontend_parsing
     ! Now serves as a compatibility layer over split modules
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_UNKNOWN, &
-                          TK_WHITESPACE, to_lower
+        TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+        TK_UNKNOWN, &
+        TK_WHITESPACE, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node, block_data_node, submodule_node
@@ -15,20 +15,20 @@ module frontend_parsing
     use frontend_utilities, only: is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &
-                                        mixed_construct_result_t, &
-                                        is_top_level_declaration
+        mixed_construct_result_t, &
+        is_top_level_declaration
     use error_handling, only: result_t
     use parser_dispatcher_module, only: clear_parser_errors
 
     ! Import from split modules
     use frontend_program_units, only: parse_program_unit, &
-                                      parse_function_unit, parse_subroutine_unit, &
-                                      parse_type_unit, parse_explicit_program_unit, &
-                                      parse_implicit_main_program, &
-                                      not_meaningful_program_unit, &
-                                      has_any_non_comment_content, &
-                                      has_executable_statements, &
-                                      is_function_start
+        parse_function_unit, parse_subroutine_unit, &
+        parse_type_unit, parse_explicit_program_unit, &
+        parse_implicit_main_program, &
+        not_meaningful_program_unit, &
+        has_any_non_comment_content, &
+        has_executable_statements, &
+        is_function_start
     use frontend_statement_processing, only: &
         process_comment_statement, &
         process_regular_statement, &
@@ -38,19 +38,19 @@ module frontend_parsing
         is_empty_main_program, &
         find_statement_boundary
     use frontend_mixed_constructs, only: parse_mixed_constructs, &
-                                         create_mixed_construct_container_arena, &
-                                         parse_declaration_range, parse_program_range
+        create_mixed_construct_container_arena, &
+        parse_declaration_range, parse_program_range
     use parser_procedure_definition_bodies_module, only: &
         reset_nested_internal_procedure_error, &
         has_nested_internal_procedure_error, &
         get_nested_internal_procedure_message
     use frontend_program_unit_scanner, only: detect_explicit_program_unit, &
-                                             is_inside_module, is_program_unit_start, &
-                                             unit_has_meaningful_content, &
-                                             should_process_unit, &
-                                             process_program_unit, &
-                                             find_program_unit_boundary, &
-                                             procedure_has_entry
+        is_inside_module, is_program_unit_start, &
+        unit_has_meaningful_content, &
+        should_process_unit, &
+        process_program_unit, &
+        find_program_unit_boundary, &
+        procedure_has_entry
     use frontend_token_normalization, only: normalize_keyword_identifiers
 
     implicit none
@@ -67,9 +67,9 @@ module frontend_parsing
 
     ! Re-export functions needed by other modules
     public :: find_program_unit_boundary, is_function_start, is_end_function, &
-              parse_program_unit
+        parse_program_unit
     public :: is_do_loop_start, is_do_while_start, is_select_case_start, &
-              is_end_do, is_end_select
+        is_end_do, is_end_select
     public :: is_if_then_start, is_end_if
     public :: is_type_start, is_end_type, find_statement_boundary
 
@@ -112,13 +112,13 @@ contains
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (should_use_mixed_constructs(tokens_local, mixed_result)) then
             call parse_mixed_construct_file(tokens_local, arena, mixed_result, &
-                                            prog_index, error_msg)
+                prog_index, error_msg)
             return
         end if
 
         has_explicit_program = detect_explicit_program_unit(tokens_local)
         call collect_program_units(tokens_local, arena, has_explicit_program, &
-                                   debug_units, unit_indices, unit_error)
+            debug_units, unit_indices, unit_error)
 
         if (allocated(unit_error)) then
             if (len_trim(unit_error) > 0) then
@@ -167,12 +167,12 @@ contains
         integer :: debug_status
 
         call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', debug_flag, &
-                                      status=debug_status)
+            status=debug_status)
         is_enabled = (debug_status == 0 .and. len_trim(debug_flag) > 0)
     end function debug_dump_enabled
 
     logical function should_use_mixed_constructs(tokens, mixed_result) &
-        result(require_mixed)
+            result(require_mixed)
         type(token_t), intent(in) :: tokens(:)
         type(mixed_construct_result_t), intent(in) :: mixed_result
         integer :: token_idx
@@ -192,7 +192,7 @@ contains
     end function should_use_mixed_constructs
 
     subroutine parse_mixed_construct_file(tokens, arena, mixed_result, prog_index, &
-                                          error_msg)
+            error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(mixed_construct_result_t), intent(in) :: mixed_result
@@ -203,14 +203,14 @@ contains
 
         mixed_error = ""
         call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, &
-                                    mixed_error)
+            mixed_error)
         if (len_trim(mixed_error) > 0) then
             error_msg = trim(mixed_error)
         end if
     end subroutine parse_mixed_construct_file
 
     subroutine collect_program_units(tokens, arena, has_explicit_program, &
-                                     debug_units, unit_indices, unit_error)
+            debug_units, unit_indices, unit_error)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
@@ -238,7 +238,7 @@ contains
 
             local_error = ""
             call process_program_unit(tokens, unit_start, unit_end, arena, &
-                                      unit_index, has_explicit_program, local_error)
+                unit_index, has_explicit_program, local_error)
 
             if (debug_units) then
                 call log_unit_bounds(tokens, unit_start, unit_end, unit_index)
@@ -297,7 +297,7 @@ contains
             call finalize_single_unit(arena, unit_indices(1), prog_index)
         else
             call handle_multiple_program_units(arena, unit_indices, prog_index, &
-                                               error_msg)
+                error_msg)
         end if
     end subroutine finalize_program_result
 
@@ -312,27 +312,27 @@ contains
         end if
 
         select type (node => arena%entries(unit_index)%node)
-        type is (program_node)
+            type is (program_node)
             prog_index = unit_index
-        type is (module_node)
+            type is (module_node)
             prog_index = unit_index
-        type is (submodule_node)
+            type is (submodule_node)
             prog_index = unit_index
-        type is (block_data_node)
+            type is (block_data_node)
             prog_index = unit_index
-        type is (function_def_node)
+            type is (function_def_node)
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
                 prog_index = create_multi_unit_container(arena, [unit_index])
             end if
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
                 prog_index = create_multi_unit_container(arena, [unit_index])
             end if
-        type is (interface_block_node)
+            type is (interface_block_node)
             prog_index = push_multi_unit_container(arena, [unit_index], 1, 1)
         class default
             prog_index = push_program(arena, "main", [unit_index], 1, 1)
