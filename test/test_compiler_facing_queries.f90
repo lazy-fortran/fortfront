@@ -12,7 +12,7 @@ program test_compiler_facing_queries
                          compiler_frontend_options_t, &
                          compiler_frontend_result_t, INPUT_MODE_STANDARD, &
                          get_node_type_at
-  use fortfront_compiler, only: get_declaration_initializer, &
+    use fortfront_compiler, only: get_declaration_initializer, &
                                    get_derived_type_components, &
                                    get_array_literal_elements, get_import_list, &
                                    get_interface_block_body, has_bind_c_attribute, &
@@ -24,7 +24,9 @@ program test_compiler_facing_queries
                                    get_program_body_info, &
                                    get_module_body_info, &
                                    get_function_body_info, &
-                                   get_subroutine_body_info
+                                   get_subroutine_body_info, &
+                                   get_used_modules, get_defined_module, &
+                                   used_module_t, defined_module_t
     implicit none
 
     call test_declaration_initializer()
@@ -42,6 +44,10 @@ program test_compiler_facing_queries
     call test_subroutine_body_info()
     call test_wrong_node_kind_program_query()
     call test_wrong_node_kind_declaration_query()
+    call test_used_modules()
+    call test_defined_module()
+    call test_defined_submodule()
+    call test_defined_module_not_found()
 
     print *, 'PASS: compiler-facing queries work as documented'
 
@@ -542,7 +548,7 @@ contains
         end if
 
         do i = 1, result%arena%size
-            if (trim(get_node_type_at(result%arena, i)) /= 'module') cycle
+            if (trim(get_node_type_at(result%arena, i)) /= 'module_node') cycle
             call get_module_body_info(result%arena, i, name, &
                                        declaration_indices, procedure_indices, &
                                        error_msg)
@@ -776,5 +782,236 @@ contains
             exit
         end do
     end subroutine test_wrong_node_kind_declaration_query
+
+    subroutine test_used_modules()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        type(used_module_t), allocatable :: modules(:)
+        integer :: n
+
+        src = 'module mymod'//new_line('a')// &
+              '  use, intrinsic :: iso_c_binding, only: c_int'//new_line('a')// &
+              '  use other_mod, only: foo => bar'//new_line('a')// &
+              '  use simple_mod'//new_line('a')// &
+              '  implicit none'//new_line('a')// &
+              'end module mymod'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected use-statement source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        call get_used_modules(result%arena, modules)
+        n = size(modules)
+        if (n /= 3) then
+            print *, 'FAIL: expected 3 use statements, got ', n
+            error stop 1
+        end if
+
+        if (trim(modules(1)%module_name) /= 'iso_c_binding') then
+            print *, 'FAIL: first use module name is ', &
+                trim(modules(1)%module_name), ' expected iso_c_binding'
+            error stop 1
+        end if
+        if (.not. modules(1)%has_only) then
+            print *, 'FAIL: first use should have has_only'
+            error stop 1
+        end if
+        if (.not. modules(1)%is_intrinsic) then
+            print *, 'FAIL: first use should be intrinsic'
+            error stop 1
+        end if
+        if (size(modules(1)%only_list) /= 1) then
+            print *, 'FAIL: first use only_list should have c_int'
+            error stop 1
+        end if
+        if (trim(modules(1)%only_list(1)) /= 'c_int') then
+            print *, 'FAIL: first use only_list(1) is ', &
+                trim(modules(1)%only_list(1)), ' expected c_int'
+            error stop 1
+        end if
+
+        if (trim(modules(2)%module_name) /= 'other_mod') then
+            print *, 'FAIL: second use module name is ', &
+                trim(modules(2)%module_name), ' expected other_mod'
+            error stop 1
+        end if
+        if (.not. modules(2)%has_only) then
+            print *, 'FAIL: second use should have has_only'
+            error stop 1
+        end if
+        if (modules(2)%is_intrinsic) then
+            print *, 'FAIL: second use should not be intrinsic'
+            error stop 1
+        end if
+        if (size(modules(2)%rename_list) /= 2) then
+            print *, 'FAIL: second use rename_list should have two entries'
+            error stop 1
+        end if
+        if (trim(modules(2)%rename_list(1)) /= 'foo') then
+            print *, 'FAIL: second use rename_list(1) is ', &
+                trim(modules(2)%rename_list(1)), ' expected foo'
+            error stop 1
+        end if
+        if (trim(modules(2)%rename_list(2)) /= 'bar') then
+            print *, 'FAIL: second use rename_list(2) is ', &
+                trim(modules(2)%rename_list(2)), ' expected bar'
+            error stop 1
+        end if
+
+        if (trim(modules(3)%module_name) /= 'simple_mod') then
+            print *, 'FAIL: third use module name is ', &
+                trim(modules(3)%module_name), ' expected simple_mod'
+            error stop 1
+        end if
+        if (modules(3)%has_only) then
+            print *, 'FAIL: third use should not have has_only'
+            error stop 1
+        end if
+        if (size(modules(3)%only_list) /= 0) then
+            print *, 'FAIL: third use should have empty only_list'
+            error stop 1
+        end if
+        if (size(modules(3)%rename_list) /= 0) then
+            print *, 'FAIL: third use should have empty rename_list'
+            error stop 1
+        end if
+    end subroutine test_used_modules
+
+    subroutine test_defined_module()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        type(defined_module_t) :: info
+        character(:), allocatable :: error_msg
+
+        src = 'module mymod'//new_line('a')// &
+              '  implicit none'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              'contains'//new_line('a')// &
+              '  subroutine s()'//new_line('a')// &
+              '    x = 1'//new_line('a')// &
+              '  end subroutine s'//new_line('a')// &
+              'end module mymod'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected module source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        call get_defined_module(result%arena, info, error_msg)
+        if (len_trim(error_msg) > 0) then
+            print *, 'FAIL: get_defined_module error: ', trim(error_msg)
+            error stop 1
+        end if
+        if (trim(info%name) /= 'mymod') then
+            print *, 'FAIL: defined module name is ', trim(info%name), &
+                ' expected mymod'
+            error stop 1
+        end if
+        if (info%is_submodule) then
+            print *, 'FAIL: module should not be flagged as submodule'
+            error stop 1
+        end if
+        if (trim(info%parent_identifier) /= '') then
+            print *, 'FAIL: module parent_identifier should be empty'
+            error stop 1
+        end if
+    end subroutine test_defined_module
+
+    subroutine test_defined_submodule()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        type(defined_module_t) :: info
+        character(:), allocatable :: error_msg
+
+        src = 'submodule(parent_mod) child_sub'//new_line('a')// &
+              '  implicit none'//new_line('a')// &
+              'end submodule child_sub'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected submodule source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        call get_defined_module(result%arena, info, error_msg)
+        if (len_trim(error_msg) > 0) then
+            print *, 'FAIL: get_defined_module error for submodule: ', &
+                trim(error_msg)
+            error stop 1
+        end if
+        if (trim(info%name) /= 'child_sub') then
+            print *, 'FAIL: submodule name is ', trim(info%name), &
+                ' expected child_sub'
+            error stop 1
+        end if
+        if (.not. info%is_submodule) then
+            print *, 'FAIL: submodule should be flagged as submodule'
+            error stop 1
+        end if
+        if (.not. allocated(info%parent_identifier)) then
+            print *, 'FAIL: submodule parent_identifier not allocated'
+            error stop 1
+        end if
+        if (trim(info%parent_identifier) /= 'parent_mod') then
+            print *, 'FAIL: submodule parent is ', &
+                trim(info%parent_identifier), ' expected parent_mod'
+            error stop 1
+        end if
+    end subroutine test_defined_submodule
+
+    subroutine test_defined_module_not_found()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        type(defined_module_t) :: info
+        character(:), allocatable :: error_msg
+
+        src = 'program t'//new_line('a')// &
+              '  integer :: x'//new_line('a')// &
+              '  x = 1'//new_line('a')// &
+              'end program t'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected program source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        call get_defined_module(result%arena, info, error_msg)
+        if (len_trim(error_msg) == 0) then
+            print *, 'FAIL: expected error for no module definition'
+            error stop 1
+        end if
+        if (trim(info%name) /= '') then
+            print *, 'FAIL: no-module result name should be empty'
+            error stop 1
+        end if
+        if (info%is_submodule) then
+            print *, 'FAIL: no-module result should not be submodule'
+            error stop 1
+        end if
+    end subroutine test_defined_module_not_found
 
 end program test_compiler_facing_queries
