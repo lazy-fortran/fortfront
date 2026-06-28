@@ -60,7 +60,9 @@ module fortfront
                                          get_program_body_info, &
                                          get_module_body_info, &
                                          get_function_body_info, &
-                                         get_subroutine_body_info
+                                         get_subroutine_body_info, &
+                                         get_used_modules, get_defined_module, &
+                                         used_module_t, defined_module_t
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c

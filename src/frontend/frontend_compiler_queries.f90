@@ -1,12 +1,15 @@
 module frontend_compiler_queries
     use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: string_t
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
                                    subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
                                array_literal_node, program_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                               parameter_declaration_node, module_node
-    use ast_nodes_misc, only: interface_block_node, import_statement_node
+                               parameter_declaration_node, module_node, &
+                               submodule_node
+    use ast_nodes_misc, only: interface_block_node, import_statement_node, &
+                               use_statement_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
                                      case_default_node, case_range_node, &
                                      select_type_node, type_guard_block_node
@@ -40,6 +43,24 @@ module frontend_compiler_queries
     public :: get_module_body_info
     public :: get_function_body_info
     public :: get_subroutine_body_info
+    public :: get_used_modules
+    public :: get_defined_module
+    public :: used_module_t
+    public :: defined_module_t
+
+    type :: used_module_t
+        character(len=:), allocatable :: module_name
+        character(len=:), allocatable :: only_list(:)
+        character(len=:), allocatable :: rename_list(:)
+        logical :: has_only = .false.
+        logical :: is_intrinsic = .false.
+    end type used_module_t
+
+    type :: defined_module_t
+        character(len=:), allocatable :: name
+        logical :: is_submodule = .false.
+        character(len=:), allocatable :: parent_identifier
+    end type defined_module_t
 
 contains
 
@@ -700,6 +721,110 @@ contains
             error_msg = 'AST node is not a subroutine; expected subroutine_def_node'
         end select
     end subroutine get_subroutine_body_info
+
+    subroutine get_used_modules(arena, modules)
+        type(ast_arena_t), intent(in) :: arena
+        type(used_module_t), allocatable, intent(out) :: modules(:)
+        integer :: i, count, k
+
+        count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (use_statement_node)
+                count = count + 1
+            end select
+        end do
+
+        allocate (modules(count))
+        k = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (use_statement_node)
+                k = k + 1
+                if (allocated(node%module_name)) then
+                    modules(k)%module_name = node%module_name
+                else
+                    modules(k)%module_name = ''
+                end if
+                modules(k)%has_only = node%has_only
+                modules(k)%is_intrinsic = node%is_intrinsic
+                call copy_string_t_array(node%only_list, modules(k)%only_list)
+                call copy_string_t_array(node%rename_list, modules(k)%rename_list)
+            end select
+        end do
+    end subroutine get_used_modules
+
+    subroutine get_defined_module(arena, module_info, error_msg)
+        type(ast_arena_t), intent(in) :: arena
+        type(defined_module_t), intent(out) :: module_info
+        character(len=:), allocatable, intent(out) :: error_msg
+        integer :: i
+
+        call set_empty(error_msg)
+        module_info%name = ''
+        module_info%is_submodule = .false.
+        module_info%parent_identifier = ''
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (module_node)
+                if (allocated(node%name)) then
+                    module_info%name = node%name
+                else
+                    module_info%name = ''
+                end if
+                module_info%is_submodule = .false.
+                call set_empty(error_msg)
+                return
+            type is (submodule_node)
+                if (allocated(node%name)) then
+                    module_info%name = node%name
+                else
+                    module_info%name = ''
+                end if
+                module_info%is_submodule = .true.
+                if (allocated(node%parent_identifier)) then
+                    module_info%parent_identifier = node%parent_identifier
+                end if
+                call set_empty(error_msg)
+                return
+            end select
+        end do
+
+        error_msg = 'no module or submodule definition found in arena'
+    end subroutine get_defined_module
+
+    subroutine copy_string_t_array(src, dst)
+        type(string_t), allocatable, intent(in) :: src(:)
+        character(len=:), allocatable, intent(out) :: dst(:)
+        integer :: i, max_len
+
+        if (.not. allocated(src)) then
+            allocate (character(len=1) :: dst(0))
+            return
+        end if
+        if (size(src) == 0) then
+            allocate (character(len=1) :: dst(0))
+            return
+        end if
+        max_len = 1
+        do i = 1, size(src)
+            if (allocated(src(i)%s)) then
+                if (len(src(i)%s) > max_len) max_len = len(src(i)%s)
+            end if
+        end do
+        allocate (character(len=max_len) :: dst(size(src)))
+        do i = 1, size(src)
+            if (allocated(src(i)%s)) then
+                dst(i) = src(i)%s
+            else
+                dst(i) = ''
+            end if
+        end do
+    end subroutine copy_string_t_array
 
     subroutine set_empty(value)
         character(len=:), allocatable, intent(out) :: value
