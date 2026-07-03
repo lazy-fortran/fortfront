@@ -4,8 +4,8 @@ module standardizer_declarations_parsing
     use ast_nodes_data, only: declaration_node
     use lexer_core, only: to_lower
     use standardizer_declarations_array, only: parse_dimension_attribute, &
-        set_array_properties_from_type, &
-        check_has_explicit_bounds
+                                               set_array_properties_from_type, &
+                                               check_has_explicit_bounds
     use semantic_input_mode, only: INPUT_MODE_STANDARD
     use standardizer_parameter, only: get_standardizer_input_mode
     implicit none
@@ -166,7 +166,7 @@ contains
     end subroutine build_filtered_attrs
 
     subroutine apply_type_string_to_decl(arena, prog_index, var_name, &
-            var_type, decl_node)
+                                         var_type, decl_node)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         character(len=*), intent(in) :: var_name, var_type
@@ -192,7 +192,7 @@ contains
 
         if (allocated(decl_node%type_name)) then
             call parse_base_and_attributes(decl_node%type_name, existing_base, &
-                existing_attr)
+                                           existing_attr)
             base_name_existing = normalize_base_name(existing_base)
             if (len_trim(base_name_existing) > 0 .and. &
                 len_trim(base_name_new) > 0) then
@@ -220,8 +220,13 @@ contains
 
         if (.not. keep_base_type) then
             if (len_trim(filtered_attr) > 0) then
-                decl_node%type_name = trim(decl_node%type_name) // ', ' // &
-                    trim(filtered_attr)
+                ! Known attributes become declaration flags so type_name stays
+                ! a pure type spec; only unrecognized text is kept in it.
+                call absorb_attribute_flags(filtered_attr, decl_node)
+                if (len_trim(filtered_attr) > 0) then
+                    decl_node%type_name = trim(decl_node%type_name) // ', ' // &
+                                          trim(adjustl(filtered_attr))
+                end if
             end if
         end if
 
@@ -229,7 +234,7 @@ contains
         if (dim_pos > 0) then
             has_dimension_attr = .true.
             call parse_dimension_attribute(arena, prog_index, var_type, &
-                dim_pos, decl_node)
+                                           dim_pos, decl_node)
         else
             ! Preserve existing explicit array bounds (standard Fortran declarations)
             ! ISO/IEC 1539-1:2018 Section 8.5.8.2: explicit-shape arrays have
@@ -256,7 +261,7 @@ contains
 
         if (.not. has_dimension_attr) then
             call set_array_properties_from_type(arena, var_name, prog_index, &
-                decl_node)
+                                                decl_node)
         end if
 
         if (decl_node%is_array .and. allocated(decl_node%dimension_indices)) then
@@ -273,8 +278,80 @@ contains
         end if
     end subroutine apply_type_string_to_decl
 
+    subroutine absorb_attribute_flags(filtered_attr, decl_node)
+        character(len=:), allocatable, intent(inout) :: filtered_attr
+        type(declaration_node), intent(inout) :: decl_node
+        character(len=:), allocatable :: residual, component
+        integer :: comp_start, comma_pos, comp_end
+
+        residual = ''
+        comp_start = 1
+        do
+            if (comp_start > len_trim(filtered_attr)) exit
+            comma_pos = index(filtered_attr(comp_start:), ',')
+            if (comma_pos > 0) then
+                comp_end = comp_start + comma_pos - 2
+            else
+                comp_end = len_trim(filtered_attr)
+            end if
+            if (comp_end >= comp_start) then
+                component = trim(adjustl(filtered_attr(comp_start:comp_end)))
+                if (len_trim(component) > 0) then
+                    call set_attribute_flag(component, decl_node, residual)
+                end if
+            end if
+            if (comma_pos == 0) exit
+            comp_start = comp_end + 2
+        end do
+        filtered_attr = residual
+    end subroutine absorb_attribute_flags
+
+    subroutine set_attribute_flag(component, decl_node, residual)
+        character(len=*), intent(in) :: component
+        type(declaration_node), intent(inout) :: decl_node
+        character(len=:), allocatable, intent(inout) :: residual
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(trim(component))
+        select case (lowered)
+        case ('allocatable')
+            decl_node%is_allocatable = .true.
+        case ('pointer')
+            decl_node%is_pointer = .true.
+        case ('target')
+            decl_node%is_target = .true.
+        case ('parameter')
+            decl_node%is_parameter = .true.
+        case ('optional')
+            decl_node%is_optional = .true.
+        case ('save')
+            decl_node%is_save = .true.
+        case ('external')
+            decl_node%is_external = .true.
+        case ('volatile')
+            decl_node%is_volatile = .true.
+        case ('protected')
+            decl_node%is_protected = .true.
+        case ('asynchronous')
+            decl_node%is_asynchronous = .true.
+        case ('contiguous')
+            decl_node%is_contiguous = .true.
+        case ('value')
+            decl_node%is_value = .true.
+        case default
+            if (index(lowered, 'intent(') == 1 .and. &
+                index(lowered, ')') == len_trim(lowered)) then
+                decl_node%has_intent = .true.
+                decl_node%intent = lowered(8:len_trim(lowered) - 1)
+            else
+                if (len_trim(residual) > 0) residual = residual // ', '
+                residual = residual // trim(component)
+            end if
+        end select
+    end subroutine set_attribute_flag
+
     subroutine update_existing_declaration_type(arena, prog_index, var_name, &
-            var_type)
+                                                var_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         character(len=*), intent(in) :: var_name, var_type
@@ -288,13 +365,13 @@ contains
         if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
-            type is (program_node)
+        type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do i = 1, size(prog%body_indices)
                 node_idx = prog%body_indices(i)
                 if (.not. arena%has_node_at(node_idx)) cycle
                 select type (decl => arena%entries(node_idx)%node)
-                    type is (declaration_node)
+                type is (declaration_node)
                     if (.not. decl%is_multi_declaration) then
                         candidate_name = to_lower(trim(decl%var_name))
                         if (trim(candidate_name) == trim(target_name)) then
@@ -312,8 +389,8 @@ contains
                                 end if
                             end if
                             call apply_type_string_to_decl(arena, prog_index, &
-                                var_name, var_type, &
-                                decl)
+                                                           var_name, var_type, &
+                                                           decl)
                             arena%entries(node_idx)%node = decl
                             return
                         end if
@@ -323,9 +400,9 @@ contains
                             if (trim(candidate_name) == trim(target_name)) then
                                 if (index(to_lower(var_type), 'dimension(') == 0) then
                                     call apply_type_string_to_decl(arena, &
-                                        prog_index, &
-                                        var_name, &
-                                        var_type, decl)
+                                                                   prog_index, &
+                                                                   var_name, &
+                                                                   var_type, decl)
                                     arena%entries(node_idx)%node = decl
                                 end if
                                 return
