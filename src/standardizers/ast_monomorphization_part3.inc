@@ -86,7 +86,7 @@
                             deallocate (decl_copy%dimension_indices)
                         end if
                     end if
-                    call arena%push(decl_copy)
+                    call arena%push(decl_copy, "declaration")
                     body_indices_copy(i) = arena%size
                 end select
             end do
@@ -268,7 +268,7 @@
             end if
         end if
 
-        call arena%push(new_param)
+        call arena%push(new_param, "parameter_declaration")
         new_idx = arena%size
     end function clone_parameter_with_kind
 
@@ -290,7 +290,7 @@
 
         mod_proc = create_module_procedure(proc_names, has_module_prefix=.true., &
                                            has_double_colon=.false.)
-        call arena%push(mod_proc)
+        call arena%push(mod_proc, "module_procedure")
         idx = arena%size
     end function create_module_procedure_node
 
@@ -307,7 +307,7 @@
                 name=name, &
                 procedure_indices=proc_indices)
 
-        call arena%push(iface)
+        call arena%push(iface, "interface_block")
         idx = arena%size
     end function create_interface_node
 
@@ -331,7 +331,7 @@
               procedure_indices=variant_indices, &
               has_contains=.true.)
 
-        call arena%push(mod)
+        call arena%push(mod, "module_node")
         idx = arena%size
     end function create_module_for_function
 
@@ -346,7 +346,7 @@
                                         rename_list=rename_list, &
                                         has_only=.true., &
                                         is_intrinsic=.true.)
-        call arena%push(use_stmt)
+        call arena%push(use_stmt, "use_statement")
         idx = arena%size
     end function create_dp_kind_use_statement_node
 
@@ -357,7 +357,7 @@
         type(use_statement_node) :: use_stmt
 
         use_stmt = create_use_statement(module_name)
-        call arena%push(use_stmt)
+        call arena%push(use_stmt, "use_statement")
         idx = arena%size
     end function create_use_statement_node
 
