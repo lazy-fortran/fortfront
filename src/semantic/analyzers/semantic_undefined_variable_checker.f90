@@ -5,7 +5,7 @@ module semantic_undefined_variable_checker
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
         call_or_subscript_node, array_literal_node, program_node
     use ast_nodes_control, only: if_node
-    use ast_nodes_data, only: declaration_node
+    use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use type_system_unified, only: poly_type_t, mono_type_t, &
         create_poly_type, type_var_t
@@ -93,6 +93,13 @@ contains
                     call push(node%body_indices(i))
                 end do
             end if
+
+            type is (multi_unit_container_node)
+                if (allocated(node%body_indices)) then
+                    do i = size(node%body_indices), 1, -1
+                        call push(node%body_indices(i))
+                    end do
+                end if
 
             type is (binary_op_node)
             call push(node%right_index)
