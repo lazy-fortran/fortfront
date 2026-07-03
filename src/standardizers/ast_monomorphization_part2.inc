@@ -824,7 +824,7 @@
                    result_variable=result_name)
         new_func%inferred_type = original_inferred_type
 
-        call arena%push(new_func)
+        call arena%push(new_func, "function_def")
         new_idx = arena%size
     end function clone_function_with_signature
 
@@ -955,7 +955,7 @@
         new_subr%inferred_type = original_inferred_type
         if (allocated(bind_c_clause_copy)) new_subr%bind_c_clause = bind_c_clause_copy
 
-        call arena%push(new_subr)
+        call arena%push(new_subr, "subroutine_def")
         new_idx = arena%size
 
         call infer_intent_for_cloned_subroutine(arena, new_idx, new_subr)
