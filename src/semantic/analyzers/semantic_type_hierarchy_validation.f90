@@ -111,6 +111,12 @@ contains
             registered(idx) = .true.
             progressed = .true.
             if (allocated(error_msg)) then
+                ! The arena-wide walk has no module scoping, so a same-named
+                ! type in a sibling module re-registers legally; only real
+                ! hierarchy errors (unknown parent, cycle) are reported.
+                if (index(error_msg, 'already registered') > 0) then
+                    error_msg = ''
+                end if
                 if (len_trim(error_msg) > 0) then
                     call report_hierarchy_error(errors, error_msg, node%line, &
                         node%column)
