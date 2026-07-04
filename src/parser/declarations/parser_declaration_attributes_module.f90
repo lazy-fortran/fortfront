@@ -1,5 +1,5 @@
 module parser_declaration_attributes_module
-    use lexer_core, only: token_t
+    use lexer_core, only: token_t, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_expressions_module, only: parse_range
@@ -45,6 +45,7 @@ contains
         type(declaration_attribute_info_t), intent(inout) :: attr_info
 
         type(token_t) :: token
+        character(len=:), allocatable :: lowered
 
         handled = .false.
 
@@ -53,8 +54,9 @@ contains
         end if
 
         token = parser%peek()
+        lowered = to_lower(trim(token%text))
 
-        select case (token%text)
+        select case (lowered)
         case ("allocatable")
             attr_info%is_allocatable = .true.
             token = parser%consume()
@@ -114,7 +116,7 @@ contains
             token = parser%consume()
             handled = .true.
         case ("public", "private")
-            attr_info%accessibility = trim(token%text)
+            attr_info%accessibility = lowered
             token = parser%consume()
             handled = .true.
         case default
@@ -152,6 +154,7 @@ contains
         logical, intent(out) :: handled
 
         type(token_t) :: token
+        character(len=:), allocatable :: lowered
 
         handled = .true.
 
@@ -170,7 +173,8 @@ contains
         end if
 
         token = parser%peek()
-        select case (token%text)
+        lowered = to_lower(trim(token%text))
+        select case (lowered)
         case ("in")
             call set_declaration_intent(attr_info, "in")
             token = parser%consume()

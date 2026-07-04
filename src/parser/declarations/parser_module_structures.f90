@@ -122,11 +122,12 @@ contains
         stmt_index = 0
         token = parser%peek()
 
-        if (keyword_should_parse_as_identifier(token, parser)) then
+        if (.not. module_declaration_keyword(to_lower(token%text)) .and. &
+            keyword_should_parse_as_identifier(token, parser)) then
             return
         end if
 
-        select case (token%text)
+        select case (to_lower(token%text))
         case ("public", "private")
             stmt_index = parse_visibility_statement(parser, arena)
         case ("use")
@@ -337,7 +338,6 @@ contains
             case default
                 lowered = ""
             end select
-
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
                 trim(lowered) == "contains") then
                 if (handle_contains_keyword_in_module(parser, arena, has_contains, &
@@ -349,7 +349,8 @@ contains
 
             if (.not. in_contains_section) then
                 if (token%kind == TK_KEYWORD) then
-                    if (keyword_should_parse_as_identifier(token, parser)) then
+                    if (.not. module_declaration_keyword(lowered) .and. &
+                        keyword_should_parse_as_identifier(token, parser)) then
                         call handle_module_identifier_assignment(parser, arena, &
                             declaration_indices)
                         cycle
@@ -372,6 +373,14 @@ contains
                         cycle
                     end if
                 else if (token%kind == TK_IDENTIFIER) then
+                    if (module_declaration_keyword(lowered)) then
+                        stmt_index = parse_module_declaration_statement(parser, arena, &
+                            prefix_buffer)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                            cycle
+                        end if
+                    end if
                     call handle_module_identifier_assignment(parser, arena, &
                         declaration_indices)
                     cycle
@@ -402,6 +411,20 @@ contains
             end if
         end do
     end subroutine parse_module_body
+
+    logical function module_declaration_keyword(lowered)
+        character(len=*), intent(in) :: lowered
+
+        select case (trim(lowered))
+        case ("public", "private", "use", "include", "namelist", "integer", &
+                "real", "logical", "character", "complex", "procedure", &
+                "type", "class", "module", "implicit", "interface", &
+                "abstract", "instantiate", "enum", "enumerator")
+            module_declaration_keyword = .true.
+        case default
+            module_declaration_keyword = .false.
+        end select
+    end function module_declaration_keyword
 
     recursive function parse_module(parser, arena) result(module_index)
         type(parser_state_t), intent(inout) :: parser
@@ -436,7 +459,6 @@ contains
             declaration_indices, procedure_indices, &
             compact_end_keyword="endmodule", &
             paired_end_keyword="module")
-
         module_index = push_module_structured(arena, module_name, &
             declaration_indices, &
             procedure_indices, has_contains, &

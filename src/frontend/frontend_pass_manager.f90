@@ -38,6 +38,7 @@ module frontend_pass_manager
         type(signatures_map_t) :: signatures
         integer :: operating_mode = OPERATING_MODE_INFER
         logical :: enable_ast_wrapping
+        logical :: has_wrapping_flag
         logical :: has_functions
         logical :: has_subroutines
         logical :: has_main_code

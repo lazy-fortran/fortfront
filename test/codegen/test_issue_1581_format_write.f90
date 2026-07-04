@@ -4,6 +4,7 @@ program test_issue_1581_format_write
     call test_format_statement_preservation()
     call test_write_with_label_reference()
     call test_full_format_write_integration()
+    call test_hollerith_format_with_bang()
 
 contains
 
@@ -120,5 +121,45 @@ contains
 
         print *, "PASS: Full FORMAT/WRITE integration"
     end subroutine test_full_format_write_integration
+
+    subroutine test_hollerith_format_with_bang()
+        character(len=:), allocatable :: source, generated, error_msg
+
+        print *, "Test: Hollerith FORMAT with bang text"
+
+        source = "program test_hollerith" // new_line('A') // &
+            "implicit none" // new_line('A') // &
+            "character(len=72) :: c" // new_line('A') // &
+            "write(c, 8000)" // new_line('A') // &
+            "8000 format (36(2H !!))" // new_line('A') // &
+            "end program test_hollerith"
+
+        call transform_lazy_fortran_string(source, generated, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: Hollerith integration failed: ", trim(error_msg)
+            stop 1
+        end if
+
+        if (index(generated, "write(c, 8000)") == 0) then
+            print *, "FAIL: Hollerith WRITE statement lost"
+            print *, "Generated: ", generated
+            stop 1
+        end if
+
+        if (index(generated, "8000 format") == 0) then
+            print *, "FAIL: Hollerith FORMAT statement lost"
+            print *, "Generated: ", generated
+            stop 1
+        end if
+
+        if (index(generated, "' !'") == 0) then
+            print *, "FAIL: Hollerith FORMAT text lost"
+            print *, "Generated: ", generated
+            stop 1
+        end if
+
+        print *, "PASS: Hollerith FORMAT with bang text"
+    end subroutine test_hollerith_format_with_bang
 
 end program test_issue_1581_format_write

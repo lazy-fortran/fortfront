@@ -40,6 +40,7 @@ program test_compiler_facing_queries
     call test_per_name_initializer_split()
     call test_program_body_info()
     call test_module_body_info()
+    call test_uppercase_module_body_info()
     call test_function_body_info()
     call test_subroutine_body_info()
     call test_wrong_node_kind_program_query()
@@ -572,6 +573,56 @@ contains
             exit
         end do
     end subroutine test_module_body_info
+
+    subroutine test_uppercase_module_body_info()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: src
+        integer :: i
+        integer, allocatable :: declaration_indices(:), procedure_indices(:)
+        character(:), allocatable :: name, error_msg
+
+        src = 'MODULE module_58_module01'//new_line('a')// &
+            '  INTEGER, PUBLIC :: nx1 = 1000'//new_line('a')// &
+            'END MODULE'//new_line('a')// &
+            'MODULE module_58_module02'//new_line('a')// &
+            '  USE module_58_module01'//new_line('a')// &
+            'CONTAINS'//new_line('a')// &
+            '  SUBROUTINE mms_allocate()'//new_line('a')// &
+            '    nx1 = 555'//new_line('a')// &
+            '  END SUBROUTINE'//new_line('a')// &
+            'END MODULE'
+
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(src, result, options)
+        if (.not. result%success()) then
+            print *, 'FAIL: frontend rejected uppercase module source: ', &
+                trim(result%diagnostic_text)
+            error stop 1
+        end if
+
+        do i = 1, result%arena%size
+            if (trim(get_node_type_at(result%arena, i)) /= 'module_node') cycle
+            call get_module_body_info(result%arena, i, name, &
+                declaration_indices, procedure_indices, error_msg)
+            if (trim(name) /= 'module_58_module01') cycle
+            if (len_trim(error_msg) > 0) then
+                print *, 'FAIL: uppercase module query error: ', trim(error_msg)
+                error stop 1
+            end if
+            if (size(declaration_indices) /= 1) then
+                print *, 'FAIL: uppercase module declaration count', &
+                    size(declaration_indices)
+                error stop 1
+            end if
+            return
+        end do
+
+        print *, 'FAIL: uppercase module declaration module not found'
+        error stop 1
+    end subroutine test_uppercase_module_body_info
 
     subroutine test_function_body_info()
         type(compiler_frontend_options_t) :: options

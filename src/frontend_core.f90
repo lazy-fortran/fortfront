@@ -31,6 +31,7 @@ module frontend_core
         & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
         parse_result_with_index_t
+    use frontend_transformation_analysis, only: promote_functions_to_internal_program
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use frontend_utilities, only: write_output_file
     use semantic_input_mode, only: INPUT_MODE_LAZY
@@ -133,6 +134,7 @@ contains
         call compiler_arena%next_phase("standardization")
         call standardize_multi_unit_children(compiler_arena%ast, prog_index)
         call standardize_ast(compiler_arena%ast, prog_index)
+        call promote_functions_to_internal_program(compiler_arena%ast, prog_index)
 
         ! Phase 5: Standard Fortran Code Generation
         call compiler_arena%next_phase("codegen")

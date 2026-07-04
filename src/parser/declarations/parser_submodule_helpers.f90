@@ -59,7 +59,7 @@ contains
             return
         end if
 
-        select case (token%text)
+        select case (to_lower(token%text))
         case ("public", "private")
             stmt_index = parse_visibility_statement_in_submodule(parser, arena)
         case ("use")

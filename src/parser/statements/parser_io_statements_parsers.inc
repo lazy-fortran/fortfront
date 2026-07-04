@@ -497,6 +497,18 @@
                 if (paren_depth == 0) exit
             else if (token%kind == TK_NEWLINE) then
                 exit
+            else if (token%kind == TK_COMMENT) then
+                format_spec = format_spec // trim(token%text)
+                call update_format_paren_depth_from_text(token%text, &
+                    paren_depth)
+                token = parser%consume()
+                if (paren_depth == 0) exit
+            else if (token%kind == TK_STRING .and. &
+                     is_hollerith_token(token%text)) then
+                format_spec = format_spec // hollerith_to_char_literal(token%text)
+                token = parser%consume()
+            else if (token%kind == TK_OPERATOR .and. token%text == "!") then
+                token = parser%consume()
             else
                 format_spec = format_spec // trim(token%text)
                 token = parser%consume()
@@ -505,6 +517,86 @@
 
         format_index = push_format_statement(arena, format_spec, line, column)
     end function parse_format_statement
+
+    subroutine update_format_paren_depth_from_text(text, paren_depth)
+        character(len=*), intent(in) :: text
+        integer, intent(inout) :: paren_depth
+        integer :: i
+
+        do i = 1, len_trim(text)
+            select case (text(i:i))
+            case ("(")
+                paren_depth = paren_depth + 1
+            case (")")
+                paren_depth = paren_depth - 1
+            end select
+        end do
+    end subroutine update_format_paren_depth_from_text
+
+    logical function is_hollerith_token(text) result(is_hollerith)
+        character(len=*), intent(in) :: text
+        integer :: i
+
+        is_hollerith = .false.
+        if (len_trim(text) < 2) return
+
+        i = 1
+        do while (i <= len(text))
+            select case (text(i:i))
+            case ("0":"9")
+                i = i + 1
+            case ("H", "h")
+                is_hollerith = (i > 1)
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_hollerith_token
+
+    function hollerith_to_char_literal(text) result(literal)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: literal
+        character(len=:), allocatable :: digits, payload
+        integer :: h_pos, count, stat, last_pos
+
+        h_pos = index(to_lower(text), "h")
+        if (h_pos <= 1) then
+            literal = trim(text)
+            return
+        end if
+
+        digits = text(:h_pos - 1)
+        read (digits, *, iostat=stat) count
+        if (stat /= 0 .or. count < 0) then
+            literal = trim(text)
+            return
+        end if
+
+        last_pos = min(len(text), h_pos + count)
+        if (last_pos < h_pos + 1) then
+            payload = ""
+        else
+            payload = text(h_pos + 1:last_pos)
+        end if
+        literal = quote_fortran_char_literal(payload)
+    end function hollerith_to_char_literal
+
+    function quote_fortran_char_literal(text) result(literal)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: literal
+        integer :: i
+
+        literal = "'"
+        do i = 1, len(text)
+            if (text(i:i) == "'") then
+                literal = literal // "''"
+            else
+                literal = literal // text(i:i)
+            end if
+        end do
+        literal = literal // "'"
+    end function quote_fortran_char_literal
 
     function parse_open_statement(parser, arena) result(open_index)
         type(parser_state_t), intent(inout) :: parser

@@ -1,7 +1,8 @@
 module frontend_transformation_analysis
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: mixed_construct_container_node
+    use ast_nodes_data, only: mixed_construct_container_node, &
+        multi_unit_container_node
     use frontend_analysis_helpers, only: build_procedure_membership, &
         analyze_ast_content, analyze_single_unit, &
         collect_host_assignment_names, &
@@ -53,6 +54,9 @@ contains
             call handle_mixed_construct_container(arena, root_index, root, &
                 proc_indices, main_stmts)
             return
+            type is (multi_unit_container_node)
+            call scan_multi_unit_program(arena, root, main_prog_index, &
+                candidate_prog_index, proc_indices, main_stmts)
             type is (program_node)
             call scan_multi_unit_program(arena, root, main_prog_index, &
                 candidate_prog_index, proc_indices, main_stmts)

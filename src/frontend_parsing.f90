@@ -324,13 +324,13 @@ contains
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
-                prog_index = create_multi_unit_container(arena, [unit_index])
+                prog_index = push_program(arena, "main", [unit_index], 1, 1)
             end if
             type is (subroutine_def_node)
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
-                prog_index = create_multi_unit_container(arena, [unit_index])
+                prog_index = push_program(arena, "main", [unit_index], 1, 1)
             end if
             type is (interface_block_node)
             prog_index = push_multi_unit_container(arena, [unit_index], 1, 1)
