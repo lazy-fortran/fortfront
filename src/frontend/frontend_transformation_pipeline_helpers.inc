@@ -62,7 +62,7 @@
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
         call run_final_phases_with_format(arena, prog_index, output, error_msg, &
-                                          apply_ast_wrapping, &
+                                          has_wrapping_flag, apply_ast_wrapping, &
                                           local_operating_mode, apply_default_format)
         call trace_leave('phase:final')
         call arena%destroy()
@@ -157,12 +157,13 @@
 
     ! Run the final phases, optionally bracketed by default-format config save/restore.
     subroutine run_final_phases_with_format(arena, prog_index, output, error_msg, &
-                                            apply_ast_wrapping, &
+                                            has_wrapping_flag, apply_ast_wrapping, &
                                             local_operating_mode, apply_default_format)
         type(compiler_arena_t), intent(inout) :: arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
+        logical, intent(in) :: has_wrapping_flag
         logical, intent(in) :: apply_ast_wrapping
         integer, intent(in) :: local_operating_mode
         logical, intent(in) :: apply_default_format
@@ -178,7 +179,8 @@
             call apply_format_options(format_options_t())
         end if
         call run_final_phases(arena, prog_index, output, error_msg, &
-                              apply_ast_wrapping, local_operating_mode)
+                              has_wrapping_flag, apply_ast_wrapping, &
+                              local_operating_mode)
         if (apply_default_format) then
             call restore_configuration(saved_size, saved_char, saved_line_length, &
                                        saved_standardize_types, &

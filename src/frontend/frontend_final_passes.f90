@@ -7,6 +7,11 @@ module frontend_final_passes
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use ast_nodes_data, only: mixed_construct_container_node, &
         multi_unit_container_node
+    use ast_nodes_core, only: program_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
+        implicit_statement_node
+    use ast_arena_modern, only: ast_arena_t
     use call_graph_signatures_mod, only: create_signatures_map
     use frontend_transformation_semantics, only: analyze_container_semantics, &
         get_detailed_semantic_errors
@@ -138,8 +143,9 @@ contains
         type(transform_context_t) :: transform_ctx
 
         ! Determine if AST wrapping is needed
-        force_internal_wrapping = requires_lazy_internalization( &
-            context%compiler_arena%ast, context%prog_index)
+        force_internal_wrapping = .not. context%has_wrapping_flag .and. &
+            requires_lazy_internalization(context%compiler_arena%ast, &
+            context%prog_index)
 
         ! Initialize default context for wrapping
         transform_ctx%source_name = "main"
@@ -149,23 +155,95 @@ contains
         transform_ctx%input_mode = INPUT_MODE_LAZY
 
         if (.not. has_existing_module_in_ast(context%compiler_arena%ast)) then
-            if ((context%has_functions .or. context%has_subroutines) .and. &
-                context%has_main_code) then
-                if (context%enable_ast_wrapping .or. force_internal_wrapping) then
-                    call promote_functions_to_internal_program( &
-                        context%compiler_arena%ast, context%prog_index)
-                end if
-            else if (context%enable_ast_wrapping .and. &
-                    (context%has_functions .or. context%has_subroutines) .and. &
-                    .not. context%has_main_code) then
+            if (context%enable_ast_wrapping .or. force_internal_wrapping) then
+                call promote_functions_to_internal_program( &
+                    context%compiler_arena%ast, context%prog_index)
+                call analyze_ast_content(context%compiler_arena%ast, &
+                    context%prog_index, context%has_functions, &
+                    context%has_subroutines, context%has_main_code)
+            end if
+            if (context%enable_ast_wrapping .and. &
+                (context%has_functions .or. context%has_subroutines) .and. &
+                .not. context%has_main_code) then
                 call wrap_ast_in_module_only(context%compiler_arena%ast, &
                     context%prog_index, transform_ctx)
             end if
+        end if
+        if (context%has_wrapping_flag .and. &
+            .not. context%enable_ast_wrapping) then
+            call unwrap_standard_external_procedure(context%compiler_arena%ast, &
+                context%prog_index)
         end if
 
         ! Generate code
         call run_code_generation_phase(context%compiler_arena, &
             context%prog_index, context%output)
     end subroutine codegen_pass
+
+    subroutine unwrap_standard_external_procedure(arena, root_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(inout) :: root_index
+        integer :: i, idx, procedure_index
+        logical :: rejected
+
+        if (.not. arena%has_node_at(root_index)) return
+
+        procedure_index = 0
+        rejected = .false.
+        select type (prog => arena%entries(root_index)%node)
+            type is (program_node)
+            if (.not. allocated(prog%name)) return
+            if (trim(prog%name) /= "main") return
+            if (.not. allocated(prog%body_indices)) return
+            do i = 1, size(prog%body_indices)
+                idx = prog%body_indices(i)
+                if (.not. arena%has_node_at(idx)) cycle
+                call classify_external_wrapper_child(arena, idx, procedure_index, &
+                    rejected)
+                if (rejected) return
+            end do
+        class default
+            return
+        end select
+
+        if (procedure_index > 0) root_index = procedure_index
+    end subroutine unwrap_standard_external_procedure
+
+    subroutine classify_external_wrapper_child(arena, idx, procedure_index, &
+            rejected)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        integer, intent(inout) :: procedure_index
+        logical, intent(inout) :: rejected
+
+        select type (child => arena%entries(idx)%node)
+            type is (function_def_node)
+            call accept_single_external_procedure(idx, procedure_index, rejected)
+            type is (subroutine_def_node)
+            call accept_single_external_procedure(idx, procedure_index, rejected)
+            type is (implicit_statement_node)
+            return
+            type is (contains_node)
+            return
+            type is (comment_node)
+            return
+            type is (blank_line_node)
+            return
+        class default
+            rejected = .true.
+        end select
+    end subroutine classify_external_wrapper_child
+
+    subroutine accept_single_external_procedure(idx, procedure_index, rejected)
+        integer, intent(in) :: idx
+        integer, intent(inout) :: procedure_index
+        logical, intent(inout) :: rejected
+
+        if (procedure_index /= 0) then
+            rejected = .true.
+            return
+        end if
+        procedure_index = idx
+    end subroutine accept_single_external_procedure
 
 end module frontend_final_passes

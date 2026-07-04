@@ -375,10 +375,13 @@ contains
         ! Check if there's already a module in the AST - if so, no wrapping needed
         if (has_existing_module_in_ast(arena%ast)) then
             ! Don't wrap - preserve existing module structure
-        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
+        else
             call promote_functions_to_internal_program(arena%ast, prog_index)
-        else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
-            call wrap_ast_in_module_only(arena%ast, prog_index, context)
+            call analyze_ast_content(arena%ast, prog_index, has_functions, &
+                has_subroutines, has_main_code)
+            if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
+                call wrap_ast_in_module_only(arena%ast, prog_index, context)
+            end if
         end if
         ! If only main code or nothing to wrap, leave AST as-is
 
@@ -597,11 +600,12 @@ contains
 
     ! Run final phases (semantic, standardization, codegen) using pass manager
     subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, &
-            enable_ast_wrapping, operating_mode)
+            has_wrapping_flag, enable_ast_wrapping, operating_mode)
         type(compiler_arena_t), target, intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
+        logical, intent(in) :: has_wrapping_flag
         logical, intent(in) :: enable_ast_wrapping
         integer, intent(in) :: operating_mode
         type(pass_manager_t) :: manager
@@ -631,6 +635,7 @@ contains
         allocate (character(len=0) :: pass_ctx%error_msg)
         pass_ctx%operating_mode = operating_mode
         pass_ctx%enable_ast_wrapping = enable_ast_wrapping
+        pass_ctx%has_wrapping_flag = has_wrapping_flag
         pass_ctx%has_functions = .false.
         pass_ctx%has_subroutines = .false.
         pass_ctx%has_main_code = .false.

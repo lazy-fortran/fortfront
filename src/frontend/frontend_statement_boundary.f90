@@ -4,7 +4,7 @@ module frontend_statement_boundary
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
         TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, &
-        TK_IDENTIFIER, to_lower
+        TK_IDENTIFIER, TK_NUMBER, to_lower
     use frontend_utilities, only: is_type_start
 
     implicit none
@@ -519,10 +519,12 @@ contains
         integer, intent(in) :: stmt_start
         integer, intent(out) :: stmt_end
         integer :: i, bracket_depth, paren_depth
+        logical :: format_stmt
 
         bracket_depth = 0
         paren_depth = 0
         stmt_end = stmt_start
+        format_stmt = starts_format_statement(tokens, stmt_start)
         do i = stmt_start, size(tokens)
             select case (tokens(i)%kind)
             case (TK_EOF)
@@ -550,12 +552,69 @@ contains
                     exit
                 end if
             case (TK_COMMENT)
+                if (format_stmt .and. paren_depth > 0) then
+                    call update_paren_depth_from_text(tokens(i)%text, &
+                        paren_depth)
+                    stmt_end = i
+                end if
                 cycle
             case default
                 stmt_end = i
             end select
         end do
     end subroutine locate_single_line_end
+
+    pure logical function starts_format_statement(tokens, stmt_start) &
+            result(is_format_stmt)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start
+        integer :: idx
+
+        is_format_stmt = .false.
+        idx = stmt_start
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE)
+                idx = idx + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (idx <= size(tokens)) then
+            if (tokens(idx)%kind == TK_NUMBER) idx = idx + 1
+        end if
+
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE)
+                idx = idx + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > size(tokens)) return
+        select case (tokens(idx)%kind)
+        case (TK_KEYWORD, TK_IDENTIFIER)
+            is_format_stmt = (to_lower(trim(tokens(idx)%text)) == "format")
+        end select
+    end function starts_format_statement
+
+    pure subroutine update_paren_depth_from_text(text, paren_depth)
+        character(len=*), intent(in) :: text
+        integer, intent(inout) :: paren_depth
+        integer :: j
+
+        do j = 1, len_trim(text)
+            select case (text(j:j))
+            case ("(")
+                paren_depth = paren_depth + 1
+            case (")")
+                paren_depth = paren_depth - 1
+            end select
+        end do
+    end subroutine update_paren_depth_from_text
 
     ! Find statement boundary (control-flow aware)
     subroutine find_statement_boundary(tokens, start_pos, stmt_start, stmt_end)

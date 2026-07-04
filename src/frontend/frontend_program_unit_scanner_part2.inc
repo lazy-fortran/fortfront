@@ -192,8 +192,8 @@
         integer, intent(in) :: unit_start
         integer, intent(out) :: unit_end
         integer :: i, nesting_level
+        integer :: next_idx
         logical :: in_module_contains
-        character(len=:), allocatable :: keyword_text
 
         in_module_contains = .false.
         nesting_level = 1
@@ -203,30 +203,32 @@
             if (tokens(i)%kind == TK_EOF) then
                 unit_end = i - 1
                 exit
-            else if (tokens(i)%kind == TK_KEYWORD) then
-                keyword_text = to_lower(trim(tokens(i)%text))
-                if (keyword_text == "contains") then
+            else if (tokens(i)%kind == TK_KEYWORD .or. &
+                    tokens(i)%kind == TK_IDENTIFIER) then
+                if (token_is_word_at(tokens, i, "contains")) then
                     in_module_contains = .true.
-                else if (keyword_text == "end") then
-                    if (i + 1 <= size(tokens)) then
-                        if (tokens(i + 1)%kind == TK_KEYWORD) then
-                            if (to_lower(trim(tokens(i + 1)%text)) == "module") then
+                else if (token_is_word_at(tokens, i, "end")) then
+                    next_idx = find_next_nontrivial_index(tokens, i)
+                    if (next_idx > 0 .and. next_idx <= size(tokens)) then
+                        if (token_is_word_at(tokens, next_idx, "module")) then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
-                                    unit_end = i + 1
-                                    if (i + 2 <= size(tokens)) then
-                                        if (tokens(i + 2)%kind == TK_IDENTIFIER) then
-                                            unit_end = i + 2
+                                    unit_end = next_idx
+                                    next_idx = find_next_nontrivial_index(tokens, next_idx)
+                                    if (next_idx > 0 .and. next_idx <= size(tokens)) then
+                                        if (tokens(next_idx)%kind == TK_IDENTIFIER) then
+                                            unit_end = next_idx
                                         end if
                                     end if
                                     exit
                                 end if
-                            end if
                         end if
                     end if
-                else if (keyword_text == "module" .and. .not. in_module_contains) then
-                    if (i + 1 <= size(tokens)) then
-                        if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                else if (token_is_word_at(tokens, i, "module") .and. &
+                        .not. in_module_contains) then
+                    next_idx = find_next_nontrivial_index(tokens, i)
+                    if (next_idx > 0 .and. next_idx <= size(tokens)) then
+                        if (tokens(next_idx)%kind == TK_IDENTIFIER) then
                             nesting_level = nesting_level + 1
                         end if
                     end if

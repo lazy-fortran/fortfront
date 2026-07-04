@@ -346,9 +346,9 @@ contains
         is_start = .false.
         if (pos <= size(tokens)) then
             if (tokens(pos)%kind == TK_KEYWORD .and. &
-                (tokens(pos)%text == "function" .or. &
+                (to_lower(tokens(pos)%text) == "function" .or. &
                 (pos < size(tokens) .and. tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "function"))) then
+                to_lower(tokens(pos + 1)%text) == "function"))) then
                 is_start = .true.
             end if
         end if
@@ -362,7 +362,7 @@ contains
         is_start = .false.
         if (pos <= size(tokens)) then
             if (tokens(pos)%kind == TK_KEYWORD .and. &
-                tokens(pos)%text == "subroutine") then
+                to_lower(tokens(pos)%text) == "subroutine") then
                 is_start = .true.
             end if
         end if
@@ -375,7 +375,8 @@ contains
 
         is_start = .false.
         if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "module") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                to_lower(tokens(pos)%text) == "module") then
                 is_start = .true.
             end if
         end if

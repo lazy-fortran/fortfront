@@ -152,6 +152,8 @@ contains
         character(len=:), allocatable :: src
         integer :: pos, line_num, col_num, source_len
         character :: c
+        logical :: pending_format
+        integer :: format_paren_depth
 
         src = normalize_line_endings(source)
 
@@ -160,6 +162,8 @@ contains
         col_num = 1
         source_len = len(src)
         tokenize_res%token_count = 0
+        pending_format = .false.
+        format_paren_depth = 0
 
         do while (pos <= source_len)
             c = src(pos:pos)
@@ -173,8 +177,13 @@ contains
                     tokenize_res%tokens, tokenize_res%token_count)
 
             case ('!', '#') ! Comment or preprocessor directive
-                call scan_comment(src, pos, line_num, col_num, &
-                    tokenize_res%tokens, tokenize_res%token_count)
+                if (c == '!' .and. format_paren_depth > 0) then
+                    call scan_operator(src, pos, line_num, col_num, &
+                        tokenize_res%tokens, tokenize_res%token_count)
+                else
+                    call scan_comment(src, pos, line_num, col_num, &
+                        tokenize_res%tokens, tokenize_res%token_count)
+                end if
 
             case ('''', '"') ! String
                 call scan_string(src, pos, line_num, col_num, &
@@ -206,6 +215,9 @@ contains
                     col_num = col_num + 1
                 end if
             end select
+
+            call update_format_lexer_state(tokenize_res%tokens, &
+                tokenize_res%token_count, pending_format, format_paren_depth)
 
             ! Check for buffer overflow
             if (tokenize_res%token_count >= size(tokenize_res%tokens)) then
@@ -264,6 +276,60 @@ contains
 
         tokenize_res%success = .true.
     end subroutine tokenize_core_safe_with_trivia
+
+    subroutine update_format_lexer_state(tokens, token_count, pending_format, &
+            format_paren_depth)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: token_count
+        logical, intent(inout) :: pending_format
+        integer, intent(inout) :: format_paren_depth
+        type(token_t) :: token
+
+        if (token_count <= 0) return
+        token = tokens(token_count)
+
+        if (format_paren_depth > 0) then
+            if (token%kind == TK_OPERATOR) then
+                select case (token%text)
+                case ("(")
+                    format_paren_depth = format_paren_depth + 1
+                case (")")
+                    format_paren_depth = format_paren_depth - 1
+                    if (format_paren_depth <= 0) then
+                        format_paren_depth = 0
+                        pending_format = .false.
+                    end if
+                end select
+            else if (token%kind == TK_NEWLINE) then
+                format_paren_depth = 0
+                pending_format = .false.
+            end if
+            return
+        end if
+
+        if (pending_format) then
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                format_paren_depth = 1
+                pending_format = .false.
+                return
+            end if
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
+                pending_format = .false.
+                return
+            end if
+        end if
+
+        select case (token%kind)
+        case (TK_KEYWORD, TK_IDENTIFIER)
+            pending_format = (to_lower(trim(token%text)) == "format")
+        case (TK_NUMBER)
+            continue
+        case default
+            if (token%kind /= TK_COMMENT .and. token%kind /= TK_NEWLINE) then
+                pending_format = .false.
+            end if
+        end select
+    end subroutine update_format_lexer_state
 
     subroutine process_token_with_trivia(source_text, pos, line_num, col_num, &
             tokens, token_count, pending_trivia)
@@ -634,7 +700,7 @@ contains
 
         select case (c)
         case ('+', '-', '*', '/', '=', '<', '>', '(', ')', '[', ']', &
-                '{', '}', ',', ';', ':', '%', '&', '^')
+                '{', '}', ',', ';', ':', '%', '&', '^', '!')
             is_op = .true.
         case default
             is_op = .false.

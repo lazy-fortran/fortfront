@@ -51,7 +51,10 @@ contains
         if (is_windows) then
             executable_path = find_fortfront_on_windows()
         else
-            executable_path = find_fortfront_on_posix()
+            executable_path = existing_path('build/fo/bin/fortfront')
+            if (len_trim(executable_path) == 0) then
+                executable_path = find_fortfront_on_posix()
+            end if
         end if
 
         if (len_trim(executable_path) == 0) then
