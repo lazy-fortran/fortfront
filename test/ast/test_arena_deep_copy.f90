@@ -7,6 +7,9 @@ program test_arena_deep_copy
     use ast_factory, only: push_program, push_assignment, push_identifier, &
         push_literal
     use ast_base, only: LITERAL_INTEGER
+    use lexer_core, only: token_t
+    use frontend_core, only: lex_source, emit_fortran
+    use frontend_parsing, only: parse_tokens
     implicit none
 
     logical :: all_passed
@@ -22,6 +25,7 @@ program test_arena_deep_copy
     if (.not. test_copy_empty_arena()) all_passed = .false.
     if (.not. test_copy_preserves_node_types()) all_passed = .false.
     if (.not. test_copy_preserves_child_indices()) all_passed = .false.
+    if (.not. test_parse_emit_roundtrip()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -371,5 +375,103 @@ contains
             print *, '  PASS: child_indices deep copied'
         end block
     end function test_copy_preserves_child_indices
+
+    ! Test parse -> emit round-trip with arena copy (MISSING-PARSE-EMIT-ROUNDTRIP)
+    ! Reads a real example, parses, copies arena, destroys original, emits copy,
+    ! and verifies emitted output matches original emission.
+    logical function test_parse_emit_roundtrip()
+        test_parse_emit_roundtrip = .true.
+        print *, 'Testing parse/emit round-trip with arena copy...'
+
+        block
+            type(ast_arena_t) :: original, copy
+            type(token_t), allocatable :: tokens(:)
+            character(len=:), allocatable :: source
+            character(len=:), allocatable :: emit_original, emit_copy
+            character(len=:), allocatable :: error_msg
+            integer :: prog_idx
+            integer :: saved_compat_size, idx
+
+            call read_example('examples/f90/call_graph_module_program_scopes.f90', &
+                source)
+
+            call lex_source(source, tokens, error_msg)
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: lex error:', trim(error_msg)
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            original = create_ast_arena()
+            call parse_tokens(tokens, original, prog_idx, error_msg)
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: parse error:', trim(error_msg)
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            if (original%compat_size == 0) then
+                print *, '  FAIL: parse produced empty arena'
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            saved_compat_size = original%compat_size
+
+            call emit_fortran(original, prog_idx, emit_original)
+
+            copy = original
+            call destroy_ast_arena(original)
+
+            if (copy%compat_size /= saved_compat_size) then
+                print *, '  FAIL: compat_size lost after destroy'
+                print *, '    expected:', saved_compat_size, ' got:', copy%compat_size
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            if (.not. allocated(copy%entries)) then
+                print *, '  FAIL: entries deallocated after destroy'
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            do idx = 1, copy%compat_size
+                if (allocated(copy%entries(idx)%node)) then
+                    if (.not. allocated(copy%entries(idx)%node_type)) then
+                        print *, '  FAIL: node_type missing at index', idx
+                        test_parse_emit_roundtrip = .false.
+                        return
+                    end if
+                end if
+            end do
+
+            call emit_fortran(copy, prog_idx, emit_copy)
+
+            if (.not. allocated(emit_original)) then
+                print *, '  FAIL: original emit produced no output'
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            if (.not. allocated(emit_copy)) then
+                print *, '  FAIL: copy emit produced no output'
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            if (trim(emit_copy) /= trim(emit_original)) then
+                print *, '  FAIL: emit mismatch after arena copy'
+                print *, '    original length:', len_trim(emit_original)
+                print *, '    copy length:    ', len_trim(emit_copy)
+                test_parse_emit_roundtrip = .false.
+                return
+            end if
+
+            print *, '  PASS: parse/emit round-trip with arena copy'
+        end block
+    end function test_parse_emit_roundtrip
+
+    include '../common/read_example.inc'
 
 end program test_arena_deep_copy
