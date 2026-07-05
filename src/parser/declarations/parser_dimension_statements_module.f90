@@ -21,16 +21,16 @@ module parser_dimension_statements_module
 
         contains
 
-            logical function parse_dimension_statement(parser, arena) result(success)
+            integer function parse_dimension_statement(parser, arena) result(decl_index)
                 type(parser_state_t), intent(inout) :: parser
                 type(ast_arena_t), intent(inout) :: arena
                 type(token_t) :: token
                 character(len=:), allocatable :: var_name
                 character(len=:), allocatable :: lowered_keyword
                 integer, allocatable :: dimension_indices(:)
-                logical :: applied
+                integer :: applied_index
 
-                success = .false.
+                decl_index = 0
                 if (parser%is_at_end()) return
 
                 call skip_trivia(parser)
@@ -76,9 +76,9 @@ module parser_dimension_statements_module
                     token = parser%consume()
 
                     call parse_array_dimensions(parser, arena, dimension_indices)
-                    applied = apply_dimension_to_variable(arena, var_name, dimension_indices)
+                    applied_index = apply_dimension_to_variable(arena, var_name, dimension_indices)
                     if (allocated(dimension_indices)) deallocate (dimension_indices)
-                    success = success .or. applied
+                    if (applied_index > 0 .and. decl_index == 0) decl_index = applied_index
 
                     call skip_trivia(parser)
                     if (parser%is_at_end()) exit
@@ -107,18 +107,18 @@ module parser_dimension_statements_module
 
             logical function token_is_identifier(token) result(is_ident)
                 type(token_t), intent(in) :: token
-                is_ident = (token%kind == TK_IDENTIFIER)
+                is_ident = (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD)
             end function token_is_identifier
 
-            logical function apply_dimension_to_variable(arena, name, dimension_indices) &
-                    result(applied)
+            integer function apply_dimension_to_variable(arena, name, dimension_indices) &
+                    result(idx_result)
                 type(ast_arena_t), intent(inout) :: arena
                 character(len=*), intent(in) :: name
                 integer, intent(in) :: dimension_indices(:)
                 character(len=:), allocatable :: target
                 integer :: idx
 
-                applied = .false.
+                idx_result = 0
                 target = adjustl(trim(name))
 
                 do idx = arena%size, 1, -1
@@ -128,19 +128,44 @@ module parser_dimension_statements_module
                         if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                             if (apply_dimension_multi(arena, idx, decl, target, &
                                 dimension_indices)) then
-                                applied = .true.
+                                idx_result = idx
                                 return
                             end if
                         end if
                         if (trim(decl%var_name) == target) then
                             call apply_dimension_single(arena, idx, decl, target, &
                                 dimension_indices)
-                            applied = .true.
+                            idx_result = idx
                             return
                         end if
                     end select
                 end do
+
+                idx_result = create_dimension_declaration(arena, name, dimension_indices)
             end function apply_dimension_to_variable
+
+            integer function create_dimension_declaration(arena, name, dimension_indices) &
+                    result(new_index)
+                type(ast_arena_t), intent(inout) :: arena
+                character(len=*), intent(in) :: name
+                integer, intent(in) :: dimension_indices(:)
+                type(declaration_node) :: decl
+
+                decl%type_name = ""
+                decl%var_name = adjustl(trim(name))
+                decl%is_multi_declaration = .false.
+                decl%is_array = .true.
+                if (size(dimension_indices) > 0) then
+                    allocate (decl%dimension_indices(size(dimension_indices)))
+                    decl%dimension_indices = dimension_indices
+                else
+                    allocate (decl%dimension_indices(0))
+                end if
+
+                call arena%push(decl, "declaration", 0)
+                new_index = arena%size
+                call register_type_annotation(new_index, "", [adjustl(trim(name))])
+            end function create_dimension_declaration
 
             subroutine apply_dimension_single(arena, decl_index, decl, target, &
                     dimension_indices)

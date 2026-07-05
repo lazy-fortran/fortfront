@@ -198,11 +198,7 @@ contains
             if (stmt_index /= 0) return
 
             if (lowered == "dimension") then
-                if (parse_dimension_statement(parser, arena)) then
-                    stmt_index = STATEMENT_NO_NODE
-                else
-                    stmt_index = 0
-                end if
+                stmt_index = parse_dimension_statement(parser, arena)
             end if
 
             if (lowered == "parameter") then
