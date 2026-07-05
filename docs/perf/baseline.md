@@ -1,6 +1,13 @@
 # CLI Profiling Baseline (2026-01-02)
 
 ## Perf Changelog
+### 2026-07-05
+- Added LSP-scale full reparse benchmarks (200/1000/5000 lines) via
+  `test/system/test_reparse_benchmark.f90`. Measures
+  `tooling_load_ast_from_string` with `reuse_arena` to simulate debounced
+  `didChange` cycles. 200L ~3 ms, 1000L ~40 ms, 5000L ~819 ms.
+- Documented `didChange` budget: debounced full reparse viable up to ~800 lines
+  at 100 ms budget. Beyond that, incremental parsing is required.
 ### 2026-01-02
 - Added `FORTFRONT_PROFILE=1` timing output for CLI runs (written to stderr on
   exit), using existing `trace_enter` and `trace_leave` scope names.
@@ -56,3 +63,37 @@ not double-count time.
   as milliseconds with millisecond precision.
 - Future improvements should aim to shrink the setup cost and expose additional
   sub-stages as needed.
+
+## LSP-Scale Full Reparse Benchmarks
+
+Measures `tooling_load_ast_from_string` with `reuse_arena = .true.` and
+`run_semantics = .false.` -- the path used by `fo` keystroke diagnostics and
+LSP `didChange` handlers. Each size run 10 times; best/worst/mean reported.
+
+Run: `fo test test_reparse_benchmark`
+
+| Lines | Best (ms) | Worst (ms) | Mean (ms) | Within 100 ms budget |
+|------:|----------:|-----------:|----------:|---------------------:|
+| 200   | 3         | 4          | 4         | yes                  |
+| 1000  | 40        | 84         | 60        | yes                  |
+| 5000  | 819       | 1871       | 1342      | **no**               |
+
+### didChange Budget Guideline
+
+Debounced full reparse stays under 100 ms for files up to ~800 lines. At 1000
+lines the mean (60 ms) is within budget but the worst case (84 ms) approaches
+the limit. At 5000 lines the best case (819 ms) exceeds the budget by 8x.
+
+**Recommendation:** Use debounced full reparse for files under 800 lines. For
+larger files, either increase the debounce interval proportionally or implement
+incremental node-level reparse.
+
+### Benchmark Files
+
+Canonical benchmark inputs in `examples/f90/`:
+- `benchmark_200_lines.f90` -- 200 lines, ~13 functions
+- `benchmark_1000_lines.f90` -- 1000 lines, ~66 functions
+- `benchmark_5000_lines.f90` -- 5000 lines, ~333 functions
+
+Each file is a valid Fortran program with a `contains` section of small
+functions exercising declarations, loops, and arithmetic expressions.
