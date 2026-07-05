@@ -6,21 +6,17 @@ module fortfront
     ! - Semantic Analysis with Type Inference
     ! - Code Generation
     !
-    ! IMPORTANT: AST Node Access Policy
-    ! =================================
-    ! AST nodes MUST NOT be copied due to complex allocatable components
-    ! that can cause memory corruption and segmentation faults.
-    !
-    ! USE ONLY the visitor pattern for safe node access:
-    !   - visit_node_at() for visiting nodes by index
-    !   - AST traversal functions with custom visitors
-    !
-    ! DO NOT attempt to:
-    !   - Copy nodes with allocate(source=...)
-    !   - Create functions that return node copies
-    !   - Perform shallow copies of nodes
+    ! AST Node Access
+    ! ===============
+    ! AST nodes can be safely deep-cloned using the arena clone API:
+    !   - clone_arena() for a full arena copy (ast_arena_clone module)
+    !   - clone_subtree() for a subtree copy with index remapping
+    ! The arena's assignment operator (=) performs a verified deep copy
+    ! of all node types including nested allocatable components.
     !
     ! For read-only access to node properties, use:
+    !   - visit_node_at() for visiting nodes by index
+    !   - AST traversal functions with custom visitors
     !   - get_node_type_id_from_arena()
     !   - get_node_source_location_from_arena()
     !   - get_node_type_kind()
