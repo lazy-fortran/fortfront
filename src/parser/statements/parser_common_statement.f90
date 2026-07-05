@@ -9,7 +9,9 @@ module parser_common_statement_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
+    use ast_nodes_data, only: declaration_node
     use ast_factory, only: push_common_block
+    use parser_declaration_attributes_module, only: parse_array_dimensions
     implicit none
     private
 
@@ -57,6 +59,7 @@ contains
                 member_names = [member_names, string_t(trim(token%text))]
                 member_block = [member_block, current_block]
                 token = parser%consume()
+                call parse_member_array_spec(parser, arena, trim(token%text))
             else
                 token = parser%consume()
             end if
@@ -90,6 +93,76 @@ contains
         block_names = [block_names, string_t(name)]
         current_block = size(block_names)
     end subroutine parse_block_header
+
+    ! A COMMON member may carry an array-spec, e.g. `common /b/ arr(10)`.
+    ! The extent is not a separate declaration: it upgrades the companion
+    ! type declaration in the same scope to a rank-N array (F2018 8.10.2.2),
+    ! the way an ALLOCATABLE statement upgrades a scalar declaration.
+    subroutine parse_member_array_spec(parser, arena, name)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        type(token_t) :: token
+        integer, allocatable :: dimension_indices(:)
+
+        call skip_inline_trivia(parser)
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. trim(token%text) == "(")) return
+
+        token = parser%consume()
+        call parse_array_dimensions(parser, arena, dimension_indices)
+        if (.not. allocated(dimension_indices)) allocate (dimension_indices(0))
+        if (size(dimension_indices) > 0) then
+            call apply_common_array_shape(arena, name, dimension_indices)
+        end if
+    end subroutine parse_member_array_spec
+
+    subroutine apply_common_array_shape(arena, name, dimension_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: dimension_indices(:)
+        character(len=:), allocatable :: target, decl_name
+        integer :: idx, i
+
+        target = to_lower(adjustl(trim(name)))
+
+        do idx = arena%size, 1, -1
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (decl => arena%entries(idx)%node)
+            type is (declaration_node)
+                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                    do i = 1, size(decl%var_names)
+                        decl_name = to_lower(trim(decl%var_names(i)))
+                        if (decl_name == target) then
+                            decl%is_array = .true.
+                            call set_common_dimensions(decl, dimension_indices)
+                            arena%entries(idx)%node = decl
+                            return
+                        end if
+                    end do
+                end if
+                if (allocated(decl%var_name)) then
+                    decl_name = to_lower(trim(decl%var_name))
+                    if (decl_name == target) then
+                        decl%is_array = .true.
+                        call set_common_dimensions(decl, dimension_indices)
+                        arena%entries(idx)%node = decl
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end subroutine apply_common_array_shape
+
+    subroutine set_common_dimensions(decl, dimension_indices)
+        type(declaration_node), intent(inout) :: decl
+        integer, intent(in) :: dimension_indices(:)
+
+        if (allocated(decl%dimension_indices)) deallocate (decl%dimension_indices)
+        allocate (decl%dimension_indices(size(dimension_indices)))
+        decl%dimension_indices = dimension_indices
+    end subroutine set_common_dimensions
 
     logical function is_slash(token)
         type(token_t), intent(in) :: token
