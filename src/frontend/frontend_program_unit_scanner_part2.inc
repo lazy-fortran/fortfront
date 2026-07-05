@@ -130,8 +130,22 @@
             end do
         else if (unit_type == "interface") then
             is_interface_unit = .true.
+        else if (is_type_prefix_keyword(unit_type)) then
+            if (function_follows_type_spec(tokens, unit_start)) unit_type = "function"
         end if
     end subroutine classify_unit_type
+
+    logical function is_type_prefix_keyword(word) result(is_type)
+        character(len=*), intent(in) :: word
+
+        select case (trim(word))
+        case ("integer", "real", "logical", "character", "complex", &
+              "double", "type", "class", "procedure")
+            is_type = .true.
+        case default
+            is_type = .false.
+        end select
+    end function is_type_prefix_keyword
 
     subroutine handle_interface_unit(tokens, unit_start, unit_end)
         type(token_t), intent(in) :: tokens(:)

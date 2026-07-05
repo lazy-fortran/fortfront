@@ -12,6 +12,7 @@ module frontend_program_units
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
         get_last_parser_errors
+    use mixed_construct_detector, only: function_follows_type_spec
     use frontend_statement_processing, only: parse_all_statements, &
         parse_explicit_program_unit
     use ast_arena_modern, only: ast_arena_t
@@ -348,14 +349,13 @@ contains
         logical :: is_start
 
         is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                (to_lower(tokens(pos)%text) == "function" .or. &
-                (pos < size(tokens) .and. tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                to_lower(tokens(pos + 1)%text) == "function"))) then
-                is_start = .true.
-            end if
+        if (pos > size(tokens)) return
+        if (tokens(pos)%kind /= TK_KEYWORD) return
+        if (to_lower(tokens(pos)%text) == "function") then
+            is_start = .true.
+            return
         end if
+        is_start = function_follows_type_spec(tokens, pos)
     end function is_function_start
 
     function is_subroutine_start(tokens, pos) result(is_start)

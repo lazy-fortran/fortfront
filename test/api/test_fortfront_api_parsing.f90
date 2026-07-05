@@ -33,6 +33,27 @@ program test_fortfront_api_parsing
 
 contains
 
+    logical function program_contains_square(arena, prog) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: i, idx
+
+        found = .false.
+        if (.not. allocated(prog%body_indices)) return
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx < 1 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (child => arena%entries(idx)%node)
+                type is (function_def_node)
+                if (child%name == 'square' .and. child%return_type == 'real') then
+                    found = .true.
+                    return
+                end if
+            end select
+        end do
+    end function program_contains_square
+
     logical function test_basic_parsing()
         test_basic_parsing = .true.
         print *, 'Testing basic parse_tokens functionality...'
@@ -224,6 +245,13 @@ contains
 
                 if (node%return_type /= 'real') then
                     print *, '  FAIL: Expected return type "real", got "', node%return_type, '"'
+                    test_function_parsing = .false.
+                    return
+                end if
+
+                type is (program_node)
+                if (.not. program_contains_square(arena, node)) then
+                    print *, '  FAIL: program_node missing real function square'
                     test_function_parsing = .false.
                     return
                 end if
