@@ -19,6 +19,7 @@ module standardizer_declarations_insertion
     private
 
     public :: insert_variable_declarations
+    public :: insert_procedure_variable_declarations
     public :: has_implicit_none
     public :: program_has_variable_declarations
     public :: find_declaration_insertion_point
@@ -243,18 +244,27 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         integer, intent(in) :: mode
+
+        pos = 1
+        if (.not. allocated(prog%body_indices)) return
+        pos = find_prefix_end_body(arena, prog%body_indices, mode)
+    end function find_prefix_end
+
+    integer function find_prefix_end_body(arena, body_indices, mode) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: mode
         integer :: i
         logical :: keep_scanning
         character(len=:), allocatable :: comment_text
 
         pos = 1
-        if (.not. allocated(prog%body_indices)) return
 
-        do i = 1, size(prog%body_indices)
-            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
-                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+        do i = 1, size(body_indices)
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
                     keep_scanning = .false.
-                    select type (stmt => arena%entries(prog%body_indices(i))%node)
+                    select type (stmt => arena%entries(body_indices(i))%node)
                         type is (use_statement_node)
                         keep_scanning = .true.
                         type is (intrinsic_statement_node)
@@ -303,7 +313,7 @@ contains
                 end if
             end if
         end do
-    end function find_prefix_end
+    end function find_prefix_end_body
 
     function find_declaration_insertion_point(arena, prog) result(pos)
         type(ast_arena_t), intent(in) :: arena
@@ -358,9 +368,115 @@ contains
         character(len=64), allocatable :: var_names(:)
         character(len=64), allocatable :: var_types(:)
         logical, allocatable :: var_declared(:)
+        integer :: i, var_count
+
+        if (.not. allocated(prog%body_indices)) then
+            allocate (declaration_indices(0))
+            return
+        end if
+
+        call collect_body_declarations(arena, prog%body_indices, var_names, &
+            var_types, var_declared, var_count)
+
+        do i = 1, var_count
+            if (len_trim(var_names(i)) == 0) cycle
+            if (len_trim(var_types(i)) == 0) cycle
+            if (.not. has_explicit_declaration_in_body(arena, prog%body_indices, &
+                var_names(i))) cycle
+            ! If variable is already explicitly declared, mark it as not needing
+            ! a generated declaration (fixes nested implied-do duplicate issue)
+            var_declared(i) = .false.
+            block
+                character(len=:), allocatable :: lowered_type
+                lowered_type = to_lower(var_types(i))
+                if (index(lowered_type, 'dimension(') > 0) then
+                    call update_existing_declaration_type(arena, prog_index, &
+                        var_names(i), var_types(i))
+                end if
+            end block
+        end do
+
+        call create_declaration_nodes(arena, prog%body_indices, prog_index, &
+            var_names, var_types, var_declared, var_count, declaration_indices)
+    end subroutine generate_and_insert_declarations
+
+    ! Synthesize declaration_nodes for implicitly typed locals in a procedure
+    ! body and splice them in after the declaration header, mirroring what
+    ! insert_variable_declarations does for the implicit main program.
+    subroutine insert_procedure_variable_declarations(arena, body_indices, &
+            parent_index, exclude_names)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(in) :: parent_index
+        character(len=*), intent(in), optional :: exclude_names(:)
+        character(len=64), allocatable :: var_names(:)
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_declared(:)
+        integer, allocatable :: declaration_indices(:)
+        integer, allocatable :: new_body_indices(:)
+        integer :: var_count, i, k, insert_pos, n_decls, j
+        character(len=64) :: lowered_name
+
+        if (.not. allocated(body_indices)) return
+
+        call collect_body_declarations(arena, body_indices, var_names, &
+            var_types, var_declared, var_count)
+
+        do i = 1, var_count
+            if (len_trim(var_names(i)) == 0) cycle
+            if (len_trim(var_types(i)) == 0) cycle
+            if (has_explicit_declaration_in_body(arena, body_indices, &
+                var_names(i))) var_declared(i) = .false.
+            if (present(exclude_names)) then
+                lowered_name = to_lower(trim(var_names(i)))
+                do k = 1, size(exclude_names)
+                    if (trim(lowered_name) == to_lower(trim(exclude_names(k)))) then
+                        var_declared(i) = .false.
+                        exit
+                    end if
+                end do
+            end if
+        end do
+
+        call create_declaration_nodes(arena, body_indices, parent_index, &
+            var_names, var_types, var_declared, var_count, declaration_indices)
+
+        n_decls = 0
+        if (allocated(declaration_indices)) n_decls = size(declaration_indices)
+        if (n_decls == 0) return
+
+        insert_pos = find_prefix_end_body(arena, body_indices, 2)
+        if (insert_pos < 1) insert_pos = 1
+        if (insert_pos > size(body_indices) + 1) insert_pos = size(body_indices) + 1
+
+        allocate (new_body_indices(size(body_indices) + n_decls))
+        j = 0
+        do i = 1, insert_pos - 1
+            j = j + 1
+            new_body_indices(j) = body_indices(i)
+        end do
+        do i = 1, n_decls
+            j = j + 1
+            new_body_indices(j) = declaration_indices(i)
+        end do
+        do i = insert_pos, size(body_indices)
+            j = j + 1
+            new_body_indices(j) = body_indices(i)
+        end do
+
+        call move_alloc(new_body_indices, body_indices)
+    end subroutine insert_procedure_variable_declarations
+
+    subroutine collect_body_declarations(arena, body_indices, var_names, &
+            var_types, var_declared, var_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=64), allocatable, intent(out) :: var_names(:)
+        character(len=64), allocatable, intent(out) :: var_types(:)
+        logical, allocatable, intent(out) :: var_declared(:)
+        integer, intent(out) :: var_count
         character(len=64), allocatable :: function_names(:)
-        integer :: i, var_count, func_count
-        type(declaration_node) :: decl_node
+        integer :: i, func_count
 
         allocate (var_names(100))
         allocate (var_types(100))
@@ -373,107 +489,52 @@ contains
         var_count = 0
         func_count = 0
 
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                            type is (function_def_node)
-                            if (func_count < size(function_names)) then
-                                func_count = func_count + 1
-                                function_names(func_count) = to_lower(trim(stmt%name))
-                            end if
-                        end select
-                    end if
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+                type is (function_def_node)
+                if (func_count < size(function_names)) then
+                    func_count = func_count + 1
+                    function_names(func_count) = to_lower(trim(stmt%name))
                 end if
-            end do
-        end if
+            end select
+        end do
 
         ! First pass: process explicit declarations and allocate statements
         ! before processing assignments (fixes #2069)
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                            type is (declaration_node)
-                            call collect_statement_vars(arena, prog%body_indices(i), &
-                                var_names, var_types, &
-                                var_declared, var_count, &
-                                function_names, func_count)
-                            type is (allocate_statement_node)
-                            call collect_statement_vars(arena, prog%body_indices(i), &
-                                var_names, var_types, &
-                                var_declared, var_count, &
-                                function_names, func_count)
-                        end select
-                    end if
-                end if
-            end do
-        end if
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                call collect_statement_vars(arena, body_indices(i), var_names, &
+                    var_types, var_declared, var_count, function_names, func_count)
+                type is (allocate_statement_node)
+                call collect_statement_vars(arena, body_indices(i), var_names, &
+                    var_types, var_declared, var_count, function_names, func_count)
+            end select
+        end do
 
         ! Second pass: process all other statements after declarations and allocates
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                            type is (declaration_node)
-                            ! Skip: already processed in first pass
-                            type is (allocate_statement_node)
-                            ! Skip: already processed in first pass
-                        class default
-                            call collect_statement_vars(arena, prog%body_indices(i), &
-                                var_names, var_types, &
-                                var_declared, var_count, &
-                                function_names, func_count)
-                        end select
-                    end if
-                end if
-            end do
-        end if
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                ! Skip: already processed in first pass
+                type is (allocate_statement_node)
+                ! Skip: already processed in first pass
+            class default
+                call collect_statement_vars(arena, body_indices(i), var_names, &
+                    var_types, var_declared, var_count, function_names, func_count)
+            end select
+        end do
+    end subroutine collect_body_declarations
 
-        if (var_count > 0) then
-            if (allocated(prog%body_indices)) then
-                do i = 1, var_count
-                    if (len_trim(var_names(i)) == 0) cycle
-                    if (len_trim(var_types(i)) == 0) cycle
-                    ! If variable is already explicitly declared, mark it as not needing
-                    ! a generated declaration (fixes nested implied-do duplicate issue)
-                    if (var_declared(i) .and. &
-                        has_explicit_declaration(arena, prog, var_names(i))) then
-                        var_declared(i) = .false.
-                    end if
-                    if (has_explicit_declaration(arena, prog, var_names(i))) then
-                        block
-                            character(len=:), allocatable :: lowered_type
-                            lowered_type = to_lower(var_types(i))
-                            if (index(lowered_type, 'dimension(') > 0) then
-                                call update_existing_declaration_type(arena, &
-                                    prog_index, &
-                                    var_names(i), &
-                                    var_types(i))
-                            end if
-                        end block
-                    end if
-                end do
-            end if
-        end if
-
-        call create_declaration_nodes(arena, prog, prog_index, var_names, &
-            var_types, var_declared, var_count, &
-            declaration_indices)
-    end subroutine generate_and_insert_declarations
-
-    subroutine create_declaration_nodes(arena, prog, prog_index, var_names, &
-            var_types, var_declared, var_count, &
+    subroutine create_declaration_nodes(arena, body_indices, parent_index, &
+            var_names, var_types, var_declared, var_count, &
             declaration_indices)
         type(ast_arena_t), intent(inout) :: arena
-        type(program_node), intent(in) :: prog
-        integer, intent(in) :: prog_index
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: parent_index
         character(len=64), intent(in) :: var_names(:)
         character(len=64), intent(in) :: var_types(:)
         logical, intent(in) :: var_declared(:)
@@ -485,7 +546,8 @@ contains
         actual_count = 0
         do i = 1, var_count
             if (var_declared(i)) then
-                if (.not. has_explicit_declaration(arena, prog, var_names(i))) then
+                if (.not. has_explicit_declaration_in_body(arena, body_indices, &
+                    var_names(i))) then
                     actual_count = actual_count + 1
                 end if
             end if
@@ -501,11 +563,12 @@ contains
         decl_idx = 0
         do i = 1, var_count
             if (var_declared(i)) then
-                if (.not. has_explicit_declaration(arena, prog, var_names(i))) then
+                if (.not. has_explicit_declaration_in_body(arena, body_indices, &
+                    var_names(i))) then
                     decl_idx = decl_idx + 1
-                    call create_single_declaration(arena, prog_index, var_names(i), &
-                        var_types(i), decl_node)
-                    call arena%push(decl_node, "declaration", prog_index)
+                    call create_single_declaration(arena, parent_index, &
+                        var_names(i), var_types(i), decl_node)
+                    call arena%push(decl_node, "declaration", parent_index)
                     declaration_indices(decl_idx) = arena%size
                 end if
             end if
@@ -537,41 +600,45 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         character(len=*), intent(in) :: var_name
+
+        has_explicit_declaration = .false.
+        if (.not. allocated(prog%body_indices)) return
+        has_explicit_declaration = &
+            has_explicit_declaration_in_body(arena, prog%body_indices, var_name)
+    end function has_explicit_declaration
+
+    logical function has_explicit_declaration_in_body(arena, body_indices, &
+            var_name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: var_name
         integer :: i, j
         character(len=64) :: target_name
         character(len=64) :: candidate_name
 
         target_name = to_lower(trim(var_name))
+        found = .false.
 
-        has_explicit_declaration = .false.
-
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. &
-                    prog%body_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                            type is (declaration_node)
-                            candidate_name = to_lower(trim(stmt%var_name))
-                            if (trim(candidate_name) == trim(target_name)) then
-                                has_explicit_declaration = .true.
-                                return
-                            end if
-                            if (stmt%is_multi_declaration .and. &
-                                allocated(stmt%var_names)) then
-                                do j = 1, size(stmt%var_names)
-                                    candidate_name = to_lower(trim(stmt%var_names(j)))
-                                    if (trim(candidate_name) == trim(target_name)) then
-                                        has_explicit_declaration = .true.
-                                        return
-                                    end if
-                                end do
-                            end if
-                        end select
-                    end if
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                candidate_name = to_lower(trim(stmt%var_name))
+                if (trim(candidate_name) == trim(target_name)) then
+                    found = .true.
+                    return
                 end if
-            end do
-        end if
-    end function has_explicit_declaration
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    do j = 1, size(stmt%var_names)
+                        candidate_name = to_lower(trim(stmt%var_names(j)))
+                        if (trim(candidate_name) == trim(target_name)) then
+                            found = .true.
+                            return
+                        end if
+                    end do
+                end if
+            end select
+        end do
+    end function has_explicit_declaration_in_body
 
 end module standardizer_declarations_insertion

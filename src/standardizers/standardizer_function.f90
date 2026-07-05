@@ -8,6 +8,10 @@ module standardizer_function
     use standardizer_function_result_utils, only: determine_preferred_result_name
     use standardizer_function_result_utils, only: sync_result_declaration
     use standardizer_interface_utils, only: function_in_interface_block
+    use standardizer_parameter, only: get_standardizer_input_mode
+    use standardizer_declarations_insertion, only: &
+        insert_procedure_variable_declarations
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
     implicit none
     private
     public :: standardize_function_def
@@ -80,11 +84,38 @@ contains
         ! Ensure function result variable is standardized and declared
         call standardize_function_result(arena, local_def, func_index)
 
+        ! Synthesize declarations for implicitly typed locals (lazy/infer mode),
+        ! mirroring the implicit main program path. Exclude the function name and
+        ! its result variable, which are declared via the function return type.
+        if (get_standardizer_input_mode() /= INPUT_MODE_STANDARD) then
+            call insert_procedure_variable_declarations(arena, &
+                local_def%body_indices, func_index, &
+                function_result_exclusions(local_def))
+        end if
+
         ! Write back to arena and propagate to caller.
         arena%entries(func_index)%node = local_def
         func_def = local_def
 
     end subroutine standardize_function_def
+
+    function function_result_exclusions(func_def) result(names)
+        type(function_def_node), intent(in) :: func_def
+        character(len=64), allocatable :: names(:)
+        integer :: n
+
+        allocate (names(2))
+        n = 0
+        if (allocated(func_def%name)) then
+            n = n + 1
+            names(n) = func_def%name
+        end if
+        if (allocated(func_def%result_variable)) then
+            n = n + 1
+            names(n) = func_def%result_variable
+        end if
+        names = names(1:n)
+    end function function_result_exclusions
 
     subroutine standardize_function_result(arena, func_def, func_index)
         type(ast_arena_t), intent(inout) :: arena

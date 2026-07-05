@@ -9,6 +9,10 @@ module standardizer_subroutine
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: reset_declaration_node
     use standardizer_parameter, only: synchronize_parameter_declarations
+    use standardizer_parameter, only: get_standardizer_input_mode
+    use standardizer_declarations_insertion, only: &
+        insert_procedure_variable_declarations
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
     use standardizer_function_param_scanner, only: &
         analyze_subroutine_parameter_usage
     use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
@@ -51,6 +55,13 @@ contains
 
         ! Standardize parameter declarations
         call standardize_subroutine_parameters(arena, local_def, sub_index)
+
+        ! Synthesize declarations for implicitly typed locals (lazy/infer mode),
+        ! mirroring the implicit main program path.
+        if (get_standardizer_input_mode() /= INPUT_MODE_STANDARD) then
+            call insert_procedure_variable_declarations(arena, &
+                local_def%body_indices, sub_index)
+        end if
 
         ! Write back to arena and propagate to caller.
         arena%entries(sub_index)%node = local_def
