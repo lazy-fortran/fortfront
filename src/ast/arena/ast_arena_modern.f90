@@ -44,6 +44,8 @@ module ast_arena_modern
         procedure :: get_node_column
         procedure :: get_inferred_kind_at
         procedure :: get_inferred_details_at
+        procedure :: assign_modern => ast_arena_modern_assign
+        generic :: assignment(=) => assign_modern
     end type ast_arena_t
 
     interface free_ast_node
@@ -433,5 +435,26 @@ contains
         end do
         arena%entries(parent_index)%child_count = j
     end subroutine remove_child_from_parent
+
+    ! Deep-copy assignment for ast_arena_t
+    ! Copies compat layer (which copies core and entries) then source fields
+    subroutine ast_arena_modern_assign(lhs, rhs)
+        class(ast_arena_t), intent(out) :: lhs
+        type(ast_arena_t), intent(in) :: rhs
+
+        ! Copy ast_arena_compat_t (includes core + entries deep copy)
+        lhs%ast_arena_compat_t = rhs%ast_arena_compat_t
+
+        ! Copy source_text
+        if (allocated(rhs%source_text)) then
+            lhs%source_text = rhs%source_text
+        end if
+
+        ! Copy source_line_starts
+        if (allocated(rhs%source_line_starts)) then
+            allocate (lhs%source_line_starts(size(rhs%source_line_starts)))
+            lhs%source_line_starts = rhs%source_line_starts
+        end if
+    end subroutine ast_arena_modern_assign
 
 end module ast_arena_modern

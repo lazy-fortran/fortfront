@@ -35,6 +35,8 @@ module ast_arena_compat
         procedure :: is_block_node => ast_arena_is_block_node_compat
         procedure :: add_child => ast_arena_add_child_compat
         procedure :: find_by_type => ast_arena_find_by_type_compat
+        procedure :: assign_compat => ast_arena_compat_assign
+        generic :: assignment(=) => assign_compat
     end type ast_arena_compat_t
 
     ! Compatibility type for bridging to old arena API
@@ -543,5 +545,29 @@ contains
             end if
         end do
     end subroutine move_entries_fast
+
+    ! Deep-copy assignment for ast_arena_compat_t
+    ! Copies base arena fields and deep-copies entries array
+    subroutine ast_arena_compat_assign(lhs, rhs)
+        class(ast_arena_compat_t), intent(out) :: lhs
+        type(ast_arena_compat_t), intent(in) :: rhs
+        integer :: i
+
+        ! Copy base ast_arena_core_t fields via parent assignment
+        lhs%ast_arena_core_t = rhs%ast_arena_core_t
+
+        ! Copy compat scalar fields
+        lhs%compat_size = rhs%compat_size
+        lhs%current_index = rhs%current_index
+        lhs%max_depth = rhs%max_depth
+
+        ! Deep-copy entries array
+        if (allocated(rhs%entries)) then
+            allocate (lhs%entries(size(rhs%entries)))
+            do i = 1, size(rhs%entries)
+                lhs%entries(i) = rhs%entries(i)
+            end do
+        end if
+    end subroutine ast_arena_compat_assign
 
 end module ast_arena_compat
