@@ -146,6 +146,23 @@
         end do
     end function find_next_nontrivial_index
 
+    integer function find_prev_nontrivial_index(tokens, pos) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: i
+
+        idx = 0
+        do i = pos - 1, 1, -1
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                idx = i
+                return
+            end select
+        end do
+    end function find_prev_nontrivial_index
+
     logical function token_precedes_identifier(token) result(is_valid)
         type(token_t), intent(in) :: token
         character(len=:), allocatable :: lowered

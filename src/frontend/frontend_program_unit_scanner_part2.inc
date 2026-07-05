@@ -205,50 +205,76 @@
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: unit_start
         integer, intent(out) :: unit_end
-        integer :: i, nesting_level
-        integer :: next_idx
+        integer :: i, next_idx, prev_idx
+        integer :: proc_start, proc_end
+        integer :: interface_depth
         logical :: in_module_contains
+        character(len=:), allocatable :: lowered
 
         in_module_contains = .false.
-        nesting_level = 1
+        interface_depth = 0
         unit_end = unit_start
+        i = unit_start + 1
 
-        do i = unit_start + 1, size(tokens)
+        do while (i <= size(tokens))
             if (tokens(i)%kind == TK_EOF) then
                 unit_end = i - 1
                 exit
-            else if (tokens(i)%kind == TK_KEYWORD .or. &
-                    tokens(i)%kind == TK_IDENTIFIER) then
-                if (token_is_word_at(tokens, i, "contains")) then
+            end if
+
+            if (in_module_contains) then
+                proc_start = find_contains_procedure_start(tokens, i)
+                if (proc_start > 0) then
+                    lowered = to_lower(trim(tokens(proc_start)%text))
+                    call handle_procedure_unit(tokens, proc_start, lowered, proc_end)
+                    unit_end = proc_end
+                    i = proc_end + 1
+                    cycle
+                end if
+            else
+                if (token_starts_structural_contains(tokens, i)) then
                     in_module_contains = .true.
-                else if (token_is_word_at(tokens, i, "end")) then
+                    unit_end = i
+                    i = i + 1
+                    cycle
+                else if (token_is_word_at(tokens, i, "interface")) then
+                    prev_idx = find_prev_nontrivial_index(tokens, i)
+                    if (prev_idx > 0 .and. &
+                        token_is_word_at(tokens, prev_idx, "end")) then
+                        if (interface_depth > 0) interface_depth = interface_depth - 1
+                    else
+                        interface_depth = interface_depth + 1
+                    end if
+                    unit_end = i
+                    i = i + 1
+                    cycle
+                end if
+            end if
+
+            if (in_module_contains .or. interface_depth == 0) then
+                if (token_starts_bare_end_statement(tokens, i)) then
+                    unit_end = i
+                    exit
+                end if
+                if (token_is_word_at(tokens, i, "end")) then
                     next_idx = find_next_nontrivial_index(tokens, i)
                     if (next_idx > 0 .and. next_idx <= size(tokens)) then
                         if (token_is_word_at(tokens, next_idx, "module")) then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
+                            unit_end = next_idx
+                            next_idx = find_next_nontrivial_index(tokens, next_idx)
+                            if (next_idx > 0 .and. next_idx <= size(tokens)) then
+                                if (tokens(next_idx)%kind == TK_IDENTIFIER) then
                                     unit_end = next_idx
-                                    next_idx = find_next_nontrivial_index(tokens, next_idx)
-                                    if (next_idx > 0 .and. next_idx <= size(tokens)) then
-                                        if (tokens(next_idx)%kind == TK_IDENTIFIER) then
-                                            unit_end = next_idx
-                                        end if
-                                    end if
-                                    exit
                                 end if
-                        end if
-                    end if
-                else if (token_is_word_at(tokens, i, "module") .and. &
-                        .not. in_module_contains) then
-                    next_idx = find_next_nontrivial_index(tokens, i)
-                    if (next_idx > 0 .and. next_idx <= size(tokens)) then
-                        if (tokens(next_idx)%kind == TK_IDENTIFIER) then
-                            nesting_level = nesting_level + 1
+                            end if
+                            exit
                         end if
                     end if
                 end if
             end if
+
             unit_end = i
+            i = i + 1
         end do
     end subroutine handle_module_unit
 
