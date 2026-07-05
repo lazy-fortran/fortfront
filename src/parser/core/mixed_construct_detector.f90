@@ -171,6 +171,24 @@ contains
             end do
             if (idx > size(tokens)) return
 
+            if (to_lower(trim(tokens(start_pos)%text)) == "double" .and. &
+                tokens(idx)%kind == TK_KEYWORD) then
+                select case (to_lower(trim(tokens(idx)%text)))
+                case ("precision", "complex")
+                    idx = idx + 1
+                    do while (idx <= size(tokens))
+                        select case (tokens(idx)%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            idx = idx + 1
+                            cycle
+                        case default
+                            exit
+                        end select
+                    end do
+                    if (idx > size(tokens)) return
+                end select
+            end if
+
             if (tokens(idx)%kind == TK_OPERATOR .and. tokens(idx)%text == "(") then
                 depth = 0
                 do while (idx <= size(tokens))

@@ -28,16 +28,22 @@ contains
                 return_type_str = token%text
                 token = parser%consume()
                 call consume_optional_kind_spec(parser, return_type_str)
-            case ("double precision", "double complex")
-                return_type_str = token%text
+            case ("double precision")
+                return_type_str = "real(8)"
+                token = parser%consume()
+            case ("double complex")
+                return_type_str = "complex(8)"
                 token = parser%consume()
             case ("double")
                 next_index = parser%current_token + 1
                 lookahead = parser%get_token_at_index(next_index)
                 next_lower = to_lower(trim(lookahead%text))
-                if (trim(next_lower) == "precision" .or. trim(next_lower) == &
-                    "complex") then
-                    return_type_str = trim(token%text) // " " // trim(lookahead%text)
+                if (trim(next_lower) == "precision") then
+                    return_type_str = "real(8)"
+                    token = parser%consume()
+                    token = parser%consume()
+                else if (trim(next_lower) == "complex") then
+                    return_type_str = "complex(8)"
                     token = parser%consume()
                     token = parser%consume()
                 end if
