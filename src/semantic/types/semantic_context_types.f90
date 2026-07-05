@@ -1,6 +1,5 @@
 module semantic_context_types
     ! Define concrete context types to replace class(*) in semantic analysis
-    use ast_arena_modern, only: ast_arena_t
     implicit none
     private
 
@@ -13,9 +12,10 @@ module semantic_context_types
         procedure(clone_context_interface), deferred :: clone_context
     end type semantic_context_base_t
 
-    ! Standard semantic context for most analysis
+    ! Standard semantic context for most analysis.
+    ! Arena is not stored here: callers pass it as intent(inout) to avoid
+    ! aliasing a raw pointer through copy/assign (refs #2841).
     type, extends(semantic_context_base_t), public :: standard_context_t
-        type(ast_arena_t), pointer :: arena => null()
         integer :: current_node_index = 0
         logical :: type_checking_enabled = .true.
         logical :: scope_checking_enabled = .true.
@@ -83,7 +83,6 @@ contains
 
         temp_context%context_id = this%context_id
         temp_context%context_name = this%context_name
-        temp_context%arena => this%arena
         temp_context%current_node_index = this%current_node_index
         temp_context%type_checking_enabled = this%type_checking_enabled
         temp_context%scope_checking_enabled = this%scope_checking_enabled
@@ -97,7 +96,6 @@ contains
 
         lhs%context_id = rhs%context_id
         lhs%context_name = rhs%context_name
-        lhs%arena => rhs%arena
         lhs%current_node_index = rhs%current_node_index
         lhs%type_checking_enabled = rhs%type_checking_enabled
         lhs%scope_checking_enabled = rhs%scope_checking_enabled
