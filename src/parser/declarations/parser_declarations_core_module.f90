@@ -60,6 +60,14 @@ contains
             parser, arena, type_spec, attr_info, identifier_token, &
             decl_index)
         if (handled_multi) then
+            if (decl_index > 0 .and. decl_index <= arena%size) then
+                if (arena%has_node_at(decl_index)) then
+                    if (allocated(arena%entries(decl_index)%node)) then
+                        arena%entries(decl_index)%node%line = type_spec%line
+                        arena%entries(decl_index)%node%column = type_spec%column
+                    end if
+                end if
+            end if
             return
         end if
 
@@ -76,6 +84,15 @@ contains
             decl_index = add_single_declaration( &
                 arena, type_spec, attr_info, var_name, initializer_index, &
                 .false.)
+        end if
+
+        if (decl_index > 0 .and. decl_index <= arena%size) then
+            if (arena%has_node_at(decl_index)) then
+                if (allocated(arena%entries(decl_index)%node)) then
+                    arena%entries(decl_index)%node%line = type_spec%line
+                    arena%entries(decl_index)%node%column = type_spec%column
+                end if
+            end if
         end if
     end function parse_declaration
 

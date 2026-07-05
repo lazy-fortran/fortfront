@@ -2,8 +2,7 @@ module ast_arena_safe
     ! SAFE version of ast_arena that handles all node types via generic
     ! allocate(source=) deep copy. Previously handled only ~13 types;
     ! now covers all node kinds (issue #2842).
-    use ast_base, only: ast_node
-    use, intrinsic :: iso_fortran_env, only: error_unit
+   use ast_base, only: ast_node
     implicit none
     private
 

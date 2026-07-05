@@ -8,7 +8,7 @@ program test_arena_clone_all_nodes
         push_literal, push_binary_op, push_array_literal, &
         push_component_access, push_range_subscript, push_complex_literal, &
         push_pointer_assignment, push_subroutine_call
-    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, &
         LITERAL_LOGICAL
     use ast_nodes_core, only: identifier_node
     use frontend_core, only: lex_source, emit_fortran
