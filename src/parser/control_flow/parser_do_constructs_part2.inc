@@ -48,6 +48,10 @@
                                        line=line, column=column)
         end if
 
+        if (loop_index > 0) then
+            call capture_trailing_comment(parser, arena, loop_index)
+        end if
+
         ! Parse body statements until 'end' (same logic as if blocks)
         block
             integer, allocatable :: temp_body_indices(:)

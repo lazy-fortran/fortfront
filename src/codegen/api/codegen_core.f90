@@ -610,17 +610,25 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: result_code
 
-        if (node_index > 0 .and. node_index <= arena%size) then
-            if (arena%has_node_at(node_index)) then
-                if (allocated(arena%entries(node_index)%node%trailing_comment)) then
-                    if (len_trim(arena%entries(node_index)%node%trailing_comment) > 0) then
-                        result_code = code//'  '//trim(arena%entries(node_index)%node%trailing_comment)
-                        return
-                    end if
-                end if
-            end if
-        end if
         result_code = code
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. arena%has_node_at(node_index)) return
+
+        ! Control-flow constructs emit their header trailing comment inline
+        ! during their own codegen, so skip the generic end-of-node append.
+        select type (node => arena%entries(node_index)%node)
+        type is (do_loop_node)
+            return
+        type is (do_while_node)
+            return
+        type is (if_node)
+            return
+        end select
+
+        if (.not. allocated(arena%entries(node_index)%node%trailing_comment)) return
+        associate (comment => arena%entries(node_index)%node%trailing_comment)
+            if (len_trim(comment) > 0) result_code = code//'  '//trim(comment)
+        end associate
     end function append_trailing_comment
 
 end module codegen_core

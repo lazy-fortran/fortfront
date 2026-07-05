@@ -33,6 +33,7 @@ module parser_statement_core_module
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_statement_utilities_module, only: parse_if_from_definition, &
         parse_associate_from_definition
+    use parser_trailing_comment_module, only: capture_trailing_comment_from_tokens
     implicit none
     private
 
@@ -129,6 +130,8 @@ contains
 
         if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
         stmt_indices(1) = stmt_index
+
+        call capture_trailing_comment_from_tokens(tokens, arena, stmt_index)
 
         if (present(consumed_count)) consumed_count = parser%current_token - 1
     end function parse_basic_statement_core

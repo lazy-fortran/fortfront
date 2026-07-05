@@ -15,6 +15,7 @@ module parser_do_constructs_module
         statement_callbacks_t, &
         null_statement_callbacks, &
         find_statement_end
+    use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private
 
