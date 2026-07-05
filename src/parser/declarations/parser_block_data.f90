@@ -197,6 +197,12 @@ contains
                         exit
                     end if
                 end if
+                ! Bare END (F2018 R1420) terminates the BLOCK DATA unit.
+                token = parser%consume()
+                if (len_trim(pending_end_label) > 0) then
+                    end_label = pending_end_label
+                end if
+                exit
             end if
 
             if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
