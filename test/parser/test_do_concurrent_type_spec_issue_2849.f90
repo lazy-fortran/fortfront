@@ -37,18 +37,18 @@ program test_do_concurrent_type_spec_issue_2849
 
     ! Test 2: Real type-spec with kind parameter
     source = "program p2"&
-         // new_line('a') &
-         // "  integer :: n = 10"&
-         // new_line('a') &
-         // "  real(8) :: arr(10)"&
-         // new_line('a') &
-         // "  do concurrent (real(8) :: x = 0.0d0:1.0d0:0.1d0)"&
-         // new_line('a') &
-         // "    arr(1) = x"&
-         // new_line('a') &
-         // "  end do"&
-         // new_line('a') &
-         // "end program p2"
+        // new_line('a') &
+        // "  integer :: n = 10"&
+        // new_line('a') &
+        // "  real(8) :: arr(10)"&
+        // new_line('a') &
+        // "  do concurrent (real(8) :: x = 0.0d0:1.0d0:0.1d0)"&
+        // new_line('a') &
+        // "    arr(1) = x"&
+        // new_line('a') &
+        // "  end do"&
+        // new_line('a') &
+        // "end program p2"
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then
@@ -75,14 +75,14 @@ program test_do_concurrent_type_spec_issue_2849
 
     ! Test 3: Multi-index with type-spec on inner loop
     source = "program p3"&
-         // new_line('a') &
-         // "  integer :: n = 5, m = 3"&
-         // new_line('a') &
-         // "  do concurrent (i = 1:n, integer :: j = 1:m)"&
-         // new_line('a') &
-         // "  end do"&
-         // new_line('a') &
-         // "end program p3"
+        // new_line('a') &
+        // "  integer :: n = 5, m = 3"&
+        // new_line('a') &
+        // "  do concurrent (i = 1:n, integer :: j = 1:m)"&
+        // new_line('a') &
+        // "  end do"&
+        // new_line('a') &
+        // "end program p3"
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then
@@ -102,12 +102,12 @@ program test_do_concurrent_type_spec_issue_2849
 
     ! Test 4: Logical type-spec
     source = "program p4"&
-         // new_line('a') &
-         // "  do concurrent (logical :: f = .true.:.false.)"&
-         // new_line('a') &
-         // "  end do"&
-         // new_line('a') &
-         // "end program p4"
+        // new_line('a') &
+        // "  do concurrent (logical :: f = .true.:.false.)"&
+        // new_line('a') &
+        // "  end do"&
+        // new_line('a') &
+        // "end program p4"
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then

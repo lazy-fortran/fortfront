@@ -95,11 +95,11 @@ contains
             end if
 
             type is (multi_unit_container_node)
-                if (allocated(node%body_indices)) then
-                    do i = size(node%body_indices), 1, -1
-                        call push(node%body_indices(i))
-                    end do
-                end if
+            if (allocated(node%body_indices)) then
+                do i = size(node%body_indices), 1, -1
+                    call push(node%body_indices(i))
+                end do
+            end if
 
             type is (binary_op_node)
             call push(node%right_index)

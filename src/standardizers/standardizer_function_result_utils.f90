@@ -6,7 +6,7 @@ module standardizer_function_result_utils
     use semantic_validation_utils, only: rename_identifier_in_arena
     use standardizer_interface_utils, only: function_in_interface_block
     use standardizer_parameter, only: infer_parameter_type, is_type_variable_str, &
-                                      reset_declaration_node
+        reset_declaration_node
     use standardizer_declarations_array, only: set_array_properties_from_type
     use type_string_utils, only: is_character_type_string, mono_type_to_string
     implicit none
@@ -17,7 +17,7 @@ module standardizer_function_result_utils
 contains
 
     subroutine determine_preferred_result_name(arena, func_def, func_index, &
-                                               preferred_name)
+            preferred_name)
         use ast_nodes_core, only: assignment_node, identifier_node
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
@@ -43,11 +43,11 @@ contains
             body_index = func_def%body_indices(i)
             if (.not. arena%has_node_at(body_index)) cycle
             select type (stmt => arena%entries(body_index)%node)
-            type is (assignment_node)
+                type is (assignment_node)
                 target_index = stmt%target_index
                 if (.not. arena%has_node_at(target_index)) cycle
                 select type (target_node => arena%entries(target_index)%node)
-                type is (identifier_node)
+                    type is (identifier_node)
                     if (.not. allocated(target_node%name)) cycle
                     target_name = trim(target_node%name)
                     if (len_trim(target_name) == 0) cycle
@@ -72,7 +72,7 @@ contains
                     body_index = func_def%body_indices(i)
                     if (.not. arena%has_node_at(body_index)) cycle
                     select type (stmt => arena%entries(body_index)%node)
-                    type is (declaration_node)
+                        type is (declaration_node)
                         if (allocated(stmt%var_name)) then
                             if (trim(stmt%var_name) == trim(function_name)) then
                                 preferred_name = trim(function_name)
@@ -112,15 +112,15 @@ contains
         if ((.not. allocated(func_def%result_variable)) .or. &
             len_trim(func_def%result_variable) == 0 .or. &
             (len_trim(function_name) > 0 .and. &
-             trim(trimmed_name) == trim(function_name) .and. &
-             trim(func_def%result_variable) /= trim(function_name))) then
+            trim(trimmed_name) == trim(function_name) .and. &
+            trim(func_def%result_variable) /= trim(function_name))) then
             func_def%result_variable = trimmed_name
             if (trimmed_name /= "result") then
                 if (allocated(func_def%body_indices)) then
                     call rename_identifier_in_arena(arena, "result", &
-                                                    trimmed_name, &
-                                                    func_def%body_indices, &
-                                                    func_index)
+                        trimmed_name, &
+                        func_def%body_indices, &
+                        func_index)
                 end if
             end if
         end if
@@ -143,7 +143,7 @@ contains
 
     end subroutine apply_result_variable
     subroutine sync_result_declaration(arena, func_def, func_index, &
-                                       type_std_enabled)
+            type_std_enabled)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -158,16 +158,16 @@ contains
         if (function_in_interface_block(arena, func_index)) return
 
         call find_result_declaration(arena, func_def, has_decl, decl_index, &
-                                     existing_decl, decl_in_multi, &
-                                     result_name_position)
+            existing_decl, decl_in_multi, &
+            result_name_position)
 
         if (has_function_name_result(func_def)) then
             if (has_decl) then
                 if (decl_in_multi) then
                     call detach_result_from_declaration(arena, func_def, &
-                                                        func_index, decl_index, &
-                                                        existing_decl, &
-                                                        result_name_position)
+                        func_index, decl_index, &
+                        existing_decl, &
+                        result_name_position)
                 end if
                 call remove_intent_from_declaration(arena, decl_index)
             end if
@@ -179,21 +179,21 @@ contains
         if (has_decl) then
             if (decl_in_multi) then
                 call detach_result_from_declaration(arena, func_def, func_index, &
-                                                    decl_index, existing_decl, &
-                                                    result_name_position)
+                    decl_index, existing_decl, &
+                    result_name_position)
             end if
             call update_return_type_from_existing(func_def, arena, func_index, &
-                                                  existing_decl)
+                existing_decl)
             call remove_intent_from_declaration(arena, decl_index)
             return
         end if
 
         call create_result_declaration(arena, func_def, func_index, &
-                                       type_std_enabled)
+            type_std_enabled)
 
     end subroutine sync_result_declaration
     subroutine find_result_declaration(arena, func_def, has_decl, decl_index, &
-                                       existing_decl, in_multi, name_position)
+            existing_decl, in_multi, name_position)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_def
@@ -215,13 +215,13 @@ contains
             decl_index = func_def%body_indices(i)
             if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (trim(stmt%var_name) == trim(func_def%result_variable)) then
                     has_decl = .true.
                     existing_decl = stmt
                     in_multi = stmt%is_multi_declaration .and. &
-                               allocated(stmt%var_names) .and. &
-                               size(stmt%var_names) > 1
+                        allocated(stmt%var_names) .and. &
+                        size(stmt%var_names) > 1
                     if (in_multi) name_position = 1
                     return
                 end if
@@ -244,7 +244,7 @@ contains
 
     end subroutine find_result_declaration
     subroutine update_return_type_from_existing(func_def, arena, func_index, &
-                                                existing_decl)
+            existing_decl)
         use ast_nodes_data, only: declaration_node
         type(function_def_node), intent(inout) :: func_def
         type(ast_arena_t), intent(inout) :: arena
@@ -278,8 +278,8 @@ contains
                     > 0 .and. &
                     existing_decl%type_name /= "character") then
                     call assign_return_type_with_kind(func_def, &
-                                                      existing_decl%type_name, &
-                                                      existing_decl%kind_value)
+                        existing_decl%type_name, &
+                        existing_decl%kind_value)
                 else
                     func_def%return_type = trim(existing_decl%type_name)
                 end if
@@ -334,7 +334,7 @@ contains
 
     end subroutine ensure_function_name_return_type
     subroutine create_result_declaration(arena, func_def, func_index, &
-                                         type_std_enabled)
+            type_std_enabled)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -351,7 +351,7 @@ contains
                 body_idx = func_def%body_indices(i)
                 if (.not. arena%has_node_at(body_idx)) cycle
                 select type (stmt => arena%entries(body_idx)%node)
-                type is (declaration_node)
+                    type is (declaration_node)
                     if (allocated(stmt%var_name)) then
                         if (trim(stmt%var_name) == &
                             trim(func_def%result_variable)) then
@@ -402,16 +402,16 @@ contains
             decl%inferred_type = func_def%inferred_type
             call decl%inferred_type%sync_from_arena()
             call set_array_properties_from_type(arena, decl%var_name, func_index, &
-                                                decl)
+                decl)
             if (decl%inferred_type%alloc_info%is_allocatable) then
                 decl%is_allocatable = .true.
             end if
             ! Only use inferred type for type_name if not already set by return_type
             if (decl%inferred_type%kind > 0 .and. len_trim(decl%type_name) == 0) then
                 decl%type_name = mono_type_to_string( &
-                                 decl%inferred_type, include_shape=.false., &
-                                 standardize_real=type_std_enabled, &
-                                 fallback=decl%type_name)
+                    decl%inferred_type, include_shape=.false., &
+                    standardize_real=type_std_enabled, &
+                    fallback=decl%type_name)
             end if
         end if
 
@@ -476,7 +476,7 @@ contains
         character(len=32) :: inferred_type
 
         call infer_parameter_type(var_name, inferred_type, decl%has_kind, &
-                                  decl%kind_value)
+            decl%kind_value)
         decl%type_name = trim(inferred_type)
 
     end subroutine infer_result_type
@@ -491,7 +491,7 @@ contains
             if (decl%has_kind .and. decl%kind_value > 0 .and. &
                 decl%type_name /= "character") then
                 call assign_return_type_with_kind(func_def, decl%type_name, &
-                                                  decl%kind_value)
+                    decl%kind_value)
             else
                 func_def%return_type = trim(decl%type_name)
             end if
@@ -526,8 +526,8 @@ contains
     end subroutine insert_result_declaration_into_body
 
     subroutine detach_result_from_declaration(arena, func_def, func_index, &
-                                              decl_index, existing_decl, &
-                                              name_position)
+            decl_index, existing_decl, &
+            name_position)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -539,7 +539,7 @@ contains
         integer :: new_decl_index
 
         call remove_result_name_from_declaration(arena, decl_index, &
-                                                 name_position)
+            name_position)
 
         result_decl = existing_decl
         result_decl%is_multi_declaration = .false.
@@ -557,7 +557,7 @@ contains
     end subroutine detach_result_from_declaration
 
     subroutine remove_result_name_from_declaration(arena, decl_index, &
-                                                   name_position)
+            name_position)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
@@ -570,7 +570,7 @@ contains
         if (.not. arena%has_node_at(decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. decl%is_multi_declaration) return
             if (.not. allocated(decl%var_names)) return
             if (name_position < 1 .or. name_position > size(decl%var_names)) return
@@ -647,7 +647,7 @@ contains
         if (.not. arena%has_node_at(decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. decl%has_intent) return
             decl%intent = ""
             decl%has_intent = .false.
@@ -669,8 +669,8 @@ contains
             return
         end if
         is_match = (index(lowered, 'len=') > 0) .and. &
-                   (index(lowered, 'len=*') == 0) .and. &
-                   (index(lowered, 'len=:') == 0)
+            (index(lowered, 'len=*') == 0) .and. &
+            (index(lowered, 'len=:') == 0)
 
     end function is_character_length_decl
 
