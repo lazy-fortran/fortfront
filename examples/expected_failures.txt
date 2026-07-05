@@ -19,6 +19,7 @@ issue_2153_array_call_scalar_param.lf  # BUG: array variant returns scalar inste
 # Fortran 2018 feature bugs
 issue_2238_select_rank_performance.f90  # BUG: assumed-rank arrays (..) not fully supported (#2238)
 select_rank_simple.f90  # BUG: SELECT RANK requires assumed-rank arrays (..) (#2238)
+do_concurrent_type_spec.f90  # EXTENSION: gfortran-14 rejects type-spec in DO CONCURRENT (#2849)
 
 # ============================================================================
 # EXTENSIONS - gfortran rejects nonstandard syntax; fortfront passes through
