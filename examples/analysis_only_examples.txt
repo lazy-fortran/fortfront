@@ -24,3 +24,4 @@ f90/issue_2497_include_line_standalone.f90
 f90/issue_2737_lfortran_template_instantiate.f90
 f90/issue_2738_lfortran_traits_requirements_implements.f90
 f90/issue_2817_inline_instantiate_caret.f90
+f90/do_concurrent_type_spec.f90  # gfortran-14 does not support type-spec in DO CONCURRENT (#2849)

@@ -181,7 +181,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: var_code, start_code, end_code, step_code
-        character(len=:), allocatable :: body_code, end_keyword
+        character(len=:), allocatable :: body_code, end_keyword, index_code
         integer :: indent_level
 
         indent_level = 0
@@ -217,14 +217,18 @@ contains
 
         ! Generate do statement with optional label
         if (node%is_concurrent) then
-            ! DO CONCURRENT syntax: do concurrent (var = start:end[:step])
+            ! DO CONCURRENT syntax: do concurrent ([type-spec ::] var = start:end[:step])
+            index_code = var_code
+            if (allocated(node%type_spec) .and. len_trim(node%type_spec) > 0) then
+                index_code = trim(node%type_spec)//" :: "//var_code
+            end if
             if (allocated(node%label)) then
                 code = trim(adjustl(node%label))//": do concurrent ("// &
-                    var_code// &
+                    index_code// &
                     " = "//start_code//":"//end_code
                 end_keyword = "end do "//trim(adjustl(node%label))
             else
-                code = "do concurrent ("//var_code//" = "//start_code//":"// &
+                code = "do concurrent ("//index_code//" = "//start_code//":"// &
                     end_code
                 end_keyword = "end do"
             end if
