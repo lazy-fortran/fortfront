@@ -704,11 +704,9 @@
                 case ("dimension")
                     block
                         type(token_t) :: ignored_token
-                        logical :: success
                         ignored_token = parser_ref%consume()
-                        success = parse_dimension_statement(parser_ref, arena_ref)
+                        stmt_index = parse_dimension_statement(parser_ref, arena_ref)
                     end block
-                    stmt_index = 0
                 case ("parameter")
                     block
                         use parser_parameter_statements_module, only: &

@@ -285,6 +285,8 @@
                                        stmt_index)
         case ("common")
             call handle_common_keyword(parser, arena, first_token, stmt_index)
+        case ("dimension")
+            call handle_dimension_keyword(parser, arena, first_token, stmt_index)
         case ("enum")
             stmt_index = parse_enum_construct(parser, arena)
         case ("enumerator")
@@ -551,6 +553,19 @@
             stmt_index = parse_common_statement(parser, arena)
         end if
     end subroutine handle_common_keyword
+
+    subroutine handle_dimension_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_dimension_statement(parser, arena)
+        end if
+    end subroutine handle_dimension_keyword
 
     subroutine dispatch_number_token(parser, arena, prefix_buffer, tokens, &
                                      stmt_index)
