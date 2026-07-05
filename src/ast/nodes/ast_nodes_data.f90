@@ -79,8 +79,11 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_value = .false. ! Whether value
         ! attribute is present (F2003 C interop)
+        logical :: is_bind_c = .false. ! Whether bind(c)
+        ! attribute is present (F2003 C interop)
         logical :: disable_grouping = .false. ! Skip declaration grouping
         character(len=:), allocatable :: accessibility ! 'public'/'private'
+        character(len=:), allocatable :: bind_name ! bind(c, name="...") value
     contains
         procedure :: accept => declaration_accept
         procedure :: assign => declaration_assign
@@ -283,11 +286,17 @@ contains
         lhs%is_asynchronous = rhs%is_asynchronous
         lhs%is_contiguous = rhs%is_contiguous
         lhs%is_value = rhs%is_value
+        lhs%is_bind_c = rhs%is_bind_c
         lhs%disable_grouping = rhs%disable_grouping
         if (allocated(rhs%accessibility)) then
             lhs%accessibility = rhs%accessibility
         else if (allocated(lhs%accessibility)) then
             deallocate (lhs%accessibility)
+        end if
+        if (allocated(rhs%bind_name)) then
+            lhs%bind_name = rhs%bind_name
+        else if (allocated(lhs%bind_name)) then
+            deallocate (lhs%bind_name)
         end if
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices

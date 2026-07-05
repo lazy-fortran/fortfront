@@ -24,10 +24,12 @@ module declaration_attribute_utils
         logical :: is_asynchronous = .false.
         logical :: is_contiguous = .false.
         logical :: is_value = .false.
+        logical :: is_bind_c = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
         character(len=:), allocatable :: accessibility ! 'public'/'private'
+        character(len=:), allocatable :: bind_name ! bind(c, name="...") value
         integer, allocatable :: global_dimension_indices(:)
     end type declaration_attribute_info_t
 
@@ -49,9 +51,11 @@ contains
         attr%is_asynchronous = .false.
         attr%is_contiguous = .false.
         attr%is_value = .false.
+        attr%is_bind_c = .false.
         attr%has_intent = .false.
         if (allocated(attr%intent)) deallocate (attr%intent)
         if (allocated(attr%accessibility)) deallocate (attr%accessibility)
+        if (allocated(attr%bind_name)) deallocate (attr%bind_name)
         attr%has_global_dimensions = .false.
         if (allocated(attr%global_dimension_indices)) then
             deallocate (attr%global_dimension_indices)
