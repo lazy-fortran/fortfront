@@ -10,7 +10,7 @@ module semantic_walrus_checker
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use error_handling, only: create_error_result, ERROR_SEMANTIC, result_t, &
-                              error_collection_t
+        error_collection_t
     use semantic_input_mode, only: INPUT_MODE_STANDARD
     implicit none
     private
@@ -44,16 +44,16 @@ contains
         if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
+            type is (program_node)
             if (allocated(node%body_indices)) &
                 call check_scope_body(errors, arena, node%body_indices)
-        type is (multi_unit_container_node)
+            type is (multi_unit_container_node)
             if (allocated(node%body_indices)) &
                 call check_scope_body(errors, arena, node%body_indices)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(node%body_indices)) &
                 call check_scope_body(errors, arena, node%body_indices)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(node%body_indices)) &
                 call check_scope_body(errors, arena, node%body_indices)
         end select
@@ -73,12 +73,12 @@ contains
             stmt_index = body_indices(i)
             if (.not. arena%has_node_at(stmt_index)) cycle
             call check_scope_statement(errors, arena, stmt_index, &
-                                       declared_names, name_count)
+                declared_names, name_count)
         end do
     end subroutine check_scope_body
 
     recursive subroutine check_scope_statement(errors, arena, stmt_index, &
-                                               declared_names, name_count)
+            declared_names, name_count)
         type(error_collection_t), intent(inout) :: errors
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
@@ -86,15 +86,15 @@ contains
         integer, intent(inout) :: name_count
 
         select type (stmt => arena%entries(stmt_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             call register_declaration_names(stmt, declared_names, name_count)
-        type is (assignment_node)
+            type is (assignment_node)
             if (stmt%is_walrus) &
                 call register_walrus_name(errors, arena, stmt, declared_names, &
-                                          name_count)
-        type is (function_def_node)
+                name_count)
+            type is (function_def_node)
             call check_scope_node(errors, arena, stmt_index)
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             call check_scope_node(errors, arena, stmt_index)
         end select
     end subroutine check_scope_statement
@@ -128,13 +128,13 @@ contains
 
         if (name_exists(declared_names, name_count, target_name)) then
             error_result = create_error_result( &
-                           "Walrus ':=' redeclares '"//target_name// &
-                           "' in the same scope", &
-                           ERROR_SEMANTIC, &
-                           component="semantic_walrus_checker", &
-                           context="check_walrus_redeclaration", &
-                           suggestion="Use '=' to assign to an existing variable" &
-                           )
+                "Walrus ':=' redeclares '"//target_name// &
+                "' in the same scope", &
+                ERROR_SEMANTIC, &
+                component="semantic_walrus_checker", &
+                context="check_walrus_redeclaration", &
+                suggestion="Use '=' to assign to an existing variable" &
+                )
             call errors%add_result(error_result)
             return
         end if
@@ -150,7 +150,7 @@ contains
         name = ""
         if (.not. arena%has_node_at(target_index)) return
         select type (target => arena%entries(target_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (allocated(target%name)) name = trim(target%name)
         end select
     end function walrus_target_name

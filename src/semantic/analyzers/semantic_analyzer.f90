@@ -1,6 +1,6 @@
 module semantic_analyzer
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   substitution_t, allocation_info_t
+        substitution_t, allocation_info_t
     use scope_manager, only: scope_stack_t, create_scope_stack
     use ast_arena_modern, only: ast_arena_t
     use semantic_validation_utils, only: &
@@ -11,31 +11,31 @@ module semantic_analyzer
         determine_function_return_type, &
         create_function_scope
     use semantic_subroutine_analysis, only: analyze_subroutine_parameters, &
-                                            create_subroutine_scope
+        create_subroutine_scope
     use semantic_type_operations, only: generate_fresh_type_var_op, &
-                                        apply_substitution_to_type, &
-                                        generalize_type_op, &
-                                        instantiate_type_scheme_op, get_common_type
+        apply_substitution_to_type, &
+        generalize_type_op, &
+        instantiate_type_scheme_op, get_common_type
     use semantic_assignment_inference, only: process_assignment_inference, &
-                                             ensure_var_declared_from_arena
+        ensure_var_declared_from_arena
     use semantic_binary_operations, only: &
         infer_comparison_operation, &
         infer_logical_operation
     use semantic_inference_helpers, only: check_implicit_none, &
-                                          process_if_node_branches, &
-                                          process_do_loop_body, &
-                                          process_do_while_node_body, &
-                                          process_where_node_clauses, &
-                                          process_where_stmt_node, &
-                                          process_forall_node_body, &
-                                          process_select_case_blocks, &
-                                          process_associate_node_body, &
-                                          process_stop_node_code, &
-                                          process_pause_node_code, &
-                                          process_nullify_node_code, &
-                                          process_declaration_variables
+        process_if_node_branches, &
+        process_do_loop_body, &
+        process_do_while_node_body, &
+        process_where_node_clauses, &
+        process_where_stmt_node, &
+        process_forall_node_body, &
+        process_select_case_blocks, &
+        process_associate_node_body, &
+        process_stop_node_code, &
+        process_pause_node_code, &
+        process_nullify_node_code, &
+        process_declaration_variables
     use parser_type_hooks_module, only: type_annotation_t, &
-                                        consume_type_annotations, has_type_annotations
+        consume_type_annotations, has_type_annotations
     use semantic_annotation_utils, only: type_from_annotation
     use semantic_literal_identifier, only: infer_literal_type, infer_identifier_type
     use semantic_binary_ops_core, only: infer_binary_operation
@@ -45,36 +45,36 @@ module semantic_analyzer
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_STRING
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
-                              assignment_node, pointer_assignment_node, &
-                              call_or_subscript_node, &
-                              array_literal_node, program_node
+        assignment_node, pointer_assignment_node, &
+        call_or_subscript_node, &
+        array_literal_node, program_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
-                                   subroutine_def_node
+        subroutine_def_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, where_node, &
-                                 where_stmt_node, forall_node, select_case_node, &
-                                 case_block_node, associate_node, association_t, &
-                                 cycle_node, exit_node, stop_node, return_node, &
-                                 entry_node, continue_node, elsewhere_clause_t, &
-                                 pause_node, nullify_node
+        where_stmt_node, forall_node, select_case_node, &
+        case_block_node, associate_node, association_t, &
+        cycle_node, exit_node, stop_node, return_node, &
+        entry_node, continue_node, elsewhere_clause_t, &
+        pause_node, nullify_node
     use ast_nodes_data, only: declaration_node, &
-                              module_node, derived_type_node, &
-                              multi_unit_container_node
+        module_node, derived_type_node, &
+        multi_unit_container_node
     use ast_nodes_bounds, only: array_slice_node, &
-                                array_bounds_node, range_expression_node, &
-                                get_array_slice_node
+        array_bounds_node, range_expression_node, &
+        get_array_slice_node
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
-                              data_statement_node
+        data_statement_node
     use ast_nodes_io, only: read_statement_node, print_statement_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
-                              create_error_result, ERROR_SEMANTIC
+        create_error_result, ERROR_SEMANTIC
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
     use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map
     use identifier_table, only: identifier_table_t
     use semantic_call_signature_collector, only: collect_call_signature, &
-                                                 collect_subroutine_signature
+        collect_subroutine_signature
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use semantic_operating_mode, only: OPERATING_MODE_INFER
     implicit none
@@ -226,7 +226,7 @@ module semantic_analyzer
         end function semantic_context_has_errors
 
         module function infer_assignment(ctx, arena, assignment, assignment_index) &
-            result(typ)
+                result(typ)
             type(semantic_context_t), intent(inout) :: ctx
             type(ast_arena_t), intent(inout) :: arena
             type(assignment_node), intent(in) :: assignment
@@ -235,7 +235,7 @@ module semantic_analyzer
         end function infer_assignment
 
         module function infer_pointer_assignment(ctx, arena, ptr_assign, &
-                                                 ptr_assign_index) result(typ)
+                ptr_assign_index) result(typ)
             type(semantic_context_t), intent(inout) :: ctx
             type(ast_arena_t), intent(inout) :: arena
             type(pointer_assignment_node), intent(in) :: ptr_assign
@@ -252,8 +252,8 @@ module semantic_analyzer
         end subroutine infer_read_statement
 
         module subroutine infer_allocate_statement(ctx, arena, alloc_stmt, &
-                                                   stmt_index, &
-                                                   typ)
+                stmt_index, &
+                typ)
             type(semantic_context_t), intent(inout) :: ctx
             type(ast_arena_t), intent(inout) :: arena
             type(allocate_statement_node), intent(in) :: alloc_stmt
@@ -283,7 +283,7 @@ module semantic_analyzer
         end function semantic_clone_context
 
         module function semantic_get_type_hint(this, decl_index, annotation) &
-            result(found)
+                result(found)
             class(semantic_context_t), intent(in) :: this
             integer, intent(in) :: decl_index
             type(type_annotation_t), intent(out) :: annotation

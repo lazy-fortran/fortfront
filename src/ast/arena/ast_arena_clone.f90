@@ -16,8 +16,8 @@ module ast_arena_clone
     ! Result type for subtree clone
     type :: clone_result_t
         type(ast_arena_t) :: cloned_arena
-        integer :: root_index = 0          ! New root index in cloned arena
-        integer, allocatable :: index_map(:)  ! old_index -> new_index mapping
+        integer :: root_index = 0 ! New root index in cloned arena
+        integer, allocatable :: index_map(:) ! old_index -> new_index mapping
     end type clone_result_t
 
 contains
@@ -209,344 +209,344 @@ contains
         select type (n => arena%entries(idx)%node)
             ! -- Core nodes --
             type is (program_node)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (assignment_node)
-                n%target_index = remap_one(index_map, n%target_index)
-                n%value_index = remap_one(index_map, n%value_index)
+            n%target_index = remap_one(index_map, n%target_index)
+            n%value_index = remap_one(index_map, n%value_index)
 
             type is (pointer_assignment_node)
-                n%pointer_index = remap_one(index_map, n%pointer_index)
-                n%target_index = remap_one(index_map, n%target_index)
+            n%pointer_index = remap_one(index_map, n%pointer_index)
+            n%target_index = remap_one(index_map, n%target_index)
 
             type is (binary_op_node)
-                n%left_index = remap_one(index_map, n%left_index)
-                n%right_index = remap_one(index_map, n%right_index)
+            n%left_index = remap_one(index_map, n%left_index)
+            n%right_index = remap_one(index_map, n%right_index)
 
             type is (call_or_subscript_node)
-                n%base_expr_index = remap_one(index_map, n%base_expr_index)
-                if (allocated(n%arg_indices)) &
-                    n%arg_indices = remap_array(index_map, n%arg_indices)
+            n%base_expr_index = remap_one(index_map, n%base_expr_index)
+            if (allocated(n%arg_indices)) &
+                n%arg_indices = remap_array(index_map, n%arg_indices)
 
             type is (array_literal_node)
-                if (allocated(n%element_indices)) &
-                    n%element_indices = remap_array(index_map, n%element_indices)
+            if (allocated(n%element_indices)) &
+                n%element_indices = remap_array(index_map, n%element_indices)
 
             type is (component_access_node)
-                n%base_expr_index = remap_one(index_map, n%base_expr_index)
+            n%base_expr_index = remap_one(index_map, n%base_expr_index)
 
             type is (range_subscript_node)
-                n%base_expr_index = remap_one(index_map, n%base_expr_index)
-                n%start_index = remap_one(index_map, n%start_index)
-                n%end_index = remap_one(index_map, n%end_index)
+            n%base_expr_index = remap_one(index_map, n%base_expr_index)
+            n%start_index = remap_one(index_map, n%start_index)
+            n%end_index = remap_one(index_map, n%end_index)
 
             ! -- Procedure nodes --
             type is (function_def_node)
-                if (allocated(n%param_indices)) &
-                    n%param_indices = remap_array(index_map, n%param_indices)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%param_indices)) &
+                n%param_indices = remap_array(index_map, n%param_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (subroutine_def_node)
-                if (allocated(n%param_indices)) &
-                    n%param_indices = remap_array(index_map, n%param_indices)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%param_indices)) &
+                n%param_indices = remap_array(index_map, n%param_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (subroutine_call_node)
-                if (allocated(n%arg_indices)) &
-                    n%arg_indices = remap_array(index_map, n%arg_indices)
+            if (allocated(n%arg_indices)) &
+                n%arg_indices = remap_array(index_map, n%arg_indices)
 
             ! -- Data nodes --
             type is (declaration_node)
-                n%initializer_index = remap_one(index_map, n%initializer_index)
-                if (allocated(n%dimension_indices)) &
-                    n%dimension_indices = remap_array(index_map, n%dimension_indices)
+            n%initializer_index = remap_one(index_map, n%initializer_index)
+            if (allocated(n%dimension_indices)) &
+                n%dimension_indices = remap_array(index_map, n%dimension_indices)
 
             type is (parameter_declaration_node)
-                if (allocated(n%dimension_indices)) &
-                    n%dimension_indices = remap_array(index_map, n%dimension_indices)
+            if (allocated(n%dimension_indices)) &
+                n%dimension_indices = remap_array(index_map, n%dimension_indices)
 
             type is (module_node)
-                if (allocated(n%declaration_indices)) &
-                    n%declaration_indices = remap_array(index_map, n%declaration_indices)
-                if (allocated(n%procedure_indices)) &
-                    n%procedure_indices = remap_array(index_map, n%procedure_indices)
+            if (allocated(n%declaration_indices)) &
+                n%declaration_indices = remap_array(index_map, n%declaration_indices)
+            if (allocated(n%procedure_indices)) &
+                n%procedure_indices = remap_array(index_map, n%procedure_indices)
 
             type is (submodule_node)
-                if (allocated(n%declaration_indices)) &
-                    n%declaration_indices = remap_array(index_map, n%declaration_indices)
-                if (allocated(n%procedure_indices)) &
-                    n%procedure_indices = remap_array(index_map, n%procedure_indices)
+            if (allocated(n%declaration_indices)) &
+                n%declaration_indices = remap_array(index_map, n%declaration_indices)
+            if (allocated(n%procedure_indices)) &
+                n%procedure_indices = remap_array(index_map, n%procedure_indices)
 
             type is (block_data_node)
-                if (allocated(n%statement_indices)) &
-                    n%statement_indices = remap_array(index_map, n%statement_indices)
+            if (allocated(n%statement_indices)) &
+                n%statement_indices = remap_array(index_map, n%statement_indices)
 
             type is (derived_type_node)
-                if (allocated(n%component_indices)) &
-                    n%component_indices = remap_array(index_map, n%component_indices)
-                if (allocated(n%param_indices)) &
-                    n%param_indices = remap_array(index_map, n%param_indices)
-                if (allocated(n%binding_indices)) &
-                    n%binding_indices = remap_array(index_map, n%binding_indices)
+            if (allocated(n%component_indices)) &
+                n%component_indices = remap_array(index_map, n%component_indices)
+            if (allocated(n%param_indices)) &
+                n%param_indices = remap_array(index_map, n%param_indices)
+            if (allocated(n%binding_indices)) &
+                n%binding_indices = remap_array(index_map, n%binding_indices)
 
             type is (type_binding_node)
-                ! No index fields to remap
+            ! No index fields to remap
 
             type is (mixed_construct_container_node)
-                if (allocated(n%implicit_declaration_indices)) &
-                    n%implicit_declaration_indices = &
-                        remap_array(index_map, n%implicit_declaration_indices)
-                if (allocated(n%explicit_program_indices)) &
-                    n%explicit_program_indices = &
-                        remap_array(index_map, n%explicit_program_indices)
+            if (allocated(n%implicit_declaration_indices)) &
+                n%implicit_declaration_indices = &
+                remap_array(index_map, n%implicit_declaration_indices)
+            if (allocated(n%explicit_program_indices)) &
+                n%explicit_program_indices = &
+                remap_array(index_map, n%explicit_program_indices)
 
             type is (multi_unit_container_node)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             ! -- Conditional nodes --
             type is (if_node)
-                n%condition_index = remap_one(index_map, n%condition_index)
-                if (allocated(n%then_body_indices)) &
-                    n%then_body_indices = remap_array(index_map, n%then_body_indices)
-                if (allocated(n%else_body_indices)) &
-                    n%else_body_indices = remap_array(index_map, n%else_body_indices)
-                ! elseif_blocks: each has body_indices(array) and condition_index
-                if (allocated(n%elseif_blocks)) then
-                    do block_idx = 1, size(n%elseif_blocks)
-                        n%elseif_blocks(block_idx)%condition_index = &
-                            remap_one(index_map, &
-                            n%elseif_blocks(block_idx)%condition_index)
-                        if (allocated(n%elseif_blocks(block_idx)%body_indices)) &
-                            n%elseif_blocks(block_idx)%body_indices = &
-                                remap_array(index_map, &
-                                n%elseif_blocks(block_idx)%body_indices)
-                    end do
-                end if
+            n%condition_index = remap_one(index_map, n%condition_index)
+            if (allocated(n%then_body_indices)) &
+                n%then_body_indices = remap_array(index_map, n%then_body_indices)
+            if (allocated(n%else_body_indices)) &
+                n%else_body_indices = remap_array(index_map, n%else_body_indices)
+            ! elseif_blocks: each has body_indices(array) and condition_index
+            if (allocated(n%elseif_blocks)) then
+                do block_idx = 1, size(n%elseif_blocks)
+                    n%elseif_blocks(block_idx)%condition_index = &
+                        remap_one(index_map, &
+                        n%elseif_blocks(block_idx)%condition_index)
+                    if (allocated(n%elseif_blocks(block_idx)%body_indices)) &
+                        n%elseif_blocks(block_idx)%body_indices = &
+                        remap_array(index_map, &
+                        n%elseif_blocks(block_idx)%body_indices)
+                end do
+            end if
 
             type is (select_case_node)
-                n%selector_index = remap_one(index_map, n%selector_index)
-                if (allocated(n%case_indices)) &
-                    n%case_indices = remap_array(index_map, n%case_indices)
-                n%default_index = remap_one(index_map, n%default_index)
+            n%selector_index = remap_one(index_map, n%selector_index)
+            if (allocated(n%case_indices)) &
+                n%case_indices = remap_array(index_map, n%case_indices)
+            n%default_index = remap_one(index_map, n%default_index)
 
             type is (case_block_node)
-                if (allocated(n%value_indices)) &
-                    n%value_indices = remap_array(index_map, n%value_indices)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%value_indices)) &
+                n%value_indices = remap_array(index_map, n%value_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (case_default_node)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (select_type_node)
-                n%selector_index = remap_one(index_map, n%selector_index)
-                if (allocated(n%guard_indices)) &
-                    n%guard_indices = remap_array(index_map, n%guard_indices)
-                n%default_index = remap_one(index_map, n%default_index)
+            n%selector_index = remap_one(index_map, n%selector_index)
+            if (allocated(n%guard_indices)) &
+                n%guard_indices = remap_array(index_map, n%guard_indices)
+            n%default_index = remap_one(index_map, n%default_index)
 
             type is (type_guard_block_node)
-                n%type_name_index = remap_one(index_map, n%type_name_index)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            n%type_name_index = remap_one(index_map, n%type_name_index)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (select_rank_node)
-                n%selector_index = remap_one(index_map, n%selector_index)
-                if (allocated(n%rank_indices)) &
-                    n%rank_indices = remap_array(index_map, n%rank_indices)
-                n%default_index = remap_one(index_map, n%default_index)
+            n%selector_index = remap_one(index_map, n%selector_index)
+            if (allocated(n%rank_indices)) &
+                n%rank_indices = remap_array(index_map, n%rank_indices)
+            n%default_index = remap_one(index_map, n%default_index)
 
             type is (rank_block_node)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             ! -- Loop nodes --
             type is (do_loop_node)
-                n%start_expr_index = remap_one(index_map, n%start_expr_index)
-                n%end_expr_index = remap_one(index_map, n%end_expr_index)
-                n%step_expr_index = remap_one(index_map, n%step_expr_index)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            n%start_expr_index = remap_one(index_map, n%start_expr_index)
+            n%end_expr_index = remap_one(index_map, n%end_expr_index)
+            n%step_expr_index = remap_one(index_map, n%step_expr_index)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (do_while_node)
-                n%condition_index = remap_one(index_map, n%condition_index)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            n%condition_index = remap_one(index_map, n%condition_index)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (forall_node)
-                if (allocated(n%lower_bound_indices)) &
-                    n%lower_bound_indices = remap_array(index_map, n%lower_bound_indices)
-                if (allocated(n%upper_bound_indices)) &
-                    n%upper_bound_indices = remap_array(index_map, n%upper_bound_indices)
-                if (allocated(n%stride_indices)) &
-                    n%stride_indices = remap_array(index_map, n%stride_indices)
-                n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%lower_bound_indices)) &
+                n%lower_bound_indices = remap_array(index_map, n%lower_bound_indices)
+            if (allocated(n%upper_bound_indices)) &
+                n%upper_bound_indices = remap_array(index_map, n%upper_bound_indices)
+            if (allocated(n%stride_indices)) &
+                n%stride_indices = remap_array(index_map, n%stride_indices)
+            n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             ! -- Array nodes --
             type is (where_node)
-                n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
-                if (allocated(n%where_body_indices)) &
-                    n%where_body_indices = remap_array(index_map, n%where_body_indices)
-                ! elsewhere_clauses: each has body_indices(array)
-                if (allocated(n%elsewhere_clauses)) then
-                    do cl_idx = 1, size(n%elsewhere_clauses)
-                        if (allocated(n%elsewhere_clauses(cl_idx)%body_indices)) &
-                            n%elsewhere_clauses(cl_idx)%body_indices = &
-                                remap_array(index_map, &
-                                n%elsewhere_clauses(cl_idx)%body_indices)
-                    end do
-                end if
+            n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
+            if (allocated(n%where_body_indices)) &
+                n%where_body_indices = remap_array(index_map, n%where_body_indices)
+            ! elsewhere_clauses: each has body_indices(array)
+            if (allocated(n%elsewhere_clauses)) then
+                do cl_idx = 1, size(n%elsewhere_clauses)
+                    if (allocated(n%elsewhere_clauses(cl_idx)%body_indices)) &
+                        n%elsewhere_clauses(cl_idx)%body_indices = &
+                        remap_array(index_map, &
+                        n%elsewhere_clauses(cl_idx)%body_indices)
+                end do
+            end if
 
             type is (where_stmt_node)
-                n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
-                n%assignment_index = remap_one(index_map, n%assignment_index)
+            n%mask_expr_index = remap_one(index_map, n%mask_expr_index)
+            n%assignment_index = remap_one(index_map, n%assignment_index)
 
             ! -- Associate nodes --
             type is (associate_node)
-                ! associations: each has expr_index
-                if (allocated(n%associations)) then
-                    do as_idx = 1, size(n%associations)
-                        n%associations(as_idx)%expr_index = &
-                            remap_one(index_map, n%associations(as_idx)%expr_index)
-                    end do
-                end if
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            ! associations: each has expr_index
+            if (allocated(n%associations)) then
+                do as_idx = 1, size(n%associations)
+                    n%associations(as_idx)%expr_index = &
+                        remap_one(index_map, n%associations(as_idx)%expr_index)
+                end do
+            end if
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             type is (block_construct_node)
-                if (allocated(n%body_indices)) &
-                    n%body_indices = remap_array(index_map, n%body_indices)
+            if (allocated(n%body_indices)) &
+                n%body_indices = remap_array(index_map, n%body_indices)
 
             ! -- IO nodes --
             type is (print_statement_node)
-                if (allocated(n%expression_indices)) &
-                    n%expression_indices = remap_array(index_map, n%expression_indices)
+            if (allocated(n%expression_indices)) &
+                n%expression_indices = remap_array(index_map, n%expression_indices)
 
             type is (io_implied_do_node)
-                n%expr_index = remap_one(index_map, n%expr_index)
-                if (allocated(n%object_indices)) &
-                    n%object_indices = remap_array(index_map, n%object_indices)
-                n%start_expr_index = remap_one(index_map, n%start_expr_index)
-                n%end_expr_index = remap_one(index_map, n%end_expr_index)
-                n%step_expr_index = remap_one(index_map, n%step_expr_index)
+            n%expr_index = remap_one(index_map, n%expr_index)
+            if (allocated(n%object_indices)) &
+                n%object_indices = remap_array(index_map, n%object_indices)
+            n%start_expr_index = remap_one(index_map, n%start_expr_index)
+            n%end_expr_index = remap_one(index_map, n%end_expr_index)
+            n%step_expr_index = remap_one(index_map, n%step_expr_index)
 
             type is (write_statement_node)
-                if (allocated(n%arg_indices)) &
-                    n%arg_indices = remap_array(index_map, n%arg_indices)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
-                n%end_label_index = remap_one(index_map, n%end_label_index)
-                n%format_expr_index = remap_one(index_map, n%format_expr_index)
+            if (allocated(n%arg_indices)) &
+                n%arg_indices = remap_array(index_map, n%arg_indices)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%end_label_index = remap_one(index_map, n%end_label_index)
+            n%format_expr_index = remap_one(index_map, n%format_expr_index)
 
             type is (read_statement_node)
-                if (allocated(n%var_indices)) &
-                    n%var_indices = remap_array(index_map, n%var_indices)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
-                n%end_label_index = remap_one(index_map, n%end_label_index)
-                n%format_expr_index = remap_one(index_map, n%format_expr_index)
+            if (allocated(n%var_indices)) &
+                n%var_indices = remap_array(index_map, n%var_indices)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%end_label_index = remap_one(index_map, n%end_label_index)
+            n%format_expr_index = remap_one(index_map, n%format_expr_index)
 
             type is (open_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             type is (close_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             type is (inquire_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             type is (backspace_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             type is (rewind_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             type is (endfile_statement_node)
-                n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
-                n%err_label_index = remap_one(index_map, n%err_label_index)
+            n%iostat_var_index = remap_one(index_map, n%iostat_var_index)
+            n%err_label_index = remap_one(index_map, n%err_label_index)
 
             ! -- Transfer nodes --
             type is (entry_node)
-                if (allocated(n%param_indices)) &
-                    n%param_indices = remap_array(index_map, n%param_indices)
+            if (allocated(n%param_indices)) &
+                n%param_indices = remap_array(index_map, n%param_indices)
 
             type is (nullify_node)
-                if (allocated(n%pointer_indices)) &
-                    n%pointer_indices = remap_array(index_map, n%pointer_indices)
+            if (allocated(n%pointer_indices)) &
+                n%pointer_indices = remap_array(index_map, n%pointer_indices)
 
             ! -- Bounds nodes --
             type is (array_slice_node)
-                n%array_index = remap_one(index_map, n%array_index)
-                ! bounds_indices is fixed-size(10) - remap each element
-                do bi = 1, n%num_dimensions
-                    if (bi <= 10) &
-                        n%bounds_indices(bi) = remap_one(index_map, n%bounds_indices(bi))
-                end do
+            n%array_index = remap_one(index_map, n%array_index)
+            ! bounds_indices is fixed-size(10) - remap each element
+            do bi = 1, n%num_dimensions
+                if (bi <= 10) &
+                    n%bounds_indices(bi) = remap_one(index_map, n%bounds_indices(bi))
+            end do
 
             type is (range_expression_node)
-                n%start_index = remap_one(index_map, n%start_index)
-                n%end_index = remap_one(index_map, n%end_index)
-                n%stride_index = remap_one(index_map, n%stride_index)
+            n%start_index = remap_one(index_map, n%start_index)
+            n%end_index = remap_one(index_map, n%end_index)
+            n%stride_index = remap_one(index_map, n%stride_index)
 
             type is (array_operation_node)
-                n%left_operand_index = remap_one(index_map, n%left_operand_index)
-                n%right_operand_index = remap_one(index_map, n%right_operand_index)
+            n%left_operand_index = remap_one(index_map, n%left_operand_index)
+            n%right_operand_index = remap_one(index_map, n%right_operand_index)
 
             ! -- Legacy nodes --
             type is (common_block_node)
-                ! No index fields (uses string_t arrays)
+            ! No index fields (uses string_t arrays)
 
             type is (enum_node)
-                ! No index fields
+            ! No index fields
 
             ! -- Misc nodes --
             type is (allocate_statement_node)
-                if (allocated(n%var_indices)) &
-                    n%var_indices = remap_array(index_map, n%var_indices)
-                if (allocated(n%shape_indices)) &
-                    n%shape_indices = remap_array(index_map, n%shape_indices)
-                n%stat_var_index = remap_one(index_map, n%stat_var_index)
-                n%errmsg_var_index = remap_one(index_map, n%errmsg_var_index)
-                n%source_expr_index = remap_one(index_map, n%source_expr_index)
-                n%mold_expr_index = remap_one(index_map, n%mold_expr_index)
+            if (allocated(n%var_indices)) &
+                n%var_indices = remap_array(index_map, n%var_indices)
+            if (allocated(n%shape_indices)) &
+                n%shape_indices = remap_array(index_map, n%shape_indices)
+            n%stat_var_index = remap_one(index_map, n%stat_var_index)
+            n%errmsg_var_index = remap_one(index_map, n%errmsg_var_index)
+            n%source_expr_index = remap_one(index_map, n%source_expr_index)
+            n%mold_expr_index = remap_one(index_map, n%mold_expr_index)
 
             type is (deallocate_statement_node)
-                if (allocated(n%var_indices)) &
-                    n%var_indices = remap_array(index_map, n%var_indices)
-                n%stat_var_index = remap_one(index_map, n%stat_var_index)
-                n%errmsg_var_index = remap_one(index_map, n%errmsg_var_index)
+            if (allocated(n%var_indices)) &
+                n%var_indices = remap_array(index_map, n%var_indices)
+            n%stat_var_index = remap_one(index_map, n%stat_var_index)
+            n%errmsg_var_index = remap_one(index_map, n%errmsg_var_index)
 
             type is (data_statement_node)
-                if (allocated(n%object_indices)) &
-                    n%object_indices = remap_array(index_map, n%object_indices)
-                if (allocated(n%value_indices)) &
-                    n%value_indices = remap_array(index_map, n%value_indices)
+            if (allocated(n%object_indices)) &
+                n%object_indices = remap_array(index_map, n%object_indices)
+            if (allocated(n%value_indices)) &
+                n%value_indices = remap_array(index_map, n%value_indices)
 
             type is (statement_function_node)
-                n%body_expr_index = remap_one(index_map, n%body_expr_index)
+            n%body_expr_index = remap_one(index_map, n%body_expr_index)
 
             type is (interface_block_node)
-                if (allocated(n%procedure_indices)) &
-                    n%procedure_indices = remap_array(index_map, n%procedure_indices)
+            if (allocated(n%procedure_indices)) &
+                n%procedure_indices = remap_array(index_map, n%procedure_indices)
 
             type is (implicit_statement_node)
-                ! No index fields (uses letter_specs and type_spec value types)
+            ! No index fields (uses letter_specs and type_spec value types)
 
             ! -- Nodes with no index fields (identifier, literal, etc.) --
             ! These are handled by the class default below - no remapping needed
-            class default
-                ! Node has no integer index fields to remap
+        class default
+            ! Node has no integer index fields to remap
         end select
     end subroutine remap_node_indices
 

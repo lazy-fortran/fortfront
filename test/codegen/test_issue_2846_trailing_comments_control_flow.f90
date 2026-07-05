@@ -32,7 +32,7 @@ program test_issue_2846_trailing_comments_control_flow
 
     print *, "PASS: Trailing comments on control flow terminators preserved"
 
-    contains
+contains
 
     include '../common/read_example.inc'
 end program test_issue_2846_trailing_comments_control_flow

@@ -397,17 +397,17 @@ contains
             ! Modify original node data - clone must be independent
             select type (n => original%entries(id1)%node)
                 type is (identifier_node)
-                    n%name = "modified_x"
+                n%name = "modified_x"
             class default
             end select
 
             select type (n => cloned%entries(id1)%node)
                 type is (identifier_node)
-                    if (n%name == "modified_x") then
-                        print *, '  FAIL: allocatable not deep copied'
-                        test_clone_nested_allocatables = .false.
-                        return
-                    end if
+                if (n%name == "modified_x") then
+                    print *, '  FAIL: allocatable not deep copied'
+                    test_clone_nested_allocatables = .false.
+                    return
+                end if
             class default
             end select
 

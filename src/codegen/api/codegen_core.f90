@@ -602,7 +602,7 @@ contains
                 end if
             end do
         end if
-      end function generate_code_mixed_construct_container
+    end function generate_code_mixed_construct_container
 
     function append_trailing_comment(code, arena, node_index) result(result_code)
         character(len=:), allocatable, intent(in) :: code
@@ -617,11 +617,11 @@ contains
         ! Control-flow constructs emit their header trailing comment inline
         ! during their own codegen, so skip the generic end-of-node append.
         select type (node => arena%entries(node_index)%node)
-        type is (do_loop_node)
+            type is (do_loop_node)
             return
-        type is (do_while_node)
+            type is (do_while_node)
             return
-        type is (if_node)
+            type is (if_node)
             return
         end select
 

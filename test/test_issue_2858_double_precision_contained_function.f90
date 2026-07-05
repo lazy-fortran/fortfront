@@ -95,7 +95,7 @@ contains
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
-            type is (function_def_node)
+                type is (function_def_node)
                 if (trim(node%name) == 'unnamed_function') return
                 func_name = trim(node%name)
                 return_type = trim(node%return_type)

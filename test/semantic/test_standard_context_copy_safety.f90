@@ -62,7 +62,7 @@ contains
         original%context_id = 0
 
         select type (c => cloned)
-        type is (standard_context_t)
+            type is (standard_context_t)
             if (c%current_node_index == 777 .and. c%context_id == 42) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: clone independence - mutation isolated"
