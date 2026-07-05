@@ -12,6 +12,7 @@ module parser_module_structures_module
     use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
         parser_is_at_type_definition
+    use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_procedure_definitions_module, only: parse_function_definition, &
         parse_subroutine_definition, &
         parse_interface_block
@@ -138,6 +139,12 @@ contains
             stmt_index = parse_namelist_statement(parser, arena)
         case ("integer", "real", "logical", "character", "complex", "procedure")
             stmt_index = parse_declaration(parser, arena)
+        case ("parameter")
+            if (parse_parameter_statement(parser, arena)) then
+                stmt_index = -1
+            else
+                stmt_index = 0
+            end if
         case ("type")
             if (parser_is_at_type_definition(parser)) then
                 stmt_index = parse_derived_type_def(parser, arena)
@@ -419,7 +426,7 @@ contains
         case ("public", "private", "use", "include", "namelist", "integer", &
                 "real", "logical", "character", "complex", "procedure", &
                 "type", "class", "module", "implicit", "interface", &
-                "abstract", "instantiate", "enum", "enumerator")
+                "abstract", "instantiate", "enum", "enumerator", "parameter")
             module_declaration_keyword = .true.
         case default
             module_declaration_keyword = .false.

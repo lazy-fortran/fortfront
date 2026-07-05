@@ -5,6 +5,7 @@ module parser_statement_utilities_module
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, &
@@ -145,6 +146,12 @@ contains
                             stmt_index = parse_declaration(parser, arena)
                         end if
                     end block
+                end if
+            case ("parameter")
+                if (parse_parameter_statement(parser, arena)) then
+                    stmt_index = -1
+                else
+                    stmt_index = 0
                 end if
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)
