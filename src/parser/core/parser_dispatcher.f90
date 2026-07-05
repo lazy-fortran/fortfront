@@ -35,6 +35,7 @@ module parser_dispatcher_module
         parse_subroutine_definition, &
         parse_interface_block
     use parser_procedure_definitions_module, only: init_interface_procedure_parser
+    use mixed_construct_detector, only: function_follows_type_spec
     use parser_control_statements_module, only: &
         parse_stop_statement, parse_return_statement, parse_entry_statement, &
         parse_goto_statement, parse_error_stop_statement, parse_cycle_statement, &

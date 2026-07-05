@@ -19,6 +19,7 @@ module mixed_construct_detector
     public :: detect_mixed_constructs
     public :: is_top_level_declaration
     public :: is_explicit_program_unit
+    public :: function_follows_type_spec
 
 contains
 
@@ -127,16 +128,82 @@ contains
             select case (trim(tokens(start_pos)%text))
             case ("type")
                 ! Could be "type :: name" or "type(name)" - both are declarations
-                is_declaration = .true.
+                is_declaration = .not. function_follows_type_spec(tokens, start_pos)
             case ("integer", "real", "character", "logical", "complex", "procedure")
                 ! Basic type declarations
-                is_declaration = .true.
+                is_declaration = .not. function_follows_type_spec(tokens, start_pos)
             case ("parameter")
                 ! Parameter declarations
                 is_declaration = .true.
             end select
         end if
     end function is_top_level_declaration
+
+    ! True when "function" follows a leading return-type keyword at start_pos,
+    ! skipping an optional balanced kind specifier such as "(8)".
+    function function_follows_type_spec(tokens, start_pos) result(is_typed_function)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        logical :: is_typed_function
+        integer :: idx, depth
+        logical :: is_type_keyword
+
+        is_typed_function = .false.
+        if (start_pos > size(tokens)) return
+        if (tokens(start_pos)%kind /= TK_KEYWORD) return
+        is_type_keyword = .false.
+        select case (to_lower(trim(tokens(start_pos)%text)))
+        case ("integer", "real", "character", "logical", "complex", &
+              "procedure", "type", "class", "double")
+            is_type_keyword = .true.
+        end select
+        if (.not. is_type_keyword) return
+
+        idx = start_pos + 1
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+        if (idx > size(tokens)) return
+
+        if (tokens(idx)%kind == TK_OPERATOR .and. tokens(idx)%text == "(") then
+            depth = 0
+            do while (idx <= size(tokens))
+                if (tokens(idx)%kind == TK_OPERATOR .and. tokens(idx)%text == "(") then
+                    depth = depth + 1
+                else if (tokens(idx)%kind == TK_OPERATOR .and. &
+                         tokens(idx)%text == ")") then
+                    depth = depth - 1
+                    if (depth == 0) then
+                        idx = idx + 1
+                        exit
+                    end if
+                end if
+                idx = idx + 1
+            end do
+        end if
+
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+        if (idx > size(tokens)) return
+
+        if (tokens(idx)%kind == TK_KEYWORD .and. &
+            to_lower(trim(tokens(idx)%text)) == "function") then
+            is_typed_function = .true.
+        end if
+    end function function_follows_type_spec
 
     ! Check if token sequence represents explicit program unit
     function is_explicit_program_unit(tokens, start_pos) result(is_program_unit)
@@ -162,6 +229,12 @@ contains
                 select case (first_word)
                 case ("program", "module", "subroutine", "function")
                     is_program_unit = .true.
+                    return
+                case ("integer", "real", "character", "logical", "complex", &
+                      "procedure", "type", "class", "double")
+                    if (function_follows_type_spec(tokens, start_pos)) then
+                        is_program_unit = .true.
+                    end if
                     return
                 case ("block")
                     lookahead = start_pos + 1
@@ -309,6 +382,15 @@ contains
         end if
 
         start_keyword = to_lower(trim(tokens(start_pos)%text))
+
+        ! A return-type prefix (e.g. "integer(8) function") delimits a function.
+        select case (start_keyword)
+        case ("integer", "real", "character", "logical", "complex", &
+              "procedure", "type", "class", "double")
+            if (function_follows_type_spec(tokens, start_pos)) then
+                start_keyword = "function"
+            end if
+        end select
 
         ! Determine expected end keyword
         select case (start_keyword)

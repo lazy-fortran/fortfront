@@ -191,7 +191,8 @@ contains
             call refine_return_type_from_body(arena, func_index, &
                 resolved_result_name, &
                 function_name, return_copy)
-            if (type_success .and. len_trim(type_string) > 0) then
+            if (type_success .and. len_trim(type_string) > 0 .and. &
+                .not. node%has_return_type_in_header) then
                 node%return_type = type_string
             end if
             if (requires_explicit_result_name(return_type, resolved_result_name, &

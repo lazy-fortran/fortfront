@@ -180,7 +180,7 @@
 
             select type (stmt => arena%entries(target%body_indices(i))%node)
             type is (declaration_node)
-                declares_function = stmt%is_external
+                declares_function = .false.
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     do j = 1, size(stmt%var_names)
                         if (is_procedure_name(trim(stmt%var_names(j)), arena, &

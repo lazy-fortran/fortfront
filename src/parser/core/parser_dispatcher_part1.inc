@@ -756,16 +756,11 @@
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
-        type(token_t) :: first_token, second_token
+        type(token_t) :: keyword_token
 
-        first_token = parser%peek()
-        if (parser%current_token + 1 <= size(parser%tokens)) then
-            second_token = parser%tokens(parser%current_token + 1)
-            if (second_token%kind == TK_KEYWORD .and. second_token%text == &
-                "function") then
-                stmt_index = parse_function_definition(parser, arena, prefix_buffer)
-                return
-            end if
+        if (function_follows_type_spec(parser%tokens, parser%current_token)) then
+            stmt_index = parse_function_definition(parser, arena, prefix_buffer)
+            return
         end if
         stmt_index = parse_as_expression(parser%tokens, arena)
     end function parse_function_or_expression
