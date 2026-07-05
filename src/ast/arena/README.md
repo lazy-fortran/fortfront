@@ -13,7 +13,8 @@ The arena implementation provides multiple interfaces for compatibility with dif
 | ast_arena_core.f90 | Core arena allocator, memory block management, allocation tracking |
 | ast_arena_compat.f90 | Compatibility layer for legacy allocation patterns |
 | ast_arena_modern.f90 | Modern type-safe allocation interface |
-| ast_arena_safe.f90 | Safety-checked allocation with bounds verification |
+| ast_arena_safe.f90 | Safety-checked allocation with bounds verification (all node types) |
+| ast_arena_clone.f90 | Deep clone: clone_arena() and clone_subtree() for all node types |
 | ast_arena_source_text.f90 | Source text storage and retrieval utilities for arenas |
 
 ## Key Concepts
@@ -24,7 +25,8 @@ For complete arena allocation design principles, see [AST README](../README.md#k
 - **Core allocator**: `ast_arena_core.f90` - block management, allocation tracking
 - **Compatibility layer**: `ast_arena_compat.f90` - legacy patterns
 - **Modern interface**: `ast_arena_modern.f90` - type-safe allocation
-- **Safety checks**: `ast_arena_safe.f90` - bounds verification
+- **Safety checks**: `ast_arena_safe.f90` - bounds verification (all node types)
+- **Deep clone**: `ast_arena_clone.f90` - clone_arena() and clone_subtree()
 - **Source text**: `ast_arena_source_text.f90` - source retrieval for tooling
 
 ### Source Text Retrieval API Conventions
