@@ -709,10 +709,26 @@
         logical function is_function_or_subroutine_ahead(parser) result(is_proc)
             type(parser_state_t), intent(in) :: parser
             type(token_t) :: lookahead
+            character(len=:), allocatable :: second_word
             integer :: offset
 
             is_proc = .false.
             offset = 1
+
+            ! Skip the second word of a "double precision"/"double complex" spec.
+            if (parser%current_token <= size(parser%tokens)) then
+                if (to_lower(trim(parser%tokens(parser%current_token)%text)) &
+                    == "double") then
+                    if (parser%current_token + offset <= size(parser%tokens)) then
+                        lookahead = parser%tokens(parser%current_token + offset)
+                        second_word = to_lower(trim(lookahead%text))
+                        if (second_word == "precision" .or. &
+                            second_word == "complex") then
+                            offset = offset + 1
+                        end if
+                    end if
+                end if
+            end if
 
             ! Skip past type specifiers like (8), (kind=8), (len=*), etc.
             if (parser%current_token + offset <= size(parser%tokens)) then
