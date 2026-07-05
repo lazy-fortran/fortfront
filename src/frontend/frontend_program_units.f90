@@ -7,6 +7,8 @@ module frontend_program_units
         TK_STRING, TK_UNKNOWN, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
+    use parser_procedure_definitions_module, only: &
+        init_interface_procedure_parser
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
         get_last_parser_errors
@@ -189,6 +191,7 @@ contains
         block
             type(parser_state_t) :: parser
             type(parser_prefix_buffer_t) :: prefix_buffer
+            call init_interface_procedure_parser()
             parser = create_parser_state(tokens)
             unit_index = parse_function_definition(parser, arena, prefix_buffer)
             ! Extract parser errors before parser goes out of scope
