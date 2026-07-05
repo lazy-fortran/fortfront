@@ -1,6 +1,6 @@
 module frontend_statement_token_parsing
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-        TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
+        TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, TK_COMMENT, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
         get_additional_indices, &
         clear_additional_indices, &
@@ -15,6 +15,8 @@ module frontend_statement_token_parsing
     public :: process_comment_statement
     public :: process_regular_statement
     public :: is_prefix_only_statement
+
+    character(len=:), allocatable :: captured_trailing_comment
 
 contains
 
@@ -60,10 +62,13 @@ contains
         effective_start = compute_effective_statement_start(tokens, stmt_start, &
             stmt_end)
         call build_statement_tokens(tokens, effective_start, stmt_end, stmt_tokens)
+        call capture_trailing_comment(stmt_tokens, arena, 0)
+        call strip_trailing_comment_from_tokens(stmt_tokens)
         call parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
             prefix_buffer, stmt_index)
         if (stmt_index <= 0) return
 
+        call attach_captured_trailing_comment(arena, stmt_index)
         body_indices = [body_indices, stmt_index]
         call append_additional_indices_from_dispatcher(body_indices)
     end subroutine process_regular_statement
@@ -221,5 +226,59 @@ contains
             end select
         end do
     end function is_prefix_only_statement
+
+    subroutine strip_trailing_comment_from_tokens(stmt_tokens)
+        type(token_t), intent(inout) :: stmt_tokens(:)
+        integer :: i
+
+        do i = size(stmt_tokens) - 1, 2, -1
+            if (stmt_tokens(i)%kind == TK_COMMENT) then
+                stmt_tokens(i)%kind = TK_EOF
+                stmt_tokens(i)%text = ''
+                return
+            end if
+            if (stmt_tokens(i)%kind == TK_EOF) exit
+            if (stmt_tokens(i)%kind == TK_WHITESPACE) cycle
+            exit
+        end do
+    end subroutine strip_trailing_comment_from_tokens
+
+    subroutine capture_trailing_comment(stmt_tokens, arena, node_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        integer :: i
+        character(len=:), allocatable :: comment_text
+
+        comment_text = ''
+        do i = size(stmt_tokens), 1, -1
+            if (stmt_tokens(i)%kind == TK_COMMENT) then
+                if (allocated(stmt_tokens(i)%text)) then
+                    comment_text = stmt_tokens(i)%text
+                end if
+                exit
+            end if
+            if (stmt_tokens(i)%kind == TK_EOF) cycle
+            exit
+        end do
+
+        if (allocated(captured_trailing_comment)) deallocate (captured_trailing_comment)
+        if (len_trim(comment_text) > 0) then
+            captured_trailing_comment = comment_text
+        end if
+    end subroutine capture_trailing_comment
+
+    subroutine attach_captured_trailing_comment(arena, node_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. arena%has_node_at(node_index)) return
+        if (.not. allocated(captured_trailing_comment)) return
+        if (len_trim(captured_trailing_comment) == 0) return
+
+        arena%entries(node_index)%node%trailing_comment = captured_trailing_comment
+        deallocate (captured_trailing_comment)
+    end subroutine attach_captured_trailing_comment
 
 end module frontend_statement_token_parsing

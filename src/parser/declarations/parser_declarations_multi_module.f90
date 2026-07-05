@@ -32,6 +32,7 @@ contains
         integer, allocatable :: init_indices(:)
         integer :: var_count
         logical :: has_any_initializer
+        integer :: idx_i, idx_val
 
         type_spec = parse_type_specifier(parser, arena)
         if (.not. allocated(type_spec%type_name)) then
@@ -50,6 +51,21 @@ contains
         call finalize_multi_declaration( &
             arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
             init_indices, var_count, has_any_initializer, decl_indices)
+
+        ! Set line numbers on created declaration nodes
+        if (allocated(decl_indices)) then
+            do idx_i = 1, size(decl_indices)
+                idx_val = decl_indices(idx_i)
+                if (idx_val > 0 .and. idx_val <= arena%size) then
+                    if (arena%has_node_at(idx_val)) then
+                        if (allocated(arena%entries(idx_val)%node)) then
+                            arena%entries(idx_val)%node%line = type_spec%line
+                            arena%entries(idx_val)%node%column = type_spec%column
+                        end if
+                    end if
+                end if
+            end do
+        end if
     end function parse_multi_declaration
 
     subroutine initialize_multi_state(var_names, per_var_dims, has_dims, &

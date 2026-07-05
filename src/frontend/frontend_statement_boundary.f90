@@ -555,9 +555,8 @@ contains
                 if (format_stmt .and. paren_depth > 0) then
                     call update_paren_depth_from_text(tokens(i)%text, &
                         paren_depth)
-                    stmt_end = i
                 end if
-                cycle
+                stmt_end = i
             case default
                 stmt_end = i
             end select
