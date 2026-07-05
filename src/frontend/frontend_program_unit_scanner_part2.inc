@@ -359,9 +359,11 @@
         integer, intent(in) :: unit_start
         character(len=*), intent(in) :: unit_type
         integer, intent(out) :: unit_end
-        integer :: i
+        integer :: i, interface_nesting
+        character(len=:), allocatable :: lowered
 
         unit_end = unit_start
+        interface_nesting = 0
         do i = unit_start + 1, size(tokens)
             if (tokens(i)%kind == TK_EOF) then
                 unit_end = i - 1
@@ -369,12 +371,20 @@
                 ! Check both TK_KEYWORD and TK_IDENTIFIER
             else if (tokens(i)%kind == TK_KEYWORD .or. &
                      tokens(i)%kind == TK_IDENTIFIER) then
-                if (to_lower(trim(tokens(i)%text)) == "end") then
+                lowered = to_lower(trim(tokens(i)%text))
+                if (lowered == "interface" .and. interface_nesting == 0) then
+                    interface_nesting = interface_nesting + 1
+                else if (lowered == "end") then
                     if (i + 1 <= size(tokens)) then
                         ! Check both TK_KEYWORD and TK_IDENTIFIER
                         if (tokens(i + 1)%kind == TK_KEYWORD .or. &
                             tokens(i + 1)%kind == TK_IDENTIFIER) then
-                            if (to_lower(trim(tokens(i + 1)%text)) == unit_type) then
+                            if (to_lower(trim(tokens(i + 1)%text)) == "interface") then
+                                if (interface_nesting > 0) then
+                                    interface_nesting = interface_nesting - 1
+                                end if
+                            else if (to_lower(trim(tokens(i + 1)%text)) == &
+                                     unit_type .and. interface_nesting == 0) then
                                 unit_end = i + 1
                                 if (i + 2 <= size(tokens)) then
                                     if (tokens(i + 2)%kind == TK_IDENTIFIER .or. &
@@ -386,12 +396,14 @@
                             end if
                         end if
                     end if
-                    if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
-                                                tokens(i + 1)%kind /= TK_KEYWORD .and. &
-                                                tokens(i + 1)%kind /= &
-                                                TK_IDENTIFIER)) then
-                        unit_end = i
-                        exit
+                    if (interface_nesting == 0) then
+                        if (i == size(tokens) .or. &
+                            (i + 1 <= size(tokens) .and. &
+                             tokens(i + 1)%kind /= TK_KEYWORD .and. &
+                             tokens(i + 1)%kind /= TK_IDENTIFIER)) then
+                            unit_end = i
+                            exit
+                        end if
                     end if
                 end if
             end if
