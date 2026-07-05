@@ -5,7 +5,7 @@ module parser_common_statement_module
     !   common w, v                 ! blank common
     !   common // p, /a/ q          ! explicit blank then named
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NEWLINE, &
-        TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, to_lower
+        TK_COMMENT, TK_WHITESPACE, TK_OPERATOR, TK_KEYWORD, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
@@ -79,7 +79,7 @@ contains
             ! "/name/" form: read name then closing slash
             call skip_inline_trivia(parser)
             token = parser%peek()
-            if (token%kind == TK_IDENTIFIER) then
+            if (is_block_name(token)) then
                 name = trim(token%text)
                 token = parser%consume()
             end if
@@ -96,6 +96,12 @@ contains
         is_slash = token%kind == TK_OPERATOR .and. &
             (trim(token%text) == "/" .or. trim(token%text) == "//")
     end function is_slash
+
+    logical function is_block_name(token)
+        type(token_t), intent(in) :: token
+        is_block_name = token%kind == TK_IDENTIFIER .or. &
+            token%kind == TK_KEYWORD
+    end function is_block_name
 
     subroutine skip_inline_trivia(parser)
         type(parser_state_t), intent(inout) :: parser
