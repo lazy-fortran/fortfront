@@ -18,6 +18,7 @@ module ast_nodes_loops
     type, extends(ast_node) :: do_loop_node
         character(len=:), allocatable :: var_name ! Loop variable
         character(len=:), allocatable :: label ! Loop label (optional)
+        character(len=:), allocatable :: type_spec ! Type spec for DO CONCURRENT index (optional)
         integer :: start_expr_index = 0 ! Start expression arena index
         integer :: end_expr_index = 0 ! End expression arena index
         integer :: step_expr_index = 0 ! Step expression arena &
@@ -101,6 +102,8 @@ contains
         lhs%var_name = rhs%var_name
         if (allocated(lhs%label)) deallocate (lhs%label)
         if (allocated(rhs%label)) lhs%label = rhs%label
+        if (allocated(lhs%type_spec)) deallocate (lhs%type_spec)
+        if (allocated(rhs%type_spec)) lhs%type_spec = rhs%type_spec
         lhs%start_expr_index = rhs%start_expr_index
         lhs%end_expr_index = rhs%end_expr_index
         lhs%step_expr_index = rhs%step_expr_index

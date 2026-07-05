@@ -20,6 +20,7 @@ module parser_do_constructs_module
 
     type :: do_loop_control_t
         character(len=:), allocatable :: var_name
+        character(len=:), allocatable :: type_spec
         integer :: start_index = 0
         integer :: end_index = 0
         integer :: step_index = 0

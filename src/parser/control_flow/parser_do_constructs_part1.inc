@@ -25,9 +25,65 @@
     logical function next_tokens_form_control(parser, start_pos) result(is_control)
         type(parser_state_t), intent(in) :: parser
         integer, intent(in) :: start_pos
-        integer :: idx
+        integer :: idx, paren_depth
 
         idx = start_pos
+        do while (idx <= size(parser%tokens))
+            select case (parser%tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > size(parser%tokens)) then
+            is_control = .false.
+            return
+        end if
+
+        ! Skip optional type-spec prefix: type-name [ (params) ] ::
+        if (parser%tokens(idx)%kind == TK_KEYWORD) then
+            select case (trim(to_lower(parser%tokens(idx)%text)))
+            case ("integer", "real", "logical", "character", "complex", "double")
+                idx = idx + 1
+                ! Skip "precision" after "double"
+                if (idx <= size(parser%tokens)) then
+                    if (parser%tokens(idx)%kind == TK_KEYWORD .and. &
+                        trim(to_lower(parser%tokens(idx)%text)) == "precision") then
+                        idx = idx + 1
+                    end if
+                end if
+                ! Skip parenthesized kind spec
+                if (idx <= size(parser%tokens)) then
+                    if (parser%tokens(idx)%kind == TK_OPERATOR .and. &
+                        parser%tokens(idx)%text == "(") then
+                        paren_depth = 1
+                        idx = idx + 1
+                        do while (idx <= size(parser%tokens) .and. paren_depth > 0)
+                            if (parser%tokens(idx)%kind == TK_OPERATOR) then
+                                if (parser%tokens(idx)%text == "(") then
+                                    paren_depth = paren_depth + 1
+                                else if (parser%tokens(idx)%text == ")") then
+                                    paren_depth = paren_depth - 1
+                                end if
+                            end if
+                            idx = idx + 1
+                        end do
+                    end if
+                end if
+                ! Skip ::
+                if (idx <= size(parser%tokens)) then
+                    if (parser%tokens(idx)%kind == TK_OPERATOR .and. &
+                        parser%tokens(idx)%text == "::") then
+                        idx = idx + 1
+                    end if
+                end if
+            end select
+        end if
+
+        ! Skip whitespace after type-spec
         do while (idx <= size(parser%tokens))
             select case (parser%tokens(idx)%kind)
             case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
@@ -124,13 +180,61 @@
         type(ast_arena_t), intent(inout) :: arena
         type(do_loop_control_t), intent(out) :: control
         type(token_t) :: tok
+        character(len=:), allocatable :: type_spec_str
+        integer :: saved_pos
 
         success = .false.
         control%step_index = 0
+        type_spec_str = ""
 
+        saved_pos = parser%current_token
+
+        ! Check for optional type-spec: integer, real, logical, character, complex, double
+        tok = parser%peek()
+        if (tok%kind == TK_KEYWORD) then
+            select case (trim(to_lower(tok%text)))
+            case ("integer", "real", "logical", "character", "complex", "double")
+                tok = parser%consume()
+                type_spec_str = trim(tok%text)
+
+                ! Handle "double precision"
+                if (trim(to_lower(tok%text)) == "double") then
+                    tok = parser%peek()
+                    if (tok%kind == TK_KEYWORD .and. &
+                        trim(to_lower(tok%text)) == "precision") then
+                        tok = parser%consume()
+                        type_spec_str = "double precision"
+                    end if
+                end if
+
+                ! Handle kind parameters: type(kind) or type(param)
+                tok = parser%peek()
+                if (tok%kind == TK_OPERATOR .and. tok%text == "(") then
+                    type_spec_str = trim(type_spec_str) // parse_type_spec_parens(parser)
+                end if
+
+                ! Expect ::
+                tok = parser%peek()
+                if (tok%kind == TK_OPERATOR .and. tok%text == "::") then
+                    tok = parser%consume()
+                else
+                    ! Not a type-spec form, restore position
+                    parser%current_token = saved_pos
+                    type_spec_str = ""
+                end if
+            end select
+        end if
+
+        ! Parse variable name
         tok = parser%consume()
-        if (tok%kind /= TK_IDENTIFIER) return
+        if (tok%kind /= TK_IDENTIFIER) then
+            if (len_trim(type_spec_str) > 0) then
+                parser%current_token = saved_pos
+            end if
+            return
+        end if
         control%var_name = tok%text
+        if (len_trim(type_spec_str) > 0) control%type_spec = type_spec_str
 
         tok = parser%consume()
         if (tok%kind /= TK_OPERATOR .or. tok%text /= "=") return
@@ -156,6 +260,38 @@
         if (control%step_index < 0) control%step_index = 0
         success = control%start_index > 0 .and. control%end_index > 0
     end function parse_concurrent_control
+
+    ! Parse parenthesized type parameters: (kind=8) or (8) etc.
+    ! Returns the full parenthesized string including parentheses
+    function parse_type_spec_parens(parser) result(parens_str)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable :: parens_str
+        type(token_t) :: tok
+        integer :: depth
+        character(len=256) :: buf
+
+        buf = ""
+        depth = 0
+
+        do while (.not. parser%is_at_end())
+            tok = parser%consume()
+            if (tok%kind == TK_OPERATOR) then
+                if (tok%text == "(") then
+                    depth = depth + 1
+                else if (tok%text == ")") then
+                    depth = depth - 1
+                    if (depth == 0) then
+                        buf = trim(buf) // tok%text
+                        exit
+                    end if
+                end if
+            end if
+            if (len_trim(buf) > 0 .and. tok%kind /= TK_OPERATOR) buf = trim(buf) // " "
+            buf = trim(buf) // tok%text
+        end do
+
+        parens_str = trim(buf)
+    end function parse_type_spec_parens
 
     logical function parse_concurrent_control_list(parser, arena, controls) &
         result(success)
@@ -384,7 +520,7 @@
         integer :: loop_index
 
         type(token_t) :: do_token, var_token, comma_token, label_token
-        character(len=:), allocatable :: var_name, loop_label
+        character(len=:), allocatable :: var_name, loop_label, type_spec
         type(do_loop_control_t), allocatable :: controls(:)
         type(do_loop_control_t) :: control
         integer :: start_index, end_index, step_index
@@ -398,6 +534,7 @@
         step_index = 0  ! Initialize to 0 (no step)
         loop_index = 0  ! Initialize to 0 (failure) in case of early return
         is_concurrent = .false.
+        type_spec = ""
 
         ! Starting to parse do loop
 
@@ -483,6 +620,7 @@
         start_index = control%start_index
         end_index = control%end_index
         step_index = control%step_index
+        if (allocated(control%type_spec)) type_spec = control%type_spec
 
         if (start_index <= 0 .or. end_index <= 0) then
             loop_index = 0
@@ -508,14 +646,16 @@
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
                                               is_concurrent=is_concurrent, &
-                                              line=line, column=column)
+                                              line=line, column=column, &
+                                              type_spec=type_spec)
                 else
                     loop_index = push_do_loop(arena, var_name, start_index, &
                                               end_index, &
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
                                               is_concurrent=is_concurrent, &
-                                              line=line, column=column)
+                                              line=line, column=column, &
+                                              type_spec=type_spec)
                 end if
             else
                 if (control_count == 1 .and. allocated(loop_label)) then
@@ -524,13 +664,15 @@
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
                                               is_concurrent=is_concurrent, &
-                                              line=line, column=column)
+                                              line=line, column=column, &
+                                              type_spec=type_spec)
                 else
                     loop_index = push_do_loop(arena, var_name, start_index, &
                                               end_index, &
                                               body_indices=[integer ::], &
                                               is_concurrent=is_concurrent, &
-                                              line=line, column=column)
+                                              line=line, column=column, &
+                                              type_spec=type_spec)
                 end if
             end if
 
@@ -806,13 +948,16 @@
             block
                 integer :: idx, outer_index, outer_step
                 integer :: outer_start, outer_end
-                character(len=:), allocatable :: outer_name
+                character(len=:), allocatable :: outer_name, outer_type_spec
 
                 do idx = control_count - 1, 1, -1
                     outer_name = controls(idx)%var_name
                     outer_start = controls(idx)%start_index
                     outer_end = controls(idx)%end_index
                     outer_step = controls(idx)%step_index
+                    outer_type_spec = ""
+                    if (allocated(controls(idx)%type_spec)) &
+                        outer_type_spec = controls(idx)%type_spec
 
                     if (outer_start <= 0 .or. outer_end <= 0) then
                         loop_index = 0
@@ -827,14 +972,16 @@
                                                        step_index=outer_step, &
                                                        body_indices=[loop_index], &
                                                        loop_label=loop_label, &
-                                                       line=line, column=column)
+                                                       line=line, column=column, &
+                                                       type_spec=outer_type_spec)
                         else
                             outer_index = push_do_loop(arena, outer_name, &
                                                        outer_start, &
                                                        outer_end, &
                                                        step_index=outer_step, &
                                                        body_indices=[loop_index], &
-                                                       line=line, column=column)
+                                                       line=line, column=column, &
+                                                       type_spec=outer_type_spec)
                         end if
                     else
                         if (idx == 1 .and. allocated(loop_label)) then
@@ -843,13 +990,15 @@
                                                        outer_end, &
                                                        body_indices=[loop_index], &
                                                        loop_label=loop_label, &
-                                                       line=line, column=column)
+                                                       line=line, column=column, &
+                                                       type_spec=outer_type_spec)
                         else
                             outer_index = push_do_loop(arena, outer_name, &
                                                        outer_start, &
                                                        outer_end, &
                                                        body_indices=[loop_index], &
-                                                       line=line, column=column)
+                                                       line=line, column=column, &
+                                                       type_spec=outer_type_spec)
                         end if
                     end if
 
