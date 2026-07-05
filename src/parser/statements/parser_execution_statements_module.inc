@@ -151,52 +151,11 @@
 
             call append_statement(stmt_index, body_indices)
             if (stmt_index > 0) then
-                call capture_trailing_comment_from_parser(parser, arena, stmt_index)
+                call capture_trailing_comment(parser, arena, stmt_index)
             end if
         end do
 
-     contains
-        subroutine capture_trailing_comment_from_parser(parser, arena, stmt_idx)
-            type(parser_state_t), intent(inout) :: parser
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(in) :: stmt_idx
-            type(token_t) :: next_tok
-            integer :: stmt_line, last_ws_line
-
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) return
-            if (.not. arena%has_node_at(stmt_idx)) return
-            stmt_line = arena%entries(stmt_idx)%node%line
-            last_ws_line = stmt_line
-
-            do while (.not. parser%is_at_end())
-                next_tok = parser%peek()
-                if (next_tok%kind == TK_EOF) return
-                if (next_tok%kind == TK_NEWLINE) return
-                if (next_tok%kind == TK_WHITESPACE) then
-                    last_ws_line = next_tok%line
-                    block
-                        type(token_t) :: discarded
-                        discarded = parser%consume()
-                    end block
-                    cycle
-                end if
-                if (next_tok%kind == TK_COMMENT .and. &
-                        (next_tok%line == stmt_line .or. next_tok%line == last_ws_line)) then
-                    if (stmt_idx <= arena%size .and. arena%has_node_at(stmt_idx)) then
-                        if (allocated(next_tok%text)) then
-                            arena%entries(stmt_idx)%node%trailing_comment = next_tok%text
-                        end if
-                    end if
-                    block
-                        type(token_t) :: discarded
-                        discarded = parser%consume()
-                    end block
-                    return
-                end if
-                return
-            end do
-        end subroutine capture_trailing_comment_from_parser
-
+    contains
         subroutine reset_pending_prefixes()
             if (allocated(pending_prefixes)) then
                 block

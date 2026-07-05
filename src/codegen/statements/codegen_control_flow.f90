@@ -23,6 +23,16 @@ module codegen_control_flow
 
 contains
 
+    function append_header_comment(code, comment) result(out)
+        character(len=:), allocatable, intent(in) :: code
+        character(len=:), allocatable, intent(in) :: comment
+        character(len=:), allocatable :: out
+
+        out = code
+        if (.not. allocated(comment)) return
+        if (len_trim(comment) > 0) out = code//"  "//trim(comment)
+    end function append_header_comment
+
     recursive subroutine append_do_loop_body_and_end(arena, body_indices, &
             indent_level, code, &
             end_keyword)
@@ -101,6 +111,7 @@ contains
 
         ! Generate if statement in block form
         code = "if ("//cond_code//") then"
+        code = append_header_comment(code, node%trailing_comment)
 
         ! Generate then body
         if (allocated(node%then_body_indices)) then
@@ -251,6 +262,8 @@ contains
             end if
         end if
 
+        code = append_header_comment(code, node%trailing_comment)
+
         ! Generate body
         call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &
             code, end_keyword)
@@ -282,6 +295,8 @@ contains
             code = "do while ("//cond_code//")"
             end_keyword = "end do"
         end if
+
+        code = append_header_comment(code, node%trailing_comment)
 
         ! Generate body
         call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &

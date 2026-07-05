@@ -676,6 +676,10 @@
                 end if
             end if
 
+            if (loop_index > 0) then
+                call capture_trailing_comment(parser, arena, loop_index)
+            end if
+
             do while (parser%current_token <= size(parser%tokens))
                 block
                     type(token_t) :: current_token

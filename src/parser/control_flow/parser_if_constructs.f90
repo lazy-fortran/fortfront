@@ -15,6 +15,7 @@ module parser_if_constructs_module
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_control, only: if_node
     use ast_factory, only: push_if
+    use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private
 
@@ -138,6 +139,10 @@ contains
         if_index = push_if(arena, condition_index, [integer ::], &
             line=if_token%line, column=if_token%column, &
             parent_index=parent_index)
+
+        if (if_index > 0) then
+            call capture_trailing_comment(parser, arena, if_index)
+        end if
 
         ! Parse then body statements with the if node as parent
         then_body_indices = parse_if_body(parser, arena, if_index, callbacks)

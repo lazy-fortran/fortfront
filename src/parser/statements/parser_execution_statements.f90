@@ -62,6 +62,7 @@ module parser_execution_statements_module
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_common_statement_module, only: parse_common_statement
     use parser_enum_statement_module, only: parse_enum_construct
+    use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private
 
