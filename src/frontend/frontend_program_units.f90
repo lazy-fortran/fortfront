@@ -314,25 +314,26 @@ contains
         type(token_t), intent(in) :: tokens(:)
         logical :: has_executable_content
         integer :: i
+        character(len=:), allocatable :: lowered
 
         has_executable_content = .false.
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_IDENTIFIER .or. tokens(i)%kind == TK_KEYWORD) then
-                ! Look for executable keywords or assignment-like patterns
-                if (tokens(i)%text == "print" .or. tokens(i)%text == "write" .or. &
-                    tokens(i)%text == "call" .or. tokens(i)%text == "if" .or. &
-                    tokens(i)%text == "do" .or. tokens(i)%text == "select" .or. &
-                    tokens(i)%text == "goto" .or. tokens(i)%text == "stop" .or. &
-                    tokens(i)%text == "return") then
+                lowered = to_lower(trim(tokens(i)%text))
+                if (lowered == "print" .or. lowered == "write" .or. &
+                    lowered == "call" .or. lowered == "if" .or. &
+                    lowered == "do" .or. lowered == "select" .or. &
+                    lowered == "goto" .or. lowered == "stop" .or. &
+                    lowered == "return") then
                     has_executable_content = .true.
                     exit
                 end if
-                ! Check for identifier assignment pattern
-                if (i < size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER .and. &
-                    tokens(i + 1)%kind == TK_OPERATOR .and. &
-                    tokens(i + 1)%text == "=") then
-                    has_executable_content = .true.
-                    exit
+                if (tokens(i)%kind == TK_IDENTIFIER .and. i < size(tokens)) then
+                    if (tokens(i + 1)%kind == TK_OPERATOR .and. &
+                        tokens(i + 1)%text == "=") then
+                        has_executable_content = .true.
+                        exit
+                    end if
                 end if
             end if
         end do
