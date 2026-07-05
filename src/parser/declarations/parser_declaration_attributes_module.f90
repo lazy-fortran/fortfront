@@ -83,6 +83,9 @@ contains
         case ("intent")
             token = parser%consume()
             call handle_intent_attribute(parser, attr_info, handled)
+        case ("bind")
+            token = parser%consume()
+            call handle_bind_attribute(parser, attr_info, handled)
         case ("optional")
             attr_info%is_optional = .true.
             token = parser%consume()
@@ -195,6 +198,83 @@ contains
             end if
         end if
     end subroutine handle_intent_attribute
+
+    subroutine handle_bind_attribute(parser, attr_info, handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(declaration_attribute_info_t), intent(inout) :: attr_info
+        logical, intent(out) :: handled
+
+        type(token_t) :: token
+
+        handled = .true.
+        attr_info%is_bind_c = .true.
+
+        if (parser%is_at_end()) then
+            return
+        end if
+
+        token = parser%peek()
+        if (token%text /= "(") then
+            return
+        end if
+        token = parser%consume()
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (to_lower(trim(token%text)) == "c") then
+                token = parser%consume()
+            end if
+        end if
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%text == ",") then
+                token = parser%consume()
+                call parse_bind_name_clause(parser, attr_info)
+            end if
+        end if
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+            token = parser%consume()
+        end do
+    end subroutine handle_bind_attribute
+
+    subroutine parse_bind_name_clause(parser, attr_info)
+        type(parser_state_t), intent(inout) :: parser
+        type(declaration_attribute_info_t), intent(inout) :: attr_info
+
+        type(token_t) :: token
+
+        if (parser%is_at_end()) then
+            return
+        end if
+
+        token = parser%peek()
+        if (to_lower(trim(token%text)) /= "name") then
+            return
+        end if
+        token = parser%consume()
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%text == "=") then
+                token = parser%consume()
+            end if
+        end if
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%text /= ")" .and. token%text /= ",") then
+                attr_info%bind_name = trim(token%text)
+                token = parser%consume()
+            end if
+        end if
+    end subroutine parse_bind_name_clause
 
     subroutine parse_array_dimensions(parser, arena, dimension_indices)
         type(parser_state_t), intent(inout) :: parser

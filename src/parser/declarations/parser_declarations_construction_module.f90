@@ -2,6 +2,7 @@ module parser_declarations_construction_module
     use lexer_core, only: token_t, TK_OPERATOR
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_data, only: declaration_node
     use ast_factory, only: push_declaration, push_complex_literal
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_expressions_module, only: parse_comparison
@@ -39,6 +40,7 @@ contains
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer, &
                 attr_info%global_dimension_indices)
+            call apply_bind_c_attribute(arena, decl_index, attr_info)
             return
         end if
 
@@ -55,7 +57,32 @@ contains
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer)
         end if
+        call apply_bind_c_attribute(arena, decl_index, attr_info)
     end function add_single_declaration
+
+    subroutine apply_bind_c_attribute(arena, decl_index, attr_info)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        type(declaration_attribute_info_t), intent(in) :: attr_info
+
+        if (.not. attr_info%is_bind_c) then
+            return
+        end if
+        if (decl_index <= 0 .or. decl_index > arena%size) then
+            return
+        end if
+        if (.not. allocated(arena%entries(decl_index)%node)) then
+            return
+        end if
+
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            decl%is_bind_c = .true.
+            if (allocated(attr_info%bind_name)) then
+                decl%bind_name = attr_info%bind_name
+            end if
+        end select
+    end subroutine apply_bind_c_attribute
 
     integer function create_dimensional_declaration( &
             arena, type_spec, attr_info, name_buffer, initializer_index, &
@@ -429,6 +456,7 @@ contains
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer)
             end if
+            call apply_bind_c_attribute(arena, decl_index, attr_info)
         end if
     end function emit_multi_declaration
 
