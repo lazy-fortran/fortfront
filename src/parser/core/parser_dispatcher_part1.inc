@@ -157,6 +157,8 @@
             stmt_index = parse_use_statement(parser, arena)
         case ("intrinsic")
             stmt_index = parse_intrinsic_statement(parser, arena)
+        case ("external")
+            stmt_index = parse_external_statement(parser, arena)
         case ("include")
             stmt_index = parse_include_statement(parser, arena)
         case ("instantiate")

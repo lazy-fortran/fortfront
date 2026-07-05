@@ -571,7 +571,7 @@ contains
                 'trait', 'endtrait', 'requirement', 'endrequirement', &
                 'implements', 'endimplements', &
                 'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
-                'non_recursive', 'intrinsic', 'non_intrinsic')
+                'non_recursive', 'intrinsic', 'non_intrinsic', 'external')
             keyword = .true.
         case default
             keyword = .false.

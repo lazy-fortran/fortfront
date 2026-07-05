@@ -51,3 +51,4 @@ issue_2753_unsigned_assignment_mixing_error.f90  # ERROR-TEST: signed/unsigned a
 issue_2753_unsigned_argument_mixing_error.f90  # ERROR-TEST: signed/unsigned arg mix (#2753)
 issue_2819_implied_do_index_out_of_scope.f90  # ERROR-TEST: implied-DO index in own bounds (#2819)
 issue_2819_implied_do_index_shadow.f90  # ERROR-TEST: nested implied-DO index shadowing (#2819)
+issue_2855_external_intrinsic_conflict.f90  # ERROR-TEST: entity both intrinsic and external (F2018 8.5.9) (#2855)
