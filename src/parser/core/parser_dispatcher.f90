@@ -15,6 +15,7 @@ module parser_dispatcher_module
     use parser_module_structures_module, only: parse_module
     use parser_submodule_structures_module, only: parse_submodule
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
+    use parser_external_statements_module, only: parse_external_statement
     use parser_block_data_module, only: parse_block_data
     use parser_template_blocks_module, only: parse_template_block, parse_trait_block, &
         parse_requirement_block, &
