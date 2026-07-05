@@ -30,6 +30,9 @@ module ast_base
         ! Statement label (for GOTO targets, like 10  i = i + 1)
         character(len=:), allocatable :: stmt_label
 
+        ! Trailing inline comment (e.g. "x = 1  ! set x")
+        character(len=:), allocatable :: trailing_comment
+
         ! Constant folding information
         logical :: is_constant = .false. ! True if this node is a compile-time constant
         logical :: constant_logical = .false. ! For logical constants
@@ -84,6 +87,11 @@ contains
             lhs%stmt_label = rhs%stmt_label
         else if (allocated(lhs%stmt_label)) then
             deallocate (lhs%stmt_label)
+        end if
+        if (allocated(rhs%trailing_comment)) then
+            lhs%trailing_comment = rhs%trailing_comment
+        else if (allocated(lhs%trailing_comment)) then
+            deallocate (lhs%trailing_comment)
         end if
     end subroutine copy_ast_node_base
 

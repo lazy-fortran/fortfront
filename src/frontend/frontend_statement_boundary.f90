@@ -500,6 +500,7 @@ contains
 
         stmt_end = closing_idx
         if (include_identifier) call extend_with_identifier(tokens, stmt_end)
+        call extend_with_trailing_comment(tokens, stmt_end)
         found_end = .true.
     end subroutine try_close_construct
 
@@ -513,6 +514,23 @@ contains
             end if
         end if
     end subroutine extend_with_identifier
+
+    pure subroutine extend_with_trailing_comment(tokens, stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(inout) :: stmt_end
+        integer :: i
+
+        i = stmt_end + 1
+        do while (i <= size(tokens))
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                stmt_end = i
+                i = i + 1
+            case default
+                exit
+            end select
+        end do
+    end subroutine extend_with_trailing_comment
 
     pure subroutine locate_single_line_end(tokens, stmt_start, stmt_end)
         type(token_t), intent(in) :: tokens(:)
@@ -555,9 +573,8 @@ contains
                 if (format_stmt .and. paren_depth > 0) then
                     call update_paren_depth_from_text(tokens(i)%text, &
                         paren_depth)
-                    stmt_end = i
                 end if
-                cycle
+                stmt_end = i
             case default
                 stmt_end = i
             end select

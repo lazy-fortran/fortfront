@@ -6,7 +6,7 @@ module ast_arena_clone
     ! clone_subtree() - deep copy of a subtree rooted at a given index,
     !                   with index remapping so internal references stay valid
 
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena, destroy_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: ast_node
     implicit none
     private

@@ -508,7 +508,14 @@ contains
         token = view_peek_token(view, parser)
         if (token%kind == TK_EOF) exit main_loop
 
-        if (is_expression_trivia_token(token)) then
+        if (token%kind == TK_COMMENT) then
+            if (is_trailing_comment(parser)) then
+                exit main_loop
+            else
+                token = view_consume_token(view, parser)
+                cycle
+            end if
+        else if (is_expression_trivia_token(token)) then
             token = view_consume_token(view, parser)
             cycle
         end if
@@ -775,6 +782,29 @@ recursive function parse_postfix_chain(parser, arena, base_expr) &
     call build_token_view(view, parser)
     expr_index = parse_postfix_ops(parser, arena, view, expr_index)
 end function parse_postfix_chain
+
+logical function is_trailing_comment(parser) result(is_trailing)
+    type(parser_state_t), intent(in) :: parser
+    integer :: pos, i
+
+    is_trailing = .false.
+    if (.not. associated(parser%tokens)) return
+    pos = parser%current_token + 1
+    if (pos > size(parser%tokens)) return
+
+    do i = pos, size(parser%tokens)
+        select case (parser%tokens(i)%kind)
+        case (TK_WHITESPACE)
+            cycle
+        case (TK_NEWLINE, TK_EOF)
+            is_trailing = .true.
+            return
+        case default
+            return
+        end select
+    end do
+    is_trailing = .true.
+end function is_trailing_comment
 
 pure logical function is_expression_trivia_token(token) result(is_trivia)
     type(token_t), intent(in) :: token
