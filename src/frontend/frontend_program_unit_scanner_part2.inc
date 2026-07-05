@@ -503,6 +503,10 @@
                 exit
             else if (tokens(i)%kind == TK_KEYWORD) then
                 if (to_lower(trim(tokens(i)%text)) == "end") then
+                    if (token_starts_bare_end_statement(tokens, i)) then
+                        unit_end = i
+                        exit
+                    end if
                     if (i + 2 <= size(tokens)) then
                         if (tokens(i + 1)%kind == TK_KEYWORD .and. &
                             to_lower(trim(tokens(i + 1)%text)) == "block" .and. &
