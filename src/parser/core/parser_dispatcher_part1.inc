@@ -674,7 +674,7 @@
         logical :: is_derived_type_def
 
         first_token = parser%peek()
-        if (first_token%text == "type") then
+        if (to_lower(trim(first_token%text)) == "type") then
             is_derived_type_def = parser_is_at_type_definition(parser)
             if (is_derived_type_def) then
                 stmt_index = parse_derived_type_def(parser, arena)

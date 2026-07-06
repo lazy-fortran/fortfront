@@ -945,7 +945,8 @@
         stmt_index = 0
         first_token = parser%peek()
 
-        if (first_token%text == "type" .and. parser_is_at_type_definition(parser)) then
+        if (to_lower(trim(first_token%text)) == "type" .and. &
+            parser_is_at_type_definition(parser)) then
             stmt_index = parse_derived_type_def(parser, arena)
         else
             call handle_variable_declaration(parser, arena, stmt_index)
