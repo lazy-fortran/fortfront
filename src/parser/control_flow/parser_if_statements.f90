@@ -2,7 +2,7 @@ module parser_if_statements_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_WHITESPACE, TK_NEWLINE, TK_EOF
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_comparison
+    use parser_expressions_module, only: parse_range
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_if
@@ -105,7 +105,7 @@ contains
         condition_tokens(condition_length + 1)%column = stmt_tokens(2)%column
 
         condition_parser = create_parser_state(condition_tokens)
-        condition_index = parse_comparison(condition_parser, arena)
+        condition_index = parse_range(condition_parser, arena)
     end function build_if_condition
 
     subroutine parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
