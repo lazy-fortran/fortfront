@@ -8,6 +8,7 @@ program test_issue_2458_intrinsic_rank_validation
     test_passed = .true.
 
     call test_multi_array_declaration()
+    call test_old_style_multi_array_declaration()
 
     if (test_passed) then
         print *, "test_issue_2458_intrinsic_rank_validation PASSED"
@@ -47,6 +48,30 @@ contains
             return
         end if
     end subroutine test_multi_array_declaration
+
+    subroutine test_old_style_multi_array_declaration()
+        source = 'program p'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer a(3), b(5)'//new_line('a')// &
+            '  print *, a(1), b(5)'//new_line('a')// &
+            'end program p'
+
+        call transform_lazy_fortran_string(source, output, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "ERROR: Transformation failed:", trim(error_msg)
+            test_passed = .false.
+            return
+        end if
+
+        if (index(output, 'integer :: a(3)') == 0 .or. &
+            index(output, 'integer :: b(5)') == 0) then
+            print *, "FAIL: old-style multi-array declaration not preserved"
+            print *, "Output:", trim(output)
+            test_passed = .false.
+            return
+        end if
+    end subroutine test_old_style_multi_array_declaration
 
 
 end program test_issue_2458_intrinsic_rank_validation
