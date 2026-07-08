@@ -43,12 +43,14 @@ contains
         logical, intent(inout) :: has_initializer, has_comma
 
         logical :: seen_double_colon, in_brackets, in_attributes, should_exit
+        logical :: seen_entity
         integer :: bracket_depth, variable_count_after_colon, start_pos, relative_pos
         type(token_t) :: lookahead_token
 
         seen_double_colon = .false.
         in_brackets = .false.
         in_attributes = .true. ! Start assuming we're in the attribute section
+        seen_entity = .false.
         bracket_depth = 0
         variable_count_after_colon = 0
         start_pos = lookahead_pos ! Remember starting position
@@ -66,6 +68,7 @@ contains
 
             call process_token(lookahead_token, relative_pos, &
                 seen_double_colon, in_brackets, in_attributes, &
+                seen_entity, &
                 bracket_depth, variable_count_after_colon, &
                 has_initializer, has_comma, should_exit)
 
@@ -82,10 +85,12 @@ contains
 
     ! Process individual token (kept under 50 lines per CLAUDE.md)
     subroutine process_token(token, pos, seen_colon, in_brackets, in_attr, &
-            bracket_depth, var_count, has_init, has_comma, should_exit)
+            seen_entity, bracket_depth, var_count, has_init, has_comma, &
+            should_exit)
         type(token_t), intent(in) :: token
         integer, intent(in) :: pos
         logical, intent(inout) :: seen_colon, in_brackets, in_attr
+        logical, intent(inout) :: seen_entity
         integer, intent(inout) :: bracket_depth, var_count
         logical, intent(inout) :: has_init, has_comma
         logical, intent(out) :: should_exit
@@ -94,10 +99,13 @@ contains
 
         if (token%kind == TK_OPERATOR) then
             call process_operator(token, seen_colon, in_brackets, in_attr, &
-                bracket_depth, var_count, has_init, has_comma)
-        else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. &
-                in_brackets) then
-            var_count = var_count + 1
+                seen_entity, bracket_depth, var_count, has_init, has_comma)
+        else if (token%kind == TK_IDENTIFIER .and. .not. in_brackets) then
+            if (seen_colon .or. pos > 1) then
+                seen_entity = .true.
+                in_attr = .false.
+                var_count = var_count + 1
+            end if
         else if (token%kind == TK_KEYWORD) then
             if (pos > 1 .and. .not. is_attribute_keyword(token%text)) then
                 should_exit = .true.
@@ -109,9 +117,10 @@ contains
 
     ! Process operator tokens
     subroutine process_operator(token, seen_colon, in_brackets, in_attr, &
-            bracket_depth, var_count, has_init, has_comma)
+            seen_entity, bracket_depth, var_count, has_init, has_comma)
         type(token_t), intent(in) :: token
         logical, intent(inout) :: seen_colon, in_brackets, in_attr
+        logical, intent(inout) :: seen_entity
         integer, intent(inout) :: bracket_depth, var_count
         logical, intent(inout) :: has_init, has_comma
 
@@ -128,6 +137,9 @@ contains
             has_init = .true.
         else if (token%text == ",") then
             if (seen_colon .and. .not. in_brackets .and. .not. in_attr) then
+                has_comma = .true.
+            end if
+            if (seen_entity .and. .not. in_brackets) then
                 has_comma = .true.
             end if
         end if
