@@ -59,6 +59,15 @@ module fortfront
         get_subroutine_body_info, &
         get_used_modules, get_defined_module, &
         used_module_t, defined_module_t
+    use frontend_compiler_resolution, only: declaration_binding_t, &
+                                            get_scope_bindings, resolve_name_in_scope, &
+                                     resolve_name_at_node, resolve_identifier_binding, &
+                            BINDING_NONE, BINDING_DECLARATION, BINDING_NAMED_CONSTANT, &
+                       BINDING_DUMMY_ARGUMENT, BINDING_DERIVED_TYPE, BINDING_FUNCTION, &
+                                          BINDING_SUBROUTINE, BINDING_FUNCTION_RESULT, &
+                                BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
+                         BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
+                                            ASSOCIATION_HOST, ASSOCIATION_USE
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
