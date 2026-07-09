@@ -1,5 +1,5 @@
 module ast_factory_declarations
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         derived_type_node, type_binding_node
     use ast_nodes_data, only: INTENT_NONE
@@ -296,6 +296,16 @@ contains
 
         call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
+        if (present(dimension_indices)) then
+            if (size(dimension_indices) > 0) then
+                call link_children_to_parent(arena, decl_index, dimension_indices)
+            end if
+        end if
+        if (present(initializer_index)) then
+            if (initializer_index > 0) then
+                call link_children_to_parent(arena, decl_index, [initializer_index])
+            end if
+        end if
     end function push_declaration
 
     ! Create parameter declaration node and add to stack
@@ -352,6 +362,11 @@ contains
 
         call arena%push(param, "parameter_declaration", parent_index)
         param_index = arena%size
+        if (present(dimension_indices)) then
+            if (size(dimension_indices) > 0) then
+                call link_children_to_parent(arena, param_index, dimension_indices)
+            end if
+        end if
     end function push_parameter_declaration
 
     ! Create type binding node and add to stack
