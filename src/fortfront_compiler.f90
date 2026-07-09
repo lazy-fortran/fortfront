@@ -24,19 +24,30 @@ module fortfront_compiler
         get_subroutine_body_info, &
         get_used_modules, get_defined_module, &
         used_module_t, defined_module_t
+    use frontend_compiler_node_queries, only: is_declaration_node, &
+        is_derived_type_node, &
+        get_declaration_var_name, get_declaration_type_name, &
+        get_declaration_has_initializer, &
+        get_declaration_initializer_index, &
+        get_derived_type_name, &
+        get_node_stmt_label, get_goto_label, goto_is_computed, &
+        get_goto_label_list, get_goto_selector_index
     use frontend_compiler_resolution, only: declaration_binding_t, &
-                                            get_scope_bindings, resolve_name_in_scope, &
-                                     resolve_name_at_node, resolve_identifier_binding, &
-                            BINDING_NONE, BINDING_DECLARATION, BINDING_NAMED_CONSTANT, &
-                       BINDING_DUMMY_ARGUMENT, BINDING_DERIVED_TYPE, BINDING_FUNCTION, &
-                                          BINDING_SUBROUTINE, BINDING_FUNCTION_RESULT, &
-                                BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
-                         BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
-                                            ASSOCIATION_HOST, ASSOCIATION_USE
+        get_scope_bindings, resolve_name_in_scope, &
+        resolve_name_at_node, resolve_identifier_binding, &
+        BINDING_NONE, BINDING_DECLARATION, BINDING_NAMED_CONSTANT, &
+        BINDING_DUMMY_ARGUMENT, BINDING_DERIVED_TYPE, BINDING_FUNCTION, &
+        BINDING_SUBROUTINE, BINDING_FUNCTION_RESULT, &
+        BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
+        BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
+        ASSOCIATION_HOST, ASSOCIATION_USE
     use fortfront_semantic, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
         OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use fortfront_ast, only: ast_arena_t
+    use fortfront_utils, only: node_exists, get_node_type_at, get_type_for_node
     use fortfront_lexer, only: token_t
+    use type_system_unified, only: mono_type_t, &
+        TINT, TREAL, TCHAR, TLOGICAL, TARRAY, TCOMPLEX, TDOUBLE, TDERIVED
     implicit none
     public
 end module fortfront_compiler
