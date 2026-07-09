@@ -137,6 +137,11 @@ contains
                 cycle
             end if
 
+            if (token%kind == TK_OPERATOR .and. token%text == "*") then
+                call append_untyped_parameter(parser, arena, param_indices)
+                cycle
+            end if
+
             if (token%kind == TK_KEYWORD .and. is_type_keyword_token(token)) then
                 call parse_parameter_group(parser, arena, param_indices)
                 cycle

@@ -7,6 +7,7 @@
             type(mono_type_t), allocatable :: param_types(:)
             character(len=64), allocatable :: param_names(:)
             type(mono_type_t) :: return_type
+            character(len=:), allocatable :: elemental_result_name
             integer :: i
 
             call analyze_function_parameters(arena, expr, param_types, param_names, &
@@ -20,9 +21,19 @@
             call validate_pure_procedure(arena, expr%body_indices, &
                                          expr%prefix_keywords, this%errors)
             ! Enforce ELEMENTAL scalar-dummy restriction (F2008 C1290)
+            if (allocated(expr%result_variable)) then
+                elemental_result_name = expr%result_variable
+            else
+                elemental_result_name = expr%name
+            end if
             call validate_elemental_procedure(arena, expr%param_indices, &
                                               expr%body_indices, &
-                                              expr%prefix_keywords, this%errors)
+                                              expr%prefix_keywords, this%errors, &
+                                              proc_name=expr%name, &
+                                              bind_c_clause=expr%bind_c_clause, &
+                                              result_name=elemental_result_name, &
+                                              require_declared_dummy_intent= &
+                                              this%input_mode == INPUT_MODE_STANDARD)
 
             ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
             call validate_bind_c_procedure(arena, expr%param_indices, &
@@ -63,7 +74,11 @@
             ! Enforce ELEMENTAL scalar-dummy restriction (F2008 C1290)
             call validate_elemental_procedure(arena, expr%param_indices, &
                                               expr%body_indices, &
-                                              expr%prefix_keywords, this%errors)
+                                              expr%prefix_keywords, this%errors, &
+                                              proc_name=expr%name, &
+                                              bind_c_clause=expr%bind_c_clause, &
+                                              require_declared_dummy_intent= &
+                                              this%input_mode == INPUT_MODE_STANDARD)
 
             ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
             call validate_bind_c_procedure(arena, expr%param_indices, &
