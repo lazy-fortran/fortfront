@@ -21,10 +21,15 @@ program test_elemental_validation
     call test_elemental_array_dummy_rejected(all_tests_passed)
     call test_elemental_inline_array_dummy_rejected(all_tests_passed)
     call test_elemental_dummy_without_intent_rejected(all_tests_passed)
+    call test_elemental_allocatable_dummy_rejected(all_tests_passed)
+    call test_elemental_pointer_dummy_rejected(all_tests_passed)
     call test_elemental_dummy_procedure_rejected(all_tests_passed)
     call test_elemental_bind_c_rejected(all_tests_passed)
     call test_elemental_array_result_rejected(all_tests_passed)
+    call test_elemental_allocatable_result_rejected(all_tests_passed)
     call test_elemental_pointer_result_rejected(all_tests_passed)
+    call test_elemental_alternate_return_rejected(all_tests_passed)
+    call test_elemental_value_dummy_accepted(all_tests_passed)
     call test_non_elemental_array_dummy_accepted(all_tests_passed)
     call test_is_elemental_prefix_classification(all_tests_passed)
 
@@ -138,6 +143,28 @@ contains
         call expect_frontend_error(source, 'INTENT', passed)
     end subroutine test_elemental_dummy_without_intent_rejected
 
+    subroutine test_elemental_allocatable_dummy_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL allocatable dummy (rejected)...'
+        source = 'elemental subroutine s(x)'//new_line('a')// &
+            'integer, allocatable, intent(in) :: x'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'ALLOCATABLE dummy', passed)
+    end subroutine test_elemental_allocatable_dummy_rejected
+
+    subroutine test_elemental_pointer_dummy_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL pointer dummy (rejected)...'
+        source = 'elemental subroutine s(x)'//new_line('a')// &
+            'integer, pointer, intent(in) :: x'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'POINTER dummy', passed)
+    end subroutine test_elemental_pointer_dummy_rejected
+
     subroutine test_elemental_dummy_procedure_rejected(passed)
         logical, intent(inout) :: passed
         character(len=:), allocatable :: source
@@ -173,6 +200,17 @@ contains
         call expect_frontend_error(source, 'array result', passed)
     end subroutine test_elemental_array_result_rejected
 
+    subroutine test_elemental_allocatable_result_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL allocatable result (rejected)...'
+        source = 'elemental function f()'//new_line('a')// &
+            'integer, allocatable :: f'//new_line('a')// &
+            'end function f'
+        call expect_frontend_error(source, 'ALLOCATABLE result', passed)
+    end subroutine test_elemental_allocatable_result_rejected
+
     subroutine test_elemental_pointer_result_rejected(passed)
         logical, intent(inout) :: passed
         character(len=:), allocatable :: source
@@ -183,6 +221,28 @@ contains
             'end function f'
         call expect_frontend_error(source, 'pointer result', passed)
     end subroutine test_elemental_pointer_result_rejected
+
+    subroutine test_elemental_alternate_return_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL alternate return (rejected)...'
+        source = 'elemental subroutine s(*)'//new_line('a')// &
+            'return 1'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'alternate return', passed)
+    end subroutine test_elemental_alternate_return_rejected
+
+    subroutine test_elemental_value_dummy_accepted(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL VALUE dummy (accepted)...'
+        source = 'elemental subroutine s(x)'//new_line('a')// &
+            'integer, value :: x'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_success(source, passed)
+    end subroutine test_elemental_value_dummy_accepted
 
     subroutine test_non_elemental_array_dummy_accepted(passed)
         logical, intent(inout) :: passed
@@ -268,5 +328,28 @@ contains
             print *, '  PASS'
         end if
     end subroutine expect_frontend_error
+
+    subroutine expect_frontend_success(source, passed)
+        use frontend_compiler_api, only: compiler_frontend_options_t, &
+            compiler_frontend_result_t, compile_frontend_from_string
+        use semantic_input_mode, only: INPUT_MODE_STANDARD
+        character(len=*), intent(in) :: source
+        logical, intent(inout) :: passed
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        options%standardize = .false.
+        call compile_frontend_from_string(source, result, options)
+
+        if (.not. result%success()) then
+            print *, '  FAIL: valid source was rejected'
+            print *, trim(result%diagnostic_text)
+            passed = .false.
+        else
+            print *, '  PASS'
+        end if
+    end subroutine expect_frontend_success
 
 end program test_elemental_validation

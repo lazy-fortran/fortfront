@@ -47,7 +47,7 @@ contains
         character(len=:), allocatable, intent(in), optional :: bind_c_clause
         character(len=*), intent(in), optional :: result_name
         logical, intent(in), optional :: require_declared_dummy_intent
-        integer :: i
+        integer :: i, decl_index
         character(len=:), allocatable :: dummy_name
         logical :: check_dummy_intent
 
@@ -75,7 +75,21 @@ contains
             end if
             dummy_name = param_name(arena, param_indices(i))
             if (len_trim(dummy_name) == 0) cycle
+            if (dummy_name == '*') then
+                call report_alternate_return(errors, arena, param_indices(i))
+                cycle
+            end if
             if (.not. allocated(body_indices)) cycle
+            decl_index = find_body_declaration(arena, body_indices, dummy_name)
+            if (decl_index > 0) then
+                select type (node => arena%entries(decl_index)%node)
+                    type is (declaration_node)
+                    if (node%is_allocatable) call report_forbidden_attribute( &
+                        errors, node, 'ALLOCATABLE', 'dummy')
+                    if (node%is_pointer) call report_forbidden_attribute( &
+                        errors, node, 'POINTER', 'dummy')
+                end select
+            end if
             if (body_declares_array(arena, body_indices, dummy_name)) then
                 call report_array_dummy(errors, arena, param_indices(i))
             end if
@@ -374,6 +388,8 @@ contains
         select type (node => arena%entries(decl_index)%node)
             type is (declaration_node)
             if (node%is_array) call report_array_result(errors, node)
+            if (node%is_allocatable) call report_forbidden_attribute( &
+                errors, node, 'ALLOCATABLE', 'result')
             if (node%is_pointer) call report_pointer_result(errors, node)
         end select
     end subroutine validate_elemental_result
@@ -437,6 +453,38 @@ contains
             int_to_string(column), &
             suggestion='add INTENT or VALUE, or drop the ELEMENTAL prefix')
     end subroutine report_dummy_intent
+
+    subroutine report_alternate_return(errors, arena, param_index)
+        type(error_collection_t), intent(inout) :: errors
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        integer :: line, column
+
+        call source_position(arena, param_index, line, column)
+        call errors%add_error( &
+            message='alternate return is not allowed in an ELEMENTAL procedure', &
+            code=ERROR_SEMANTIC, &
+            component='semantic_elemental_validation', &
+            context='line '//int_to_string(line)//', column '// &
+            int_to_string(column), &
+            suggestion='remove the alternate return, or drop the ELEMENTAL prefix')
+    end subroutine report_alternate_return
+
+    subroutine report_forbidden_attribute(errors, node, attribute, entity)
+        type(error_collection_t), intent(inout) :: errors
+        type(declaration_node), intent(in) :: node
+        character(len=*), intent(in) :: attribute, entity
+
+        call errors%add_error( &
+            message=trim(attribute)//' '//trim(entity)// &
+            ' is not allowed in an ELEMENTAL procedure', &
+            code=ERROR_SEMANTIC, &
+            component='semantic_elemental_validation', &
+            context='line '//int_to_string(node%line)//', column '// &
+            int_to_string(node%column), &
+            suggestion='remove '//trim(attribute)// &
+            ', or drop the ELEMENTAL prefix')
+    end subroutine report_forbidden_attribute
 
     subroutine report_array_result(errors, node)
         type(error_collection_t), intent(inout) :: errors
