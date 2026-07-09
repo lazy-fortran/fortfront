@@ -20,6 +20,11 @@ program test_elemental_validation
     call test_elemental_scalar_dummy_accepted(all_tests_passed)
     call test_elemental_array_dummy_rejected(all_tests_passed)
     call test_elemental_inline_array_dummy_rejected(all_tests_passed)
+    call test_elemental_dummy_without_intent_rejected(all_tests_passed)
+    call test_elemental_dummy_procedure_rejected(all_tests_passed)
+    call test_elemental_bind_c_rejected(all_tests_passed)
+    call test_elemental_array_result_rejected(all_tests_passed)
+    call test_elemental_pointer_result_rejected(all_tests_passed)
     call test_non_elemental_array_dummy_accepted(all_tests_passed)
     call test_is_elemental_prefix_classification(all_tests_passed)
 
@@ -47,7 +52,8 @@ contains
         errors = create_error_collection()
         allocate (params(1))
         params(1) = push_identifier(arena, 'x', line=1, column=1)
-        decl_idx = push_declaration(arena, 'real', ['x'], line=2, column=1)
+        decl_idx = push_declaration(arena, 'real', ['x'], intent_value='in', &
+            line=2, column=1)
         allocate (body(1))
         body(1) = decl_idx
         prefix = [character(len=16) :: 'elemental']
@@ -121,6 +127,63 @@ contains
         end if
     end subroutine test_elemental_inline_array_dummy_rejected
 
+    subroutine test_elemental_dummy_without_intent_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL dummy without intent/value (rejected)...'
+        source = 'elemental subroutine s(x)'//new_line('a')// &
+            'integer :: x'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'INTENT', passed)
+    end subroutine test_elemental_dummy_without_intent_rejected
+
+    subroutine test_elemental_dummy_procedure_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL dummy procedure (rejected)...'
+        source = 'elemental subroutine s(f)'//new_line('a')// &
+            'interface'//new_line('a')// &
+            'pure subroutine f()'//new_line('a')// &
+            'end subroutine f'//new_line('a')// &
+            'end interface'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'procedure dummy', passed)
+    end subroutine test_elemental_dummy_procedure_rejected
+
+    subroutine test_elemental_bind_c_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL BIND(C) conflict (rejected)...'
+        source = 'elemental subroutine s() bind(c)'//new_line('a')// &
+            'end subroutine s'
+        call expect_frontend_error(source, 'BIND(C)', passed)
+    end subroutine test_elemental_bind_c_rejected
+
+    subroutine test_elemental_array_result_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL array result (rejected)...'
+        source = 'elemental function f()'//new_line('a')// &
+            'integer :: f(2)'//new_line('a')// &
+            'end function f'
+        call expect_frontend_error(source, 'array result', passed)
+    end subroutine test_elemental_array_result_rejected
+
+    subroutine test_elemental_pointer_result_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing ELEMENTAL pointer result (rejected)...'
+        source = 'elemental function f()'//new_line('a')// &
+            'integer, pointer :: f'//new_line('a')// &
+            'end function f'
+        call expect_frontend_error(source, 'pointer result', passed)
+    end subroutine test_elemental_pointer_result_rejected
+
     subroutine test_non_elemental_array_dummy_accepted(passed)
         logical, intent(inout) :: passed
         type(ast_arena_t) :: arena
@@ -176,5 +239,34 @@ contains
             passed = .false.
         end if
     end subroutine test_is_elemental_prefix_classification
+
+    subroutine expect_frontend_error(source, expected, passed)
+        use frontend_compiler_api, only: compiler_frontend_options_t, &
+            compiler_frontend_result_t, compile_frontend_from_string
+        use semantic_input_mode, only: INPUT_MODE_STANDARD
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: expected
+        logical, intent(inout) :: passed
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        options%standardize = .false.
+        call compile_frontend_from_string(source, result, options)
+
+        if (result%success()) then
+            print *, '  FAIL: invalid source was accepted'
+            passed = .false.
+            return
+        end if
+        if (index(result%diagnostic_text, expected) == 0) then
+            print *, '  FAIL: diagnostic missing expected text: ', expected
+            print *, trim(result%diagnostic_text)
+            passed = .false.
+        else
+            print *, '  PASS'
+        end if
+    end subroutine expect_frontend_error
 
 end program test_elemental_validation
