@@ -1,13 +1,13 @@
 program test_compiler_scope_resolution
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: declaration_node, module_node
+    use ast_nodes_data, only: declaration_node
     use ast_nodes_procedure, only: subroutine_def_node
     use fortfront_compiler, only: compiler_frontend_options_t, &
-                             compiler_frontend_result_t, compile_frontend_from_string, &
-                                  INPUT_MODE_STANDARD, declaration_binding_t, &
-                                  resolve_name_in_scope, resolve_name_at_node, &
-                               BINDING_NAMED_CONSTANT, ASSOCIATION_HOST, ASSOCIATION_USE
+        compiler_frontend_result_t, compile_frontend_from_string, &
+        INPUT_MODE_STANDARD, declaration_binding_t, &
+        resolve_name_in_scope, resolve_name_at_node, &
+        BINDING_NAMED_CONSTANT, ASSOCIATION_HOST, ASSOCIATION_USE
     implicit none
 
     call test_host_parameter()
@@ -40,17 +40,17 @@ contains
         array_decl_index = find_declaration(result, 'a')
         bound_index = first_dimension_index(result, array_decl_index)
         call resolve_name_in_scope(result%arena, subroutine_index, 'n', binding, &
-                                   error_msg)
+            error_msg)
         call require_binding(error_msg, binding, decl_index, BINDING_NAMED_CONSTANT, &
-                             ASSOCIATION_HOST, 'host parameter n')
+            ASSOCIATION_HOST, 'host parameter n')
         call resolve_name_at_node(result%arena, array_decl_index, 'n', binding, &
-                                  error_msg)
+            error_msg)
         call require_binding(error_msg, binding, decl_index, BINDING_NAMED_CONSTANT, &
-                             ASSOCIATION_HOST, 'host parameter n at declaration')
+            ASSOCIATION_HOST, 'host parameter n at declaration')
         call resolve_name_at_node(result%arena, bound_index, 'n', binding, &
-                                  error_msg)
+            error_msg)
         call require_binding(error_msg, binding, decl_index, BINDING_NAMED_CONSTANT, &
-                             ASSOCIATION_HOST, 'host parameter n at bound')
+            ASSOCIATION_HOST, 'host parameter n at bound')
     end subroutine test_host_parameter
 
     subroutine test_use_rename()
@@ -71,9 +71,9 @@ contains
         program_index = find_program(result, 'p')
         decl_index = find_declaration(result, 'remote')
         call resolve_name_in_scope(result%arena, program_index, 'local', binding, &
-                                   error_msg)
+            error_msg)
         call require_binding(error_msg, binding, decl_index, BINDING_NAMED_CONSTANT, &
-                             ASSOCIATION_USE, 'use-renamed local')
+            ASSOCIATION_USE, 'use-renamed local')
         if (trim(binding%module_name) /= 'm') then
             write (error_unit, '(A)') 'FAIL: use binding module_name mismatch'
             error stop 1
@@ -100,7 +100,7 @@ contains
             'end program p', result)
         program_index = find_program(result, 'p')
         call resolve_name_in_scope(result%arena, program_index, 'hidden', binding, &
-                                   error_msg)
+            error_msg)
         if (len_trim(error_msg) > 0) then
             write (error_unit, '(A)') 'FAIL: '//trim(error_msg)
             error stop 1
@@ -127,7 +127,7 @@ contains
     end subroutine compile_standard
 
     subroutine require_binding(error_msg, binding, node_index, kind, association, &
-                               label)
+            label)
         character(len=*), intent(in) :: error_msg
         type(declaration_binding_t), intent(in) :: binding
         integer, intent(in) :: node_index
@@ -166,7 +166,7 @@ contains
         do i = 1, result%arena%size
             if (.not. result%arena%has_node_at(i)) cycle
             select type (node => result%arena%entries(i)%node)
-            type is (program_node)
+                type is (program_node)
                 if (.not. allocated(node%name)) cycle
                 if (trim(node%name) == trim(name)) index = i
             end select
@@ -185,7 +185,7 @@ contains
         do i = 1, result%arena%size
             if (.not. result%arena%has_node_at(i)) cycle
             select type (node => result%arena%entries(i)%node)
-            type is (subroutine_def_node)
+                type is (subroutine_def_node)
                 if (.not. allocated(node%name)) cycle
                 if (trim(node%name) == trim(name)) index = i
             end select
@@ -204,7 +204,7 @@ contains
         do i = 1, result%arena%size
             if (.not. result%arena%has_node_at(i)) cycle
             select type (node => result%arena%entries(i)%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (declaration_names(node, name)) index = i
             end select
         end do
@@ -241,7 +241,7 @@ contains
         dim_index = 0
         if (.not. result%arena%has_node_at(decl_index)) return
         select type (node => result%arena%entries(decl_index)%node)
-        type is (declaration_node)
+            type is (declaration_node)
             if (.not. allocated(node%dimension_indices)) return
             if (size(node%dimension_indices) < 1) return
             dim_index = node%dimension_indices(1)
