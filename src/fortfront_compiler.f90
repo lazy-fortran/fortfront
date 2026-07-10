@@ -23,7 +23,13 @@ module fortfront_compiler
         get_function_body_info, &
         get_subroutine_body_info, &
         get_used_modules, get_defined_module, &
-        used_module_t, defined_module_t
+        used_module_t, defined_module_t, &
+        array_slice_query_t, array_bounds_query_t, &
+        range_expression_query_t, component_access_query_t, &
+        array_literal_query_t, pointer_assignment_query_t, nullify_query_t, &
+        query_array_slice, query_array_bounds, query_range_expression, &
+        query_component_access, query_array_literal, &
+        query_pointer_assignment, query_nullify
     use frontend_compiler_node_queries, only: is_declaration_node, &
         is_derived_type_node, &
         get_declaration_var_name, get_declaration_type_name, &
