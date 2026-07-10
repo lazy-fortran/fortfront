@@ -4,7 +4,11 @@ module frontend_compiler_queries
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
         subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
-        array_literal_node, program_node
+        array_literal_node, program_node, component_access_node, &
+        pointer_assignment_node
+    use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
+        range_expression_node
+    use ast_nodes_transfer, only: nullify_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node, module_node, &
         submodule_node
@@ -47,6 +51,49 @@ module frontend_compiler_queries
     public :: get_defined_module
     public :: used_module_t
     public :: defined_module_t
+    public :: array_slice_query_t, array_bounds_query_t, range_expression_query_t
+    public :: component_access_query_t, array_literal_query_t
+    public :: pointer_assignment_query_t, nullify_query_t
+    public :: query_array_slice, query_array_bounds, query_range_expression, &
+        query_component_access, query_array_literal, query_pointer_assignment, &
+        query_nullify
+
+    type :: array_slice_query_t
+        logical :: found = .false.
+        integer :: base_node_index = 0
+        integer, allocatable :: bounds_node_indices(:)
+        logical :: is_character_substring = .false.
+    end type array_slice_query_t
+    type :: array_bounds_query_t
+        logical :: found = .false.
+        integer :: lower_bound_node_index = 0, upper_bound_node_index = 0
+        integer :: stride_node_index = 0
+        logical :: is_assumed_shape = .false., is_deferred_shape = .false.
+        logical :: is_assumed_size = .false., is_assumed_rank = .false.
+    end type array_bounds_query_t
+    type :: range_expression_query_t
+        logical :: found = .false.
+        integer :: start_node_index = 0, end_node_index = 0
+        integer :: stride_node_index = 0
+    end type range_expression_query_t
+    type :: component_access_query_t
+        logical :: found = .false.
+        integer :: base_node_index = 0
+        character(len=:), allocatable :: component_name
+    end type component_access_query_t
+    type :: array_literal_query_t
+        logical :: found = .false.
+        integer, allocatable :: element_node_indices(:)
+        character(len=:), allocatable :: element_type, type_spec, syntax_style
+    end type array_literal_query_t
+    type :: pointer_assignment_query_t
+        logical :: found = .false.
+        integer :: pointer_node_index = 0, target_node_index = 0
+    end type pointer_assignment_query_t
+    type :: nullify_query_t
+        logical :: found = .false.
+        integer, allocatable :: pointer_node_indices(:)
+    end type nullify_query_t
 
     type :: used_module_t
         character(len=:), allocatable :: module_name
@@ -63,6 +110,123 @@ module frontend_compiler_queries
     end type defined_module_t
 
 contains
+
+    function query_array_slice(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(array_slice_query_t) :: query
+
+        allocate (query%bounds_node_indices(0))
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (array_slice_node)
+            query%found = .true.
+            query%base_node_index = max(node%array_index, 0)
+            if (node%num_dimensions > 0) then
+                query%bounds_node_indices = &
+                    node%bounds_indices(1:node%num_dimensions)
+            end if
+            query%is_character_substring = node%is_character_substring
+        end select
+    end function query_array_slice
+    function query_array_bounds(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(array_bounds_query_t) :: query
+
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (array_bounds_node)
+            query%found = .true.
+            query%lower_bound_node_index = max(node%lower_bound_index, 0)
+            query%upper_bound_node_index = max(node%upper_bound_index, 0)
+            query%stride_node_index = max(node%stride_index, 0)
+            query%is_assumed_shape = node%is_assumed_shape
+            query%is_deferred_shape = node%is_deferred_shape
+            query%is_assumed_size = node%is_assumed_size
+            query%is_assumed_rank = node%is_assumed_rank
+        end select
+    end function query_array_bounds
+    function query_range_expression(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(range_expression_query_t) :: query
+
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (range_expression_node)
+            query%found = .true.
+            query%start_node_index = max(node%start_index, 0)
+            query%end_node_index = max(node%end_index, 0)
+            query%stride_node_index = max(node%stride_index, 0)
+        end select
+    end function query_range_expression
+    function query_component_access(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(component_access_query_t) :: query
+
+        call set_empty(query%component_name)
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (component_access_node)
+            query%found = .true.
+            query%base_node_index = max(node%base_expr_index, 0)
+            if (allocated(node%component_name)) query%component_name = &
+                node%component_name
+        end select
+    end function query_component_access
+    function query_array_literal(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(array_literal_query_t) :: query
+
+        allocate (query%element_node_indices(0))
+        call set_empty(query%element_type)
+        call set_empty(query%type_spec)
+        call set_empty(query%syntax_style)
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (array_literal_node)
+            query%found = .true.
+            if (allocated(node%element_indices)) then
+                query%element_node_indices = node%element_indices
+            end if
+            if (allocated(node%element_type)) query%element_type = node%element_type
+            if (allocated(node%type_spec)) query%type_spec = node%type_spec
+            if (allocated(node%syntax_style)) query%syntax_style = node%syntax_style
+        end select
+    end function query_array_literal
+
+    function query_pointer_assignment(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(pointer_assignment_query_t) :: query
+
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (pointer_assignment_node)
+            query%found = .true.
+            query%pointer_node_index = max(node%pointer_index, 0)
+            query%target_node_index = max(node%target_index, 0)
+        end select
+    end function query_pointer_assignment
+
+    function query_nullify(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(nullify_query_t) :: query
+
+        allocate (query%pointer_node_indices(0))
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (nullify_node)
+            query%found = .true.
+            if (allocated(node%pointer_indices)) then
+                query%pointer_node_indices = node%pointer_indices
+            end if
+        end select
+    end function query_nullify
 
     logical function is_identifier(arena, node_index) result(is_id)
         type(ast_arena_t), intent(in) :: arena
