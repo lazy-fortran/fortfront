@@ -63,7 +63,7 @@ contains
 
         token = peek(parser, view)
         if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            call parser%errors%add_error_with_token( &
+            call parser%error_at_token( &
                 "Caret inline instantiation must be followed by ( ...)", &
                 caret_token, suggestion="Use name^(type-list)(...)")
             return
@@ -110,7 +110,7 @@ contains
 
         if (nesting /= 0) then
             count = 0
-            call parser%errors%add_error_with_token( &
+            call parser%error_at_token( &
                 "Unbalanced inline instantiation "//group_name//": expected "// &
                 close_ch//" before end of file", start_token, &
                 suggestion="Add a matching "//close_ch// &

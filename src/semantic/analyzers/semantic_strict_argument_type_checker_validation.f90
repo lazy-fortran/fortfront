@@ -69,8 +69,8 @@ contains
                 call extract_keyword_name_if_present(arena, arg_indices(i), keyword, &
                     is_keyword)
                 if (is_keyword) cycle
-                call map_positional_argument(errors, arg_indices(i), next_positional, &
-                    arg_for_param)
+                call map_positional_argument(arena, errors, arg_indices(i), &
+                    next_positional, arg_for_param)
             end do
         end if
 
@@ -162,7 +162,7 @@ contains
                 if (arg_for_param(i) /= 0) then
                     call emit_argument_error(errors, &
                         "Duplicate argument for dummy '"// &
-                        trim(param_names(i))//"'")
+                        trim(param_names(i))//"'", arena, arg_index)
                     return
                 end if
                 arg_for_param(i) = value_index_if_keyword_arg(arena, arg_index)
@@ -171,11 +171,12 @@ contains
         end do
 
         call emit_argument_error(errors, &
-            "Unknown keyword argument '"//trim(keyword)//"'")
+            "Unknown keyword argument '"//trim(keyword)//"'", arena, arg_index)
     end subroutine map_keyword_argument
 
-    subroutine map_positional_argument(errors, arg_index, next_positional, &
+    subroutine map_positional_argument(arena, errors, arg_index, next_positional, &
             arg_for_param)
+        type(ast_arena_t), intent(in) :: arena
         type(error_collection_t), intent(inout) :: errors
         integer, intent(in) :: arg_index
         integer, intent(inout) :: next_positional
@@ -187,7 +188,8 @@ contains
         end do
 
         if (next_positional > size(arg_for_param)) then
-            call emit_argument_error(errors, "Too many actual arguments")
+            call emit_argument_error(errors, "Too many actual arguments", arena, &
+                arg_index)
             return
         end if
 
@@ -234,7 +236,9 @@ contains
         if (actual_is_int .and. dummy_is_int) then
             if (actual_is_unsigned .neqv. dummy_is_unsigned) then
                 if (.not. actual_is_int_literal) then
-                    call emit_unsigned_integer_mix_error(errors)
+                    call emit_unsigned_integer_mix_error(errors, &
+                        arena%entries(arg_expr_index)%node%line, &
+                        arena%entries(arg_expr_index)%node%column)
                     return
                 end if
             end if
@@ -248,7 +252,7 @@ contains
             "Type mismatch in call to '"//trim(proc_name)// &
             "': actual argument '"//trim(dummy_name)// &
             "' is "//trim(actual_string)// &
-            ", but dummy expects "//trim(dummy_string))
+            ", but dummy expects "//trim(dummy_string), arena, arg_expr_index)
     end subroutine validate_mapped_argument
 
     subroutine extract_keyword_name_if_present(arena, arg_index, keyword, is_keyword)
@@ -352,9 +356,15 @@ contains
         write (name, '(A,I0)') "arg", position
     end function resolve_param_name
 
-    subroutine emit_argument_error(errors, message)
+    subroutine emit_argument_error(errors, message, arena, node_index)
         type(error_collection_t), intent(inout) :: errors
         character(len=*), intent(in) :: message
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: line, column
+
+        line = arena%entries(node_index)%node%line
+        column = arena%entries(node_index)%node%column
 
         call errors%add_result(create_error_result( &
             trim(message), ERROR_SEMANTIC, &
@@ -362,7 +372,8 @@ contains
             context="strict_argument_type_check", &
             suggestion="Use explicit conversion functions "// &
             "(real/int/dble) to match dummy "// &
-            "argument types"))
+            "argument types", line=line, column=column, end_line=line, &
+            end_column=column + 1))
     end subroutine emit_argument_error
 
 end module semantic_strict_argument_type_checker_validation

@@ -37,7 +37,7 @@ contains
     ! procedures are accepted unchanged.
     subroutine validate_elemental_procedure(arena, param_indices, body_indices, &
             prefix_keywords, errors, proc_name, bind_c_clause, result_name, &
-            require_declared_dummy_intent)
+            require_declared_dummy_intent, procedure_line, procedure_column)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: param_indices(:)
         integer, allocatable, intent(in) :: body_indices(:)
@@ -47,6 +47,7 @@ contains
         character(len=:), allocatable, intent(in), optional :: bind_c_clause
         character(len=*), intent(in), optional :: result_name
         logical, intent(in), optional :: require_declared_dummy_intent
+        integer, intent(in), optional :: procedure_line, procedure_column
         integer :: i, decl_index
         character(len=:), allocatable :: dummy_name
         logical :: check_dummy_intent
@@ -57,7 +58,8 @@ contains
             check_dummy_intent = require_declared_dummy_intent
         end if
 
-        call validate_elemental_bind_c(bind_c_clause, errors)
+        call validate_elemental_bind_c(bind_c_clause, errors, procedure_line, &
+            procedure_column)
         if (present(result_name)) then
             call validate_elemental_result(arena, body_indices, result_name, &
                 errors)
@@ -101,7 +103,7 @@ contains
                 if (.not. dummy_has_intent_or_value(arena, param_indices(i), &
                     body_indices, dummy_name)) then
                     call report_dummy_intent(errors, arena, param_indices(i), &
-                        dummy_name)
+                        body_indices, dummy_name)
                 end if
             end if
         end do
@@ -359,18 +361,26 @@ contains
         matches = to_lower(trim(left)) == to_lower(trim(right))
     end function names_match
 
-    subroutine validate_elemental_bind_c(bind_c_clause, errors)
+    subroutine validate_elemental_bind_c(bind_c_clause, errors, line, column)
         character(len=:), allocatable, intent(in), optional :: bind_c_clause
         type(error_collection_t), intent(inout) :: errors
+        integer, intent(in), optional :: line, column
+        integer :: location_line, location_column
 
         if (.not. present(bind_c_clause)) return
         if (.not. allocated(bind_c_clause)) return
         if (len_trim(bind_c_clause) == 0) return
+        location_line = 0
+        location_column = 0
+        if (present(line)) location_line = line
+        if (present(column)) location_column = column
         call errors%add_error( &
             message='BIND(C) attribute conflicts with ELEMENTAL attribute', &
             code=ERROR_SEMANTIC, &
             component='semantic_elemental_validation', &
-            suggestion='drop BIND(C) or drop the ELEMENTAL prefix')
+            suggestion='drop BIND(C) or drop the ELEMENTAL prefix', &
+            line=location_line, column=location_column, &
+            end_line=location_line, end_column=location_column + 1)
     end subroutine validate_elemental_bind_c
 
     subroutine validate_elemental_result(arena, body_indices, result_name, errors)
@@ -415,7 +425,8 @@ contains
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
             suggestion='make the dummy argument scalar, or drop the '// &
-            'ELEMENTAL prefix')
+            'ELEMENTAL prefix', line=line, column=column, end_line=line, &
+            end_column=column + 1)
     end subroutine report_array_dummy
 
     subroutine report_dummy_procedure(errors, arena, param_index, dummy_name)
@@ -433,25 +444,32 @@ contains
             component='semantic_elemental_validation', &
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
-            suggestion='drop the ELEMENTAL prefix or remove the dummy procedure')
+            suggestion='drop the ELEMENTAL prefix or remove the dummy procedure', &
+            line=line, column=column, end_line=line, end_column=column + 1)
     end subroutine report_dummy_procedure
 
-    subroutine report_dummy_intent(errors, arena, param_index, dummy_name)
+    subroutine report_dummy_intent(errors, arena, param_index, body_indices, &
+            dummy_name)
         type(error_collection_t), intent(inout) :: errors
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_index
+        integer, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: dummy_name
-        integer :: line, column
+        integer :: line, column, context_line, context_column, diagnostic_index
 
-        call source_position(arena, param_index, line, column)
+        call source_position(arena, param_index, context_line, context_column)
+        diagnostic_index = find_body_declaration(arena, body_indices, dummy_name)
+        if (diagnostic_index <= 0) diagnostic_index = param_index
+        call source_position(arena, diagnostic_index, line, column)
         call errors%add_error( &
             message='dummy argument "'//trim(dummy_name)// &
             '" of ELEMENTAL procedure must have INTENT or VALUE', &
             code=ERROR_SEMANTIC, &
             component='semantic_elemental_validation', &
-            context='line '//int_to_string(line)//', column '// &
-            int_to_string(column), &
-            suggestion='add INTENT or VALUE, or drop the ELEMENTAL prefix')
+            context='line '//int_to_string(context_line)//', column '// &
+            int_to_string(context_column), &
+            suggestion='add INTENT or VALUE, or drop the ELEMENTAL prefix', &
+            line=line, column=column, end_line=line, end_column=column + 1)
     end subroutine report_dummy_intent
 
     subroutine report_alternate_return(errors, arena, param_index)
@@ -467,7 +485,8 @@ contains
             component='semantic_elemental_validation', &
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
-            suggestion='remove the alternate return, or drop the ELEMENTAL prefix')
+            suggestion='remove the alternate return, or drop the ELEMENTAL prefix', &
+            line=line, column=column, end_line=line, end_column=column + 1)
     end subroutine report_alternate_return
 
     subroutine report_forbidden_attribute(errors, node, attribute, entity)
@@ -483,7 +502,8 @@ contains
             context='line '//int_to_string(node%line)//', column '// &
             int_to_string(node%column), &
             suggestion='remove '//trim(attribute)// &
-            ', or drop the ELEMENTAL prefix')
+            ', or drop the ELEMENTAL prefix', line=node%line, column=node%column, &
+            end_line=node%line, end_column=node%column + 1)
     end subroutine report_forbidden_attribute
 
     subroutine report_array_result(errors, node)
@@ -496,7 +516,9 @@ contains
             component='semantic_elemental_validation', &
             context='line '//int_to_string(node%line)//', column '// &
             int_to_string(node%column), &
-            suggestion='make the result scalar, or drop the ELEMENTAL prefix')
+            suggestion='make the result scalar, or drop the ELEMENTAL prefix', &
+            line=node%line, column=node%column, end_line=node%line, &
+            end_column=node%column + 1)
     end subroutine report_array_result
 
     subroutine report_pointer_result(errors, node)
@@ -509,7 +531,9 @@ contains
             component='semantic_elemental_validation', &
             context='line '//int_to_string(node%line)//', column '// &
             int_to_string(node%column), &
-            suggestion='remove POINTER, or drop the ELEMENTAL prefix')
+            suggestion='remove POINTER, or drop the ELEMENTAL prefix', &
+            line=node%line, column=node%column, end_line=node%line, &
+            end_column=node%column + 1)
     end subroutine report_pointer_result
 
     subroutine source_position(arena, node_index, line, column)

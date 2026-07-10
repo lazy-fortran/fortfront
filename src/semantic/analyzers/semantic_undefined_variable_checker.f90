@@ -82,7 +82,9 @@ contains
                     component="semantic_analyzer", &
                     context="check_undefined_variables", &
                     suggestion="Declare the variable before using it"// &
-                    " or remove 'implicit none'" &
+                    " or remove 'implicit none'", &
+                    line=node%line, column=node%column, end_line=node%line, &
+                    end_column=node%column + 1 &
                     )
                 call errors%add_result(error_result)
             end if

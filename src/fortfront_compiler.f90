@@ -30,6 +30,10 @@ module fortfront_compiler
         query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, &
         query_pointer_assignment, query_nullify
+    use frontend_compiler_diagnostics, only: compiler_diagnostic_t, &
+        get_compiler_diagnostics, &
+        DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &
+        DIAGNOSTIC_CODE_PARSER, DIAGNOSTIC_CODE_SEMANTIC
     use frontend_compiler_node_queries, only: is_declaration_node, &
         is_derived_type_node, &
         get_declaration_var_name, get_declaration_type_name, &
@@ -50,6 +54,8 @@ module fortfront_compiler
     use fortfront_semantic, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
         OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use fortfront_ast, only: ast_arena_t
+    use fortfront_types, only: DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, &
+        DIAGNOSTIC_INFO
     use fortfront_utils, only: node_exists, get_node_type_at, get_type_for_node
     use fortfront_lexer, only: token_t
     use type_system_unified, only: mono_type_t, &

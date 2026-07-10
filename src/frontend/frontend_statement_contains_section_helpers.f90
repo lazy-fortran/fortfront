@@ -222,6 +222,7 @@ module frontend_statement_contains_section_helpers
     use parser_state_module, only: create_parser_state, parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: contains_node
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -243,13 +244,14 @@ contains
     end subroutine push_implicit_contains_statement
 
     subroutine scan_contains_section(tokens, start_pos, arena, prefix_buffer, &
-            body_indices, end_pos)
+            body_indices, end_pos, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, allocatable, intent(inout) :: body_indices(:)
         integer, intent(out) :: end_pos
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: i
         character(len=:), allocatable :: lowered
         character(len=16), allocatable :: prefix_list(:)
@@ -279,13 +281,13 @@ contains
 
             if (is_contains_type_prefix_keyword(lowered)) then
                 call handle_type_prefixed_contains(tokens, i, arena, prefix_buffer, &
-                    prefix_list, body_indices)
+                    prefix_list, body_indices, diagnostic_sink)
                 cycle
             end if
 
             if (handle_contains_procedure_keyword(tokens, lowered, i, arena, &
                 prefix_buffer, prefix_list, &
-                body_indices)) cycle
+                body_indices, diagnostic_sink)) cycle
 
             i = i + 1
         end do
@@ -326,7 +328,7 @@ contains
 
     logical function handle_contains_procedure_keyword(tokens, lowered, pos, arena, &
             prefix_buffer, prefix_list, &
-            body_indices) result(handled)
+            body_indices, diagnostic_sink) result(handled)
         type(token_t), intent(in) :: tokens(:)
         character(len=*), intent(in) :: lowered
         integer, intent(inout) :: pos
@@ -334,6 +336,7 @@ contains
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer :: proc_end, proc_start
 
@@ -343,7 +346,7 @@ contains
             proc_start = pos
             call find_procedure_end(tokens, proc_start, "function", proc_end)
             call parse_contains_function_span(tokens, proc_start, proc_end, arena, &
-                prefix_buffer, prefix_list, body_indices)
+                prefix_buffer, prefix_list, body_indices, diagnostic_sink)
             pos = proc_end + 1
             handled = .true.
             return
@@ -354,7 +357,7 @@ contains
             call find_procedure_end(tokens, proc_start, "subroutine", proc_end)
             call parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
                 prefix_buffer, prefix_list, &
-                body_indices)
+                body_indices, diagnostic_sink)
             pos = proc_end + 1
             handled = .true.
             return
@@ -362,13 +365,14 @@ contains
     end function handle_contains_procedure_keyword
 
     subroutine handle_type_prefixed_contains(tokens, pos, arena, prefix_buffer, &
-            prefix_list, body_indices)
+            prefix_list, body_indices, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(inout) :: pos
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer :: proc_end
         logical :: parsed_procedure
@@ -376,7 +380,7 @@ contains
         call try_parse_typed_function_in_contains(tokens, pos, arena, &
             prefix_buffer, prefix_list, &
             body_indices, parsed_procedure, &
-            proc_end)
+            proc_end, diagnostic_sink)
         if (parsed_procedure) then
             pos = proc_end + 1
             return
@@ -408,7 +412,7 @@ contains
 
     subroutine try_parse_typed_function_in_contains(tokens, type_start, arena, &
             prefix_buffer, prefix_list, &
-            body_indices, parsed, proc_end)
+            body_indices, parsed, proc_end, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: type_start
         type(ast_arena_t), intent(inout) :: arena
@@ -417,6 +421,7 @@ contains
         integer, allocatable, intent(inout) :: body_indices(:)
         logical, intent(out) :: parsed
         integer, intent(out) :: proc_end
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: proc_start
         character(len=:), allocatable :: lowered
 
@@ -430,12 +435,12 @@ contains
 
         call find_procedure_end(tokens, proc_start, "function", proc_end)
         call parse_contains_function_span(tokens, type_start, proc_end, arena, &
-            prefix_buffer, prefix_list, body_indices)
+            prefix_buffer, prefix_list, body_indices, diagnostic_sink)
         parsed = .true.
     end subroutine try_parse_typed_function_in_contains
 
     subroutine parse_contains_function_span(tokens, span_start, proc_end, arena, &
-            prefix_buffer, prefix_list, body_indices)
+            prefix_buffer, prefix_list, body_indices, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: span_start
         integer, intent(in) :: proc_end
@@ -443,6 +448,7 @@ contains
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         type(parser_state_t) :: parser
         type(token_t), allocatable :: proc_tokens(:)
         integer :: proc_index
@@ -452,7 +458,7 @@ contains
         proc_tokens(proc_end - span_start + 2)%kind = TK_EOF
         proc_tokens(proc_end - span_start + 2)%text = ""
         call prefix_buffer%clear()
-        parser = create_parser_state(proc_tokens)
+        parser = create_parser_state(proc_tokens, diagnostic_sink)
 
         if (size(prefix_list) > 0) then
             proc_index = parse_function_definition(parser, arena, prefix_buffer, &
@@ -468,7 +474,7 @@ contains
 
     subroutine parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
             prefix_buffer, prefix_list, &
-            body_indices)
+            body_indices, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: proc_start
         integer, intent(in) :: proc_end
@@ -476,6 +482,7 @@ contains
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         type(parser_state_t) :: parser
         type(token_t), allocatable :: proc_tokens(:)
         integer :: proc_index
@@ -485,7 +492,7 @@ contains
         proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
         proc_tokens(proc_end - proc_start + 2)%text = ""
         call prefix_buffer%clear()
-        parser = create_parser_state(proc_tokens)
+        parser = create_parser_state(proc_tokens, diagnostic_sink)
 
         if (size(prefix_list) > 0) then
             proc_index = parse_subroutine_definition(parser, arena, prefix_buffer, &

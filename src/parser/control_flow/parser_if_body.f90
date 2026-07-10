@@ -140,11 +140,11 @@ contains
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
                 parent_index=parent_index, &
                 callbacks=callbacks, &
-                consumed_count=consumed_tokens)
+                consumed_count=consumed_tokens, parent_parser=parser)
         else
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
                 callbacks=callbacks, &
-                consumed_count=consumed_tokens)
+                consumed_count=consumed_tokens, parent_parser=parser)
         end if
 
         if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then

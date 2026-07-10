@@ -120,7 +120,8 @@ contains
 
         call gather_derived_type_tokens(parser, collected_tokens)
         if (allocated(collected_tokens)) then
-            call analyze_derived_type_tokens(type_spec, collected_tokens, arena)
+            call analyze_derived_type_tokens(type_spec, collected_tokens, arena, &
+                parser)
             derived_text = tokens_to_text(collected_tokens)
             call move_alloc(collected_tokens, type_spec%derived_type_tokens)
         else

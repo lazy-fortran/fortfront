@@ -212,7 +212,9 @@ contains
             context='line '//int_to_string(child%line)//', column '// &
             int_to_string(child%column), &
             suggestion='provide a type-bound procedure for "'// &
-            trim(binding_name)//'", or declare the type ABSTRACT')
+            trim(binding_name)//'", or declare the type ABSTRACT', &
+            line=child%line, column=child%column, end_line=child%line, &
+            end_column=child%column + 1)
     end subroutine report_unimplemented
 
     ! Lower-case and trim a substring for case-insensitive keyword matching.

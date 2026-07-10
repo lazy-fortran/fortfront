@@ -431,7 +431,7 @@ contains
         stmt_tokens(token_count + 1)%column = parser%tokens(end_idx)%column + 1
 
         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-            callbacks=callbacks)
+            callbacks=callbacks, parent_parser=parser)
         if (allocated(stmt_indices)) then
             do k = 1, size(stmt_indices)
                 if (stmt_indices(k) > 0) body_indices = [body_indices, stmt_indices(k)]

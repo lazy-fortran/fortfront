@@ -227,10 +227,11 @@ contains
         end if
     end subroutine set_derived_type_name_info
 
-    subroutine parse_single_parameter(current, type_spec, arena)
+    subroutine parse_single_parameter(current, type_spec, arena, parent_parser)
         type(token_t), allocatable, intent(in) :: current(:)
         type(type_specifier_t), intent(inout) :: type_spec
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         type(token_t), allocatable :: cleaned(:)
         type(token_t), allocatable :: parser_tokens(:)
         type(token_t) :: eof_token
@@ -248,6 +249,9 @@ contains
         parser_tokens(size(cleaned) + 1) = eof_token
 
         param_parser = create_parser_state(parser_tokens)
+        if (associated(parent_parser%diagnostic_sink)) then
+            param_parser%diagnostic_sink => parent_parser%diagnostic_sink
+        end if
         expr_index = parse_comparison(param_parser, arena)
         if (expr_index > 0) then
             call append_int(type_spec%derived_parameter_nodes, expr_index)
@@ -260,10 +264,11 @@ contains
         end block
     end subroutine parse_single_parameter
 
-    subroutine split_parameters(working, type_spec, arena)
+    subroutine split_parameters(working, type_spec, arena, parent_parser)
         type(token_t), allocatable, intent(in) :: working(:)
         type(type_specifier_t), intent(inout) :: type_spec
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         type(token_t), allocatable :: current(:)
         integer :: depth
         integer :: i
@@ -278,7 +283,8 @@ contains
                     if (depth > 0) depth = depth - 1
                 case (",")
                     if (depth == 0) then
-                        call parse_single_parameter(current, type_spec, arena)
+                        call parse_single_parameter(current, type_spec, arena, &
+                            parent_parser)
                         if (allocated(current)) then
                             block
                                 type(token_t), allocatable :: temp(:)
@@ -291,7 +297,7 @@ contains
             end if
             call append_token(current, working(i))
         end do
-        call parse_single_parameter(current, type_spec, arena)
+        call parse_single_parameter(current, type_spec, arena, parent_parser)
         if (allocated(current)) then
             block
                 type(token_t), allocatable :: temp(:)
@@ -300,10 +306,12 @@ contains
         end if
     end subroutine split_parameters
 
-    subroutine process_derived_type_parameters(type_spec, param_tokens, arena)
+    subroutine process_derived_type_parameters(type_spec, param_tokens, arena, &
+            parent_parser)
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t), allocatable, intent(in) :: param_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         type(token_t), allocatable :: working(:)
         type(token_t), allocatable :: trimmed_working(:)
 
@@ -324,7 +332,7 @@ contains
             end block
         end if
 
-        call split_parameters(working, type_spec, arena)
+        call split_parameters(working, type_spec, arena, parent_parser)
 
         if (allocated(type_spec%derived_parameter_nodes)) then
             type_spec%has_derived_type_parameters = &
@@ -334,10 +342,11 @@ contains
         end if
     end subroutine process_derived_type_parameters
 
-    subroutine analyze_derived_type_tokens(type_spec, tokens, arena)
+    subroutine analyze_derived_type_tokens(type_spec, tokens, arena, parent_parser)
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t), allocatable, intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         type(token_t), allocatable :: name_tokens(:)
         type(token_t), allocatable :: param_tokens(:)
 
@@ -358,7 +367,8 @@ contains
             end if
             return
         end if
-        call process_derived_type_parameters(type_spec, param_tokens, arena)
+        call process_derived_type_parameters(type_spec, param_tokens, arena, &
+            parent_parser)
 
         if (allocated(type_spec%derived_parameter_tokens)) then
             block

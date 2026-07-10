@@ -378,7 +378,7 @@ contains
         allocate (remaining_tokens(n))
         remaining_tokens = parser%tokens(parser%current_token:)
 
-        condition_index = parse_expression(remaining_tokens, arena)
+        condition_index = parse_expression(remaining_tokens, arena, parser)
 
         do while (.not. parser%is_at_end())
             paren_token = parser%peek()
@@ -431,7 +431,7 @@ contains
         allocate (remaining_tokens(n))
         remaining_tokens = parser%tokens(parser%current_token:)
 
-        condition_index = parse_expression(remaining_tokens, arena)
+        condition_index = parse_expression(remaining_tokens, arena, parser)
 
         do while (.not. parser%is_at_end())
             paren_token = parser%peek()

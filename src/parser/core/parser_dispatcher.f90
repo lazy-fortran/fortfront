@@ -62,6 +62,7 @@ module parser_dispatcher_module
     use parser_assignment_module, only: parse_assignment_statement
     use parser_expressions_module, only: parse_expression
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
+    use error_reporting, only: error_collection_t
     implicit none
     private
 
