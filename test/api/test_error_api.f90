@@ -9,6 +9,12 @@ program test_error_api
         ERROR_WARNING, &
         ERROR_ERROR, &
         ERROR_FATAL
+    use fortfront_compiler, only: compiler_frontend_result_t, &
+        compiler_frontend_options_t, compiler_diagnostic_t, &
+        compile_frontend_from_string, get_compiler_diagnostics, &
+        INPUT_MODE_STANDARD, OPERATING_MODE_STRICT, DIAGNOSTIC_ERROR, &
+        DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &
+        DIAGNOSTIC_CODE_PARSER, DIAGNOSTIC_CODE_SEMANTIC
     implicit none
 
     logical :: all_passed
@@ -24,6 +30,11 @@ program test_error_api
     if (.not. test_error_collection_add_with_context()) all_passed = .false.
     if (.not. test_error_collection_format_and_clear()) all_passed = .false.
     if (.not. test_error_collection_format_long_message()) all_passed = .false.
+    if (.not. test_compiler_diagnostics_valid()) all_passed = .false.
+    if (.not. test_compiler_parser_diagnostic()) all_passed = .false.
+    if (.not. test_compiler_function_parser_diagnostic()) all_passed = .false.
+    if (.not. test_compiler_diagnostic_result_ownership()) all_passed = .false.
+    if (.not. test_compiler_semantic_diagnostic()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -321,5 +332,157 @@ contains
 
         print *, '  PASS: Error collection long-message formatting'
     end function test_error_collection_format_long_message
+
+    logical function test_compiler_diagnostics_valid()
+        type(compiler_frontend_result_t) :: result
+        type(compiler_diagnostic_t), allocatable :: diagnostics(:)
+        character(len=*), parameter :: source = &
+            'program valid'//new_line('a')// &
+            '  integer :: value'//new_line('a')// &
+            '  value = 1'//new_line('a')// &
+            'end program valid'
+
+        test_compiler_diagnostics_valid = .true.
+        call compile_frontend_from_string(source, result)
+        diagnostics = get_compiler_diagnostics(result)
+        if (size(diagnostics) /= 0) then
+            print *, '  FAIL: valid source returned compiler diagnostics'
+            test_compiler_diagnostics_valid = .false.
+        end if
+    end function test_compiler_diagnostics_valid
+
+    logical function test_compiler_parser_diagnostic()
+        type(compiler_frontend_result_t) :: result
+        type(compiler_diagnostic_t), allocatable :: diagnostics(:)
+        character(len=*), parameter :: source = &
+            'program broken'//new_line('a')// &
+            '    implicit none'//new_line('a')// &
+            '    integer :: value'//new_line('a')// &
+            '    value = identity{integer'//new_line('a')// &
+            'end program broken'
+
+        test_compiler_parser_diagnostic = .true.
+        call compile_frontend_from_string(source, result)
+        diagnostics = get_compiler_diagnostics(result)
+        if (size(diagnostics) == 0) then
+            print *, '  FAIL: malformed source returned no diagnostic'
+            test_compiler_parser_diagnostic = .false.
+            return
+        end if
+        if (diagnostics(1)%phase /= DIAGNOSTIC_PHASE_PARSER .or. &
+            diagnostics(1)%code /= DIAGNOSTIC_CODE_PARSER .or. &
+            diagnostics(1)%severity /= DIAGNOSTIC_ERROR) then
+            print *, '  FAIL: parser diagnostic classification is unstable'
+            test_compiler_parser_diagnostic = .false.
+            return
+        end if
+        if (diagnostics(1)%span%start%line /= 4 .or. &
+            diagnostics(1)%span%start%column /= 21 .or. &
+            diagnostics(1)%span%end%line /= 4 .or. &
+            diagnostics(1)%span%end%column /= 22) then
+            print *, '  FAIL: parser diagnostic span is incorrect'
+            test_compiler_parser_diagnostic = .false.
+        end if
+    end function test_compiler_parser_diagnostic
+
+    logical function test_compiler_function_parser_diagnostic()
+        type(compiler_frontend_result_t) :: result
+        type(compiler_diagnostic_t), allocatable :: diagnostics(:)
+        character(len=*), parameter :: source = &
+            'integer function broken(value)'//new_line('a')// &
+            '  integer :: value'//new_line('a')// &
+            '  broken = identity{integer'//new_line('a')// &
+            'end function broken'
+
+        test_compiler_function_parser_diagnostic = .true.
+        call compile_frontend_from_string(source, result)
+        diagnostics = get_compiler_diagnostics(result)
+        if (size(diagnostics) == 0) then
+            print *, '  FAIL: malformed top-level function returned no diagnostic'
+            test_compiler_function_parser_diagnostic = .false.
+            return
+        end if
+        if (diagnostics(1)%phase /= DIAGNOSTIC_PHASE_PARSER) then
+            print *, '  FAIL: malformed function diagnostic phase is not parser'
+            test_compiler_function_parser_diagnostic = .false.
+        end if
+    end function test_compiler_function_parser_diagnostic
+
+    logical function test_compiler_diagnostic_result_ownership()
+        type(compiler_frontend_result_t) :: invalid_result, valid_result
+        type(compiler_diagnostic_t), allocatable :: before(:), after(:), valid(:)
+        character(len=:), allocatable :: first_message
+        character(len=*), parameter :: invalid_source = &
+            'program broken'//new_line('a')// &
+            '  value = identity{integer'//new_line('a')// &
+            'end program broken'
+        character(len=*), parameter :: valid_source = &
+            'program valid'//new_line('a')// &
+            '  integer :: value'//new_line('a')// &
+            '  value = 1'//new_line('a')// &
+            'end program valid'
+
+        test_compiler_diagnostic_result_ownership = .true.
+        call compile_frontend_from_string(invalid_source, invalid_result)
+        before = get_compiler_diagnostics(invalid_result)
+        if (size(before) == 0) then
+            print *, '  FAIL: ownership fixture returned no parser diagnostic'
+            test_compiler_diagnostic_result_ownership = .false.
+            return
+        end if
+        first_message = before(1)%message
+
+        call compile_frontend_from_string(valid_source, valid_result)
+        valid = get_compiler_diagnostics(valid_result)
+        after = get_compiler_diagnostics(invalid_result)
+        if (size(valid) /= 0) then
+            print *, '  FAIL: later valid result inherited parser diagnostics'
+            test_compiler_diagnostic_result_ownership = .false.
+        end if
+        if (size(after) /= size(before)) then
+            print *, '  FAIL: later parse changed prior diagnostic count'
+            test_compiler_diagnostic_result_ownership = .false.
+            return
+        end if
+        if (after(1)%message /= first_message) then
+            print *, '  FAIL: later parse changed prior diagnostic message'
+            test_compiler_diagnostic_result_ownership = .false.
+        end if
+    end function test_compiler_diagnostic_result_ownership
+
+    logical function test_compiler_semantic_diagnostic()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        type(compiler_diagnostic_t), allocatable :: diagnostics(:)
+        character(len=*), parameter :: source = &
+            'elemental subroutine invalid_intent(value)'//new_line('a')// &
+            '  integer :: value'//new_line('a')// &
+            'end subroutine invalid_intent'
+
+        test_compiler_semantic_diagnostic = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        options%operating_mode = OPERATING_MODE_STRICT
+        call compile_frontend_from_string(source, result, options)
+        diagnostics = get_compiler_diagnostics(result)
+        if (size(diagnostics) == 0) then
+            print *, '  FAIL: invalid declaration returned no diagnostic'
+            test_compiler_semantic_diagnostic = .false.
+            return
+        end if
+        if (diagnostics(1)%phase /= DIAGNOSTIC_PHASE_SEMANTIC .or. &
+            diagnostics(1)%code /= DIAGNOSTIC_CODE_SEMANTIC .or. &
+            diagnostics(1)%severity /= DIAGNOSTIC_ERROR) then
+            print *, '  FAIL: semantic diagnostic classification is unstable'
+            test_compiler_semantic_diagnostic = .false.
+            return
+        end if
+        if (diagnostics(1)%span%start%line /= 2 .or. &
+            diagnostics(1)%span%start%column /= 3 .or. &
+            diagnostics(1)%span%end%line /= 2 .or. &
+            diagnostics(1)%span%end%column /= 4) then
+            print *, '  FAIL: semantic diagnostic span is incorrect'
+            test_compiler_semantic_diagnostic = .false.
+        end if
+    end function test_compiler_semantic_diagnostic
 
 end program test_error_api

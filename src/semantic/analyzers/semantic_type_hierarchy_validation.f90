@@ -162,7 +162,8 @@ contains
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
             suggestion='define the parent type before extending it, or '// &
-            'break the circular EXTENDS chain')
+            'break the circular EXTENDS chain', line=line, column=column, &
+            end_line=line, end_column=column + 1)
     end subroutine report_hierarchy_error
 
 end module semantic_type_hierarchy_validation

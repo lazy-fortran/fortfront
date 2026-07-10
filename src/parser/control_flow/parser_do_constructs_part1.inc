@@ -875,7 +875,8 @@
 
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
                                                                   loop_index, &
-                                                                  callbacks)
+                                                                  callbacks, &
+                                                                  parent_parser=parser)
 
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then

@@ -14,6 +14,8 @@ module error_reporting
     type, public :: error_context_t
         integer :: line = 0
         integer :: column = 0
+        integer :: end_line = 0
+        integer :: end_column = 0
         character(len=:), allocatable :: filename
         character(len=:), allocatable :: source_line
     end type error_context_t
@@ -48,13 +50,19 @@ module error_reporting
 contains
 
     ! Create error context from line/column information
-    function create_error_context(line, column, filename, source_line) result(context)
+    function create_error_context(line, column, filename, source_line, end_line, &
+            end_column) result(context)
         integer, intent(in) :: line, column
         character(len=*), intent(in), optional :: filename, source_line
+        integer, intent(in), optional :: end_line, end_column
         type(error_context_t) :: context
 
         context%line = line
         context%column = column
+        context%end_line = line
+        context%end_column = column + 1
+        if (present(end_line)) context%end_line = end_line
+        if (present(end_column)) context%end_column = end_column
 
         if (present(filename)) then
             context%filename = filename
@@ -75,6 +83,11 @@ contains
 
         context%line = token%line
         context%column = token%column
+        context%end_line = token%line
+        context%end_column = token%column + 1
+        if (allocated(token%text)) then
+            context%end_column = token%column + max(len(token%text), 1)
+        end if
 
         if (present(filename)) then
             context%filename = filename

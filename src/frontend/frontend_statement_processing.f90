@@ -19,6 +19,7 @@ module frontend_statement_processing
         handle_multiple_program_units, &
         should_include_program_unit, &
         is_empty_main_program
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -35,9 +36,10 @@ module frontend_statement_processing
 contains
 
     ! Parse all statements into a program block
-    function parse_all_statements(tokens, arena) result(prog_index)
+    function parse_all_statements(tokens, arena, diagnostic_sink) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: prog_index
 
         integer, allocatable :: body_indices(:)
@@ -62,7 +64,7 @@ contains
             ! Check for structural contains keyword (implicit main program)
             if (is_structural_contains(tokens, stmt_start, stmt_end)) then
                 call parse_implicit_contains_section(tokens, stmt_end + 1, arena, &
-                    body_indices, i)
+                    body_indices, i, diagnostic_sink)
                 exit
             end if
 
@@ -98,10 +100,10 @@ contains
 
             if (tokens(stmt_start)%kind == TK_COMMENT) then
                 call process_comment_statement(tokens, stmt_start, arena, &
-                    prefix_buffer, stmt_index, body_indices)
+                    prefix_buffer, stmt_index, body_indices, diagnostic_sink)
             else
                 call process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-                    prefix_buffer, stmt_index, body_indices)
+                    prefix_buffer, stmt_index, body_indices, diagnostic_sink)
             end if
 
             if (stmt_index > 0) then

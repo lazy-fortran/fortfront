@@ -46,7 +46,8 @@ contains
         if (is_known_array_reference(scopes, proc_name)) return
         if (has_explicit_interface_in_cache(cache, proc_name)) return
 
-        call emit_missing_explicit_interface(errors, expr%name)
+        call emit_missing_explicit_interface(errors, expr%name, expr%line, &
+            expr%column)
     end subroutine validate_explicit_interface_for_function_reference
 
     subroutine validate_explicit_interface_for_subroutine_call(arena, scopes, &
@@ -68,7 +69,8 @@ contains
         if (is_intrinsic_subroutine(proc_name)) return
         if (has_explicit_interface_in_cache(cache, proc_name)) return
 
-        call emit_missing_explicit_interface(errors, expr%name)
+        call emit_missing_explicit_interface(errors, expr%name, expr%line, &
+            expr%column)
     end subroutine validate_explicit_interface_for_subroutine_call
 
     logical function is_known_array_reference(scopes, name) result(is_array)
@@ -223,9 +225,10 @@ contains
         interned_id = identifier_table_intern(cache, lowered)
     end subroutine cache_allocated_name
 
-    subroutine emit_missing_explicit_interface(errors, original_name)
+    subroutine emit_missing_explicit_interface(errors, original_name, line, column)
         type(error_collection_t), intent(inout) :: errors
         character(len=*), intent(in) :: original_name
+        integer, intent(in) :: line, column
         character(len=:), allocatable :: message
         character(len=:), allocatable :: suggestion
 
@@ -238,7 +241,8 @@ contains
             message, ERROR_SEMANTIC, &
             component="semantic_analyzer", &
             context="explicit_interface_requirement", &
-            suggestion=suggestion))
+            suggestion=suggestion, line=line, column=column, end_line=line, &
+            end_column=column + 1))
     end subroutine emit_missing_explicit_interface
 
 end module semantic_explicit_interface_checker

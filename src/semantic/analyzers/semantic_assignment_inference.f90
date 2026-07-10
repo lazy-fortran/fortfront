@@ -151,7 +151,8 @@ contains
                         if (lhs_is_int .and. rhs_is_int) then
                             if (lhs_is_unsigned .neqv. rhs_is_unsigned) then
                                 if (.not. rhs_is_int_literal) then
-                                    call emit_unsigned_integer_mix_error(errors)
+                                    call emit_unsigned_integer_mix_error(errors, &
+                                        assignment%line, assignment%column)
                                 end if
                             end if
                         end if

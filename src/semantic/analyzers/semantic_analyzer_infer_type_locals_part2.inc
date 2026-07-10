@@ -33,7 +33,9 @@
                                               bind_c_clause=expr%bind_c_clause, &
                                               result_name=elemental_result_name, &
                                               require_declared_dummy_intent= &
-                                              this%input_mode == INPUT_MODE_STANDARD)
+                                              this%input_mode == INPUT_MODE_STANDARD, &
+                                              procedure_line=expr%line, &
+                                              procedure_column=expr%column)
 
             ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
             call validate_bind_c_procedure(arena, expr%param_indices, &
@@ -78,7 +80,9 @@
                                               proc_name=expr%name, &
                                               bind_c_clause=expr%bind_c_clause, &
                                               require_declared_dummy_intent= &
-                                              this%input_mode == INPUT_MODE_STANDARD)
+                                              this%input_mode == INPUT_MODE_STANDARD, &
+                                              procedure_line=expr%line, &
+                                              procedure_column=expr%column)
 
             ! Enforce BIND(C) dummy-argument interoperability (F2003 15.3.2)
             call validate_bind_c_procedure(arena, expr%param_indices, &
@@ -361,7 +365,15 @@
                                            trim(message), ERROR_SEMANTIC, &
                                            component="semantic_analyzer", &
                                            context="data_statement", &
-                                           suggestion="Declare as array")
+                                           suggestion="Declare as array", &
+                                           line=arena%entries(object_index)%node% &
+                                           line, &
+                                           column=arena%entries(object_index)%node% &
+                                           column, &
+                                           end_line=arena%entries(object_index)% &
+                                           node%line, &
+                                           end_column=arena%entries(object_index)% &
+                                           node%column + 1)
                             call this%errors%add_result(error_result)
                         end block
                         return
@@ -433,7 +445,14 @@
                                    " scalar objects", &
                                    ERROR_SEMANTIC, "semantic_analyzer", &
                                    "data_statement", &
-                                   "Match values to objects")
+                                   "Match values to objects", &
+                                   line=arena%entries(object_indices(1))%node%line, &
+                                   column=arena%entries(object_indices(1))%node% &
+                                   column, &
+                                   end_line=arena%entries(object_indices(1))%node% &
+                                   line, &
+                                   end_column=arena%entries(object_indices(1))% &
+                                   node%column + 1)
                     call this%errors%add_result(error_result)
                 end block
                 return
@@ -549,7 +568,9 @@
                 if (left_is_unsigned .neqv. right_is_unsigned) then
                     if (.not. left_is_int_literal .and. &
                         .not. right_is_int_literal) then
-                        call emit_unsigned_integer_mix_error(this%errors)
+                        call emit_unsigned_integer_mix_error(this%errors, &
+                                                             expr%line, &
+                                                             expr%column)
                     end if
                 end if
             end if
@@ -683,8 +704,8 @@
                         if (actual_is_int) then
                             if (actual_is_unsigned .neqv. expected_is_unsigned) then
                                 if (.not. actual_is_int_literal) then
-                                    call emit_unsigned_integer_mix_error(this% &
-                                                                         errors)
+                                    call emit_unsigned_integer_mix_error( &
+                                        this%errors, expr%line, expr%column)
                                 end if
                             end if
                         end if

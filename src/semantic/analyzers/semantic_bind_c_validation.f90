@@ -230,7 +230,8 @@ contains
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
             suggestion='remove the '//kind//' attribute or drop BIND(C) '// &
-            'from the type')
+            'from the type', line=line, column=column, end_line=line, &
+            end_column=column + 1)
     end subroutine report_component
 
     subroutine report_dummy(errors, proc_name, dummy_name, kind, line, column)
@@ -246,7 +247,8 @@ contains
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
             suggestion='use an explicit-shape or assumed-rank dummy, or '// &
-            'drop BIND(C) from the procedure')
+            'drop BIND(C) from the procedure', line=line, column=column, &
+            end_line=line, end_column=column + 1)
     end subroutine report_dummy
 
 end module semantic_bind_c_validation

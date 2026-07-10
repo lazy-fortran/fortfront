@@ -7,6 +7,7 @@ module frontend_statement_token_parsing
         get_last_parser_errors
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -21,13 +22,14 @@ module frontend_statement_token_parsing
 contains
 
     subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, &
-            body_indices)
+            body_indices, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: i
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         type(token_t), allocatable, target :: stmt_tokens(:)
 
         allocate (stmt_tokens(2))
@@ -37,20 +39,22 @@ contains
         stmt_tokens(2)%line = tokens(i)%line
         stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
 
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer, &
+            diagnostic_sink)
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
     end subroutine process_comment_statement
 
     subroutine process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-            prefix_buffer, stmt_index, body_indices)
+            prefix_buffer, stmt_index, body_indices, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         type(token_t), allocatable, target :: stmt_tokens(:)
         integer :: effective_start
 
@@ -65,7 +69,7 @@ contains
         call capture_trailing_comment(stmt_tokens, arena, 0)
         call strip_trailing_comment_from_tokens(stmt_tokens)
         call parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
-            prefix_buffer, stmt_index)
+            prefix_buffer, stmt_index, diagnostic_sink)
         if (stmt_index <= 0) return
 
         call attach_captured_trailing_comment(arena, stmt_index)
@@ -134,11 +138,12 @@ contains
     end subroutine build_statement_tokens
 
     subroutine parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
-            prefix_buffer, stmt_index)
+            prefix_buffer, stmt_index, diagnostic_sink)
         type(token_t), allocatable, intent(inout), target :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, intent(out) :: stmt_index
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         character(len=:), allocatable :: stmt_label
         integer :: label_end_idx, i
         type(token_t), allocatable :: tokens_without_label(:)
@@ -159,7 +164,8 @@ contains
             call move_alloc(tokens_without_label, stmt_tokens)
         end if
 
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer, &
+            diagnostic_sink)
         if (stmt_index <= 0 .or. .not. allocated(stmt_label)) return
 
         if (stmt_index <= arena%size) then
@@ -180,20 +186,16 @@ contains
         call clear_additional_indices()
     end subroutine append_additional_indices_from_dispatcher
 
-    function parse_explicit_program_unit(tokens, arena, error_msg) result(prog_index)
+    function parse_explicit_program_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: prog_index
         type(parser_prefix_buffer_t) :: prefix_buffer
-        character(len=:), allocatable :: errors
-
-        prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-
-        if (present(error_msg)) then
-            errors = get_last_parser_errors()
-            error_msg = errors
-        end if
+        prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_explicit_program_unit
 
     logical function is_prefix_only_statement(tokens, start_idx, end_idx) &

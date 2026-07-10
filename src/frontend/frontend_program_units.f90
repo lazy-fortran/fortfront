@@ -18,6 +18,7 @@ module frontend_program_units
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program
     use frontend_utilities, only: is_type_start
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -37,12 +38,14 @@ module frontend_program_units
 contains
 
     ! Main program unit parsing dispatch
-    function parse_program_unit(tokens, arena, has_explicit_program, error_msg) &
+    function parse_program_unit(tokens, arena, has_explicit_program, error_msg, &
+            diagnostic_sink) &
             result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
         integer :: first_token_pos
@@ -73,31 +76,37 @@ contains
         ! Determine unit type and parse accordingly
         block
             if (is_function_start(trimmed_tokens, 1)) then
-                unit_index = parse_function_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_function_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_subroutine_start(trimmed_tokens, 1)) then
-                unit_index = parse_subroutine_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_subroutine_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_submodule_start(trimmed_tokens, 1)) then
                 ! Parse the entire submodule with its content
-                unit_index = parse_submodule_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_submodule_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_module_start(trimmed_tokens, 1)) then
                 ! Parse the entire module with its content
-                unit_index = parse_module_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_module_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_template_start(trimmed_tokens, 1)) then
-                unit_index = parse_template_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_template_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_program_start(trimmed_tokens, 1)) then
                 unit_index = parse_explicit_program_unit(trimmed_tokens, arena, &
-                    parse_error)
+                    parse_error, diagnostic_sink)
             else if (is_block_data_start(trimmed_tokens, 1)) then
                 ! Parse BLOCK DATA unit
-                unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else if (is_interface_start(trimmed_tokens, 1)) then
                 unit_index = parse_interface_unit(trimmed_tokens, arena, &
-                    parse_error)
+                    parse_error, diagnostic_sink)
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
                     has_explicit_program, &
-                    parse_error)
+                    parse_error, diagnostic_sink)
             end if
         end block
 
@@ -117,43 +126,47 @@ contains
     end function parse_program_unit
 
     ! Parse module unit with all its content
-    function parse_module_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_module_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the complete module including its content
         ! Module should be parsed with all its statements
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_module_unit
 
-    function parse_template_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_template_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_template_unit
 
     ! Parse submodule unit with all its content (Fortran 2008)
-    function parse_submodule_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_submodule_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the complete submodule including its content
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_submodule_unit
 
     ! Check if program unit has meaningful content
@@ -179,10 +192,12 @@ contains
     end function not_meaningful_program_unit
 
     ! Parse function unit
-    function parse_function_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_function_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
 
         ! Initialize error message
@@ -193,7 +208,7 @@ contains
             type(parser_state_t) :: parser
             type(parser_prefix_buffer_t) :: prefix_buffer
             call init_interface_procedure_parser()
-            parser = create_parser_state(tokens)
+            parser = create_parser_state(tokens, diagnostic_sink)
             unit_index = parse_function_definition(parser, arena, prefix_buffer)
             ! Extract parser errors before parser goes out of scope
             if (present(error_msg) .and. parser%has_errors()) then
@@ -203,71 +218,73 @@ contains
     end function parse_function_unit
 
     ! Parse subroutine unit
-    function parse_subroutine_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_subroutine_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the subroutine using the dispatcher
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_subroutine_unit
 
     ! Parse type unit
-    function parse_type_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_type_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Statement dispatcher handles parser creation for type definitions
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_type_unit
 
     ! Parse BLOCK DATA unit
-    function parse_block_data_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_block_data_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse BLOCK DATA using statement dispatcher
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) error_msg = get_last_parser_errors()
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg)
     end function parse_block_data_unit
 
-    function parse_interface_unit(tokens, arena, error_msg) result(unit_index)
+    function parse_interface_unit(tokens, arena, error_msg, diagnostic_sink) &
+            result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
-        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink)
 
-        if (present(error_msg)) then
-            if (.not. allocated(error_msg)) then
-                allocate (character(len=0) :: error_msg)
-            end if
-            error_msg = ""
-        end if
+        if (present(error_msg)) error_msg = ""
     end function parse_interface_unit
 
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program, &
-            error_msg) result(prog_index)
+            error_msg, diagnostic_sink) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: prog_index
         character(len=:), allocatable :: errors
 
@@ -275,10 +292,10 @@ contains
         if (has_any_non_comment_content(tokens)) then
             if (has_executable_statements(tokens)) then
                 ! Parse all statements into a program block (multi-statement aware)
-                prog_index = parse_all_statements(tokens, arena)
+                prog_index = parse_all_statements(tokens, arena, diagnostic_sink)
             else
                 ! Just declarations - still creates implicit main program
-                prog_index = parse_all_statements(tokens, arena)
+                prog_index = parse_all_statements(tokens, arena, diagnostic_sink)
             end if
         else
             ! No meaningful content - create empty program
@@ -287,6 +304,7 @@ contains
 
         ! Extract parser errors if requested (implicit main can have parse errors too)
         if (present(error_msg)) then
+            if (present(diagnostic_sink)) return
             errors = get_last_parser_errors()
             if (len_trim(errors) > 0) then
                 error_msg = errors

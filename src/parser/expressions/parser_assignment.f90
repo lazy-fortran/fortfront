@@ -124,6 +124,9 @@ contains
                         lhs_tokens(lhs_len)%column = id_token%column
 
                         lhs_parser = create_parser_state(lhs_tokens)
+                        if (associated(parser%diagnostic_sink)) then
+                            lhs_parser%diagnostic_sink => parser%diagnostic_sink
+                        end if
                         target_index = parse_range(lhs_parser, arena)
                     end block
 

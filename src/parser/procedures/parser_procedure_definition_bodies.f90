@@ -472,7 +472,7 @@ contains
         call maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
             infer_recursive_flag)
 
-        stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena)
+        stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena, parser)
 
         parser%current_token = stmt_end + 1
     end subroutine parse_body_statement
@@ -552,11 +552,13 @@ contains
         end do
     end subroutine maybe_mark_recursive_from_body
 
-    integer function parse_body_statement_tokens(stmt_tokens, stmt_size, arena) &
+    integer function parse_body_statement_tokens(stmt_tokens, stmt_size, arena, &
+            parent_parser) &
             result(stmt_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: stmt_size
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         integer :: first_token
         character(len=:), allocatable :: token_lower
         type(parser_state_t) :: block_parser
@@ -577,16 +579,31 @@ contains
             if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
                 token_lower = to_lower(stmt_tokens(first_token)%text)
                 if (trim(token_lower) == "if") then
-                    stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        stmt_index = parse_if_statement_tokens(stmt_tokens, arena, &
+                            parent_parser%diagnostic_sink)
+                    else
+                        stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                    end if
                 else if (trim(token_lower) == "do") then
-                    stmt_index = parse_do_statement_tokens(stmt_tokens, arena)
+                    stmt_index = parse_do_statement_tokens(stmt_tokens, arena, &
+                        parent_parser)
                 else if (trim(token_lower) == "select") then
-                    stmt_index = parse_select_statement_tokens(stmt_tokens, arena)
+                    stmt_index = parse_select_statement_tokens(stmt_tokens, arena, &
+                        parent_parser)
                 else if (trim(token_lower) == "associate") then
                     block_parser = create_parser_state(stmt_tokens)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        block_parser%diagnostic_sink => &
+                            parent_parser%diagnostic_sink
+                    end if
                     stmt_index = parse_associate(block_parser, arena)
                 else if (trim(token_lower) == "block") then
                     block_parser = create_parser_state(stmt_tokens)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        block_parser%diagnostic_sink => &
+                            parent_parser%diagnostic_sink
+                    end if
                     stmt_index = parse_block_construct(block_parser, arena)
                 end if
             end if
@@ -594,6 +611,9 @@ contains
 
         if (stmt_index <= 0) then
             block_parser = create_parser_state(stmt_tokens)
+            if (associated(parent_parser%diagnostic_sink)) then
+                block_parser%diagnostic_sink => parent_parser%diagnostic_sink
+            end if
             do while (block_parser%current_token < first_token .and. &
                     .not. block_parser%is_at_end())
                 token = block_parser%consume()
@@ -608,28 +628,37 @@ contains
         end if
     end function parse_body_statement_tokens
 
-    integer function parse_do_statement_tokens(stmt_tokens, arena) result(do_index)
+    integer function parse_do_statement_tokens(stmt_tokens, arena, parent_parser) &
+            result(do_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t) :: do_parser
+        type(parser_state_t), intent(in) :: parent_parser
 
         ! Create a parser state from the tokens
         do_parser = create_parser_state(stmt_tokens)
+        if (associated(parent_parser%diagnostic_sink)) then
+            do_parser%diagnostic_sink => parent_parser%diagnostic_sink
+        end if
 
         ! Parse the DO loop using the existing DO loop parser
         do_index = parse_do_loop(do_parser, arena)
     end function parse_do_statement_tokens
 
-    integer function parse_select_statement_tokens(stmt_tokens, arena) &
+    integer function parse_select_statement_tokens(stmt_tokens, arena, parent_parser) &
             result(select_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t) :: select_parser
+        type(parser_state_t), intent(in) :: parent_parser
         type(token_t) :: next_token
         character(len=:), allocatable :: next_lower
 
         ! Create a parser state from the tokens
         select_parser = create_parser_state(stmt_tokens)
+        if (associated(parent_parser%diagnostic_sink)) then
+            select_parser%diagnostic_sink => parent_parser%diagnostic_sink
+        end if
 
         ! Consume SELECT keyword
         next_token = select_parser%consume()
@@ -653,14 +682,26 @@ contains
                 if (trim(next_lower) == "case") then
                     ! Reset parser to beginning and call parse_select_case
                     select_parser = create_parser_state(stmt_tokens)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        select_parser%diagnostic_sink => &
+                            parent_parser%diagnostic_sink
+                    end if
                     select_index = parse_select_case(select_parser, arena)
                 else if (trim(next_lower) == "type") then
                     ! Reset parser to beginning and call parse_select_type
                     select_parser = create_parser_state(stmt_tokens)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        select_parser%diagnostic_sink => &
+                            parent_parser%diagnostic_sink
+                    end if
                     select_index = parse_select_type(select_parser, arena)
                 else if (trim(next_lower) == "rank") then
                     ! Reset parser to beginning and call parse_select_rank
                     select_parser = create_parser_state(stmt_tokens)
+                    if (associated(parent_parser%diagnostic_sink)) then
+                        select_parser%diagnostic_sink => &
+                            parent_parser%diagnostic_sink
+                    end if
                     select_index = parse_select_rank(select_parser, arena)
                 else
                     select_index = 0

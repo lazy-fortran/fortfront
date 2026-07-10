@@ -212,7 +212,7 @@ contains
                 stmt_start, stmt_end)
 
             stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                callbacks=callbacks)
+                callbacks=callbacks, parent_parser=parser)
             if (allocated(stmt_indices)) then
                 if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
                     then_body_indices(1) = stmt_indices(1)

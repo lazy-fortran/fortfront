@@ -283,7 +283,7 @@ contains
             stmt_start, stmt_end)
 
         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-            callbacks=callbacks)
+            callbacks=callbacks, parent_parser=parser)
 
         if (allocated(stmt_indices)) then
             call move_alloc(stmt_indices, body_indices)
@@ -374,7 +374,7 @@ contains
 
                 ! Parse expression
                 expr_index = parse_expression( &
-                    parser%tokens(parser%current_token:), arena)
+                    parser%tokens(parser%current_token:), arena, parser)
                 if (expr_index <= 0) then
                     if (allocated(body_indices)) then
                         block
@@ -506,7 +506,7 @@ contains
                 callbacks = build_associate_callbacks()
                 stmt_indices = parse_basic_statement_core( &
                     stmt_tokens, arena, callbacks=callbacks, &
-                    consumed_count=consumed_tokens)
+                    consumed_count=consumed_tokens, parent_parser=parser)
 
                 if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
                     do k = 1, size(stmt_indices)

@@ -19,12 +19,13 @@ contains
 
     ! Parse basic statement with support for multi-variable declarations
     function parse_basic_statement_multi(tokens, arena, parent_index, callbacks, &
-            consumed_count) result(stmt_indices)
+            consumed_count, parent_parser) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in), optional :: callbacks
         integer, intent(out), optional :: consumed_count
+        type(parser_state_t), intent(in), optional :: parent_parser
         integer, allocatable :: stmt_indices(:)
         type(statement_callbacks_t) :: local_callbacks
 
@@ -39,20 +40,20 @@ contains
                 stmt_indices = parse_basic_statement_core( &
                     tokens, arena, parent_index=parent_index, &
                     callbacks=local_callbacks, &
-                    consumed_count=consumed_count)
+                    consumed_count=consumed_count, parent_parser=parent_parser)
             else
                 stmt_indices = parse_basic_statement_core( &
                     tokens, arena, parent_index=parent_index, &
-                    callbacks=local_callbacks)
+                    callbacks=local_callbacks, parent_parser=parent_parser)
             end if
         else
             if (present(consumed_count)) then
                 stmt_indices = parse_basic_statement_core( &
                     tokens, arena, callbacks=local_callbacks, &
-                    consumed_count=consumed_count)
+                    consumed_count=consumed_count, parent_parser=parent_parser)
             else
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                    callbacks=local_callbacks)
+                    callbacks=local_callbacks, parent_parser=parent_parser)
             end if
         end if
     end function parse_basic_statement_multi
@@ -110,7 +111,7 @@ contains
                     stmt_tokens)
                 call parse_and_add_statement(stmt_tokens, arena, parent_index, &
                     local_callbacks, body_indices, &
-                    stmt_count)
+                    stmt_count, parser)
                 call release_statement_tokens(stmt_tokens)
 
                 parser%current_token = next_statement_start(parser%tokens, stmt_end)
@@ -241,23 +242,24 @@ contains
     end subroutine extract_statement_tokens
 
     subroutine parse_and_add_statement(stmt_tokens, arena, parent_index, &
-            callbacks, body_indices, stmt_count)
+            callbacks, body_indices, stmt_count, parent_parser)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in) :: callbacks
         integer, allocatable, intent(inout) :: body_indices(:)
         integer, intent(inout) :: stmt_count
+        type(parser_state_t), intent(in) :: parent_parser
 
         integer, allocatable :: stmt_indices(:)
         integer :: k
 
         if (present(parent_index)) then
             stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
-                parent_index, callbacks)
+                parent_index, callbacks, parent_parser=parent_parser)
         else
             stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
-                callbacks=callbacks)
+                callbacks=callbacks, parent_parser=parent_parser)
         end if
 
         do k = 1, size(stmt_indices)

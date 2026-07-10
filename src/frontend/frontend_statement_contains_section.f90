@@ -5,6 +5,7 @@ module frontend_statement_contains_section
     use ast_arena_modern, only: ast_arena_t
     use frontend_statement_contains_section_helpers, only: &
         push_implicit_contains_statement, scan_contains_section
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -60,17 +61,18 @@ contains
     end function is_structural_contains
 
     subroutine parse_implicit_contains_section(tokens, start_pos, arena, &
-            body_indices, end_pos)
+            body_indices, end_pos, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
         integer, intent(out) :: end_pos
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         type(parser_prefix_buffer_t) :: prefix_buffer
         call push_implicit_contains_statement(arena, body_indices)
         call scan_contains_section(tokens, start_pos, arena, prefix_buffer, &
-            body_indices, end_pos)
+            body_indices, end_pos, diagnostic_sink)
     end subroutine parse_implicit_contains_section
 
 end module frontend_statement_contains_section
