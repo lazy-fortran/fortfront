@@ -28,6 +28,7 @@ module ast_nodes_array
         ! Optimization hints
         logical :: mask_is_simple = .false. ! True if mask is simple comparison
         logical :: can_vectorize = .false. ! True if all assignments vectorizable
+        logical :: is_single_line = .false.
     contains
         procedure :: accept => where_accept
         procedure :: assign => where_assign
@@ -88,6 +89,7 @@ contains
         end if
         lhs%mask_is_simple = rhs%mask_is_simple
         lhs%can_vectorize = rhs%can_vectorize
+        lhs%is_single_line = rhs%is_single_line
     end subroutine where_assign
 
     ! WHERE statement implementations

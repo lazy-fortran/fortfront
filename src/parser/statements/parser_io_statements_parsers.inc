@@ -42,8 +42,9 @@
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
         character(len=:), allocatable :: io_control_list
-        logical :: has_keyworded_format
         integer :: format_expr_index
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         format_expr_index = 0
 
@@ -67,6 +68,7 @@
             write_index = 0
             return
         end if
+        specifier_parser = parser
 
         ! Parse unit specifier
         unit_spec = parse_unit_specifier(parser)
@@ -78,45 +80,8 @@
             return
         end if
 
-        ! Check for format specifier or namelist (optional)
-        has_keyworded_format = .false.
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume()  ! consume comma
-
-            ! Check if next token is nml keyword
-            token = parser%peek()
-            if (token%kind == TK_IDENTIFIER .and. token%text == "nml") then
-                token = parser%consume()  ! consume nml
-
-                ! Expect = after nml
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                    token = parser%consume()  ! consume =
-
-                    ! Parse namelist group name
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER) then
-                        namelist_group = token%text
-                        token = parser%consume()
-                    else
-                        write (error_unit, *) &
-                            "Error: Expected namelist group name after 'nml='", &
-                            " at line ", token%line
-                    end if
-                end if
-            else
-                has_keyworded_format = parse_keyworded_format_clause(parser, &
-                                                                     format_spec)
-                if (.not. has_keyworded_format) then
-                    ! Parse positional format specifier (literal or expression)
-                    call parse_positional_format(parser, arena, format_spec, &
-                                                 format_expr_index, &
-                                                 is_control_specifier= &
-                                                 is_write_io_control_specifier)
-                end if
-            end if
-        end if
+        call parse_write_format_clause(parser, arena, format_spec, &
+            namelist_group, format_expr_index)
 
         ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
         io_control_list = collect_io_control_specifiers(parser, &
@@ -131,31 +96,15 @@
             write_index = 0
             return
         end if
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit', 'fmt'], specifiers)
 
         ! Parse all write arguments
         call parse_argument_list(parser, arena, arg_indices)
 
-        ! Create write statement node with parsed arguments
-        if (allocated(namelist_group)) then
-            write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                               namelist_group=namelist_group, &
-                                               io_control_list=io_control_list, &
-                                               line=line, column=column)
-        else if (format_expr_index > 0) then
-            write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                               format_expr_index=format_expr_index, &
-                                               io_control_list=io_control_list, &
-                                               line=line, column=column)
-        else if (allocated(format_spec)) then
-            write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                               format_spec=format_spec, &
-                                               io_control_list=io_control_list, &
-                                               line=line, column=column)
-        else
-            write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                               io_control_list=io_control_list, &
-                                               line=line, column=column)
-        end if
+        write_index = push_parsed_write_statement(arena, unit_spec, arg_indices, &
+            format_spec, namelist_group, io_control_list, format_expr_index, &
+            specifiers, line, column)
     end function parse_write_statement
 
     function parse_read_statement(parser, arena) result(read_index)
@@ -168,10 +117,12 @@
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
         character(len=:), allocatable :: io_control_list
-        type(parser_state_t) :: checkpoint
         integer :: format_expr_index
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         format_expr_index = 0
+        allocate (specifiers(0))
 
         ! Consume read keyword
         token = parser%consume()
@@ -183,6 +134,7 @@
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             ! Format: read (unit, format) variables
             token = parser%consume()  ! consume (
+            specifier_parser = parser
 
             ! Parse unit specifier
             unit_spec = parse_unit_specifier(parser)
@@ -194,57 +146,8 @@
                 return
             end if
 
-            ! Check for format specifier or namelist (optional)
-            format_spec = ""
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume comma
-
-                ! Check if next token is nml keyword for namelist
-                token = parser%peek()
-                if (token%kind == TK_IDENTIFIER .and. token%text == "nml") then
-                    token = parser%consume()  ! consume nml
-
-                    ! Expect = after nml
-                    token = parser%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                        token = parser%consume()  ! consume =
-
-                        ! Parse namelist group name
-                        token = parser%peek()
-                        if (token%kind == TK_IDENTIFIER) then
-                            namelist_group = token%text
-                            token = parser%consume()
-                        else
-                            write (error_unit, *) &
-                                "Error: Expected namelist group name after 'nml=' &
-                                &at line ", token%line
-                        end if
-                    end if
-                else if (is_format_specifier_keyword(token)) then
-                    ! Check if next token is a keyword parameter (e.g., fmt=)
-                    ! Only consume keyword if followed by =
-                    ! Save position to check for = before committing
-                    checkpoint = parser
-                    token = checkpoint%consume()  ! tentatively consume keyword
-
-                    ! Check if = follows
-                    token = checkpoint%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                        ! Its a keyworded format (fmt= or format=)
-                        parser = checkpoint  ! commit keyword consumption
-                        token = parser%consume()  ! consume =
-                    end if
-                    ! Otherwise, treat as positional format variable
-                end if
-
-                if (.not. allocated(namelist_group)) then
-                    call parse_positional_format(parser, arena, format_spec, &
-                                                 format_expr_index, &
-                                                 is_control_specifier= &
-                                                 is_read_io_control_specifier)
-                end if
-            end if
+            call parse_read_format_clause(parser, arena, format_spec, &
+                namelist_group, format_expr_index)
 
             ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
             io_control_list = collect_io_control_specifiers( &
@@ -259,6 +162,8 @@
                 read_index = 0
                 return
             end if
+            call parse_io_specifier_nodes(specifier_parser, arena, &
+                [character(len=4) :: 'unit', 'fmt'], specifiers)
         else
             ! Format: read format, variables (list-directed without unit)
             unit_spec = "*"  ! Default to standard input
@@ -277,29 +182,152 @@
         ! Parse all read variables
         call parse_argument_list(parser, arena, var_indices)
 
-        ! Create read statement node with parsed variables
+        read_index = push_parsed_read_statement(arena, unit_spec, var_indices, &
+            format_spec, namelist_group, io_control_list, format_expr_index, &
+            specifiers, line, column)
+    end function parse_read_statement
+
+    subroutine parse_write_format_clause(parser, arena, format_spec, &
+            namelist_group, format_expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out) :: format_spec
+        character(len=:), allocatable, intent(out) :: namelist_group
+        integer, intent(inout) :: format_expr_index
+        type(token_t) :: token
+        logical :: has_keyworded_format
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= ',') return
+        token = parser%consume()
+        if (parse_namelist_clause(parser, namelist_group)) return
+        has_keyworded_format = parse_keyworded_format_clause(parser, format_spec)
+        if (has_keyworded_format) return
+        call parse_positional_format(parser, arena, format_spec, &
+            format_expr_index, is_control_specifier= &
+            is_write_io_control_specifier)
+    end subroutine parse_write_format_clause
+
+    subroutine parse_read_format_clause(parser, arena, format_spec, &
+            namelist_group, format_expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out) :: format_spec
+        character(len=:), allocatable, intent(out) :: namelist_group
+        integer, intent(inout) :: format_expr_index
+        type(token_t) :: token
+
+        format_spec = ''
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= ',') return
+        token = parser%consume()
+        if (parse_namelist_clause(parser, namelist_group)) return
+        call consume_read_format_keyword(parser)
+        call parse_positional_format(parser, arena, format_spec, &
+            format_expr_index, is_control_specifier= &
+            is_read_io_control_specifier)
+    end subroutine parse_read_format_clause
+
+    logical function parse_namelist_clause(parser, namelist_group) result(found)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: namelist_group
+        type(token_t) :: token
+
+        found = .false.
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER .or. token%text /= 'nml') return
+        found = .true.
+        token = parser%consume()
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= '=') return
+        token = parser%consume()
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            namelist_group = token%text
+            token = parser%consume()
+            return
+        end if
+        write (error_unit, *) "Error: Expected namelist group name after 'nml='", &
+            ' at line ', token%line
+    end function parse_namelist_clause
+
+    subroutine consume_read_format_keyword(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(parser_state_t) :: checkpoint
+        type(token_t) :: token
+
+        token = parser%peek()
+        if (.not. is_format_specifier_keyword(token)) return
+        checkpoint = parser
+        token = checkpoint%consume()
+        token = checkpoint%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= '=') return
+        token = checkpoint%consume()
+        parser = checkpoint
+    end subroutine consume_read_format_keyword
+
+    integer function push_parsed_write_statement(arena, unit_spec, arg_indices, &
+            format_spec, namelist_group, io_control_list, format_expr_index, &
+            specifiers, line, column) result(write_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: unit_spec
+        integer, intent(in) :: arg_indices(:), format_expr_index, line, column
+        character(len=:), allocatable, intent(in) :: format_spec
+        character(len=:), allocatable, intent(in) :: namelist_group
+        character(len=:), allocatable, intent(in) :: io_control_list
+        type(io_specifier_t), intent(in) :: specifiers(:)
+
+        if (allocated(namelist_group)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                namelist_group=namelist_group, io_control_list=io_control_list, &
+                specifiers=specifiers, line=line, column=column)
+        else if (format_expr_index > 0) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                format_expr_index=format_expr_index, &
+                io_control_list=io_control_list, specifiers=specifiers, &
+                line=line, column=column)
+        else if (allocated(format_spec)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                format_spec=format_spec, io_control_list=io_control_list, &
+                specifiers=specifiers, line=line, column=column)
+        else
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                io_control_list=io_control_list, specifiers=specifiers, &
+                line=line, column=column)
+        end if
+    end function push_parsed_write_statement
+
+    integer function push_parsed_read_statement(arena, unit_spec, var_indices, &
+            format_spec, namelist_group, io_control_list, format_expr_index, &
+            specifiers, line, column) result(read_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: unit_spec
+        integer, intent(in) :: var_indices(:), format_expr_index, line, column
+        character(len=:), allocatable, intent(in) :: format_spec
+        character(len=:), allocatable, intent(in) :: namelist_group
+        character(len=:), allocatable, intent(in) :: io_control_list
+        type(io_specifier_t), intent(in) :: specifiers(:)
+
         if (allocated(namelist_group)) then
             read_index = push_read_statement(arena, unit_spec, var_indices, &
-                                             format_spec=format_spec, &
-                                             namelist_group=namelist_group, &
-                                             io_control_list=io_control_list, &
-                                             line=line, column=column)
+                format_spec=format_spec, namelist_group=namelist_group, &
+                io_control_list=io_control_list, specifiers=specifiers, &
+                line=line, column=column)
         else if (format_expr_index > 0) then
             read_index = push_read_statement(arena, unit_spec, var_indices, &
-                                             format_expr_index=format_expr_index, &
-                                             io_control_list=io_control_list, &
-                                             line=line, column=column)
+                format_expr_index=format_expr_index, &
+                io_control_list=io_control_list, specifiers=specifiers, &
+                line=line, column=column)
         else if (allocated(format_spec)) then
             read_index = push_read_statement(arena, unit_spec, var_indices, &
-                                             format_spec=format_spec, &
-                                             io_control_list=io_control_list, &
-                                             line=line, column=column)
+                format_spec=format_spec, io_control_list=io_control_list, &
+                specifiers=specifiers, line=line, column=column)
         else
             read_index = push_read_statement(arena, unit_spec, var_indices, &
-                                             io_control_list=io_control_list, &
-                                             line=line, column=column)
+                io_control_list=io_control_list, specifiers=specifiers, &
+                line=line, column=column)
         end if
-    end function parse_read_statement
+    end function push_parsed_read_statement
 
     pure logical function is_format_specifier_keyword(token)
         type(token_t), intent(in) :: token
@@ -606,6 +634,8 @@
         integer :: line, column
         character(len=:), allocatable :: spec_text
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -623,6 +653,7 @@
             return
         end if
         token = parser%consume()
+        specifier_parser = parser
 
         spec_text = ""
         do while (.not. parser%is_at_end())
@@ -651,7 +682,10 @@
             end if
         end do
 
-        open_index = push_open_statement(arena, spec_text, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        open_index = push_open_statement(arena, spec_text, line, column, &
+            specifiers=specifiers)
     end function parse_open_statement
 
     function parse_close_statement(parser, arena) result(close_index)
@@ -662,6 +696,8 @@
         integer :: line, column
         character(len=:), allocatable :: spec_text
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -679,6 +715,7 @@
             return
         end if
         token = parser%consume()
+        specifier_parser = parser
 
         spec_text = ""
         do while (.not. parser%is_at_end())
@@ -700,7 +737,10 @@
             token = parser%consume()
         end do
 
-        close_index = push_close_statement(arena, spec_text, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        close_index = push_close_statement(arena, spec_text, line, column, &
+            specifiers=specifiers)
     end function parse_close_statement
 
     function parse_inquire_statement(parser, arena) result(inquire_index)
@@ -711,6 +751,8 @@
         integer :: line, column
         character(len=:), allocatable :: spec_text
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -728,6 +770,7 @@
             return
         end if
         token = parser%consume()
+        specifier_parser = parser
 
         spec_text = ""
         do while (.not. parser%is_at_end())
@@ -749,7 +792,10 @@
             token = parser%consume()
         end do
 
-        inquire_index = push_inquire_statement(arena, spec_text, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        inquire_index = push_inquire_statement(arena, spec_text, line, column, &
+            specifiers=specifiers)
     end function parse_inquire_statement
 
     function parse_backspace_statement(parser, arena) result(backspace_index)
@@ -760,6 +806,8 @@
         integer :: line, column
         character(len=:), allocatable :: unit_spec
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -770,6 +818,7 @@
         line = token%line
         column = token%column
         token = parser%consume()
+        call prepare_position_specifier_parser(parser, specifier_parser)
 
         unit_spec = collect_position_spec(parser)
         unit_spec = trim(unit_spec)
@@ -777,7 +826,10 @@
             backspace_index = 0
             return
         end if
-        backspace_index = push_backspace_statement(arena, unit_spec, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        backspace_index = push_backspace_statement(arena, unit_spec, line, &
+            column, specifiers=specifiers)
     end function parse_backspace_statement
 
     function parse_rewind_statement(parser, arena) result(rewind_index)
@@ -788,6 +840,8 @@
         integer :: line, column
         character(len=:), allocatable :: unit_spec
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -798,6 +852,7 @@
         line = token%line
         column = token%column
         token = parser%consume()
+        call prepare_position_specifier_parser(parser, specifier_parser)
 
         unit_spec = collect_position_spec(parser)
         unit_spec = trim(unit_spec)
@@ -805,7 +860,10 @@
             rewind_index = 0
             return
         end if
-        rewind_index = push_rewind_statement(arena, unit_spec, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        rewind_index = push_rewind_statement(arena, unit_spec, line, column, &
+            specifiers=specifiers)
     end function parse_rewind_statement
 
     function parse_endfile_statement(parser, arena) result(endfile_index)
@@ -816,6 +874,8 @@
         integer :: line, column
         character(len=:), allocatable :: unit_spec
         character(len=:), allocatable :: lowered
+        type(parser_state_t) :: specifier_parser
+        type(io_specifier_t), allocatable :: specifiers(:)
 
         token = parser%peek()
         lowered = trim(to_lower(token%text))
@@ -826,6 +886,7 @@
         line = token%line
         column = token%column
         token = parser%consume()
+        call prepare_position_specifier_parser(parser, specifier_parser)
 
         unit_spec = collect_position_spec(parser)
         unit_spec = trim(unit_spec)
@@ -833,5 +894,8 @@
             endfile_index = 0
             return
         end if
-        endfile_index = push_endfile_statement(arena, unit_spec, line, column)
+        call parse_io_specifier_nodes(specifier_parser, arena, &
+            [character(len=4) :: 'unit'], specifiers)
+        endfile_index = push_endfile_statement(arena, unit_spec, line, column, &
+            specifiers=specifiers)
     end function parse_endfile_statement
