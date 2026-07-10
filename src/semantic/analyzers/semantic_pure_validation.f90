@@ -138,7 +138,8 @@ contains
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
             suggestion='remove the I/O or control statement, or drop the '// &
-            'PURE/ELEMENTAL prefix')
+            'PURE/ELEMENTAL prefix', line=line, column=column, end_line=line, &
+            end_column=column + 1)
     end subroutine report_impure_stmt
 
 end module semantic_pure_validation

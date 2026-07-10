@@ -6,6 +6,7 @@ module parser_if_statements_module
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_if
+    use error_reporting, only: error_collection_t
     implicit none
     private
 
@@ -13,9 +14,11 @@ module parser_if_statements_module
 
 contains
 
-    function parse_if_statement_tokens(stmt_tokens, arena) result(if_index)
+    function parse_if_statement_tokens(stmt_tokens, arena, diagnostic_sink) &
+            result(if_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: if_index
         integer :: token_count
         integer :: then_pos, else_pos, end_pos
@@ -36,12 +39,13 @@ contains
             return
         end if
 
-        condition_index = build_if_condition(stmt_tokens, then_pos, arena)
+        condition_index = build_if_condition(stmt_tokens, then_pos, arena, &
+            diagnostic_sink)
 
         call parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
-            then_body_indices)
+            then_body_indices, diagnostic_sink)
         call parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &
-            else_body_indices)
+            else_body_indices, diagnostic_sink)
 
         if_index = push_if(arena, condition_index, then_body_indices, &
             else_body_indices=else_body_indices, &
@@ -83,11 +87,13 @@ contains
         end do
     end subroutine locate_if_statement_sections
 
-    integer function build_if_condition(stmt_tokens, then_pos, arena) &
+    integer function build_if_condition(stmt_tokens, then_pos, arena, &
+            diagnostic_sink) &
             result(condition_index)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: then_pos
         type(ast_arena_t), intent(inout) :: arena
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer :: condition_length
         type(token_t), allocatable, target :: condition_tokens(:)
@@ -104,16 +110,17 @@ contains
         condition_tokens(condition_length + 1)%line = stmt_tokens(2)%line
         condition_tokens(condition_length + 1)%column = stmt_tokens(2)%column
 
-        condition_parser = create_parser_state(condition_tokens)
+        condition_parser = create_parser_state(condition_tokens, diagnostic_sink)
         condition_index = parse_range(condition_parser, arena)
     end function build_if_condition
 
     subroutine parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
-            then_body_indices)
+            then_body_indices, diagnostic_sink)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: then_pos, else_pos, end_pos
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: then_body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer :: then_start, then_end
 
@@ -125,15 +132,16 @@ contains
         end if
 
         then_body_indices = parse_if_body_tokens(stmt_tokens, then_start, &
-            then_end, arena)
+            then_end, arena, diagnostic_sink)
     end subroutine parse_then_branch
 
     subroutine parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &
-            else_body_indices)
+            else_body_indices, diagnostic_sink)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: else_pos, end_pos
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: else_body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer :: else_start, else_end
 
@@ -145,14 +153,16 @@ contains
         else_start = else_pos + 1
         else_end = end_pos - 1
         else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, &
-            else_end, arena)
+            else_end, arena, diagnostic_sink)
     end subroutine parse_else_branch
 
-    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) &
+    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena, &
+            diagnostic_sink) &
             result(body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: start_idx, end_idx
         type(ast_arena_t), intent(inout) :: arena
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer, allocatable :: body_indices(:)
 
         type(token_t), allocatable, target :: body_tokens(:)
@@ -163,7 +173,8 @@ contains
         end if
 
         call allocate_if_body_tokens(stmt_tokens, start_idx, end_idx, body_tokens)
-        call parse_if_body_statements(body_tokens, arena, body_indices)
+        call parse_if_body_statements(body_tokens, arena, body_indices, &
+            diagnostic_sink)
     end function parse_if_body_tokens
 
     subroutine allocate_if_body_tokens(stmt_tokens, start_idx, end_idx, body_tokens)
@@ -187,10 +198,12 @@ contains
         body_tokens(body_len + 1)%column = stmt_tokens(start_idx)%column
     end subroutine allocate_if_body_tokens
 
-    subroutine parse_if_body_statements(body_tokens, arena, body_indices)
+    subroutine parse_if_body_statements(body_tokens, arena, body_indices, &
+            diagnostic_sink)
         type(token_t), intent(in) :: body_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: body_indices(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         type(parser_state_t) :: body_parser
         integer :: stmt_start, stmt_end
@@ -202,7 +215,7 @@ contains
             return
         end if
 
-        body_parser = create_parser_state(body_tokens)
+        body_parser = create_parser_state(body_tokens, diagnostic_sink)
 
         ! Pre-allocate with initial capacity to avoid O(n²) growth
         capacity = 64
@@ -215,7 +228,7 @@ contains
             stmt_start = body_parser%current_token
             stmt_end = find_if_body_line_end(body_tokens, stmt_start)
             call parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
-                arena, body_indices, count, capacity)
+                arena, body_indices, count, capacity, diagnostic_sink)
             body_parser%current_token = stmt_end + 1
         end do
 
@@ -265,12 +278,13 @@ contains
     end function find_if_body_line_end
 
     subroutine parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
-            arena, body_indices, count, capacity)
+            arena, body_indices, count, capacity, diagnostic_sink)
         type(token_t), intent(in) :: body_tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
         integer, intent(inout) :: count, capacity
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         type(token_t), allocatable, target :: line_tokens(:)
         type(parser_state_t) :: line_parser
@@ -288,7 +302,7 @@ contains
         line_tokens(stmt_size + 1)%line = body_tokens(stmt_start)%line
         line_tokens(stmt_size + 1)%column = body_tokens(stmt_start)%column
 
-        line_parser = create_parser_state(line_tokens)
+        line_parser = create_parser_state(line_tokens, diagnostic_sink)
         call skip_if_body_line_padding(line_parser)
 
         if (.not. line_parser%is_at_end()) then

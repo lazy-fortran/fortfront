@@ -48,13 +48,14 @@ module parser_statement_core_module
 
 contains
     recursive function parse_basic_statement_core(tokens, arena, parent_index, &
-            callbacks, consumed_count) &
+            callbacks, consumed_count, parent_parser) &
             result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in), optional :: callbacks
         integer, intent(out), optional :: consumed_count
+        type(parser_state_t), intent(in), optional :: parent_parser
         integer, allocatable :: stmt_indices(:)
         type(parser_state_t) :: parser
         type(token_t) :: first_token
@@ -69,6 +70,11 @@ contains
         end if
 
         parser = create_parser_state(tokens)
+        if (present(parent_parser)) then
+            if (associated(parent_parser%diagnostic_sink)) then
+                parser%diagnostic_sink => parent_parser%diagnostic_sink
+            end if
+        end if
         first_token = parser%peek()
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
@@ -527,7 +533,7 @@ contains
 
         allocate (expr_tokens(remaining_count))
         expr_tokens = tokens(parser%current_token:)
-        value_index = parse_expression(expr_tokens, arena)
+        value_index = parse_expression(expr_tokens, arena, parser)
         if (value_index <= 0) return
 
         if (present(parent_index)) then
@@ -643,7 +649,7 @@ contains
         if (left_end < parser%current_token - 1) return
 
         call build_lhs_tokens(lhs_tokens, id_token, parser, left_end)
-        target_index = parse_expression(lhs_tokens, arena)
+        target_index = parse_expression(lhs_tokens, arena, parser)
         if (target_index <= 0) return
 
         parser%current_token = left_end + 1
@@ -664,7 +670,7 @@ contains
 
         allocate (rhs_tokens(remaining_count))
         rhs_tokens = tokens(parser%current_token:)
-        value_index = parse_expression(rhs_tokens, arena)
+        value_index = parse_expression(rhs_tokens, arena, parser)
         if (value_index <= 0) return
 
         stmt_index = create_assignment_node(arena, parent_index, target_index, &

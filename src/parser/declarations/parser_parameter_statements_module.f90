@@ -125,7 +125,7 @@ contains
         expr_tokens(tok_count + 1)%kind = 0
         expr_tokens(tok_count + 1)%text = ""
 
-        value_index = parse_expression(expr_tokens, arena)
+        value_index = parse_expression(expr_tokens, arena, parser)
         if (value_index <= 0) return
 
         applied = apply_parameter_to_variable(arena, var_name, value_index)

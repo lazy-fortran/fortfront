@@ -5,6 +5,7 @@ module frontend_compiler_api
     use ast_arena_source_text, only: set_source_text
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
+    use error_reporting, only: error_record_t
     use frontend_tooling_api, only: read_file_contents, message_has_error
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
@@ -38,6 +39,7 @@ module frontend_compiler_api
         character(len=:), allocatable :: error_msg
         character(len=:), allocatable :: diagnostic_text
         type(token_t), allocatable :: tokens(:)
+        type(error_record_t), allocatable :: parser_errors(:)
     contains
         procedure :: success => compiler_frontend_success
     end type compiler_frontend_result_t
@@ -75,7 +77,7 @@ contains
 
         parse_error = ''
         call parse_tokens(local_tokens, result%arena, result%root_index, &
-            parse_error)
+            parse_error, result%parser_errors)
         if (len_trim(parse_error) > 0) then
             call set_result_error(result, parse_error)
             if (allocated(local_tokens)) deallocate (local_tokens)
@@ -176,6 +178,7 @@ contains
         call allocate_empty(result%source_path)
         call allocate_empty(result%error_msg)
         call allocate_empty(result%diagnostic_text)
+        allocate (result%parser_errors(0))
     end subroutine initialize_result
 
     subroutine set_result_error(result, message)

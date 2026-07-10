@@ -257,13 +257,14 @@
     end function should_process_unit
 
     subroutine process_program_unit(tokens, unit_start, unit_end, arena, &
-                                    unit_index, has_explicit_program, error_msg)
+            unit_index, has_explicit_program, error_msg, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: unit_start, unit_end
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: unit_index
         logical, intent(in) :: has_explicit_program
         character(len=:), allocatable, intent(out), optional :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         type(token_t), allocatable, target :: unit_tokens(:)
         character(len=:), allocatable :: parse_error
@@ -282,8 +283,13 @@
         unit_tokens(unit_end - unit_start + 2)%line = tokens(unit_end)%line
         unit_tokens(unit_end - unit_start + 2)%column = tokens(unit_end)%column + 1
 
-        unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program, &
-                                        parse_error)
+        if (present(diagnostic_sink)) then
+            unit_index = parse_program_unit(unit_tokens, arena, &
+                has_explicit_program, parse_error, diagnostic_sink)
+        else
+            unit_index = parse_program_unit(unit_tokens, arena, &
+                has_explicit_program, parse_error)
+        end if
 
         if (present(error_msg) .and. allocated(parse_error)) then
             if (len_trim(parse_error) > 0) error_msg = parse_error

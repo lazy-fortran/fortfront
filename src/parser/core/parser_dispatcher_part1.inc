@@ -1,16 +1,25 @@
 
     ! Parse a statement by dispatching to appropriate parsing module
-    function parse_statement_dispatcher(tokens, arena, prefix_buffer) &
+    function parse_statement_dispatcher(tokens, arena, prefix_buffer, &
+            diagnostic_sink, error_msg) &
         result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: stmt_index
         type(parser_state_t) :: parser
         type(token_t) :: first_token
 
+        if (present(error_msg)) error_msg = ""
+
         call init_interface_procedure_parser()
-        parser = create_parser_state(tokens)
+        if (present(diagnostic_sink)) then
+            parser = create_parser_state(tokens, diagnostic_sink)
+        else
+            parser = create_parser_state(tokens)
+        end if
         first_token = parser%peek()
 
         select case (first_token%kind)
@@ -28,10 +37,11 @@
         case (TK_NEWLINE)
             stmt_index = parse_blank_line(parser, arena)
         case default
-            stmt_index = parse_as_expression(tokens, arena)
+            stmt_index = parse_as_expression(tokens, arena, parser)
         end select
 
         if (parser%has_errors()) then
+            if (present(error_msg)) error_msg = parser%get_error_messages()
             last_parser_errors = parser%get_error_messages()
         end if
     end function parse_statement_dispatcher
@@ -61,7 +71,7 @@
                                       lowered_keyword, stmt_index)) return
         if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                              stmt_index)) then
-            stmt_index = parse_as_expression(tokens, arena)
+            stmt_index = parse_as_expression(tokens, arena, parser)
         end if
     end subroutine dispatch_keyword
 
@@ -620,7 +630,7 @@
         else
             if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                  stmt_index)) then
-                stmt_index = parse_as_expression(tokens, arena)
+                stmt_index = parse_as_expression(tokens, arena, parser)
             end if
         end if
     end subroutine dispatch_number_token
@@ -762,16 +772,17 @@
             stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             return
         end if
-        stmt_index = parse_as_expression(parser%tokens, arena)
+        stmt_index = parse_as_expression(parser%tokens, arena, parser)
     end function parse_function_or_expression
 
     ! Parse as expression
-    function parse_as_expression(tokens, arena) result(stmt_index)
+    function parse_as_expression(tokens, arena, parent_parser) result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in) :: parent_parser
         integer :: stmt_index
 
-        stmt_index = parse_expression(tokens, arena)
+        stmt_index = parse_expression(tokens, arena, parent_parser)
     end function parse_as_expression
 
     ! Helper function to check for double colon

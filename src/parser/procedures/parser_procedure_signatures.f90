@@ -380,7 +380,7 @@ contains
             end do
 
             if (nesting /= 0) then
-                call parser%errors%add_error_with_token( &
+                call parser%error_at_token( &
                     "Unbalanced inline instantiation braces", start_token, &
                     suggestion="Add matching }")
                 exit
