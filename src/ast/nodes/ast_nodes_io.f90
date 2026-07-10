@@ -5,6 +5,14 @@ module ast_nodes_io
     implicit none
     private
 
+    public :: io_specifier_t
+
+    type :: io_specifier_t
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: value
+        integer :: value_node_index = 0
+    end type io_specifier_t
+
     ! Public factory functions
     public :: create_print_statement
     public :: create_io_implied_do
@@ -55,6 +63,7 @@ module ast_nodes_io
         integer :: format_expr_index = 0 ! Optional runtime
         ! format expression
         logical :: is_formatted = .false. ! True if formatted I/O
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => write_statement_accept
         procedure :: assign => write_statement_assign
@@ -75,6 +84,7 @@ module ast_nodes_io
         integer :: format_expr_index = 0 ! Optional runtime
         ! format expression
         logical :: is_formatted = .false. ! True if formatted I/O
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => read_statement_accept
         procedure :: assign => read_statement_assign
@@ -120,6 +130,7 @@ module ast_nodes_io
         character(len=:), allocatable :: pad_spec
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => open_statement_accept
         procedure :: assign => open_statement_assign
@@ -132,6 +143,7 @@ module ast_nodes_io
         character(len=:), allocatable :: status_spec
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => close_statement_accept
         procedure :: assign => close_statement_assign
@@ -143,6 +155,7 @@ module ast_nodes_io
         character(len=:), allocatable :: spec_list
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => inquire_statement_accept
         procedure :: assign => inquire_statement_assign
@@ -154,6 +167,7 @@ module ast_nodes_io
         character(len=:), allocatable :: unit_spec
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => backspace_statement_accept
         procedure :: assign => backspace_statement_assign
@@ -165,6 +179,7 @@ module ast_nodes_io
         character(len=:), allocatable :: unit_spec
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => rewind_statement_accept
         procedure :: assign => rewind_statement_assign
@@ -176,6 +191,7 @@ module ast_nodes_io
         character(len=:), allocatable :: unit_spec
         integer :: iostat_var_index = 0
         integer :: err_label_index = 0
+        type(io_specifier_t), allocatable :: specifiers(:)
     contains
         procedure :: accept => endfile_statement_accept
         procedure :: assign => endfile_statement_assign
@@ -286,6 +302,7 @@ contains
         lhs%end_label_index = rhs%end_label_index
         lhs%format_expr_index = rhs%format_expr_index
         lhs%is_formatted = rhs%is_formatted
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine write_statement_assign
 
     ! Read statement implementations
@@ -322,6 +339,7 @@ contains
         lhs%end_label_index = rhs%end_label_index
         lhs%format_expr_index = rhs%format_expr_index
         lhs%is_formatted = rhs%is_formatted
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine read_statement_assign
 
     ! Format descriptor implementations
@@ -406,6 +424,7 @@ contains
         if (allocated(rhs%pad_spec)) lhs%pad_spec = rhs%pad_spec
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine open_statement_assign
 
     ! CLOSE statement implementations
@@ -431,6 +450,7 @@ contains
         if (allocated(rhs%status_spec)) lhs%status_spec = rhs%status_spec
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine close_statement_assign
 
     ! Factory functions
@@ -515,6 +535,7 @@ contains
         if (allocated(rhs%spec_list)) lhs%spec_list = rhs%spec_list
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine inquire_statement_assign
 
     function create_inquire_statement() result(node)
@@ -544,6 +565,7 @@ contains
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine backspace_statement_assign
 
     function create_backspace_statement() result(node)
@@ -573,6 +595,7 @@ contains
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine rewind_statement_assign
 
     function create_rewind_statement() result(node)
@@ -602,11 +625,20 @@ contains
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
+        call copy_io_specifiers(rhs%specifiers, lhs%specifiers)
     end subroutine endfile_statement_assign
 
     function create_endfile_statement() result(node)
         type(endfile_statement_node) :: node
         node%uid = generate_uid()
     end function create_endfile_statement
+
+    subroutine copy_io_specifiers(source, target)
+        type(io_specifier_t), allocatable, intent(in) :: source(:)
+        type(io_specifier_t), allocatable, intent(inout) :: target(:)
+
+        if (allocated(target)) deallocate (target)
+        if (allocated(source)) target = source
+    end subroutine copy_io_specifiers
 
 end module ast_nodes_io

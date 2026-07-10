@@ -165,6 +165,7 @@ contains
             if (new_idx <= 0 .or. new_idx > arena%size) cycle
             if (.not. arena%has_node_at(new_idx)) cycle
             call remap_node_indices(arena, new_idx, index_map)
+            call remap_public_query_indices(arena, new_idx, index_map)
         end do
     end subroutine remap_indices_in_cloned
 
@@ -549,6 +550,57 @@ contains
             ! Node has no integer index fields to remap
         end select
     end subroutine remap_node_indices
+
+    subroutine remap_public_query_indices(arena, idx, index_map)
+        use ast_nodes_array, only: where_node
+        use ast_nodes_io, only: write_statement_node, read_statement_node, &
+            open_statement_node, close_statement_node, inquire_statement_node, &
+            backspace_statement_node, rewind_statement_node, &
+            endfile_statement_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx, index_map(:)
+        integer :: i
+
+        select type (node => arena%entries(idx)%node)
+            type is (where_node)
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    node%elsewhere_clauses(i)%mask_index = &
+                        remap_one(index_map, &
+                        node%elsewhere_clauses(i)%mask_index)
+                end do
+            end if
+            type is (write_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (read_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (open_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (close_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (inquire_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (backspace_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (rewind_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+            type is (endfile_statement_node)
+            call remap_io_specifiers(index_map, node%specifiers)
+        end select
+    end subroutine remap_public_query_indices
+
+    subroutine remap_io_specifiers(index_map, specifiers)
+        use ast_nodes_io, only: io_specifier_t
+        integer, intent(in) :: index_map(:)
+        type(io_specifier_t), allocatable, intent(inout) :: specifiers(:)
+        integer :: i
+
+        if (.not. allocated(specifiers)) return
+        do i = 1, size(specifiers)
+            specifiers(i)%value_node_index = &
+                remap_one(index_map, specifiers(i)%value_node_index)
+        end do
+    end subroutine remap_io_specifiers
 
     ! Remap a single index: if old_idx is in the map, return new idx; else unchanged
     pure integer function remap_one(index_map, old_idx) result(new_idx)

@@ -2,7 +2,7 @@ module parser_procedure_definition_bodies_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, &
-        TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
+        TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF, TK_NUMBER
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
@@ -560,7 +560,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t), intent(in) :: parent_parser
         integer :: first_token
-        character(len=:), allocatable :: token_lower
+        character(len=:), allocatable :: token_lower, stmt_label
         type(parser_state_t) :: block_parser
         type(token_t) :: token
 
@@ -574,6 +574,17 @@ contains
                 exit
             end select
         end do
+
+        if (first_token <= stmt_size) then
+            if (stmt_tokens(first_token)%kind == TK_NUMBER) then
+                stmt_label = trim(stmt_tokens(first_token)%text)
+                first_token = first_token + 1
+                do while (first_token <= stmt_size)
+                    if (stmt_tokens(first_token)%kind /= TK_WHITESPACE) exit
+                    first_token = first_token + 1
+                end do
+            end if
+        end if
 
         if (first_token <= stmt_size) then
             if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
@@ -624,6 +635,11 @@ contains
                     first_token)))
             else
                 stmt_index = 0
+            end if
+        end if
+        if (stmt_index > 0 .and. allocated(stmt_label)) then
+            if (arena%has_node_at(stmt_index)) then
+                arena%entries(stmt_index)%node%stmt_label = stmt_label
             end if
         end if
     end function parse_body_statement_tokens
