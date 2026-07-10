@@ -76,36 +76,7 @@ contains
                 return
             end if
 
-            ! Check if this is single-line WHERE
-            token = parser%peek()
-            single_line = .true.
-            block
-                integer :: lookahead
-
-                do lookahead = parser%current_token, size(parser%tokens)
-                    if (parser%tokens(lookahead)%kind /= TK_WHITESPACE) then
-                        token = parser%tokens(lookahead)
-                        exit
-                    end if
-                end do
-
-                if (lookahead > size(parser%tokens)) then
-                    token%kind = TK_EOF
-                    token%text = ""
-                end if
-            end block
-
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
-                single_line = .false.
-            else if (token%kind == TK_OPERATOR .and. token%text == ";") then
-                single_line = .false.
-            else if (token%kind == TK_COMMENT) then
-                single_line = .false.
-            else if (token%kind == TK_KEYWORD) then
-                if (token%text == "elsewhere" .or. token%text == "end") then
-                    single_line = .false.
-                end if
-            end if
+            single_line = remaining_where_is_single_line(parser)
 
             if (single_line) then
                 callbacks = build_where_callbacks()
@@ -114,7 +85,7 @@ contains
 
                 ! Create WHERE node with single statement
                 where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                    line=line, column=column)
+                    line=line, column=column, is_single_line=.true.)
 
                 return
             end if
@@ -139,7 +110,7 @@ contains
                 where_body_indices)
 
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                line=line, column=column)
+                line=line, column=column, is_single_line=.true.)
             return
         end if
 
@@ -156,6 +127,31 @@ contains
             where_end_keywords, &
             line, column)
     end function parse_where_construct
+
+    logical function remaining_where_is_single_line(parser)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: token
+        integer :: lookahead
+
+        token%kind = TK_EOF
+        token%text = ''
+        do lookahead = parser%current_token, size(parser%tokens)
+            if (parser%tokens(lookahead)%kind == TK_WHITESPACE) cycle
+            token = parser%tokens(lookahead)
+            exit
+        end do
+        remaining_where_is_single_line = .true.
+        select case (token%kind)
+        case (TK_NEWLINE, TK_EOF, TK_COMMENT)
+            remaining_where_is_single_line = .false.
+        case (TK_OPERATOR)
+            if (token%text == ';') remaining_where_is_single_line = .false.
+        case (TK_KEYWORD)
+            if (token%text == 'elsewhere' .or. token%text == 'end') then
+                remaining_where_is_single_line = .false.
+            end if
+        end select
+    end function remaining_where_is_single_line
 
     function create_where_with_elsewhere_clauses(arena, parser, &
             mask_expr_index, &

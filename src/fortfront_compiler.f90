@@ -34,6 +34,9 @@ module fortfront_compiler
         get_compiler_diagnostics, &
         DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &
         DIAGNOSTIC_CODE_PARSER, DIAGNOSTIC_CODE_SEMANTIC
+    use frontend_compiler_io_queries
+    use frontend_compiler_control_queries
+    use frontend_compiler_branch_queries
     use frontend_compiler_node_queries, only: is_declaration_node, &
         is_derived_type_node, &
         get_declaration_var_name, get_declaration_type_name, &

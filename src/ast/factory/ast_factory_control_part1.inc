@@ -226,6 +226,7 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
 
         call arena%push(assoc, "associate", parent_index)
         assoc_index = arena%size
+        call link_association_expressions(arena, assoc_index, associations)
 
         ! Link children to this parent for AST traversal
         if (present(body_indices)) then
@@ -234,6 +235,26 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
             end if
         end if
     end function push_associate
+
+    subroutine link_association_expressions(arena, parent_index, associations)
+        use ast_nodes_control, only: association_t
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index
+        type(association_t), intent(in) :: associations(:)
+        integer, allocatable :: expression_indices(:)
+        integer :: i, expression_count
+
+        expression_count = count(associations%expr_index > 0)
+        if (expression_count == 0) return
+        allocate (expression_indices(expression_count))
+        expression_count = 0
+        do i = 1, size(associations)
+            if (associations(i)%expr_index <= 0) cycle
+            expression_count = expression_count + 1
+            expression_indices(expression_count) = associations(i)%expr_index
+        end do
+        call link_children_to_parent(arena, parent_index, expression_indices)
+    end subroutine link_association_expressions
 
     function push_block_construct(arena, body_indices, line, column, &
                                   parent_index) result(block_index)
