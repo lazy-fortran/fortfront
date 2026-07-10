@@ -13,6 +13,7 @@ module frontend_mixed_constructs
         create_mixed_construct_container
     use mixed_construct_detector, only: &
         mixed_construct_result_t
+    use error_reporting, only: error_collection_t
 
     implicit none
     private
@@ -25,12 +26,13 @@ contains
 
     ! Parse mixed constructs (Issue #511 support)
     subroutine parse_mixed_constructs(tokens, arena, mixed_result, &
-            prog_index, error_msg)
+            prog_index, error_msg, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(mixed_construct_result_t), intent(in) :: mixed_result
         integer, intent(out) :: prog_index
         character(len=*), intent(out) :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         integer, allocatable :: implicit_indices(:), explicit_indices(:)
         integer :: i, stmt_index, range_start, range_end
@@ -64,7 +66,7 @@ contains
 
                 ! Parse this declaration range
                 call parse_declaration_range(range_tokens, arena, &
-                    stmt_index, error_msg)
+                    stmt_index, error_msg, diagnostic_sink)
 
                 if (len_trim(error_msg) > 0) then
                     return
@@ -86,7 +88,8 @@ contains
                 range_tokens = tokens(range_start:range_end)
 
                 ! Parse this program range
-                call parse_program_range(range_tokens, arena, stmt_index, error_msg)
+                call parse_program_range(range_tokens, arena, stmt_index, error_msg, &
+                    diagnostic_sink)
 
                 if (len_trim(error_msg) > 0) then
                     return
@@ -134,7 +137,7 @@ contains
             end do
 
             call parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-                implicit_indices, error_msg)
+                implicit_indices, error_msg, diagnostic_sink)
             if (len_trim(error_msg) > 0) return
         end if
 
@@ -144,30 +147,38 @@ contains
     end subroutine parse_mixed_constructs
 
     ! Parse declaration range
-    subroutine parse_declaration_range(tokens, arena, stmt_index, error_msg)
+    subroutine parse_declaration_range(tokens, arena, stmt_index, error_msg, &
+            diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
-        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
+        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg, &
+            diagnostic_sink)
     end subroutine parse_declaration_range
 
     ! Parse program range
-    subroutine parse_program_range(tokens, arena, stmt_index, error_msg)
+    subroutine parse_program_range(tokens, arena, stmt_index, error_msg, &
+            diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
-        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
+        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg, &
+            diagnostic_sink)
     end subroutine parse_program_range
 
-    subroutine parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
+    subroutine parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg, &
+            diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
 
         type(token_t), allocatable, target :: stmt_tokens(:)
         type(parser_prefix_buffer_t) :: prefix_buffer
@@ -191,7 +202,12 @@ contains
             stmt_tokens = tokens
         end if
 
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+        block
+            character(len=:), allocatable :: dispatcher_error
+            stmt_index = parse_statement_dispatcher(stmt_tokens, arena, &
+                prefix_buffer, diagnostic_sink, dispatcher_error)
+            if (allocated(dispatcher_error)) error_msg = dispatcher_error
+        end block
 
         deallocate (stmt_tokens)
     end subroutine parse_tokens_with_dispatcher
@@ -255,12 +271,13 @@ contains
     end subroutine mark_token_range
 
     subroutine parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-            implicit_indices, error_msg)
+            implicit_indices, error_msg, diagnostic_sink)
         type(token_t), intent(in) :: tokens(:)
         logical, intent(inout) :: used_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: implicit_indices(:)
         character(len=*), intent(inout) :: error_msg
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: i, seq_start, seq_end, stmt_index
         logical :: in_sequence
         type(token_t), allocatable, target :: segment_tokens(:)
@@ -280,7 +297,7 @@ contains
                 if (in_sequence) then
                     seq_end = i - 1
                     call parse_sequence(tokens, seq_start, seq_end, arena, &
-                        stmt_index, error_msg)
+                        stmt_index, error_msg, diagnostic_sink)
                     if (len_trim(error_msg) > 0) return
                     if (stmt_index > 0) call append_implicit(implicit_indices, &
                         stmt_index)
@@ -293,7 +310,7 @@ contains
         if (in_sequence) then
             seq_end = size(tokens)
             call parse_sequence(tokens, seq_start, seq_end, arena, stmt_index, &
-                error_msg)
+                error_msg, diagnostic_sink)
             if (len_trim(error_msg) > 0) return
             if (stmt_index > 0) call append_implicit(implicit_indices, stmt_index)
             call mark_token_range(used_tokens, seq_start, seq_end)
@@ -311,12 +328,14 @@ contains
         end function token_has_content
 
         subroutine parse_sequence(all_tokens, start_idx, end_idx, arena, &
-                stmt_index, error_msg)
+                stmt_index, error_msg, diagnostic_sink)
             type(token_t), intent(in) :: all_tokens(:)
             integer, intent(in) :: start_idx, end_idx
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(out) :: stmt_index
             character(len=*), intent(inout) :: error_msg
+            type(error_collection_t), target, intent(inout), optional :: &
+                diagnostic_sink
             type(token_t), allocatable, target :: local_tokens(:)
 
             stmt_index = 0
@@ -324,7 +343,7 @@ contains
 
             local_tokens = all_tokens(start_idx:end_idx)
             call parse_tokens_with_dispatcher(local_tokens, arena, stmt_index, &
-                error_msg)
+                error_msg, diagnostic_sink)
         end subroutine parse_sequence
 
         subroutine append_implicit(implicit_indices, stmt_index)

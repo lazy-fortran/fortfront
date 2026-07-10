@@ -18,6 +18,7 @@ module frontend_parsing
         mixed_construct_result_t, &
         is_top_level_declaration
     use error_handling, only: result_t
+    use error_reporting, only: error_collection_t, error_record_t
     use parser_dispatcher_module, only: clear_parser_errors
 
     ! Import from split modules
@@ -85,11 +86,12 @@ contains
     end function create_multi_unit_container
 
     ! Main parsing entry point
-    subroutine parse_tokens(tokens, arena, prog_index, error_msg)
+    subroutine parse_tokens(tokens, arena, prog_index, error_msg, parser_errors)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: prog_index
         character(len=*), intent(out) :: error_msg
+        type(error_record_t), allocatable, intent(out), optional :: parser_errors(:)
 
         type(mixed_construct_result_t) :: mixed_result
         logical :: has_explicit_program
@@ -98,6 +100,7 @@ contains
         type(token_t), allocatable :: tokens_local(:)
         character(len=:), allocatable :: nested_error
         character(len=:), allocatable :: unit_error
+        type(error_collection_t), target :: diagnostics
 
         error_msg = ""
         prog_index = 0
@@ -112,18 +115,20 @@ contains
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (should_use_mixed_constructs(tokens_local, mixed_result)) then
             call parse_mixed_construct_file(tokens_local, arena, mixed_result, &
-                prog_index, error_msg)
+                prog_index, error_msg, diagnostics)
+            call export_parser_errors(diagnostics, parser_errors)
             return
         end if
 
         has_explicit_program = detect_explicit_program_unit(tokens_local)
         call collect_program_units(tokens_local, arena, has_explicit_program, &
-            debug_units, unit_indices, unit_error)
+            debug_units, unit_indices, unit_error, diagnostics)
 
         if (allocated(unit_error)) then
             if (len_trim(unit_error) > 0) then
                 error_msg = trim(unit_error)
                 prog_index = 0
+                call export_parser_errors(diagnostics, parser_errors)
                 return
             end if
         end if
@@ -136,11 +141,13 @@ contains
                 error_msg = 'Nested internal procedures are not supported.'
             end if
             prog_index = 0
+            call export_parser_errors(diagnostics, parser_errors)
             return
         end if
 
         if (.not. allocated(unit_indices)) allocate (unit_indices(0))
         call finalize_program_result(arena, unit_indices, prog_index, error_msg)
+        call export_parser_errors(diagnostics, parser_errors)
     end subroutine parse_tokens
 
     ! Safe parsing wrapper
@@ -192,31 +199,33 @@ contains
     end function should_use_mixed_constructs
 
     subroutine parse_mixed_construct_file(tokens, arena, mixed_result, prog_index, &
-            error_msg)
+            error_msg, diagnostics)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(mixed_construct_result_t), intent(in) :: mixed_result
         integer, intent(out) :: prog_index
         character(len=*), intent(inout) :: error_msg
+        type(error_collection_t), target, intent(inout) :: diagnostics
 
         character(len=500) :: mixed_error
 
         mixed_error = ""
         call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, &
-            mixed_error)
+            mixed_error, diagnostics)
         if (len_trim(mixed_error) > 0) then
             error_msg = trim(mixed_error)
         end if
     end subroutine parse_mixed_construct_file
 
     subroutine collect_program_units(tokens, arena, has_explicit_program, &
-            debug_units, unit_indices, unit_error)
+            debug_units, unit_indices, unit_error, diagnostics)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
         logical, intent(in) :: debug_units
         integer, allocatable, intent(out) :: unit_indices(:)
         character(len=:), allocatable, intent(out) :: unit_error
+        type(error_collection_t), target, intent(inout) :: diagnostics
 
         integer :: i
         integer :: unit_start
@@ -238,7 +247,7 @@ contains
 
             local_error = ""
             call process_program_unit(tokens, unit_start, unit_end, arena, &
-                unit_index, has_explicit_program, local_error)
+                unit_index, has_explicit_program, local_error, diagnostics)
 
             if (debug_units) then
                 call log_unit_bounds(tokens, unit_start, unit_end, unit_index)
@@ -257,6 +266,17 @@ contains
             i = unit_end + 1
         end do
     end subroutine collect_program_units
+
+    subroutine export_parser_errors(diagnostics, parser_errors)
+        type(error_collection_t), intent(in) :: diagnostics
+        type(error_record_t), allocatable, intent(out), optional :: parser_errors(:)
+
+        if (.not. present(parser_errors)) return
+        allocate (parser_errors(diagnostics%count))
+        if (diagnostics%count > 0) then
+            parser_errors = diagnostics%errors(1:diagnostics%count)
+        end if
+    end subroutine export_parser_errors
 
     subroutine log_unit_bounds(tokens, unit_start, unit_end, unit_index)
         use, intrinsic :: iso_fortran_env, only: error_unit

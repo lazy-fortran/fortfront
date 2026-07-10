@@ -13,8 +13,9 @@ module semantic_unsigned_integer_mix_diagnostics
 
 contains
 
-    subroutine emit_unsigned_integer_mix_error(errors)
+    subroutine emit_unsigned_integer_mix_error(errors, line, column)
         type(error_collection_t), intent(inout) :: errors
+        integer, intent(in) :: line, column
 
         call errors%add_result(create_error_result( &
             "Implicit mixing of signed and unsigned " // &
@@ -23,7 +24,8 @@ contains
             component="semantic_analyzer", &
             context="unsigned_integer_mix", &
             suggestion="Convert explicitly with uint(...) or " // &
-            "int(...)"))
+            "int(...)", line=line, column=column, end_line=line, &
+            end_column=column + 1))
     end subroutine emit_unsigned_integer_mix_error
 
     subroutine extract_integer_signedness(typ, is_int, is_unsigned)

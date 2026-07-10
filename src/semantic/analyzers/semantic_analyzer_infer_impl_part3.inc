@@ -76,7 +76,11 @@
                                    component='semantic_analyzer', &
                                    context='strict_allocatable_lhs_realloc', &
                                    suggestion='Resize explicitly with deallocate/'// &
-                                   'allocate, or use infer mode'))
+                                   'allocate, or use infer mode', &
+                                   line=assignment%line, &
+                                   column=assignment%column, &
+                                   end_line=assignment%line, &
+                                   end_column=assignment%column + 1))
     end subroutine validate_strict_allocatable_lhs_reallocation
 
     subroutine get_lhs_identifier_name(arena, target_index, name)

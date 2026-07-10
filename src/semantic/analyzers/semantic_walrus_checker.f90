@@ -133,7 +133,9 @@ contains
                 ERROR_SEMANTIC, &
                 component="semantic_walrus_checker", &
                 context="check_walrus_redeclaration", &
-                suggestion="Use '=' to assign to an existing variable" &
+                suggestion="Use '=' to assign to an existing variable", &
+                line=stmt%line, column=stmt%column, end_line=stmt%line, &
+                end_column=stmt%column + 1 &
                 )
             call errors%add_result(error_result)
             return

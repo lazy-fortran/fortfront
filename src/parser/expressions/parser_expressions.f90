@@ -643,13 +643,19 @@ end function parse_expression_with_precedence
 !=================================================================================
 
 ! Main expression parsing entry point with stack
-function parse_expression(tokens, arena) result(expr_index)
+function parse_expression(tokens, arena, parent_parser) result(expr_index)
     type(token_t), intent(in) :: tokens(:)
     type(ast_arena_t), intent(inout) :: arena
+    type(parser_state_t), intent(in), optional :: parent_parser
     integer :: expr_index
     type(parser_state_t) :: parser
 
     parser = create_parser_state(tokens)
+    if (present(parent_parser)) then
+        if (associated(parent_parser%diagnostic_sink)) then
+            parser%diagnostic_sink => parent_parser%diagnostic_sink
+        end if
+    end if
     expr_index = parse_range(parser, arena)
 end function parse_expression
 

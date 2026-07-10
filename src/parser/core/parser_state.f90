@@ -17,6 +17,7 @@ module parser_state_module
         integer :: current_token = 1
         integer :: generation = 1 ! Generation for lifecycle tracking
         type(error_collection_t) :: errors
+        type(error_collection_t), pointer :: diagnostic_sink => null()
     contains
         procedure :: peek => parser_peek
         procedure :: consume => parser_consume
@@ -24,6 +25,7 @@ module parser_state_module
         procedure :: match => parser_match
         procedure :: expect => parser_expect
         procedure :: error => parser_add_error
+        procedure :: error_at_token => parser_add_error_at_token
         procedure :: has_errors => parser_has_errors
         procedure :: get_error_messages => parser_get_error_messages
 
@@ -42,8 +44,9 @@ module parser_state_module
 contains
 
     ! Create parser state from tokens (view into caller-owned buffer)
-    function create_parser_state(tokens) result(state)
+    function create_parser_state(tokens, diagnostic_sink) result(state)
         type(token_t), target, intent(in) :: tokens(:)
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         type(parser_state_t) :: state
 
         if (size(tokens) > 0) then
@@ -54,6 +57,7 @@ contains
         state%current_token = 1
         state%owns_tokens = .false.
         state%generation = 1
+        if (present(diagnostic_sink)) state%diagnostic_sink => diagnostic_sink
     end function create_parser_state
 
     ! Peek at current token without consuming it
@@ -127,7 +131,7 @@ contains
             else
                 msg = "Unexpected token"
             end if
-            call this%errors%add_error_with_token(msg, current)
+            call this%error_at_token(msg, current)
         end if
     end function parser_expect
 
@@ -139,8 +143,21 @@ contains
         type(token_t) :: current
 
         current = this%peek()
-        call this%errors%add_error_with_token(message, current, suggestion=suggestion)
+        call this%error_at_token(message, current, suggestion)
     end subroutine parser_add_error
+
+    subroutine parser_add_error_at_token(this, message, token, suggestion)
+        class(parser_state_t), intent(inout) :: this
+        character(len=*), intent(in) :: message
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in), optional :: suggestion
+
+        call this%errors%add_error_with_token(message, token, suggestion=suggestion)
+        if (associated(this%diagnostic_sink)) then
+            call this%diagnostic_sink%add_error_with_token(message, token, &
+                suggestion=suggestion)
+        end if
+    end subroutine parser_add_error_at_token
 
     ! Check if parser has any errors
     logical function parser_has_errors(this)
@@ -171,6 +188,7 @@ contains
             end if
         end if
         this%owns_tokens = .false.
+        nullify (this%diagnostic_sink)
 
         ! Reset position
         this%current_token = 1
@@ -216,6 +234,11 @@ contains
         lhs%current_token = rhs%current_token
         lhs%generation = rhs%generation
         lhs%errors = rhs%errors
+        if (associated(rhs%diagnostic_sink)) then
+            lhs%diagnostic_sink => rhs%diagnostic_sink
+        else
+            nullify (lhs%diagnostic_sink)
+        end if
 
         if (associated(rhs%tokens)) then
             if (rhs%owns_tokens) then

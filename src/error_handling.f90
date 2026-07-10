@@ -24,6 +24,10 @@ module error_handling
         character(len=:), allocatable :: error_message
         integer :: error_code = 0
         integer :: severity = ERROR_INFO
+        integer :: line = 0
+        integer :: column = 0
+        integer :: end_line = 0
+        integer :: end_column = 0
         character(len=:), allocatable :: component
         character(len=:), allocatable :: context
         character(len=:), allocatable :: suggestion
@@ -189,6 +193,10 @@ contains
         this%success = .true.
         this%error_code = 0
         this%severity = ERROR_INFO
+        this%line = 0
+        this%column = 0
+        this%end_line = 0
+        this%end_column = 0
         if (allocated(this%error_message)) deallocate (this%error_message)
         if (allocated(this%component)) deallocate (this%component)
         if (allocated(this%context)) deallocate (this%context)
@@ -208,6 +216,10 @@ contains
         ! Combine error codes (if both present, use the more severe one)
         if (this%severity >= other%severity) then
             combined%error_code = this%error_code
+            combined%line = this%line
+            combined%column = this%column
+            combined%end_line = this%end_line
+            combined%end_column = this%end_column
             if (allocated(this%error_message)) combined%error_message = &
                 this%error_message
             if (allocated(this%component)) combined%component = this%component
@@ -215,6 +227,10 @@ contains
             if (allocated(this%suggestion)) combined%suggestion = this%suggestion
         else
             combined%error_code = other%error_code
+            combined%line = other%line
+            combined%column = other%column
+            combined%end_line = other%end_line
+            combined%end_column = other%end_column
             if (allocated(other%error_message)) combined%error_message = &
                 other%error_message
             if (allocated(other%component)) combined%component = other%component
@@ -230,6 +246,10 @@ contains
         lhs%success = rhs%success
         lhs%error_code = rhs%error_code
         lhs%severity = rhs%severity
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%end_line = rhs%end_line
+        lhs%end_column = rhs%end_column
 
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
         if (allocated(rhs%component)) lhs%component = rhs%component
@@ -244,14 +264,19 @@ contains
         res%severity = ERROR_INFO
     end function success_result
 
-    function create_error_result(message, code, component, context, suggestion) &
-            result(res)
+    function create_error_result(message, code, component, context, suggestion, &
+            line, column, end_line, end_column) result(res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
+        integer, intent(in), optional :: line, column, end_line, end_column
         type(result_t) :: res
 
         call res%set_error(message, code, component, context, suggestion)
+        if (present(line)) res%line = line
+        if (present(column)) res%column = column
+        if (present(end_line)) res%end_line = end_line
+        if (present(end_column)) res%end_column = end_column
     end function create_error_result
 
     function warning_result(message, code, component, context, suggestion) result(res)
@@ -286,11 +311,13 @@ contains
         collection%count = 0
     end function create_error_collection
 
-    subroutine add_error(this, message, code, severity, component, context, suggestion)
+    subroutine add_error(this, message, code, severity, component, context, &
+            suggestion, line, column, end_line, end_column)
         class(error_collection_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code, severity
         character(len=*), intent(in), optional :: component, context, suggestion
+        integer, intent(in), optional :: line, column, end_line, end_column
 
         type(result_t) :: error_result
         integer :: sev
@@ -308,6 +335,11 @@ contains
             error_result = create_error_result(message, code, component, context, &
                 suggestion)
         end select
+
+        if (present(line)) error_result%line = line
+        if (present(column)) error_result%column = column
+        if (present(end_line)) error_result%end_line = end_line
+        if (present(end_column)) error_result%end_column = end_column
 
         call this%add_result(error_result)
     end subroutine add_error

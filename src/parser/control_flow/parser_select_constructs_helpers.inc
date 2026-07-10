@@ -169,6 +169,9 @@
         tokens_buffer(buffer_len)%column = parser%tokens(end_pos)%column
 
         sub_parser = create_parser_state(tokens_buffer)
+        if (associated(parser%diagnostic_sink)) then
+            sub_parser%diagnostic_sink => parser%diagnostic_sink
+        end if
 
         success = .true.
 

@@ -198,7 +198,8 @@ contains
             component='semantic_implied_do_validation', &
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
-            suggestion='rename the nested implied-DO index')
+            suggestion='rename the nested implied-DO index', &
+            line=line, column=column, end_line=line, end_column=column + 1)
     end subroutine report_duplicate_index
 
     subroutine report_out_of_scope(errors, name, line, column)
@@ -213,7 +214,8 @@ contains
             component='semantic_implied_do_validation', &
             context='line '//int_to_string(line)//', column '// &
             int_to_string(column), &
-            suggestion='use a variable in scope for the implied-DO bounds')
+            suggestion='use a variable in scope for the implied-DO bounds', &
+            line=line, column=column, end_line=line, end_column=column + 1)
     end subroutine report_out_of_scope
 
 end module semantic_implied_do_validation
