@@ -8,8 +8,9 @@ module parser_io_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: &
-        inquire_statement_node, backspace_statement_node, &
+        io_specifier_t, inquire_statement_node, backspace_statement_node, &
         rewind_statement_node, endfile_statement_node
+    use parser_io_specifiers, only: parse_io_specifier_nodes
     use ast_factory, only: push_print_statement, push_write_statement, &
         push_read_statement, push_format_statement, &
         push_open_statement, push_close_statement, &

@@ -227,6 +227,18 @@
         spec_text = trim(spec_text)
     end function collect_position_spec
 
+    subroutine prepare_position_specifier_parser(parser, specifier_parser)
+        type(parser_state_t), intent(in) :: parser
+        type(parser_state_t), intent(out) :: specifier_parser
+        type(token_t) :: token
+
+        specifier_parser = parser
+        token = specifier_parser%peek()
+        if (token%kind == TK_OPERATOR) then
+            if (token%text == '(') token = specifier_parser%consume()
+        end if
+    end subroutine prepare_position_specifier_parser
+
     ! Parse argument list (common logic for print/write/read)
     subroutine parse_argument_list(parser, arena, arg_indices)
         type(parser_state_t), intent(inout) :: parser
@@ -387,4 +399,3 @@
             fail_and_restore = 0
         end function fail_and_restore
     end function parse_io_implied_do
-
