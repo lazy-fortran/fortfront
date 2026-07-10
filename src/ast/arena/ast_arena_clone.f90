@@ -605,11 +605,10 @@ contains
     ! Remap a single index: if old_idx is in the map, return new idx; else unchanged
     pure integer function remap_one(index_map, old_idx) result(new_idx)
         integer, intent(in) :: index_map(:), old_idx
-        if (old_idx > 0 .and. old_idx <= size(index_map) .and. index_map(old_idx) > 0) then
-            new_idx = index_map(old_idx)
-        else
-            new_idx = old_idx
-        end if
+        new_idx = old_idx
+        if (old_idx <= 0) return
+        if (old_idx > size(index_map)) return
+        if (index_map(old_idx) > 0) new_idx = index_map(old_idx)
     end function remap_one
 
     ! Remap an array of indices
