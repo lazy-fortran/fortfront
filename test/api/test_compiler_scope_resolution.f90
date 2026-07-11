@@ -261,6 +261,10 @@ contains
             write (error_unit, '(A)') 'FAIL: wrong node for '//trim(label)
             error stop 1
         end if
+        if (binding%node_index /= binding%declaration_node_index) then
+            write (error_unit, '(A)') 'FAIL: inconsistent declaration identity'
+            error stop 1
+        end if
         if (binding%binding_kind /= kind) then
             write (error_unit, '(A)') 'FAIL: wrong binding kind for '//trim(label)
             error stop 1
