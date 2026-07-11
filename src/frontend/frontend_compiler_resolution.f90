@@ -36,6 +36,7 @@ module frontend_compiler_resolution
         character(len=:), allocatable :: remote_name
         character(len=:), allocatable :: module_name
         integer :: declaration_node_index = 0
+        integer :: node_index = 0
         integer :: scope_node_index = 0
         integer :: binding_kind = BINDING_NONE
         integer :: association = ASSOCIATION_NONE
@@ -772,6 +773,7 @@ contains
         binding%name = trim(name)
         binding%remote_name = trim(name)
         binding%declaration_node_index = node_index
+        binding%node_index = node_index
         binding%scope_node_index = scope_node_index
         binding%binding_kind = kind
         binding%association = association
@@ -785,6 +787,7 @@ contains
         call set_empty(binding%remote_name)
         call set_empty(binding%module_name)
         binding%declaration_node_index = 0
+        binding%node_index = 0
         binding%scope_node_index = 0
         binding%binding_kind = BINDING_NONE
         binding%association = ASSOCIATION_NONE
