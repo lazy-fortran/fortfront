@@ -363,7 +363,7 @@ Before ANY commit or PR:
 Fortfront processes **both standard and lazy Fortran** through a multi-stage pipeline:
 
 1. **Lexing** (`src/lexer/`) - Tokenize source text
-2. **Parsing** (`src/parser/`) - Build CST (Concrete Syntax Tree), then AST (Abstract Syntax Tree)
+2. **Parsing** (`src/parser/`) - Build the AST (Abstract Syntax Tree) directly from tokens
 3. **Semantic Analysis** (`src/semantic/`) - Type inference, scope resolution, validation
 4. **Program Analysis** (`src/analysis/`) - Call graph, variable usage tracking
 5. **Code Generation** (`src/codegen/`) - Emit standard Fortran
@@ -435,11 +435,11 @@ src/
 ├── ast/            # AST node types, arena, traversal (for both .f90 and .lf)
 ├── codegen/        # Standard Fortran emission (NOT backend IR)
 ├── common/         # Shared utilities (identifiers, UIDs)
-├── cst/            # Concrete syntax tree (preserves all source details)
+├── cst/            # Lexical trivia (comments, whitespace) attached to AST nodes
 ├── frontend/       # High-level pipeline orchestration
 ├── interfaces/     # C API bindings (for non-Fortran tool integration)
 ├── lexer/          # Tokenization (handles both standard and lazy Fortran)
-├── parser/         # CST → AST transformation (unified parser)
+├── parser/         # Tokens -> AST transformation (unified parser)
 ├── semantic/       # Type inference + validation (inference for .lf, validation for .f90)
 ├── standardizers/  # Lazy Fortran → standard Fortran transformation passes
 └── utilities/      # String handling, debug tracing, CLI
@@ -566,7 +566,7 @@ Utilities:
 - `src/common/README.md` - Shared utilities (identifiers, UIDs)
 - `src/utilities/README.md` - String handling, debug tracing
 - `src/interfaces/README.md` - C API bindings
-- `src/cst/README.md` - Concrete syntax tree
+- `src/cst/README.md` - Lexical trivia surface
 - `src/shims/README.md` - Compatibility shims
 
 Application & Tests:
