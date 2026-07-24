@@ -196,6 +196,49 @@ The intended compiler boundary is:
 The compiler API is Fortran-only today. A full C ABI for typed AST traversal is
 not implemented.
 
+## Resolved Expression Type Query
+
+`compile_frontend_from_string` and `compile_frontend_from_file` annotate the
+analyzed arena with exact compiler-facing type metadata. Query an expression by
+arena index through `fortfront_compiler`:
+
+```fortran
+use fortfront_compiler, only: resolved_type_query_t, query_resolved_type
+
+type(resolved_type_query_t) :: resolved
+
+resolved = query_resolved_type(result%arena, expression_index)
+if (.not. resolved%found) then
+    print '(a)', resolved%diagnostic
+    return
+end if
+```
+
+The result fields have the following contract:
+
+- `type_kind` is the intrinsic category constant (`TINT`, `TREAL`, `TLOGICAL`,
+  `TCOMPLEX`, or `TCHAR`) or `TDERIVED`. Double precision is reported as the
+  real category with `kind_value == 8`.
+- `kind_value` is the exact resolved Fortran kind selector. Numeric selectors
+  and visible integer named constants remain distinct, including `real(8)` and
+  `real(16)` or `integer, parameter :: wp = 16; real(wp) :: x`.
+- `storage_size_bits` is the scalar storage size represented by FortFront's
+  kind mapping. Complex storage includes both real components. A zero value
+  means that FortFront has no storage mapping.
+- `rank` is zero for a scalar and positive for an array expression.
+- `derived_type_name` identifies a resolved derived type and is empty for an
+  intrinsic type.
+- `found` is false, with `diagnostic` populated, when exact semantic type
+  resolution is unavailable.
+
+The annotation covers literals, declaration and identifier references, unary
+and binary expressions, function results, intrinsic calls whose result kind is
+recorded, and component references whose declaration is visible in the arena.
+Mixed numeric expressions use Fortran category promotion while preserving the
+resolved real or complex operand kind. The query itself reads semantic metadata;
+it does not parse source text. If compiler options disable semantic analysis,
+exact type queries are unavailable.
+
 ## See Also
 
 - `examples/` - Additional code samples

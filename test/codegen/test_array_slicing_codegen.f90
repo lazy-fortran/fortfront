@@ -113,6 +113,18 @@ contains
             test_empty_bounds = .false.
             return
         end if
+
+        if (index(code, 'arr(2::2)') == 0) then
+            print *, '  FAIL: missing arr(2::2)'
+            test_empty_bounds = .false.
+            return
+        end if
+
+        if (index(code, 'arr(::2)') == 0) then
+            print *, '  FAIL: missing arr(::2)'
+            test_empty_bounds = .false.
+            return
+        end if
     end function test_empty_bounds
 
     logical function test_multidim_slices()

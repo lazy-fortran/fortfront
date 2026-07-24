@@ -1,6 +1,6 @@
 program test_compiler_scope_resolution
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use ast_nodes_associate, only: block_construct_node
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_procedure, only: subroutine_def_node
@@ -9,13 +9,16 @@ program test_compiler_scope_resolution
         INPUT_MODE_STANDARD, declaration_binding_t, &
         resolve_name_in_scope, resolve_name_at_node, &
         BINDING_DECLARATION, BINDING_NAMED_CONSTANT, BINDING_FUNCTION, &
-        BINDING_GENERIC_INTERFACE, ASSOCIATION_DIRECT, ASSOCIATION_HOST, &
-        ASSOCIATION_USE
+        BINDING_GENERIC_INTERFACE, BINDING_ASSOCIATE_NAME, &
+        ASSOCIATION_DIRECT, ASSOCIATION_HOST, ASSOCIATION_USE
     implicit none
 
     call test_host_parameter()
     call test_later_declaration()
+    call test_compound_declaration_identity()
     call test_block_shadow()
+    call test_associate_scope()
+    call test_nested_block_shadow()
     call test_use_rename()
     call test_module_accessibility()
     call test_procedure_and_generic()
@@ -85,6 +88,42 @@ contains
             BINDING_NAMED_CONSTANT, ASSOCIATION_DIRECT, 'later parameter n')
     end subroutine test_later_declaration
 
+    subroutine test_compound_declaration_identity()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: a_binding
+        type(declaration_binding_t) :: b_binding
+        character(len=:), allocatable :: error_msg
+        integer :: program_index
+
+        call compile_standard( &
+            'program p'//new_line('a')// &
+            '  integer :: a, b'//new_line('a')// &
+            'end program p', result)
+        program_index = find_program(result, 'p')
+        call resolve_name_in_scope(result%arena, program_index, 'a', a_binding, &
+            error_msg)
+        call require_found(error_msg, a_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'compound declaration a')
+        call resolve_name_in_scope(result%arena, program_index, 'b', b_binding, &
+            error_msg)
+        call require_found(error_msg, b_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'compound declaration b')
+        if (a_binding%declaration_node_index /= &
+            b_binding%declaration_node_index) then
+            write (error_unit, '(A)') 'FAIL: compound names have different nodes'
+            error stop 1
+        end if
+        if (a_binding%scope_node_index /= b_binding%scope_node_index) then
+            write (error_unit, '(A)') 'FAIL: compound names have different scopes'
+            error stop 1
+        end if
+        if (a_binding%declaration_entity_index == &
+            b_binding%declaration_entity_index) then
+            write (error_unit, '(A)') 'FAIL: compound names share one identity'
+            error stop 1
+        end if
+    end subroutine test_compound_declaration_identity
+
     subroutine test_block_shadow()
         type(compiler_frontend_result_t) :: result
         type(declaration_binding_t) :: inner_binding
@@ -122,6 +161,95 @@ contains
             error stop 1
         end if
     end subroutine test_block_shadow
+
+    subroutine test_nested_block_shadow()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: outer_binding
+        type(declaration_binding_t) :: inner_binding
+        character(len=:), allocatable :: error_msg
+        integer :: outer_block
+        integer :: inner_block
+
+        call compile_standard( &
+            'program p'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            '  block'//new_line('a')// &
+            '    integer :: x'//new_line('a')// &
+            '    block'//new_line('a')// &
+            '      integer :: x'//new_line('a')// &
+            '    end block'//new_line('a')// &
+            '  end block'//new_line('a')// &
+            'end program p', result)
+        outer_block = find_block_at_line(result, 3)
+        inner_block = find_block_at_line(result, 5)
+        if (result%arena%entries(inner_block)%parent_index /= outer_block) then
+            write (error_unit, '(A)') 'FAIL: nested BLOCK has wrong parent scope'
+            error stop 1
+        end if
+        call resolve_name_in_scope(result%arena, outer_block, 'x', outer_binding, &
+            error_msg)
+        call require_found(error_msg, outer_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'outer BLOCK x')
+        call resolve_name_in_scope(result%arena, inner_block, 'x', inner_binding, &
+            error_msg)
+        call require_found(error_msg, inner_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'inner BLOCK x')
+        if (inner_binding%declaration_node_index == &
+            outer_binding%declaration_node_index) then
+            write (error_unit, '(A)') 'FAIL: nested BLOCK reused outer binding'
+            error stop 1
+        end if
+    end subroutine test_nested_block_shadow
+
+    subroutine test_associate_scope()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: x_binding
+        type(declaration_binding_t) :: y_binding
+        type(declaration_binding_t) :: selector_binding
+        type(declaration_binding_t) :: outer_binding
+        character(len=:), allocatable :: error_msg
+        integer :: associate_index
+        integer :: program_index
+        integer :: selector_index
+
+        call compile_standard( &
+            'program p'//new_line('a')// &
+            '  integer :: x'//new_line('a')// &
+            '  associate (x => 7, y => x)'//new_line('a')// &
+            '    print *, x + y'//new_line('a')// &
+            '  end associate'//new_line('a')// &
+            'end program p', result)
+        associate_index = find_associate(result)
+        program_index = find_program(result, 'p')
+        call resolve_name_in_scope(result%arena, associate_index, 'x', x_binding, &
+            error_msg)
+        call require_binding(error_msg, x_binding, associate_index, &
+            BINDING_ASSOCIATE_NAME, ASSOCIATION_DIRECT, 'associate x')
+        call resolve_name_in_scope(result%arena, associate_index, 'y', y_binding, &
+            error_msg)
+        call require_binding(error_msg, y_binding, associate_index, &
+            BINDING_ASSOCIATE_NAME, ASSOCIATION_DIRECT, 'associate y')
+        if (x_binding%declaration_entity_index == &
+            y_binding%declaration_entity_index) then
+            write (error_unit, '(A)') 'FAIL: associate names share one identity'
+            error stop 1
+        end if
+        select type (node => result%arena%entries(associate_index)%node)
+            type is (associate_node)
+            selector_index = node%associations(2)%expr_index
+        class default
+            error stop 'FAIL: associate query has wrong node type'
+        end select
+        call resolve_name_at_node(result%arena, selector_index, 'x', &
+            selector_binding, error_msg)
+        call resolve_name_in_scope(result%arena, program_index, 'x', outer_binding, &
+            error_msg)
+        if (selector_binding%declaration_node_index /= &
+            outer_binding%declaration_node_index) then
+            write (error_unit, '(A)') 'FAIL: selector sees an associate name'
+            error stop 1
+        end if
+    end subroutine test_associate_scope
 
     subroutine test_use_rename()
         type(compiler_frontend_result_t) :: result
@@ -302,6 +430,43 @@ contains
         write (error_unit, '(A)') 'FAIL: BLOCK not found'
         error stop 1
     end function find_block
+
+    integer function find_block_at_line(result, line) result(index)
+        type(compiler_frontend_result_t), intent(in) :: result
+        integer, intent(in) :: line
+        integer :: i
+
+        index = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+                type is (block_construct_node)
+                if (node%line == line) then
+                    index = i
+                    return
+                end if
+            end select
+        end do
+        write (error_unit, '(A,I0)') 'FAIL: BLOCK not found at line ', line
+        error stop 1
+    end function find_block_at_line
+
+    integer function find_associate(result) result(index)
+        type(compiler_frontend_result_t), intent(in) :: result
+        integer :: i
+
+        index = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+                type is (associate_node)
+                index = i
+                return
+            end select
+        end do
+        write (error_unit, '(A)') 'FAIL: ASSOCIATE not found'
+        error stop 1
+    end function find_associate
 
     integer function find_module_scope(result) result(index)
         use ast_nodes_data, only: module_node

@@ -24,6 +24,17 @@ module ast_base
         type(mono_type_t) :: inferred_type ! Type information
         ! from semantic analysis
 
+        ! Exact compiler-facing type metadata.  The broad inferred_type kind is
+        ! retained for compatibility; these fields preserve the resolved
+        ! Fortran kind selector and scalar/array identity without requiring a
+        ! consumer to inspect source spelling.
+        logical :: resolved_type_found = .false.
+        integer :: resolved_type_kind = 0
+        integer :: resolved_kind_value = 0
+        integer :: resolved_storage_bits = 0
+        integer :: resolved_rank = -1
+        character(len=64) :: resolved_derived_type_name = ""
+
         ! Unique identifier for CST/AST bidirectional linking
         type(uid_t) :: uid
 
@@ -78,6 +89,12 @@ contains
         lhs%column = rhs%column
         lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
+        lhs%resolved_type_found = rhs%resolved_type_found
+        lhs%resolved_type_kind = rhs%resolved_type_kind
+        lhs%resolved_kind_value = rhs%resolved_kind_value
+        lhs%resolved_storage_bits = rhs%resolved_storage_bits
+        lhs%resolved_rank = rhs%resolved_rank
+        lhs%resolved_derived_type_name = rhs%resolved_derived_type_name
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
         lhs%constant_integer = rhs%constant_integer

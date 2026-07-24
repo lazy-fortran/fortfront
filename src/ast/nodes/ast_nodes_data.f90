@@ -81,6 +81,7 @@ module ast_nodes_data
         ! attribute is present (F2003 C interop)
         logical :: is_bind_c = .false. ! Whether bind(c)
         ! attribute is present (F2003 C interop)
+        logical :: is_inferred = .false.
         logical :: disable_grouping = .false. ! Skip declaration grouping
         character(len=:), allocatable :: accessibility ! 'public'/'private'
         character(len=:), allocatable :: bind_name ! bind(c, name="...") value
@@ -234,6 +235,12 @@ contains
         lhs%column = rhs%column
         lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
+        lhs%resolved_type_found = rhs%resolved_type_found
+        lhs%resolved_type_kind = rhs%resolved_type_kind
+        lhs%resolved_kind_value = rhs%resolved_kind_value
+        lhs%resolved_storage_bits = rhs%resolved_storage_bits
+        lhs%resolved_rank = rhs%resolved_rank
+        lhs%resolved_derived_type_name = rhs%resolved_derived_type_name
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
         lhs%constant_integer = rhs%constant_integer
@@ -287,6 +294,7 @@ contains
         lhs%is_contiguous = rhs%is_contiguous
         lhs%is_value = rhs%is_value
         lhs%is_bind_c = rhs%is_bind_c
+        lhs%is_inferred = rhs%is_inferred
         lhs%disable_grouping = rhs%disable_grouping
         if (allocated(rhs%accessibility)) then
             lhs%accessibility = rhs%accessibility
@@ -320,6 +328,12 @@ contains
         lhs%column = rhs%column
         lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
+        lhs%resolved_type_found = rhs%resolved_type_found
+        lhs%resolved_type_kind = rhs%resolved_type_kind
+        lhs%resolved_kind_value = rhs%resolved_kind_value
+        lhs%resolved_storage_bits = rhs%resolved_storage_bits
+        lhs%resolved_rank = rhs%resolved_rank
+        lhs%resolved_derived_type_name = rhs%resolved_derived_type_name
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
         lhs%constant_integer = rhs%constant_integer

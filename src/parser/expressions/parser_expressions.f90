@@ -833,6 +833,8 @@ recursive function parse_range(parser, arena) result(expr_index)
     type(ast_arena_t), intent(inout) :: arena
     integer :: expr_index
     integer :: right_index
+    integer :: stride_index
+    logical :: double_colon
     type(token_t) :: op_token
 
     op_token = parser%peek()
@@ -853,11 +855,15 @@ recursive function parse_range(parser, arena) result(expr_index)
         return
     end if
 
-    if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
+    if (op_token%kind == TK_OPERATOR .and. &
+        (op_token%text == ":" .or. op_token%text == "::")) then
         op_token = parser%consume()
         expr_index = 0
+        double_colon = op_token%text == "::"
 
-        if (.not. parser%is_at_end()) then
+        if (double_colon) then
+            right_index = 0
+        else if (.not. parser%is_at_end()) then
             block
                 type(token_t) :: next_tok
                 next_tok = parser%peek()
@@ -875,15 +881,16 @@ recursive function parse_range(parser, arena) result(expr_index)
             right_index = 0
         end if
 
-        block
-            integer :: stride_index
+        if (double_colon) then
+            stride_index = parse_logical_eqv(parser, arena)
+        else
             stride_index = parse_stride_component(parser, arena)
+        end if
 
-            expr_index = push_range_expression(arena, expr_index, right_index, &
-                stride_index=stride_index, &
-                line=op_token%line, &
-                column=op_token%column)
-        end block
+        expr_index = push_range_expression(arena, expr_index, right_index, &
+            stride_index=stride_index, &
+            line=op_token%line, &
+            column=op_token%column)
         return
     end if
 
@@ -892,10 +899,14 @@ recursive function parse_range(parser, arena) result(expr_index)
 
     if (.not. parser%is_at_end()) then
         op_token = parser%peek()
-        if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
+        if (op_token%kind == TK_OPERATOR .and. &
+            (op_token%text == ":" .or. op_token%text == "::")) then
             op_token = parser%consume()
+            double_colon = op_token%text == "::"
 
-            if (.not. parser%is_at_end()) then
+            if (double_colon) then
+                right_index = 0
+            else if (.not. parser%is_at_end()) then
                 block
                     type(token_t) :: next_tok
                     next_tok = parser%peek()
@@ -914,16 +925,17 @@ recursive function parse_range(parser, arena) result(expr_index)
                 right_index = 0
             end if
 
-            block
-                integer :: stride_index
+            if (double_colon) then
+                stride_index = parse_logical_eqv(parser, arena)
+            else
                 stride_index = parse_stride_component(parser, arena)
+            end if
 
-                expr_index = push_range_expression(arena, expr_index, &
-                    right_index, &
-                    stride_index=stride_index, &
-                    line=op_token%line, &
-                    column=op_token%column)
-            end block
+            expr_index = push_range_expression(arena, expr_index, &
+                right_index, &
+                stride_index=stride_index, &
+                line=op_token%line, &
+                column=op_token%column)
         end if
     end if
 end function parse_range
