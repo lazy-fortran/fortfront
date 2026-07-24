@@ -452,6 +452,7 @@ contains
         decl%is_multi_declaration = .false.
         decl%is_unsigned = .false.
         decl%is_parameter = .false.
+        decl%is_inferred = .false.
         decl%var_name = ""
         decl%intent = ""
         decl%has_intent = .false.
@@ -569,6 +570,7 @@ contains
         end if
         decl%var_name = metadata%names(idx)
         decl%is_parameter = .true.
+        decl%is_inferred = inferred_local
         if (.not. is_proc_param) then
             if (decl%is_array) call ensure_deferred_shape(decl, metadata%rank(idx))
         end if

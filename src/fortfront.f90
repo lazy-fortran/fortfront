@@ -68,6 +68,8 @@ module fortfront
                                 BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
                          BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
                                             ASSOCIATION_HOST, ASSOCIATION_USE
+    use frontend_compiler_type_queries, only: resolved_type_query_t, &
+        query_resolved_type
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c

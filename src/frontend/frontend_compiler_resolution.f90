@@ -36,6 +36,7 @@ module frontend_compiler_resolution
         character(len=:), allocatable :: remote_name
         character(len=:), allocatable :: module_name
         integer :: declaration_node_index = 0
+        integer :: declaration_entity_index = 0
         integer :: node_index = 0
         integer :: scope_node_index = 0
         integer :: binding_kind = BINDING_NONE
@@ -118,6 +119,11 @@ contains
 
         scope_node_index = find_enclosing_scope(arena, reference_node_index)
         if (scope_node_index <= 0) return
+        if (is_associate_selector_reference(arena, scope_node_index, &
+                                            reference_node_index)) then
+            scope_node_index = find_host_scope(arena, scope_node_index)
+            if (scope_node_index <= 0) return
+        end if
         call resolve_name_in_scope(arena, scope_node_index, name, binding, &
                                    error_msg)
     end subroutine resolve_name_at_node
@@ -392,13 +398,14 @@ contains
             if (.not. allocated(node%var_names)) return
             do i = 1, size(node%var_names)
                 call append_named_binding(bindings, count, node%var_names(i), &
-                                        node_index, scope_node_index, kind, association)
+                                        node_index, scope_node_index, kind, &
+                                        association, i)
             end do
             return
         end if
         if (.not. allocated(node%var_name)) return
         call append_named_binding(bindings, count, node%var_name, node_index, &
-                                  scope_node_index, kind, association)
+                                  scope_node_index, kind, association, 1)
     end subroutine append_declaration_names
 
     subroutine append_function_result(scope_node_index, node, association, &
@@ -436,12 +443,38 @@ contains
             if (.not. allocated(node%associations(i)%name)) cycle
             call append_named_binding(bindings, count, node%associations(i)%name, &
                            scope_node_index, scope_node_index, BINDING_ASSOCIATE_NAME, &
-                                      association)
+                                      association, i)
         end do
     end subroutine append_associate_names
 
+    logical function is_associate_selector_reference(arena, scope_node_index, &
+            reference_node_index) result(is_selector)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        integer, intent(in) :: reference_node_index
+        integer :: current
+        integer :: i
+
+        is_selector = .false.
+        if (.not. arena%has_node_at(scope_node_index)) return
+        select type (node => arena%entries(scope_node_index)%node)
+        type is (associate_node)
+            if (.not. allocated(node%associations)) return
+            current = reference_node_index
+            do while (current > 0 .and. current /= scope_node_index)
+                do i = 1, size(node%associations)
+                    if (current /= node%associations(i)%expr_index) cycle
+                    is_selector = .true.
+                    return
+                end do
+                current = arena%entries(current)%parent_index
+            end do
+        end select
+    end function is_associate_selector_reference
+
     subroutine append_named_binding(bindings, count, name, node_index, &
-                                    scope_node_index, kind, association)
+                                    scope_node_index, kind, association, &
+                                    declaration_entity_index)
         type(declaration_binding_t), allocatable, intent(inout) :: bindings(:)
         integer, intent(inout) :: count
         character(len=*), intent(in) :: name
@@ -449,11 +482,12 @@ contains
         integer, intent(in) :: scope_node_index
         integer, intent(in) :: kind
         integer, intent(in) :: association
+        integer, intent(in), optional :: declaration_entity_index
         type(declaration_binding_t) :: binding
 
         if (len_trim(name) == 0) return
         call make_binding(binding, name, node_index, scope_node_index, kind, &
-                          association)
+                          association, declaration_entity_index)
         call append_binding(bindings, count, binding)
     end subroutine append_named_binding
 
@@ -760,19 +794,23 @@ contains
     end subroutine node_reference_name
 
     subroutine make_binding(binding, name, node_index, scope_node_index, kind, &
-                            association)
+                            association, declaration_entity_index)
         type(declaration_binding_t), intent(out) :: binding
         character(len=*), intent(in) :: name
         integer, intent(in) :: node_index
         integer, intent(in) :: scope_node_index
         integer, intent(in) :: kind
         integer, intent(in) :: association
+        integer, intent(in), optional :: declaration_entity_index
 
         call clear_binding(binding)
         binding%found = .true.
         binding%name = trim(name)
         binding%remote_name = trim(name)
         binding%declaration_node_index = node_index
+        binding%declaration_entity_index = 1
+        if (present(declaration_entity_index)) &
+            binding%declaration_entity_index = declaration_entity_index
         binding%node_index = node_index
         binding%scope_node_index = scope_node_index
         binding%binding_kind = kind
@@ -787,6 +825,7 @@ contains
         call set_empty(binding%remote_name)
         call set_empty(binding%module_name)
         binding%declaration_node_index = 0
+        binding%declaration_entity_index = 0
         binding%node_index = 0
         binding%scope_node_index = 0
         binding%binding_kind = BINDING_NONE

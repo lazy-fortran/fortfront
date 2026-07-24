@@ -8,6 +8,8 @@ module frontend_compiler_api
     use error_reporting, only: error_record_t
     use frontend_tooling_api, only: read_file_contents, message_has_error
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
+    use frontend_compiler_type_queries, only: &
+        annotate_resolved_expression_types
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
         analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
@@ -94,6 +96,7 @@ contains
         if (opts%run_semantics) then
             call analyze_program(result%semantic_ctx, result%arena, &
                 result%root_index)
+            call annotate_resolved_expression_types(result%arena)
             result%semantic_ok = .not. has_semantic_errors(result%semantic_ctx)
             if (.not. result%semantic_ok) then
                 result%diagnostic_text = &
@@ -125,6 +128,9 @@ contains
                     result%root_index)
             else
                 call standardize_ast(result%arena, result%root_index)
+            end if
+            if (opts%run_semantics) then
+                call annotate_resolved_expression_types(result%arena)
             end if
         end if
     end subroutine compile_frontend_from_string

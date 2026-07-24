@@ -12,6 +12,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 |------|-------------|
 | frontend_compiler_api.f90 | Public compiler-facing API returning AST, semantic context, tokens, and diagnostics without codegen |
 | frontend_compiler_queries.f90 | Safe compiler-facing AST queries for backend consumers |
+| frontend_compiler_type_queries.f90 | Resolved expression category, exact kind, storage size, rank, and derived-type queries |
 | frontend_compiler_node_queries.f90 | Compiler-facing declaration, derived-type, label, and GOTO node metadata queries |
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
@@ -155,6 +156,11 @@ end subroutine
   binary operations. `is_literal` and `get_literal_info` (value text,
   literal type) do the same for literals. `is_identifier` and
   `get_identifier_name` do the same for identifier references.
+- **Resolved type query**: `query_resolved_type` returns the semantic intrinsic
+  category, exact Fortran kind value, storage size in bits, rank, and
+  derived-type identity for an analyzed expression. The compiler pipeline
+  resolves numeric and named kind selectors once after semantic analysis;
+  backend callers do not inspect literal or declaration spelling.
 
 ## Dependencies
 

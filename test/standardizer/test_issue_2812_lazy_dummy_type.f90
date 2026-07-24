@@ -25,6 +25,7 @@ program test_issue_2812_lazy_dummy_type
     do iter = 1, n_iterations
         call run_and_check(source_code, iter)
     end do
+    call check_inferred_global_provenance()
 
     print *, 'PASS: Issue #2812 lazy dummy type concrete and deterministic'
 
@@ -115,6 +116,53 @@ contains
             error stop 1
         end if
     end subroutine assert_integer_type
+
+    subroutine assert_inferred(node, var, iter)
+        type(declaration_node), intent(in) :: node
+        character(len=*), intent(in) :: var
+        integer, intent(in) :: iter
+
+        if (node%is_inferred) return
+        write (error_unit, '(A,A,A,I0)') &
+            'FAIL: generated declaration for ', trim(var), &
+            ' lacks inferred provenance at iteration ', iter
+        error stop 1
+    end subroutine assert_inferred
+
+    subroutine check_inferred_global_provenance()
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        type(semantic_context_t) :: ctx
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: err
+        integer :: i
+        integer :: prog_index
+        logical :: found
+
+        call read_example('examples/lf/issue_2160_global_var_and_calls.lf', source)
+        call lex_source(source, tokens, err)
+        call assert_no_error(err, 'lex inferred global')
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, prog_index, err)
+        call assert_no_error(err, 'parse inferred global')
+        call create_semantic_context(ctx)
+        call analyze_program(ctx, arena, prog_index)
+        call standardize_ast(arena, prog_index)
+        found = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (declaration_node)
+                if (.not. allocated(node%var_name)) cycle
+                if (trim(node%var_name) /= 'counter') cycle
+                call assert_inferred(node, 'counter', 1)
+                found = .true.
+            end select
+        end do
+        if (found) return
+        write (error_unit, '(A)') 'FAIL: inferred counter declaration missing'
+        error stop 1
+    end subroutine check_inferred_global_provenance
 
     subroutine assert_ascii_clean(text, var, iter)
         character(len=*), intent(in) :: text

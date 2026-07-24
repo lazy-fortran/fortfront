@@ -703,7 +703,7 @@
                     stmt_index = parse_function_or_expression(parser, arena, &
                                                               prefix_buffer)
                 else
-                    stmt_index = parse_declaration(parser, arena)
+                    call handle_declaration_with_colon(parser, arena, stmt_index)
                 end if
             end if
         end if

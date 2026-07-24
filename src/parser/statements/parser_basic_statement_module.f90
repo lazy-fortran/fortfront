@@ -74,6 +74,7 @@ contains
         integer :: stmt_start, stmt_end
         type(statement_callbacks_t) :: local_callbacks
         logical :: has_meaningful
+        integer :: nested_block_index
         integer :: stmt_count
 
         allocate (body_indices(0))
@@ -95,6 +96,14 @@ contains
 
                 token = parser%peek()
                 if (check_end_keyword_match(token, parser, end_keywords)) exit
+
+                nested_block_index = parse_nested_block(parser, arena, &
+                    local_callbacks)
+                if (nested_block_index > 0) then
+                    body_indices = [body_indices, nested_block_index]
+                    stmt_count = stmt_count + 1
+                    cycle
+                end if
 
                 stmt_start = parser%current_token
                 stmt_end = find_statement_end(parser%tokens, stmt_start)
@@ -118,6 +127,21 @@ contains
             end do
         end block
     end function parse_statement_body
+
+    integer function parse_nested_block(parser, arena, callbacks) &
+            result(block_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(statement_callbacks_t), intent(in) :: callbacks
+        type(token_t) :: token
+
+        block_index = 0
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD) return
+        if (token%text /= 'block') return
+        if (.not. associated(callbacks%parse_block)) return
+        block_index = callbacks%parse_block(parser, arena)
+    end function parse_nested_block
 
     subroutine skip_nonstatements(parser)
         type(parser_state_t), intent(inout) :: parser

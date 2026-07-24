@@ -54,6 +54,8 @@ module fortfront_compiler
         BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
         BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
         ASSOCIATION_HOST, ASSOCIATION_USE
+    use frontend_compiler_type_queries, only: resolved_type_query_t, &
+        query_resolved_type
     use fortfront_semantic, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
         OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use fortfront_ast, only: ast_arena_t
