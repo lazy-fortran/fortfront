@@ -54,12 +54,10 @@ contains
         integer :: root_index, assignment_index, i
         logical :: found, saw_comment
 
-        source = 'program p'//new_line('a')// &
-            '    implicit none'//new_line('a')// &
-            '    integer :: x'//new_line('a')// &
-            '    ! leading comment'//new_line('a')// &
-            '    x = 1'//new_line('a')// &
-            'end program p'//new_line('a')
+        ! The fixture lives in examples/ rather than inline: this repository's
+        ! zero-duplication policy keeps end-to-end program text in one place,
+        ! and make check-duplication enforces it.
+        call read_example('examples/f90/trivia_leading_comment.f90', source)
 
         arena = create_ast_arena()
         call tooling_load_ast_from_string(source, arena, root_index, message)
@@ -106,5 +104,7 @@ contains
             end if
         end do
     end function first_node_of_type
+
+    include '../common/read_example.inc'
 
 end program test_trivia_public_contract
