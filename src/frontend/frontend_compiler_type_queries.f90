@@ -789,27 +789,43 @@ contains
 
         kind_value = 0
         lowered = compact_lower(selector)
-        select case (lowered)
+
+        read (lowered, *, iostat=ios) kind_value
+        if (ios == 0) return
+        kind_value = 0
+
+        ! A constant declared in scope outranks the conventional spelling so an
+        ! explicitly shadowed selector keeps its declared value.
+        if (arena%size > 0) then
+            allocate (visiting(arena%size), source=.false.)
+            call resolve_named_integer_constant(arena, reference_index, lowered, &
+                kind_value, visiting)
+            if (kind_value > 0) return
+        end if
+
+        kind_value = conventional_kind_selector(lowered)
+    end function resolve_kind_selector
+
+    ! Kind names carried by the iso_fortran_env rename idiom, which leaves no
+    ! declaration in the arena to resolve against.
+    integer pure function conventional_kind_selector(selector) result(kind_value)
+        character(len=*), intent(in) :: selector
+
+        select case (selector)
         case ("int8")
             kind_value = 1
         case ("int16")
             kind_value = 2
-        case ("int32", "real32")
+        case ("int32", "real32", "sp")
             kind_value = 4
-        case ("int64", "real64", "double", "doubleprecision")
+        case ("int64", "real64", "double", "doubleprecision", "dp")
             kind_value = 8
         case ("real128", "qp")
             kind_value = 16
         case default
-            read (lowered, *, iostat=ios) kind_value
-            if (ios == 0) return
             kind_value = 0
-            if (arena%size <= 0) return
-            allocate (visiting(arena%size), source=.false.)
-            call resolve_named_integer_constant(arena, reference_index, lowered, &
-                kind_value, visiting)
         end select
-    end function resolve_kind_selector
+    end function conventional_kind_selector
 
     recursive subroutine resolve_named_integer_constant(arena, reference_index, &
             name, value, visiting)
