@@ -1,60 +1,49 @@
-# CST (Concrete Syntax Tree)
+# Lexical trivia
 
 ## Purpose
 
-The CST subsystem provides a concrete syntax tree representation that preserves all source-level details including whitespace, comments, and exact formatting. Unlike the AST which abstracts away syntactic details, the CST maintains a complete, lossless representation of the source code.
+This directory holds the lexical trivia surface: the comments, whitespace, and
+newlines the lexer records alongside tokens, exposed so tools can ask what
+trivia surrounds a given AST node.
 
-CSTs are primarily used for tools that need to preserve formatting (formatters, refactoring tools) or analyze source-level patterns (style checkers, comment extractors).
+It does **not** contain a concrete syntax tree. Earlier revisions carried a full
+CST implementation with its own arena and node type, and this README described
+it as the basis for formatters and refactoring tools. Nothing ever built one:
+the parser goes from tokens to AST directly, and the arena was reachable only
+from tests that populated it by hand. That machinery has been removed.
+
+The `cst_` module names and `CST_*` constant names are retained because they are
+part of the published `fortfront` interface and fluff compares against those
+constant values.
 
 ## File Index
 
 | File | Description |
 |------|-------------|
-| cst_core.f90 | Core CST data structures, node types, tree construction |
-| cst_nodes.f90 | CST node type definitions, token-level representation |
-| cst_arena.f90 | Arena-based allocation for CST nodes (similar to AST arena) |
-| cst_trivia_query.f90 | Public trivia query helpers for CST and AST integration |
+| cst_nodes.f90 | `trivia_t` plus the `CST_COMMENT`, `CST_WHITESPACE`, and `CST_NEWLINE` kind constants |
+| cst_trivia_query.f90 | Trivia lookup over the token stream, keyed to AST node source positions |
 
 ## Key Concepts
 
-**CST vs AST**
-- **CST**: Preserves all source details (whitespace, comments, exact token positions)
-- **AST**: Abstracts syntax to semantic meaning (removes formatting, comments)
-- **Use CST for**: Formatters, refactoring, source-level analysis
-- **Use AST for**: Type checking, compilation, semantic analysis
+**Trivia is derived, not stored.** `get_trivia_for_ast_node` retokenizes the
+source with `tokenize_core_with_trivia` and matches trivia runs against the
+node's recorded line and column. There is no persistent side structure to keep
+synchronized with the AST, which is why there is no arena here.
 
-**Lossless Representation**
-- Every character from source preserved
-- Exact token positions tracked
-- Comments associated with nodes
-- Whitespace patterns maintained
+**Two distinct trivia types exist in fortfront.** `trivia_token_t`, from
+`lexer_core`, is what the lexer emits per token. `trivia_t`, defined here, is
+the shaped result handed to API consumers. They are not interchangeable: fluff's
+F004 and F005 rules use the lexer type directly, while its AST wrapper uses this
+one.
 
-**CST Structure**
-- Token-based nodes (not abstract constructs)
-- Parent-child relationships explicit
-- Sibling links for sequential access
-- Source span for every node
+## Consumers
 
-**Arena Allocation**
-- Similar to AST arena (no manual deallocation)
-- CST nodes allocated in contiguous blocks
-- Automatic cleanup on scope exit
-- Index-based node references
-
-**Typical Use Case: Formatter**
-1. Parse source → CST
-2. Traverse CST preserving comments
-3. Apply formatting rules to whitespace
-4. Emit formatted source from CST
+fluff's `fluff_ast.f90` calls `get_trivia_for_ast_node` through the `fortfront`
+facade and converts `trivia_t` into its own `fluff_trivia_t`. Changing the shape
+of `trivia_t` or the values of the kind constants is a breaking change for
+fluff.
 
 ## Dependencies
 
-**Memory Management**
-- `memory/arena_memory` - Arena allocator
-- `memory/compiler_arena` - Compiler context
-
-**Lexer**
-- `lexer/` - Tokenization (CST built from token stream)
-
-**Common Utilities**
-- `common/identifier_table` - Identifier interning
+`lexer_core` for tokenization; `ast_arena_modern` and `ast_introspection` for
+resolving a node's source location.

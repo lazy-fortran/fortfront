@@ -110,18 +110,9 @@ module fortfront
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, INTENT_IN, &
         INTENT_OUT, INTENT_INOUT
 
-    ! Re-export CST core functionality (Issue #393)
-    use cst_core, only: create_cst_node, create_trivia, get_node_kind_name, &
-        is_trivia_kind, validate_cst_node, validate_trivia, &
-        add_child_to_cst_node, set_cst_node_text, &
-        add_leading_trivia, add_trailing_trivia
-    use cst_nodes, only: cst_node_t, trivia_t, CST_PROGRAM, CST_SUBROUTINE, &
-        CST_FUNCTION, CST_DECLARATION, CST_ASSIGNMENT, CST_CALL, &
-        CST_IDENTIFIER, CST_LITERAL, CST_OPERATOR, CST_COMMENT, &
-        CST_WHITESPACE, CST_NEWLINE
-    use cst_arena, only: cst_arena_t, cst_handle_t, create_cst_arena
-    use cst_trivia_query, only: get_cst_node_for_ast, get_leading_trivia, &
-        get_trailing_trivia, get_source_trivia_at, &
+    ! Re-export lexical trivia queries (Issue #393)
+    use cst_nodes, only: trivia_t, CST_COMMENT, CST_WHITESPACE, CST_NEWLINE
+    use cst_trivia_query, only: get_source_trivia_at, &
         get_trivia_for_ast_node, &
         get_trivia_for_ast_node_tokens
 

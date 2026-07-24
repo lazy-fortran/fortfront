@@ -8,7 +8,6 @@ module fortfront_constants
     public :: MAX_SUBST_SIZE
     public :: MAX_ENV_SIZE
     public :: MAX_EXPR_RECURSION_DEPTH
-    public :: DEFAULT_CST_ARENA_CAPACITY
     public :: AST_ARENA_GROWTH_MINIMUM
     public :: MAX_DIAGNOSTIC_MESSAGE_LEN
     public :: MAX_TYPE_SPEC_BUFFER_LEN
@@ -30,7 +29,6 @@ module fortfront_constants
     integer, parameter :: MAX_SUBST_SIZE = 512
     integer, parameter :: MAX_ENV_SIZE = 4096
     integer, parameter :: MAX_EXPR_RECURSION_DEPTH = 256
-    integer, parameter :: DEFAULT_CST_ARENA_CAPACITY = 1024
     integer, parameter :: AST_ARENA_GROWTH_MINIMUM = 1024
     integer, parameter :: MAX_DIAGNOSTIC_MESSAGE_LEN = 256
     integer, parameter :: MAX_TYPE_SPEC_BUFFER_LEN = 1024
