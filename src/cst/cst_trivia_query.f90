@@ -1,6 +1,5 @@
 module cst_trivia_query
-    use cst_arena, only: cst_arena_t
-    use cst_nodes, only: cst_node_t, trivia_t, CST_COMMENT, CST_NEWLINE, &
+    use cst_nodes, only: trivia_t, CST_COMMENT, CST_NEWLINE, &
         CST_WHITESPACE
     use lexer_core, only: token_t, trivia_token_t, tokenize_core_with_trivia, &
         TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
@@ -9,84 +8,11 @@ module cst_trivia_query
     implicit none
     private
 
-    public :: get_cst_node_for_ast
-    public :: get_leading_trivia
-    public :: get_trailing_trivia
     public :: get_source_trivia_at
     public :: get_trivia_for_ast_node
     public :: get_trivia_for_ast_node_tokens
 
 contains
-
-    function get_cst_node_for_ast(cst_arena, ast_index) result(cst_index)
-        type(cst_arena_t), intent(in) :: cst_arena
-        integer, intent(in) :: ast_index
-        integer :: cst_index
-
-        integer :: i
-
-        cst_index = 0
-        if (ast_index <= 0) return
-        if (.not. allocated(cst_arena%nodes)) return
-        if (allocated(cst_arena%ast_to_cst)) then
-            if (ast_index <= size(cst_arena%ast_to_cst)) then
-                cst_index = cst_arena%ast_to_cst(ast_index)
-                if (cst_index >= 1 .and. cst_index <= cst_arena%size) then
-                    if (cst_arena%nodes(cst_index)%ast_link == ast_index) then
-                        return
-                    end if
-                end if
-                cst_index = 0
-            end if
-        end if
-
-        do i = 1, cst_arena%size
-            if (cst_arena%nodes(i)%ast_link == ast_index) then
-                cst_index = i
-                return
-            end if
-        end do
-    end function get_cst_node_for_ast
-
-    subroutine get_leading_trivia(cst_arena, cst_index, trivia)
-        type(cst_arena_t), intent(in) :: cst_arena
-        integer, intent(in) :: cst_index
-        type(trivia_t), allocatable, intent(out) :: trivia(:)
-
-        type(cst_node_t) :: node
-
-        if (cst_index < 1 .or. cst_index > cst_arena%size) then
-            allocate (trivia(0))
-            return
-        end if
-
-        node = cst_arena%nodes(cst_index)
-        if (allocated(node%leading_trivia)) then
-            trivia = node%leading_trivia
-        else
-            allocate (trivia(0))
-        end if
-    end subroutine get_leading_trivia
-
-    subroutine get_trailing_trivia(cst_arena, cst_index, trivia)
-        type(cst_arena_t), intent(in) :: cst_arena
-        integer, intent(in) :: cst_index
-        type(trivia_t), allocatable, intent(out) :: trivia(:)
-
-        type(cst_node_t) :: node
-
-        if (cst_index < 1 .or. cst_index > cst_arena%size) then
-            allocate (trivia(0))
-            return
-        end if
-
-        node = cst_arena%nodes(cst_index)
-        if (allocated(node%trailing_trivia)) then
-            trivia = node%trailing_trivia
-        else
-            allocate (trivia(0))
-        end if
-    end subroutine get_trailing_trivia
 
     function get_source_trivia_at(source, line, column) result(trivia)
         character(len=*), intent(in) :: source
