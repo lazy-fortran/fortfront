@@ -17,13 +17,10 @@ The AST subsystem provides the core data structures and operations for represent
 
 | File | Description |
 |------|-------------|
-| ast_api.f90 | Public API facade for AST operations |
 | ast_base.f90 | Base types and constants for AST nodes |
 | ast_error_nodes.f90 | Error node types for parse error recovery |
 | ast_introspection.f90 | Runtime introspection of AST node properties |
-| ast_node_registry.f90 | Central registry for all AST node types |
 | ast_traversal_utils.f90 | Utilities for AST traversal patterns |
-| ast_typed.f90 | Type-safe AST access interface |
 | ast_types.f90 | Core AST type definitions |
 
 ## Key Concepts

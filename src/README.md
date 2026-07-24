@@ -92,10 +92,6 @@ Source Text → [Lexer] → [Parser] → [Semantic] → [Standardizers] → [Cod
 - C-compatible interface
 - Enables integration with non-Fortran tools
 
-**`shims/`** - Compatibility Shims
-- Optional dependency handling
-- JSON library shim
-
 ## Module Dependencies
 
 **Dependency Flow** (→ = depends on):

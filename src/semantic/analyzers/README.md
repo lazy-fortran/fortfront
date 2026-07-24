@@ -15,7 +15,6 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_analyzer.f90 | Main semantic analyzer orchestration |
 | semantic_analyzer_base.f90 | Base analyzer interface and shared utilities |
 | base_analyzer.f90 | Abstract base for all analyzers |
-| analyzer_results.f90 | Result types for analyzer operations |
 | semantic_analyzer_context_impl.f90 | Semantic context implementation |
 
 ### Type Inference Implementation

@@ -75,7 +75,6 @@ end function
 - `ast/arena/` - Arena allocation for nodes
 - `ast/nodes/` - Node type definitions
 - `ast/ast_base` - Base types and constants
-- `ast/ast_node_registry` - Node registration
 
 **Common Utilities**
 - `common/identifier_table` - Identifier interning

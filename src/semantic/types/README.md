@@ -12,10 +12,8 @@ This directory implements the type system for semantic analysis: type representa
 | type_system_unified_part1.inc | Type construction and inference core (create_*, occurs_check, free_type_vars) |
 | type_system_unified_part2.inc | Assignment, helper, and compatibility-wrapper procedures |
 | type_system_arena.f90 | Arena-based type allocation for efficient memory management |
-| type_checker.f90 | Type compatibility checking and validation |
 | type_constants.f90 | Constants for built-in types (integer, real, character, logical) |
 | type_array_safe.f90 | Safe array type operations with bounds checking |
-| type_utils_safe.f90 | Safe type utility functions |
 | semantic_context_types.f90 | Types for semantic context (scope, type environment) |
 | semantic_result_types.f90 | Result types for semantic operations |
 
@@ -31,7 +29,6 @@ For complete type system design and type inference concepts, see [Semantic READM
 
 **Key Files**:
 - `type_system_unified.f90` - Core type system
-- `type_checker.f90` - Type compatibility and validation
 - `type_system_arena.f90` - Arena-based type allocation
 - Separate environment for each scope
 - Nested environments for nested scopes

@@ -521,7 +521,7 @@
         end if
     end subroutine type_env_ensure_capacity
 
-    ! Public wrapper functions for compatibility with type_checker
+    ! Public wrapper functions for type argument access
     function type_has_args(typ) result(has_args)
         type(mono_type_t), intent(in) :: typ
         logical :: has_args

@@ -12,7 +12,6 @@ This directory handles parsing of procedure definitions (functions and subroutin
 | parser_procedure_definition_bodies.f90 | Procedure body parsing (declarations and executable statements) |
 | parser_block_statement_utils.f90 | Block statement boundary detection for IF/DO/SELECT constructs |
 | parser_procedure_signatures.f90 | Procedure signature parsing (parameters, result type) |
-| parser_procedure_bodies.f90 | Procedure body structure handling |
 | parser_prefix_buffer.f90 | Parse prefix attributes (pure, elemental, recursive) |
 | parser_result_types.f90 | Function result type specification |
 | parser_call.f90 | Call statement and function call parsing |
