@@ -132,7 +132,7 @@ module type_system_unified
     public :: compose_substitutions, occurs_check, free_type_vars
     public :: reset_type_system
 
-    ! Compatibility wrapper functions for type_checker
+    ! Compatibility wrappers for type argument access
     public :: type_has_args, type_get_arg, type_get_args_count
 
     ! Additional compatibility functions for semantic analyzer
