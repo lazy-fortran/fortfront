@@ -27,8 +27,6 @@ This directory provides general-purpose utility functions used throughout the fo
 | process_exit.f90 | Process exit handling |
 | stdout_sanitizer.f90 | Sanitize stdout output (remove control characters) |
 | stdout_sanitizer.c | C implementation of stdout sanitization |
-| test_filesystem_helpers.f90 | Filesystem utilities used by tests (temp dirs, cleanup, path ops) |
-| test_shell_commands.f90 | Shell command helpers used by tests (build compile/run commands) |
 
 ## Key Concepts
 
