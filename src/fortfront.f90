@@ -8,9 +8,6 @@ module fortfront
     !
     ! AST Node Access
     ! ===============
-    ! AST nodes can be safely deep-cloned using the arena clone API:
-    !   - clone_arena() for a full arena copy (ast_arena_clone module)
-    !   - clone_subtree() for a subtree copy with index remapping
     ! The arena's assignment operator (=) performs a verified deep copy
     ! of all node types including nested allocatable components.
     !
