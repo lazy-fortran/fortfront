@@ -22,8 +22,6 @@ The semantic analysis subsystem performs type inference, scope resolution, and v
 | semantic_unsigned_integer_mix_diagnostics.f90 | Shared diagnostics for signed/unsigned integer mixing |
 | type_hierarchy.f90 | Type hierarchy and subtype relationships |
 | constant_transformation.f90 | Constant folding and compile-time evaluation |
-| convergence_checker.f90 | Check type inference convergence (multi-pass) |
-| analysis_cache.f90 | Cache semantic analysis results for performance |
 
 ## Key Concepts
 

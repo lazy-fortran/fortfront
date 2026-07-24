@@ -567,7 +567,6 @@ Utilities:
 - `src/utilities/README.md` - String handling, debug tracing
 - `src/interfaces/README.md` - C API bindings
 - `src/cst/README.md` - Lexical trivia surface
-- `src/shims/README.md` - Compatibility shims
 
 Application & Tests:
 - `app/README.md` - CLI application
