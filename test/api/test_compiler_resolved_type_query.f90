@@ -54,6 +54,7 @@ program test_compiler_resolved_type_query
     call require_intrinsic_call_kind('aimag', 1, TREAL, 8)
     call require_intrinsic_call_kind('abs', 1, TREAL, 8)
     call require_shadowed_kind_selector()
+    call require_renamed_kind_selector()
     call require_unavailable_result()
     call require_unavailable_without_semantics(source)
 
@@ -246,6 +247,41 @@ contains
         end do
         call require(matched, 'shadowed dp declaration was not found')
     end subroutine require_shadowed_kind_selector
+
+    subroutine require_renamed_kind_selector()
+        character(len=*), parameter :: source = &
+            'program main'//new_line('a')// &
+            '  use, intrinsic :: iso_fortran_env, only: dp => real64'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  real(dp) :: value'//new_line('a')// &
+            '  value = 1.5_dp'//new_line('a')// &
+            'end program main'
+        type(compiler_frontend_result_t) :: renamed_result
+        type(resolved_type_query_t) :: query
+        character(len=:), allocatable :: name, error_msg
+        logical :: matched
+        integer :: i
+
+        call compile_frontend_from_string(source, renamed_result, options)
+        call require(renamed_result%parse_ok, &
+            'renamed-kind query source did not parse')
+        call require(renamed_result%semantic_ok, &
+            'renamed-kind query source did not analyze: '// &
+            renamed_result%error_msg)
+
+        matched = .false.
+        do i = 1, renamed_result%arena%size
+            if (.not. is_declaration_node(renamed_result%arena, i)) cycle
+            call get_declaration_var_name(renamed_result%arena, i, name, error_msg)
+            if (len_trim(error_msg) > 0) cycle
+            if (trim(name) /= 'value') cycle
+            query = query_resolved_type(renamed_result%arena, i)
+            call require_query(query, TREAL, 8, 'renamed dp declaration')
+            matched = .true.
+            exit
+        end do
+        call require(matched, 'renamed dp declaration was not found')
+    end subroutine require_renamed_kind_selector
 
     subroutine require_unavailable_result()
         type(resolved_type_query_t) :: query
