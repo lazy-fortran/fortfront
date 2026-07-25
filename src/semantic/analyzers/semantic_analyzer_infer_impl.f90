@@ -18,7 +18,8 @@ use semantic_operating_mode, only: OPERATING_MODE_STRICT
 use semantic_input_mode, only: INPUT_MODE_STANDARD
 use semantic_identifier_context, only: find_program_owner
 use semantic_where_validation, only: validate_where_construct
-use semantic_pure_validation, only: validate_pure_procedure
+use semantic_pure_validation, only: validate_pure_procedure, &
+    validate_do_concurrent_purity
 use semantic_bind_c_validation, only: validate_bind_c_derived_type, &
     validate_bind_c_procedure
 use semantic_elemental_validation, only: validate_elemental_procedure

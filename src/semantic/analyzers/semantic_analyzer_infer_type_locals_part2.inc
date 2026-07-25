@@ -19,7 +19,9 @@
 
             ! Enforce PURE/ELEMENTAL body restrictions (F2008 C1283)
             call validate_pure_procedure(arena, expr%body_indices, &
-                                         expr%prefix_keywords, this%errors)
+                                         expr%prefix_keywords, this%errors, &
+                                         param_indices=expr%param_indices, &
+                                         is_function=.true.)
             ! Enforce ELEMENTAL scalar-dummy restriction (F2008 C1290)
             if (allocated(expr%result_variable)) then
                 elemental_result_name = expr%result_variable
@@ -72,7 +74,9 @@
 
             ! Enforce PURE/ELEMENTAL body restrictions (F2008 C1283)
             call validate_pure_procedure(arena, expr%body_indices, &
-                                         expr%prefix_keywords, this%errors)
+                                         expr%prefix_keywords, this%errors, &
+                                         param_indices=expr%param_indices, &
+                                         is_function=.false.)
             ! Enforce ELEMENTAL scalar-dummy restriction (F2008 C1290)
             call validate_elemental_procedure(arena, expr%param_indices, &
                                               expr%body_indices, &

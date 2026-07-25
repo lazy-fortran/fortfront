@@ -175,6 +175,26 @@
             call prefix_buffer%clear()
         end subroutine flush_pending_prefixes
 
+        ! F2008 R1229: a prefix shall not specify the same prefix-spec twice.
+        ! The pending list holds the prefix keywords already read for the
+        ! procedure that is being started, so a repeat is a source error.
+        subroutine reject_repeated_prefix(parser_ref, keyword_token, lowered)
+            type(parser_state_t), intent(inout) :: parser_ref
+            type(token_t), intent(in) :: keyword_token
+            character(len=*), intent(in) :: lowered
+            integer :: i
+
+            if (.not. allocated(pending_prefixes)) return
+            do i = 1, size(pending_prefixes)
+                if (trim(pending_prefixes(i)) /= trim(lowered)) cycle
+                call parser_ref%error_at_token('duplicate '//trim(lowered)// &
+                    ' attribute specified for this procedure', keyword_token, &
+                    suggestion='specify each procedure prefix keyword at '// &
+                    'most once')
+                return
+            end do
+        end subroutine reject_repeated_prefix
+
         logical function end_program_encountered(current_token) result(is_end)
             type(token_t), intent(in) :: current_token
             character(len=:), allocatable :: lowered
@@ -270,6 +290,7 @@
                         return
                     end if
                 end if
+                call reject_repeated_prefix(parser_ref, keyword_token, lowered)
                 call append_prefix_token(pending_prefixes, lowered)
                 block
                     type(token_t) :: ignored_token
