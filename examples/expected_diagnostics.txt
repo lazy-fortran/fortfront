@@ -33,3 +33,4 @@ f90/pr96099_2.f90
 f90/pr19936_3.f90
 f90/submodule_twice.f90
 f90/submodule_unexp.f90
+f90/pr93423.f90

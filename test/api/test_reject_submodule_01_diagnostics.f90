@@ -22,8 +22,14 @@ program test_reject_submodule_01_diagnostics
     call assert_rejected('examples/f90/submodule_unexp.f90', &
         'SUBMODULE declaration is not allowed', all_passed)
 
+    ! Separate module procedure with a dummy argument list (F2018 R1505)
+    call assert_rejected('examples/f90/pr93423.f90', &
+        'must not have a dummy argument list', all_passed)
+
     ! Corrected neighbours must keep compiling
     call assert_accepted('examples/f90/submodule_placement_valid.f90', all_passed)
+    call assert_accepted('examples/f90/submodule_module_procedure_valid.f90', &
+        all_passed)
     call assert_accepted('examples/f90/issue_1827_submodule_simple.f90', all_passed)
     call assert_accepted('examples/f90/issue_1827_submodule_with_contents.f90', &
         all_passed)

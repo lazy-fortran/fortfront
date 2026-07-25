@@ -377,6 +377,29 @@ contains
         procedure_name = trim(token%text)
         token = parser%consume()
 
+        ! Fortran 2018 R1505: an mp-subprogram-stmt is
+        !     MODULE PROCEDURE procedure-name
+        ! with no dummy argument list. The characteristics come from the
+        ! module procedure interface body, so repeating them here is invalid.
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind /= TK_WHITESPACE) exit
+            token = parser%consume()
+        end do
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            call parser%error_at_token( &
+                "MODULE PROCEDURE statement for '"//procedure_name// &
+                "' must not have a dummy argument list", token, &
+                suggestion="write 'module procedure "//procedure_name// &
+                "' without arguments")
+            proc_index = push_error_node(arena, &
+                "MODULE PROCEDURE statement for '"//procedure_name// &
+                "' must not have a dummy argument list", &
+                line=line, column=column)
+            return
+        end if
+
         ! Parse the procedure body until end procedure
         call parse_procedure_body(parser, arena, procedure_name, "procedure", &
             body_indices, infer_recursive)
