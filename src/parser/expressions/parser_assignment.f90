@@ -3,7 +3,8 @@ module parser_assignment_module
         TK_STRING, &
         TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_range, parse_logical_eqv
+    use parser_expressions_module, only: parse_range, parse_logical_eqv, &
+        at_statement_end
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
         push_identifier, push_literal, push_complex_literal
@@ -162,8 +163,26 @@ contains
                     end if
                 end select
             end if
+            if (stmt_index > 0) call reject_trailing_tokens(parser)
         end if
     end subroutine parse_assignment_statement
+
+    ! An assignment statement is complete once its right-hand expression is
+    ! parsed; anything other than a statement terminator after it leaves the
+    ! statement unclassifiable (gfortran.dg/pr56520.f90, "c = exp(a) )").
+    ! Reporting it here keeps the stray tokens from being silently skipped by
+    ! the statement loop.
+    subroutine reject_trailing_tokens(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        if (at_statement_end(parser)) return
+
+        token = parser%peek()
+        call parser%error_at_token( &
+            "Unclassifiable statement: unexpected '"//trim(token%text)// &
+            "' after the end of the assignment", token)
+    end subroutine reject_trailing_tokens
 
     logical function is_multi_var_assignment(parser)
         type(parser_state_t), intent(in) :: parser

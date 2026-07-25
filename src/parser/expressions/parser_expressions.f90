@@ -75,8 +75,28 @@ module parser_expressions_module
         parse_unary, &
         parse_primary
     public :: parse_expression_until, parse_postfix_chain
+    public :: at_statement_end
 
 contains
+
+    ! True when the parser sits on a token that legally ends a statement.
+    ! Fortran 2023 6.3.2.1: a free-form statement ends at end of line, at a
+    ! ';' separator, or where a trailing comment begins. Anything else left
+    ! over after a complete expression makes the statement unclassifiable.
+    logical function at_statement_end(parser) result(is_end)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: token
+
+        token = parser%peek()
+        select case (token%kind)
+        case (TK_EOF, TK_NEWLINE, TK_COMMENT)
+            is_end = .true.
+        case (TK_OPERATOR)
+            is_end = trim(token%text) == ";"
+        case default
+            is_end = .false.
+        end select
+    end function at_statement_end
 
     recursive function try_parse_complex_literal(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser

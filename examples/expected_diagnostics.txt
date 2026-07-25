@@ -13,3 +13,4 @@ f90/enum_3.f90
 f90/enum_6.f90
 f90/enum_7.f90
 f90/enum_8.f90
+f90/pr56520.f90
