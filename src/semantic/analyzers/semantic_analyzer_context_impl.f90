@@ -18,6 +18,7 @@ use type_hierarchy, only: create_type_hierarchy
 use semantic_type_hierarchy_validation, only: populate_type_hierarchy
 use semantic_enum_validation, only: validate_enum_definitions
 use semantic_literal_form_validation, only: validate_literal_forms
+use semantic_use_nature_validation, only: validate_use_module_nature
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -97,6 +98,10 @@ contains
         ! Reject malformed or disallowed literal forms before inference runs.
         call validate_literal_forms(arena, ctx%errors, &
                                     ctx%input_mode == INPUT_MODE_STANDARD)
+
+        ! Whole-arena scoping-unit checks. They run for every root kind,
+        ! including a bare module root, which the dispatch below skips.
+        call validate_use_module_nature(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
