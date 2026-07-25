@@ -17,8 +17,91 @@ module semantic_strict_argument_type_checker_validation
     private
 
     public :: validate_call_against_interface
+    public :: validate_value_dummy_attributes
 
 contains
+
+    ! Reject dummy arguments whose VALUE attribute conflicts with another
+    ! declared attribute (F2018 C863: an entity with the VALUE attribute
+    ! shall not have the ALLOCATABLE, INTENT(INOUT), INTENT(OUT), POINTER,
+    ! or VOLATILE attribute). Only declarations that name a dummy argument
+    ! of this procedure are inspected.
+    subroutine validate_value_dummy_attributes(arena, param_indices, &
+            body_indices, proc_name, errors)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: param_indices(:)
+        integer, allocatable, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: proc_name
+        type(error_collection_t), intent(inout) :: errors
+        character(len=:), allocatable :: param_names(:)
+        integer :: i
+
+        if (.not. allocated(param_indices)) return
+        if (.not. allocated(body_indices)) return
+        if (size(param_indices) <= 0) return
+
+        allocate (character(len=64) :: param_names(size(param_indices)))
+        do i = 1, size(param_indices)
+            param_names(i) = resolve_param_name(arena, param_indices(i), i)
+        end do
+
+        do i = 1, size(body_indices)
+            if (body_indices(i) <= 0) cycle
+            if (body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
+            select type (decl => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                call check_value_dummy_declaration(decl, param_names, &
+                    proc_name, errors)
+            end select
+        end do
+    end subroutine validate_value_dummy_attributes
+
+    subroutine check_value_dummy_declaration(decl, param_names, proc_name, errors)
+        type(declaration_node), intent(in) :: decl
+        character(len=*), intent(in) :: param_names(:)
+        character(len=*), intent(in) :: proc_name
+        type(error_collection_t), intent(inout) :: errors
+        character(len=:), allocatable :: conflict
+        integer :: i
+        logical :: is_dummy
+
+        if (.not. decl%is_value) return
+        if (.not. allocated(decl%var_name)) return
+
+        is_dummy = .false.
+        do i = 1, size(param_names)
+            if (to_lower(trim(param_names(i))) == to_lower(trim(decl%var_name))) then
+                is_dummy = .true.
+            end if
+        end do
+        if (.not. is_dummy) return
+
+        conflict = ''
+        if (decl%is_pointer) then
+            conflict = 'POINTER'
+        else if (decl%is_allocatable) then
+            conflict = 'ALLOCATABLE'
+        else if (decl%is_volatile) then
+            conflict = 'VOLATILE'
+        else if (decl%has_intent) then
+            if (allocated(decl%intent)) then
+                if (to_lower(trim(decl%intent)) == 'out') conflict = 'INTENT(OUT)'
+                if (to_lower(trim(decl%intent)) == 'inout') conflict = 'INTENT(INOUT)'
+            end if
+        end if
+        if (len_trim(conflict) == 0) return
+
+        call errors%add_result(create_error_result( &
+            'VALUE dummy argument "'//trim(decl%var_name)//'" of "'// &
+            trim(proc_name)//'" must not have the '//trim(conflict)// &
+            ' attribute', ERROR_SEMANTIC, &
+            component="semantic_strict_argument_type_checker_validation", &
+            context="value_dummy_attribute_check", &
+            suggestion="drop VALUE or drop the conflicting attribute", &
+            line=decl%line, column=decl%column, end_line=decl%line, &
+            end_column=decl%column + 1))
+    end subroutine check_value_dummy_declaration
 
     subroutine validate_call_against_interface(arena, errors, proc_name, &
             arg_indices, param_indices, body_indices)

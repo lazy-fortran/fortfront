@@ -290,6 +290,10 @@ contains
                 call report_dummy(errors, proc_name, decl%var_name, &
                     'an assumed-shape array dummy argument', &
                     decl%line, decl%column)
+            else if (is_non_interoperable_character(decl)) then
+                call report_dummy(errors, proc_name, decl%var_name, &
+                    'a character dummy argument of length other than 1', &
+                    decl%line, decl%column)
             end if
         end select
     end subroutine check_bind_c_dummy
@@ -333,6 +337,61 @@ contains
         if (len(decl%type_name) < 9) return
         is_proc = to_lower(decl%type_name(1:9)) == 'procedure'
     end function is_procedure_declaration
+
+    ! True when a dummy is of type character with a length that is known at
+    ! this layer to differ from 1 (F2018 18.3.1: an interoperable character
+    ! entity has character length 1, and an assumed-length character dummy
+    ! is not interoperable). Only assumed length and integer-literal lengths
+    ! are judged; a length given by a named constant or other expression is
+    ! left alone because its value is not resolved here.
+    function is_non_interoperable_character(decl) result(is_bad)
+        type(declaration_node), intent(in) :: decl
+        logical :: is_bad
+        character(len=:), allocatable :: length_text
+        integer :: value, stat
+
+        is_bad = .false.
+        if (.not. allocated(decl%type_name)) return
+        if (base_type_keyword(decl%type_name) /= 'character') return
+        if (.not. decl%has_character_length) return
+        if (.not. allocated(decl%character_length_expr)) return
+
+        length_text = character_length_value(decl%character_length_expr)
+        if (len(length_text) == 0) return
+        if (length_text == '*') then
+            is_bad = .true.
+            return
+        end if
+        if (verify(length_text, '0123456789') /= 0) return
+        read (length_text, *, iostat=stat) value
+        if (stat /= 0) return
+        is_bad = value /= 1
+    end function is_non_interoperable_character
+
+    ! The declared type name keeps its parameter list, e.g. "character(len=4)".
+    function base_type_keyword(type_name) result(keyword)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: keyword
+        integer :: paren
+
+        paren = index(type_name, '(')
+        if (paren > 0) then
+            keyword = to_lower(trim(adjustl(type_name(1:paren - 1))))
+        else
+            keyword = to_lower(trim(adjustl(type_name)))
+        end if
+    end function base_type_keyword
+
+    ! The length expression may arrive as "4" or as "len=4".
+    function character_length_value(length_expr) result(value_text)
+        character(len=*), intent(in) :: length_expr
+        character(len=:), allocatable :: value_text
+        integer :: eq_pos
+
+        value_text = trim(adjustl(length_expr))
+        eq_pos = index(to_lower(value_text), 'len=')
+        if (eq_pos == 1) value_text = trim(adjustl(value_text(5:)))
+    end function character_length_value
 
     ! True when any dimension of an array declaration is assumed size (*).
     function has_assumed_size_dummy(arena, decl) result(is_assumed_size)
