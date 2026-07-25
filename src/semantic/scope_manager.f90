@@ -12,6 +12,7 @@ module scope_manager
 
     public :: scope_t, scope_stack_t
     public :: create_scope, create_scope_stack
+    public :: binding_label_entry_t, binding_label_table_t
 
     ! Scope types
     integer, parameter, public :: SCOPE_GLOBAL = 1
@@ -20,6 +21,27 @@ module scope_manager
         integer, parameter, public :: SCOPE_SUBROUTINE = 4
             integer, parameter, public :: SCOPE_BLOCK = 5 ! if/do/etc blocks
             integer, parameter, public :: SCOPE_INTERFACE = 6
+
+            ! One global entity that carries a BIND(C) binding label. The binding
+            ! label namespace is flat and spans the whole compilation unit, so it
+            ! lives beside the lexical scopes rather than inside one of them.
+            type :: binding_label_entry_t
+                character(len=:), allocatable :: label
+                character(len=:), allocatable :: entity
+                integer :: line = 0
+                integer :: column = 0
+            end type binding_label_entry_t
+
+            ! Registry of binding labels seen so far. Registering a label that a
+            ! differently named global entity already owns reports a collision
+            ! (Fortran 2018 C1553: a binding label shall not be the same as the
+            ! binding label of any other global entity).
+            type :: binding_label_table_t
+                type(binding_label_entry_t), allocatable :: entries(:)
+                integer :: count = 0
+            contains
+                procedure :: register => binding_label_register
+            end type binding_label_table_t
 
             ! Single scope with its own environment
             ! (no parent pointer - stack handles hierarchy)
@@ -525,5 +547,88 @@ module scope_manager
                     end subroutine scope_stack_assign
 
                     ! Finalization removed - automatic cleanup with allocatable arrays
+
+                    ! Record one global entity's binding label. Reports a collision when a
+                    ! different global entity already registered the same label. Repeated
+                    ! registration by the same entity (interface body plus definition) is
+                    ! not a collision and is recorded only once.
+                    subroutine binding_label_register(this, label, entity, line, column, &
+                            has_collision, other_entity, other_line, other_column)
+                        class(binding_label_table_t), intent(inout) :: this
+                        character(len=*), intent(in) :: label
+                        character(len=*), intent(in) :: entity
+                        integer, intent(in) :: line
+                        integer, intent(in) :: column
+                        logical, intent(out) :: has_collision
+                        character(len=:), allocatable, intent(out) :: other_entity
+                        integer, intent(out) :: other_line
+                        integer, intent(out) :: other_column
+                        type(binding_label_entry_t), allocatable :: grown(:)
+                        integer :: i, capacity
+
+                        has_collision = .false.
+                        other_entity = ''
+                        other_line = 0
+                        other_column = 0
+                        if (len_trim(label) == 0) return
+
+                        do i = 1, this%count
+                            if (.not. allocated(this%entries(i)%label)) cycle
+                            if (this%entries(i)%label /= trim(label)) cycle
+                            if (.not. allocated(this%entries(i)%entity)) cycle
+                            if (same_entity_name(this%entries(i)%entity, entity)) return
+                            has_collision = .true.
+                            other_entity = this%entries(i)%entity
+                            other_line = this%entries(i)%line
+                            other_column = this%entries(i)%column
+                            return
+                        end do
+
+                        capacity = 0
+                        if (allocated(this%entries)) capacity = size(this%entries)
+                        if (this%count >= capacity) then
+                            allocate (grown(max(8, 2*capacity)))
+                            do i = 1, this%count
+                                grown(i) = this%entries(i)
+                            end do
+                            call move_alloc(grown, this%entries)
+                        end if
+
+                        this%count = this%count + 1
+                        this%entries(this%count)%label = trim(label)
+                        this%entries(this%count)%entity = trim(entity)
+                        this%entries(this%count)%line = line
+                        this%entries(this%count)%column = column
+                    end subroutine binding_label_register
+
+                    ! Fortran entity names are case insensitive.
+                    logical function same_entity_name(left, right) result(same)
+                        character(len=*), intent(in) :: left
+                        character(len=*), intent(in) :: right
+                        integer :: i
+                        character(len=len_trim(left)) :: left_lower
+                        character(len=len_trim(right)) :: right_lower
+
+                        same = .false.
+                        if (len_trim(left) /= len_trim(right)) return
+                        do i = 1, len_trim(left)
+                            left_lower(i:i) = lower_char(left(i:i))
+                        end do
+                        do i = 1, len_trim(right)
+                            right_lower(i:i) = lower_char(right(i:i))
+                        end do
+                        same = left_lower == right_lower
+                    end function same_entity_name
+
+                    pure function lower_char(c) result(lowered)
+                        character, intent(in) :: c
+                        character :: lowered
+
+                        if (c >= 'A' .and. c <= 'Z') then
+                            lowered = achar(iachar(c) + 32)
+                        else
+                            lowered = c
+                        end if
+                    end function lower_char
 
                 end module scope_manager
