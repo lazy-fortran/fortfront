@@ -5,7 +5,7 @@ module frontend_core
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront_constants, only: MAX_FRONTEND_ERROR_LEN
     use string_builder_mod, only: join_strings
-    use lexer_core, only: token_t, tokenize_core, &
+    use lexer_core, only: token_t, tokenize_core, tokenize_core_checked, &
         TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
         TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
         to_lower
@@ -159,11 +159,14 @@ contains
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=*), intent(out) :: error_msg
 
+        character(len=:), allocatable :: lex_diagnostic
+
         error_msg = ""
-        call tokenize_core(source, tokens)
+        call tokenize_core_checked(source, tokens, lex_diagnostic)
         if (allocated(tokens)) then
             call normalize_line_continuations(tokens)
         end if
+        if (len_trim(lex_diagnostic) > 0) error_msg = lex_diagnostic
     end subroutine lex_file
 
     ! Simple interface functions for clean pipeline usage
@@ -172,15 +175,17 @@ contains
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
 
-        call tokenize_core(source_code, tokens)
+        character(len=:), allocatable :: lex_diagnostic
+
+        call tokenize_core_checked(source_code, tokens, lex_diagnostic)
         if (.not. allocated(tokens)) then
-            allocate (character(len=22) :: error_msg)
             error_msg = "Failed to tokenize source"
-        else
-            allocate (character(len=0) :: error_msg)
-            error_msg = ""
-            call normalize_line_continuations(tokens)
+            return
         end if
+
+        error_msg = ""
+        call normalize_line_continuations(tokens)
+        if (len_trim(lex_diagnostic) > 0) error_msg = lex_diagnostic
     end subroutine lex_source
 
     subroutine analyze_semantics(arena, prog_index)

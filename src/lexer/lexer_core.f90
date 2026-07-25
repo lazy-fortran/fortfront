@@ -17,7 +17,7 @@ module lexer_core
         scan_result_t
 
     ! Re-export main functions
-    public :: tokenize_safe, tokenize_core, tokenize_core_safe
+    public :: tokenize_safe, tokenize_core, tokenize_core_safe, tokenize_core_checked
     public :: tokenize_safe_with_trivia, tokenize_core_with_trivia
     public :: normalize_line_endings
     public :: token_type_name
@@ -129,6 +129,32 @@ contains
         end if
     end subroutine tokenize_core
 
+    ! Tokenization that also reports the first source-level lexical
+    ! diagnostic. Tokens are produced either way so callers that only need a
+    ! best-effort stream keep working; callers that compile must stop when
+    ! `diagnostic` is non-empty.
+    subroutine tokenize_core_checked(source, tokens, diagnostic)
+        character(len=*), intent(in) :: source
+        type(token_t), allocatable, intent(out) :: tokens(:)
+        character(len=:), allocatable, intent(out) :: diagnostic
+        type(tokenize_result_t) :: tokenize_res
+
+        tokenize_res = tokenize_safe(source)
+
+        if (tokenize_res%success) then
+            allocate (tokens(tokenize_res%token_count))
+            tokens = tokenize_res%tokens(1:tokenize_res%token_count)
+        else
+            allocate (tokens(0))
+        end if
+
+        if (allocated(tokenize_res%diagnostic)) then
+            diagnostic = tokenize_res%diagnostic
+        else
+            diagnostic = ""
+        end if
+    end subroutine tokenize_core_checked
+
     ! Core tokenization that preserves trivia and attaches it to tokens.
     subroutine tokenize_core_with_trivia(source, tokens)
         character(len=*), intent(in) :: source
@@ -193,7 +219,14 @@ contains
                 call scan_number(src, pos, line_num, col_num, &
                     tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('a':'z', 'A':'Z', '_') ! Identifier
+            case ('a':'z', 'A':'Z') ! Identifier
+                call scan_identifier(src, pos, line_num, col_num, &
+                    tokenize_res%tokens, &
+                    tokenize_res%token_count)
+
+            case ('_') ! Name starting with an underscore is not a name
+                call record_lex_diagnostic(tokenize_res, &
+                    invalid_name_start_diagnostic(line_num, col_num))
                 call scan_identifier(src, pos, line_num, col_num, &
                     tokenize_res%tokens, &
                     tokenize_res%token_count)
@@ -206,10 +239,22 @@ contains
 
             case default ! Operator or unknown
                 if (is_operator_char(c)) then
+                    if (c == '%' .and. format_paren_depth == 0) then
+                        if (.not. selector_position_is_valid( &
+                            tokenize_res%tokens, &
+                            tokenize_res%token_count)) then
+                            call record_lex_diagnostic(tokenize_res, &
+                                invalid_selector_diagnostic(line_num, col_num))
+                        end if
+                    end if
                     call scan_operator(src, pos, line_num, col_num, &
                         tokenize_res%tokens, &
                         tokenize_res%token_count)
                 else
+                    if (.not. is_valid_source_character(c)) then
+                        call record_lex_diagnostic(tokenize_res, &
+                            invalid_source_char_diagnostic(c, line_num, col_num))
+                    end if
                     ! Unknown character - skip
                     pos = pos + 1
                     col_num = col_num + 1
@@ -706,6 +751,35 @@ contains
             is_op = .false.
         end select
     end function is_operator_char
+
+    ! Keep the first source diagnostic; later ones are usually cascades.
+    subroutine record_lex_diagnostic(tokenize_res, message)
+        type(tokenize_result_t), intent(inout) :: tokenize_res
+        character(len=*), intent(in) :: message
+
+        if (allocated(tokenize_res%diagnostic)) return
+        tokenize_res%diagnostic = message
+    end subroutine record_lex_diagnostic
+
+    ! A '%' is a component selector, so it may only follow the designator it
+    ! selects into: a name, a closing parenthesis or a closing bracket.
+    function selector_position_is_valid(tokens, token_count) result(is_valid)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: token_count
+        logical :: is_valid
+
+        is_valid = .false.
+        if (token_count <= 0) return
+
+        select case (tokens(token_count)%kind)
+        case (TK_IDENTIFIER, TK_KEYWORD)
+            is_valid = .true.
+        case (TK_OPERATOR)
+            if (.not. allocated(tokens(token_count)%text)) return
+            is_valid = (tokens(token_count)%text == ")")
+            if (.not. is_valid) is_valid = (tokens(token_count)%text == "]")
+        end select
+    end function selector_position_is_valid
 
     ! Resize tokens array
     subroutine resize_tokens(tokens)

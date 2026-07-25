@@ -60,6 +60,11 @@ module lexer_token_types
         type(result_t) :: result
         integer :: token_count = 0
         logical :: success = .false.
+        ! First source-level lexical diagnostic, if the source violates a
+        ! rule of the Fortran character set or literal syntax. A recovery
+        ! token stream is still produced so tooling can inspect the source,
+        ! so `success` stays true; a compilation must fail on this message.
+        character(len=:), allocatable :: diagnostic
     end type tokenize_result_t
 
     ! Scanning result type for safe operations

@@ -12,7 +12,59 @@ module lexer_scanners
         scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
+    ! Source validation rules owned by the lexer
+    public :: is_valid_source_character, invalid_source_char_diagnostic
+    public :: invalid_name_start_diagnostic, invalid_selector_diagnostic
+
 contains
+
+    ! A Fortran source character outside a comment or a character context is
+    ! restricted to the Fortran character set (F2023 6.1). Everything the
+    ! standard permits there is printable ASCII, so a byte below blank or
+    ! above tilde cannot appear. Blank and tab are consumed before this test.
+    pure function is_valid_source_character(c) result(is_valid)
+        character, intent(in) :: c
+        logical :: is_valid
+        integer :: code
+
+        code = iachar(c)
+        is_valid = (code >= iachar(' ') .and. code <= iachar('~'))
+    end function is_valid_source_character
+
+    pure function invalid_source_char_diagnostic(c, line, column) result(message)
+        character, intent(in) :: c
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: message
+        character(len=2) :: hex
+
+        write (hex, '(Z2.2)') iachar(c)
+        message = "Invalid character 0x"//hex//source_position_text(line, column)
+    end function invalid_source_char_diagnostic
+
+    pure function invalid_name_start_diagnostic(line, column) result(message)
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: message
+
+        message = "Invalid character in name"//source_position_text(line, column)// &
+            ": a name must start with a letter"
+    end function invalid_name_start_diagnostic
+
+    pure function invalid_selector_diagnostic(line, column) result(message)
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: message
+
+        message = "Invalid character '%'"//source_position_text(line, column)// &
+            ": a component selector must follow a name, ')' or ']'"
+    end function invalid_selector_diagnostic
+
+    pure function source_position_text(line, column) result(text)
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: text
+        character(len=48) :: buffer
+
+        write (buffer, '(A,I0,A,I0)') " at line ", line, ", column ", column
+        text = trim(buffer)
+    end function source_position_text
 
     ! Scan a number token (including Hollerith constants like 2Hab)
     subroutine scan_number(source, pos, line_num, col_num, tokens, token_count)

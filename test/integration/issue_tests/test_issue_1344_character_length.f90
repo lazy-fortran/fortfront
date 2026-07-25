@@ -60,7 +60,7 @@ contains
         end if
 
         if (.not. str4_ok) then
-            print *, '  FAIL: non-ASCII name normalization lost its length specifier'
+            print *, '  FAIL: fourth declaration lost its length specifier'
             test_character_length_preservation = .false.
         end if
 
