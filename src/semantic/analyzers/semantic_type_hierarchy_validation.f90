@@ -11,6 +11,8 @@ module semantic_type_hierarchy_validation
     use ast_nodes_misc, only: use_statement_node
     use type_hierarchy, only: type_hierarchy_t
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
+    use semantic_final_validation, only: validate_final_procedures
+    use semantic_tbp_override_validation, only: validate_type_bound_overrides
     use string_utils_mod, only: int_to_string
     implicit none
     private
@@ -55,6 +57,12 @@ contains
         if (.not. arena_has_use_statement(arena)) then
             call report_unresolved_parents(arena, registered, errors)
         end if
+
+        ! With the hierarchy populated, the signature rules that relate a
+        ! binding to the binding it overrides, and a FINAL binding to the type
+        ! it finalizes, can be checked.
+        call validate_final_procedures(arena, errors)
+        call validate_type_bound_overrides(arena, errors)
     end subroutine populate_type_hierarchy
 
     ! Detect whether the arena contains any USE statement, in which case a

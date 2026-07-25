@@ -75,7 +75,11 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_pure_dummy_validation.f90 | Enforce PURE dummy-argument rules: no polymorphic INTENT(OUT) dummy, dummy procedures must be PURE, PURE FUNCTION dummies are not definable |
 | semantic_bind_c_validation.f90 | Enforce BIND(C) interoperability constraints on derived-type components and procedure dummies (F2003 15.3.2) |
 | semantic_elemental_validation.f90 | Enforce ELEMENTAL scalar-dummy restriction (no array dummies) |
-| semantic_type_hierarchy_validation.f90 | Register derived types and EXTENDS parents into the inheritance hierarchy; report unknown-parent EXTENDS |
+| semantic_type_hierarchy_validation.f90 | Register derived types and EXTENDS parents into the inheritance hierarchy; report unknown-parent EXTENDS; drive the FINAL and override signature rules |
+| semantic_procedure_signature.f90 | Reduce a procedure definition to the dummy argument and function result facts the FINAL and override rules compare |
+| semantic_final_validation.f90 | Enforce the FINAL subroutine dummy argument rules (single data object, nonpolymorphic, F2018 C789/C790) |
+| semantic_tbp_override_validation.f90 | Enforce dummy argument type and INTENT agreement between an overriding type-bound procedure and the binding it overrides (F2018 7.5.7.3) |
+| semantic_tbp_override_result.f90 | Enforce function result rank and constant character length agreement for an overriding type-bound procedure |
 | semantic_implied_do_validation.f90 | Enforce implied-DO index locality in array constructors (no self-reference in bounds, no shadowing nested index) |
 | semantic_declaration_utils.f90 | Declaration processing utilities |
 
