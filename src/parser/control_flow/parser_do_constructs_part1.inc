@@ -627,6 +627,12 @@
                     return
                 end if
             end if
+
+            ! Everything left on the DO CONCURRENT statement is a locality-spec.
+            if (.not. parse_do_concurrent_locality_specs(parser)) then
+                loop_index = 0
+                return
+            end if
         else
             if (.not. parse_standard_control(parser, arena, control)) then
                 loop_index = 0
