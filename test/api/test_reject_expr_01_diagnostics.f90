@@ -4,6 +4,7 @@ program test_reject_expr_01_diagnostics
     ! Each constraint member carries a corrected neighbour that must stay
     ! accepted so the check cannot silently become a blanket rejection:
     !   * trailing tokens after a complete assignment  (gfortran.dg/pr56520.f90)
+    !   * unterminated substring of a character literal (gfortran.dg/pr67526.f90)
     use, intrinsic :: iso_fortran_env, only: output_unit
     use frontend_compiler_api, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string
@@ -29,6 +30,32 @@ program test_reject_expr_01_diagnostics
         "    c = exp(-a)"//new_line('a')// &
         "    c = exp((a))"//new_line('a')// &
         "end program corrected")
+
+    call assert_rejected( &
+        "unterminated substring, lower bound only", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    character(len=1) :: c"//new_line('a')// &
+        "    c = 'abc'(3:"//new_line('a')// &
+        "end program p", &
+        "SUBSTRING")
+
+    call assert_rejected( &
+        "unterminated substring, both bounds", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    character(len=1) :: c"//new_line('a')// &
+        "    c = 'abc'(2:2"//new_line('a')// &
+        "end program p", &
+        "SUBSTRING")
+
+    call assert_accepted( &
+        "closed substring of a character literal", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    character(len=1) :: c"//new_line('a')// &
+        "    c = 'abc'(2:2)"//new_line('a')// &
+        "end program p")
 
     write (output_unit, '(A)') &
         "PASS: reject-expr-01 unclassifiable execution expressions"

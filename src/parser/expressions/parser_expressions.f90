@@ -1033,6 +1033,13 @@ recursive function parse_postfix_ops(parser, arena, view, base_expr) &
                 deallocate (instantiation_text)
             end if
         else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
+            if (is_character_literal_node(arena, expr_index)) then
+                if (.not. closing_paren_before_statement_end(parser)) then
+                    call parser%error_at_token( &
+                        "Invalid SUBSTRING reference: missing ')'", op_token)
+                    exit
+                end if
+            end if
             expr_index = parse_array_indexing_postfix(parser, arena, expr_index, &
                 array_helpers)
         else if (op_token%kind == TK_OPERATOR .and. op_token%text == "[") then
@@ -1043,6 +1050,62 @@ recursive function parse_postfix_ops(parser, arena, view, base_expr) &
         end if
     end do
 end function parse_postfix_ops
+
+! A '(' after a character literal constant can only open a substring range
+! (Fortran 2023 R908: a character-literal-constant is a valid parent-string,
+! and it cannot be a function reference or an array element). The parenthesis
+! therefore has to be closed inside the same statement; the general index
+! parser tolerates a missing ')' and drops the range, which silently accepted
+! the unterminated substrings of gfortran.dg/pr67526.f90.
+logical function is_character_literal_node(arena, node_index) result(is_literal)
+    use ast_nodes_core, only: literal_node
+    use ast_types, only: LITERAL_STRING
+    type(ast_arena_t), intent(in) :: arena
+    integer, intent(in) :: node_index
+
+    is_literal = .false.
+    if (.not. arena%has_node_at(node_index)) return
+
+    select type (node => arena%entries(node_index)%node)
+        type is (literal_node)
+        is_literal = node%literal_kind == LITERAL_STRING
+    end select
+end function is_character_literal_node
+
+! Look ahead from the '(' for the parenthesis that closes it, stopping at the
+! end of the statement. Pure lookahead: the parser position is untouched, so a
+! properly closed substring reaches the normal parsing path unchanged.
+logical function closing_paren_before_statement_end(parser) result(found)
+    type(parser_state_t), intent(in) :: parser
+    integer :: pos
+    integer :: depth
+    type(token_t) :: token
+
+    found = .false.
+    depth = 0
+    if (.not. associated(parser%tokens)) return
+
+    do pos = parser%current_token, size(parser%tokens)
+        token = parser%tokens(pos)
+        select case (token%kind)
+        case (TK_EOF, TK_NEWLINE)
+            return
+        case (TK_OPERATOR)
+            select case (trim(token%text))
+            case ("(")
+                depth = depth + 1
+            case (")")
+                depth = depth - 1
+                if (depth == 0) then
+                    found = .true.
+                    return
+                end if
+            case (";")
+                return
+            end select
+        end select
+    end do
+end function closing_paren_before_statement_end
 
 subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
     use ast_nodes_core, only: identifier_node, component_access_node
