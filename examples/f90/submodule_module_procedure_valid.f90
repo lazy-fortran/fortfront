@@ -3,22 +3,24 @@
 module submodule_mp_mod
     implicit none
     interface
-        module function bp(s) result(res)
-            integer, intent(in) :: s
-            integer :: res
-        end function bp
+        module subroutine bp(s)
+            integer, intent(inout) :: s
+        end subroutine bp
     end interface
 end module submodule_mp_mod
 
 submodule (submodule_mp_mod) submodule_mp_sub
 contains
     module procedure bp
-        res = s + 1
+        s = s + 1
     end procedure bp
 end submodule submodule_mp_sub
 
 program submodule_module_procedure_valid
     use submodule_mp_mod, only: bp
     implicit none
-    print *, bp(41)
+    integer :: value
+    value = 41
+    call bp(value)
+    print *, value
 end program submodule_module_procedure_valid
