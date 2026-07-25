@@ -10,7 +10,8 @@ use parser_type_hooks_module, only: consume_type_annotations, &
 use semantic_annotation_utils, only: type_from_annotation
 use semantic_inference_helpers, only: check_implicit_none, &
     process_declaration_variables
-use semantic_undefined_variable_checker, only: check_undefined_variables_generic
+use semantic_undefined_variable_checker, only: check_undefined_variables_generic, &
+    check_external_implicit_none
 use semantic_walrus_checker, only: check_walrus_redeclaration
 use constant_transformation, only: fold_constants_in_arena
 use error_handling, only: create_error_collection
@@ -116,6 +117,10 @@ contains
         ! binding label namespace spans the whole compilation unit, so this
         ! runs once over the arena rather than per scoping unit.
         call validate_global_binding_labels(arena, ctx%errors)
+
+        ! Reject procedure references that IMPLICIT NONE (EXTERNAL) requires
+        ! to be explicitly declared (F2018 8.7).
+        call check_external_implicit_none(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
