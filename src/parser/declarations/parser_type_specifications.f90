@@ -7,6 +7,7 @@ module parser_type_specifications_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
     use parser_implicit_shared_module, only: parse_none_spec_list
+    use parser_implicit_letter_specs_module, only: validate_implicit_letter_specs
     implicit none
     private
     integer, allocatable, save :: implicit_additional_indices(:)
@@ -207,6 +208,8 @@ contains
             call clear_implicit_additional_indices()
             return
         end if
+
+        call validate_implicit_letter_specs(parser)
 
         call parse_implicit_spec_sequence(parser, specs, spec_count)
         if (spec_count <= 0) then

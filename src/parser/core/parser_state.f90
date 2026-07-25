@@ -28,6 +28,7 @@ module parser_state_module
         procedure :: error_at_token => parser_add_error_at_token
         procedure :: has_errors => parser_has_errors
         procedure :: get_error_messages => parser_get_error_messages
+        procedure :: absorb_errors => parser_absorb_errors
 
         procedure :: cleanup => parser_cleanup
         procedure :: get_token_at_index => parser_get_token_at_index
@@ -158,6 +159,32 @@ contains
                 suggestion=suggestion)
         end if
     end subroutine parser_add_error_at_token
+
+    ! Take over the errors a nested parser collected. Sub-parsers built from a
+    ! statement token slice are discarded once the statement is parsed, so
+    ! without this their diagnostics would never reach the caller that reports
+    ! parse failures.
+    subroutine parser_absorb_errors(this, other)
+        class(parser_state_t), intent(inout) :: this
+        class(parser_state_t), intent(in) :: other
+        integer :: i
+
+        if (.not. other%errors%has_errors()) return
+        if (.not. allocated(other%errors%errors)) return
+
+        do i = 1, other%errors%count
+            associate (record => other%errors%errors(i))
+                if (allocated(record%suggestion)) then
+                    call this%errors%add_error_with_context(record%message, &
+                        record%context, severity=record%severity, &
+                        suggestion=record%suggestion)
+                else
+                    call this%errors%add_error_with_context(record%message, &
+                        record%context, severity=record%severity)
+                end if
+            end associate
+        end do
+    end subroutine parser_absorb_errors
 
     ! Check if parser has any errors
     logical function parser_has_errors(this)

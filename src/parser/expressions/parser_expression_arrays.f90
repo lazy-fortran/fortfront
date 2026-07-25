@@ -187,6 +187,10 @@ contains
             end if
 
             if (current%text == "(") then
+                if (is_malformed_parenthesized_item(parser)) then
+                    expr_index = 0
+                    return
+                end if
                 saved_pos = parser%current_token
                 if (has_type_spec) then
                     expr_index = parse_legacy_implied_do_constructor(parser, arena, &
@@ -320,6 +324,10 @@ contains
                 current = parser%consume() ! Consume the closing bracket
                 exit
             else if (peek_token%text == "(") then
+                if (is_malformed_parenthesized_item(parser)) then
+                    expr_index = 0
+                    return
+                end if
                 saved_pos = parser%current_token
                 if (has_type_spec) then
                     expr_index = parse_implied_do_constructor(parser, arena, &
@@ -406,6 +414,57 @@ contains
                 syntax_style="modern")
         end if
     end function parse_modern_array_literal
+
+    ! F2018 R770: an ac-value that starts with "(" is either a parenthesised
+    ! expression, a complex literal (exactly two items), or an ac-implied-do
+    ! (which carries "=" for its do-variable). A parenthesised list of three or
+    ! more items without "=" matches none of those, so reject it here instead of
+    ! letting the fallback expression parser swallow part of it.
+    logical function is_malformed_parenthesized_item(parser) result(malformed)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: open_paren
+        type(token_t) :: token
+        integer :: pos, depth, item_count
+        logical :: has_equals
+
+        malformed = .false.
+        open_paren = parser%peek()
+        if (open_paren%kind /= TK_OPERATOR) return
+        if (open_paren%text /= "(") return
+
+        pos = parser%current_token + 1
+        depth = 1
+        item_count = 1
+        has_equals = .false.
+
+        do while (pos <= parser%get_token_count())
+            token = parser%get_token_at_index(pos)
+            if (token%kind == TK_OPERATOR) then
+                select case (token%text)
+                case ("(", "[")
+                    depth = depth + 1
+                case (")", "]")
+                    depth = depth - 1
+                    if (depth == 0) exit
+                case (",")
+                    if (depth == 1) item_count = item_count + 1
+                case ("=")
+                    if (depth == 1) has_equals = .true.
+                end select
+            end if
+            pos = pos + 1
+        end do
+
+        if (depth /= 0) return
+        if (has_equals) return
+        if (item_count < 3) return
+
+        malformed = .true.
+        call parser%error_at_token( &
+            "Syntax error in COMPLEX constant: a parenthesised array "// &
+            "constructor item needs exactly two parts, or an implied-do "// &
+            "with a do-variable", open_paren)
+    end function is_malformed_parenthesized_item
 
     recursive function parse_nested_implied_do(parser, arena, helpers) &
             result(expr_index)
