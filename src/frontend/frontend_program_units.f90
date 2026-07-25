@@ -15,6 +15,8 @@ module frontend_program_units
     use mixed_construct_detector, only: function_follows_type_spec
     use frontend_statement_processing, only: parse_all_statements, &
         parse_explicit_program_unit
+    use frontend_statement_token_parsing, only: clear_statement_label_error, &
+        get_statement_label_error
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program
     use frontend_utilities, only: is_type_start
@@ -287,6 +289,9 @@ contains
         type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
         integer :: prog_index
         character(len=:), allocatable :: errors
+        character(len=:), allocatable :: label_error
+
+        call clear_statement_label_error()
 
         ! Check for meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
@@ -304,6 +309,13 @@ contains
 
         ! Extract parser errors if requested (implicit main can have parse errors too)
         if (present(error_msg)) then
+            ! Invalid statement labels are hard errors even when a diagnostic
+            ! sink collects them, so report them through error_msg as well.
+            label_error = get_statement_label_error()
+            if (len_trim(label_error) > 0) then
+                error_msg = label_error
+                return
+            end if
             if (present(diagnostic_sink)) return
             errors = get_last_parser_errors()
             if (len_trim(errors) > 0) then

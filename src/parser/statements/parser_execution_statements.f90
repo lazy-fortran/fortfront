@@ -63,6 +63,7 @@ module parser_execution_statements_module
     use parser_common_statement_module, only: parse_common_statement
     use parser_enum_statement_module, only: parse_enum_construct
     use parser_trailing_comment_module, only: capture_trailing_comment
+    use parser_statement_label_module, only: validate_statement_label
     implicit none
     private
 

@@ -57,6 +57,8 @@
         character(len=16), allocatable :: pending_prefixes(:)
         character(len=:), allocatable :: lowered
         character(len=:), allocatable :: stmt_label
+        character(len=:), allocatable :: label_error
+        type(token_t) :: label_token
         integer :: stmt_index
         integer :: last_position
 
@@ -92,8 +94,13 @@
                 ! Save the label text
                 stmt_label = trim(token%text)
                 ! Consume the label and get next token
+                label_token = token
                 token = parser%consume()
                 token = parser%peek()
+                call validate_statement_label(label_token, token, label_error)
+                if (allocated(label_error)) then
+                    call parser%error_at_token(label_error, label_token)
+                end if
                 if (token%kind == TK_KEYWORD) then
                     lowered = trim(to_lower(token%text))
                 else

@@ -6,6 +6,7 @@ module frontend_statement_token_parsing
         clear_additional_indices, &
         get_last_parser_errors
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_statement_label_module, only: validate_statement_label
     use ast_arena_modern, only: ast_arena_t
     use error_reporting, only: error_collection_t
 
@@ -16,8 +17,11 @@ module frontend_statement_token_parsing
     public :: process_comment_statement
     public :: process_regular_statement
     public :: is_prefix_only_statement
+    public :: clear_statement_label_error
+    public :: get_statement_label_error
 
     character(len=:), allocatable :: captured_trailing_comment
+    character(len=:), allocatable :: statement_label_error
 
 contains
 
@@ -63,6 +67,8 @@ contains
             return
         end if
 
+        call validate_leading_statement_label(tokens, stmt_start, stmt_end, &
+            diagnostic_sink)
         effective_start = compute_effective_statement_start(tokens, stmt_start, &
             stmt_end)
         call build_statement_tokens(tokens, effective_start, stmt_end, stmt_tokens)
@@ -76,6 +82,63 @@ contains
         body_indices = [body_indices, stmt_index]
         call append_additional_indices_from_dispatcher(body_indices)
     end subroutine process_regular_statement
+
+    subroutine clear_statement_label_error()
+        if (allocated(statement_label_error)) deallocate (statement_label_error)
+    end subroutine clear_statement_label_error
+
+    function get_statement_label_error() result(message)
+        character(len=:), allocatable :: message
+
+        if (allocated(statement_label_error)) then
+            message = statement_label_error
+        else
+            message = ""
+        end if
+    end function get_statement_label_error
+
+    ! Reject an invalid statement label before the statement is dispatched.
+    ! The raw token range is used because later stages drop the label tokens.
+    subroutine validate_leading_statement_label(tokens, stmt_start, stmt_end, &
+            diagnostic_sink)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
+        character(len=:), allocatable :: message
+        type(token_t) :: next_token
+        character(len=64) :: location
+        integer :: label_idx
+
+        label_idx = stmt_start
+        do while (label_idx <= stmt_end)
+            if (tokens(label_idx)%kind /= TK_WHITESPACE) exit
+            label_idx = label_idx + 1
+        end do
+        if (label_idx > stmt_end) return
+        if (tokens(label_idx)%kind /= TK_NUMBER) return
+
+        if (label_idx < stmt_end) then
+            next_token = tokens(label_idx + 1)
+        else
+            next_token%kind = TK_EOF
+            next_token%text = ""
+            next_token%line = tokens(label_idx)%line
+            next_token%column = tokens(label_idx)%column + &
+                len_trim(tokens(label_idx)%text)
+        end if
+
+        call validate_statement_label(tokens(label_idx), next_token, message)
+        if (.not. allocated(message)) return
+
+        write (location, '(A,I0,A,I0,A)') "ERROR at line ", &
+            tokens(label_idx)%line, ", column ", tokens(label_idx)%column, ":"
+        if (.not. allocated(statement_label_error)) then
+            statement_label_error = trim(location)//" "//message
+        end if
+        if (present(diagnostic_sink)) then
+            call diagnostic_sink%add_error_with_token(message, tokens(label_idx))
+        end if
+    end subroutine validate_leading_statement_label
 
     integer function compute_effective_statement_start(tokens, stmt_start, stmt_end) &
             result(effective_start)
