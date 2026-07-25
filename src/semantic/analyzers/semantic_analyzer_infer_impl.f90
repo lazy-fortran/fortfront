@@ -10,7 +10,8 @@ use ast_nodes_misc, only: data_statement_node
 use semantic_explicit_interface_checker, only: &
     build_explicit_interface_name_cache, &
     validate_explicit_interface_for_function_reference, &
-    validate_explicit_interface_for_subroutine_call
+    validate_explicit_interface_for_subroutine_call, &
+    validate_call_target_has_no_type
 use semantic_strict_argument_type_checker, only: &
     validate_strict_argument_types_for_function_reference, &
     validate_strict_argument_types_for_subroutine_call
