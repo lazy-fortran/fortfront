@@ -180,6 +180,8 @@ contains
         character :: c
         logical :: pending_format
         integer :: format_paren_depth
+        integer :: start_col
+        logical :: unterminated
 
         src = normalize_line_endings(source)
 
@@ -212,8 +214,14 @@ contains
                 end if
 
             case ('''', '"') ! String
+                start_col = col_num
                 call scan_string(src, pos, line_num, col_num, &
-                    tokenize_res%tokens, tokenize_res%token_count)
+                    tokenize_res%tokens, tokenize_res%token_count, &
+                    unterminated=unterminated)
+                if (unterminated) then
+                    call record_lex_diagnostic(tokenize_res, &
+                        unterminated_constant_diagnostic(line_num, start_col))
+                end if
 
             case ('0':'9') ! Number
                 call scan_number(src, pos, line_num, col_num, &

@@ -15,6 +15,7 @@ module lexer_scanners
     ! Source validation rules owned by the lexer
     public :: is_valid_source_character, invalid_source_char_diagnostic
     public :: invalid_name_start_diagnostic, invalid_selector_diagnostic
+    public :: character_constant_continues, unterminated_constant_diagnostic
 
 contains
 
@@ -57,6 +58,14 @@ contains
             ": a component selector must follow a name, ')' or ']'"
     end function invalid_selector_diagnostic
 
+    pure function unterminated_constant_diagnostic(line, column) result(message)
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: message
+
+        message = "Unterminated character constant"// &
+            source_position_text(line, column)
+    end function unterminated_constant_diagnostic
+
     pure function source_position_text(line, column) result(text)
         integer, intent(in) :: line, column
         character(len=:), allocatable :: text
@@ -65,6 +74,70 @@ contains
         write (buffer, '(A,I0,A,I0)') " at line ", line, ", column ", column
         text = trim(buffer)
     end function source_position_text
+
+    ! Decide whether an unterminated character constant is explained by free
+    ! form line continuation rather than by a defect.
+    !
+    ! `start_pos` is the position of the opening quote and `end_pos` the
+    ! position just past the last consumed character, so `end_pos` addresses
+    ! the newline that ended the line, or len(source) + 1 at end of file.
+    !
+    ! Two situations are continuations. First, the line ends with '&' as its
+    ! last non-blank character, which continues the character context onto the
+    ! next line. Second, the constant already sits on such a continuation
+    ! line: the lexer scans each line on its own, so the tail of a continued
+    ! constant reaches this point looking unterminated.
+    pure function character_constant_continues(source, start_pos, end_pos) &
+            result(continues)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: start_pos, end_pos
+        logical :: continues
+        integer :: idx, line_start
+
+        continues = .false.
+
+        ! End of file cannot be continued by anything.
+        if (end_pos > len(source)) return
+
+        idx = end_pos - 1
+        do while (idx >= 1)
+            if (.not. is_blank_character(source(idx:idx))) exit
+            idx = idx - 1
+        end do
+        if (idx >= 1) then
+            if (source(idx:idx) == '&') then
+                continues = .true.
+                return
+            end if
+        end if
+
+        line_start = 1
+        idx = start_pos - 1
+        do while (idx >= 1)
+            if (source(idx:idx) == char(10)) then
+                line_start = idx + 1
+                exit
+            end if
+            idx = idx - 1
+        end do
+
+        idx = line_start
+        do while (idx < start_pos)
+            if (.not. is_blank_character(source(idx:idx))) exit
+            idx = idx + 1
+        end do
+        if (idx <= len(source)) then
+            continues = (source(idx:idx) == '&')
+        end if
+    end function character_constant_continues
+
+    pure function is_blank_character(c) result(is_blank)
+        character, intent(in) :: c
+        logical :: is_blank
+
+        is_blank = (c == ' ')
+        if (.not. is_blank) is_blank = (c == char(9))
+    end function is_blank_character
 
     ! Scan a number token (including Hollerith constants like 2Hab)
     subroutine scan_number(source, pos, line_num, col_num, tokens, token_count)
@@ -235,10 +308,12 @@ contains
     end subroutine scan_comment
 
     ! Scan a string token
-    subroutine scan_string(source, pos, line_num, col_num, tokens, token_count)
+    subroutine scan_string(source, pos, line_num, col_num, tokens, token_count, &
+            unterminated)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
+        logical, intent(out), optional :: unterminated
         integer :: start_pos, start_col
         character :: quote_char, c
         logical :: escaped, found_closing_quote
@@ -308,6 +383,14 @@ contains
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
+        end if
+
+        if (present(unterminated)) then
+            unterminated = .not. found_closing_quote
+            if (unterminated) then
+                unterminated = .not. character_constant_continues(source, &
+                    start_pos, pos)
+            end if
         end if
     end subroutine scan_string
 
