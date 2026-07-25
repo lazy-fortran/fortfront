@@ -63,7 +63,8 @@ contains
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (handle_interface_end(parser, token)) exit
+            if (handle_interface_end(parser, token, interface_name, &
+                interface_kind, operator_symbol)) exit
 
             stmt_index = 0
             if (try_parse_interface_procedure(parser, arena, prefix_buffer, token, &
