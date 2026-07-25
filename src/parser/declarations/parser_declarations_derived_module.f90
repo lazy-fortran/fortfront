@@ -8,6 +8,7 @@ module parser_declarations_derived_module
         skip_type_definition_attributes
     use parser_type_spec_attributes_mod, only: extract_extends_from_attributes
     use parser_declarations_core_module, only: parse_declaration
+    use parser_submodule_placement_module, only: reject_misplaced_submodule
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -157,6 +158,13 @@ contains
             if (end_type_ahead(parser)) then
                 call consume_end_type_sequence(parser)
                 exit
+            end if
+
+            ! A submodule is a program unit and cannot appear in a type.
+            if (reject_misplaced_submodule(parser, &
+                "a derived-type definition")) then
+                call skip_component_trivia(parser)
+                cycle
             end if
 
             if (contains_ahead(parser)) then

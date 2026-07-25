@@ -84,6 +84,9 @@
                 exit
             end if
 
+            ! A submodule is a program unit and cannot appear in a body.
+            if (reject_misplaced_submodule(parser, "a program unit body")) cycle
+
             stmt_index = 0
             ! Clear label for this statement
             if (allocated(stmt_label)) deallocate (stmt_label)
