@@ -5,6 +5,8 @@ program test_reject_expr_01_diagnostics
     ! accepted so the check cannot silently become a blanket rejection:
     !   * trailing tokens after a complete assignment  (gfortran.dg/pr56520.f90)
     !   * unterminated substring of a character literal (gfortran.dg/pr67526.f90)
+    !   * name glued to a statement keyword in free form
+    !     (gfortran.dg/print_fmt_2.f90)
     use, intrinsic :: iso_fortran_env, only: output_unit
     use frontend_compiler_api, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string
@@ -55,6 +57,45 @@ program test_reject_expr_01_diagnostics
         "    implicit none"//new_line('a')// &
         "    character(len=1) :: c"//new_line('a')// &
         "    c = 'abc'(2:2)"//new_line('a')// &
+        "end program p")
+
+    call assert_rejected( &
+        "name glued to print keyword with format", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    character(len=5) :: f = '(a)'"//new_line('a')// &
+        "    printf, 'check'"//new_line('a')// &
+        "end program p", &
+        "Unclassifiable statement")
+
+    ! The offending statement must be diagnosed on its own terms: an '='
+    ! further down the program unit must not be borrowed to make it look
+    ! like the first target of a multi-target assignment.
+    call assert_rejected( &
+        "name glued to print keyword ahead of a real assignment", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    real :: x"//new_line('a')// &
+        "    character(len=5) :: f = '(a)'"//new_line('a')// &
+        "    printf, 'check'"//new_line('a')// &
+        "    x = 1"//new_line('a')// &
+        "end program p", &
+        "Unclassifiable statement")
+
+    call assert_accepted( &
+        "multi-target assignment still recognised", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    integer :: i, j"//new_line('a')// &
+        "    i, j = 3"//new_line('a')// &
+        "end program p")
+
+    call assert_accepted( &
+        "print separated from its format specifier", &
+        "program p"//new_line('a')// &
+        "    implicit none"//new_line('a')// &
+        "    character(len=5) :: f = '(a)'"//new_line('a')// &
+        "    print f, 'check'"//new_line('a')// &
         "end program p")
 
     write (output_unit, '(A)') &
