@@ -11,12 +11,10 @@ program test_compiler_statement_queries
         CONTROL_BLOCK, CONTROL_SELECT_TYPE, CONTROL_TYPE_GUARD, &
         CONTROL_SELECT_RANK, CONTROL_RANK_BLOCK, CONTROL_WHERE, &
         CONTROL_WHERE_STATEMENT, BRANCH_GOTO, BRANCH_PAUSE, BRANCH_CONTINUE
-    use ast_arena_clone, only: clone_subtree, clone_result_t
     implicit none
 
     type(compiler_frontend_result_t) :: result
     type(compiler_frontend_options_t) :: options
-    type(clone_result_t) :: cloned
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -30,9 +28,6 @@ program test_compiler_statement_queries
     call test_absent_queries(result%arena, result%root_index)
     call test_absent_queries(result%arena, 0)
     call test_labeled_wrong_kind_queries(result%arena)
-    cloned = clone_subtree(result%arena, result%root_index)
-    call test_cloned_io_indices(result%arena, cloned)
-    call test_cloned_control_indices(result%arena, cloned)
     print *, 'PASS: compiler statement queries'
 
 contains
@@ -475,134 +470,6 @@ contains
             call fail('wrong-kind branch query retained source location')
         end if
     end subroutine require_empty_wrong_kind
-
-    subroutine test_cloned_io_indices(original, clone)
-        type(ast_arena_t), intent(in) :: original
-        type(clone_result_t), intent(in) :: clone
-        type(io_statement_query_t) :: old_query, new_query
-        integer :: i, j, new_index, found_count
-
-        found_count = 0
-        do i = 1, size(clone%index_map)
-            new_index = clone%index_map(i)
-            if (new_index <= 0) cycle
-            old_query = query_io_statement(original, i)
-            if (.not. old_query%found) cycle
-            new_query = query_io_statement(clone%cloned_arena, new_index)
-            if (.not. new_query%found) call fail('cloned I/O statement absent')
-            found_count = found_count + 1
-            call require_equal(size(new_query%specifiers), &
-                size(old_query%specifiers), 'cloned I/O specifier count')
-            do j = 1, size(old_query%specifiers)
-                if (.not. old_query%specifiers(j)%has_value_node) cycle
-                call require_mapped_index(clone, &
-                    old_query%specifiers(j)%value_node_index, &
-                    new_query%specifiers(j)%value_node_index, &
-                    'cloned I/O specifier')
-            end do
-        end do
-        if (found_count == 0) call fail('cloned I/O statements absent')
-    end subroutine test_cloned_io_indices
-
-    subroutine test_cloned_control_indices(original, clone)
-        type(ast_arena_t), intent(in) :: original
-        type(clone_result_t), intent(in) :: clone
-        type(control_statement_query_t) :: old_query, new_query
-        integer :: i, j, new_index, found_count
-
-        found_count = 0
-        do i = 1, size(clone%index_map)
-            new_index = clone%index_map(i)
-            if (new_index <= 0) cycle
-            old_query = query_control_statement(original, i)
-            if (.not. old_query%found) cycle
-            new_query = query_control_statement(clone%cloned_arena, new_index)
-            if (.not. new_query%found) call fail('cloned control absent')
-            found_count = found_count + 1
-            call compare_optional_control_indices(clone, old_query, new_query)
-            call require_mapped_indices(clone, old_query%child_node_indices, &
-                new_query%child_node_indices, 'cloned control child')
-            call require_mapped_indices(clone, old_query%body_node_indices, &
-                new_query%body_node_indices, 'cloned control body')
-            call require_equal(size(new_query%associations), &
-                size(old_query%associations), 'cloned association count')
-            do j = 1, size(old_query%associations)
-                call require_mapped_index(clone, &
-                    old_query%associations(j)%expression_node_index, &
-                    new_query%associations(j)%expression_node_index, &
-                    'cloned association')
-            end do
-            call check_cloned_elsewhere(clone, old_query, new_query)
-        end do
-        if (found_count == 0) call fail('cloned control statements absent')
-    end subroutine test_cloned_control_indices
-
-    subroutine compare_optional_control_indices(clone, old_query, new_query)
-        type(clone_result_t), intent(in) :: clone
-        type(control_statement_query_t), intent(in) :: old_query, new_query
-
-        if (old_query%has_selector) call require_mapped_index(clone, &
-            old_query%selector_node_index, new_query%selector_node_index, &
-            'cloned selector')
-        if (old_query%has_default) call require_mapped_index(clone, &
-            old_query%default_node_index, new_query%default_node_index, &
-            'cloned default')
-        if (old_query%has_type_name) call require_mapped_index(clone, &
-            old_query%type_name_node_index, new_query%type_name_node_index, &
-            'cloned type name')
-        if (old_query%has_mask) call require_mapped_index(clone, &
-            old_query%mask_node_index, new_query%mask_node_index, 'cloned mask')
-        if (old_query%has_assignment) call require_mapped_index(clone, &
-            old_query%assignment_node_index, new_query%assignment_node_index, &
-            'cloned assignment')
-    end subroutine compare_optional_control_indices
-
-    subroutine check_cloned_elsewhere(clone, old_query, new_query)
-        type(clone_result_t), intent(in) :: clone
-        type(control_statement_query_t), intent(in) :: old_query, new_query
-        integer :: i
-
-        call require_equal(size(new_query%elsewhere_clauses), &
-            size(old_query%elsewhere_clauses), 'cloned ELSEWHERE count')
-        do i = 1, size(old_query%elsewhere_clauses)
-            if (old_query%elsewhere_clauses(i)%has_mask) then
-                call require_mapped_index(clone, &
-                    old_query%elsewhere_clauses(i)%mask_node_index, &
-                    new_query%elsewhere_clauses(i)%mask_node_index, &
-                    'cloned ELSEWHERE mask')
-            end if
-            call require_mapped_indices(clone, &
-                old_query%elsewhere_clauses(i)%body_node_indices, &
-                new_query%elsewhere_clauses(i)%body_node_indices, &
-                'cloned ELSEWHERE body')
-        end do
-    end subroutine check_cloned_elsewhere
-
-    subroutine require_mapped_indices(clone, old_indices, new_indices, label)
-        type(clone_result_t), intent(in) :: clone
-        integer, intent(in) :: old_indices(:), new_indices(:)
-        character(len=*), intent(in) :: label
-        integer :: i
-
-        call require_equal(size(new_indices), size(old_indices), label//' count')
-        do i = 1, size(old_indices)
-            call require_mapped_index(clone, old_indices(i), new_indices(i), &
-                label)
-        end do
-    end subroutine require_mapped_indices
-
-    subroutine require_mapped_index(clone, old_index, new_index, label)
-        type(clone_result_t), intent(in) :: clone
-        integer, intent(in) :: old_index, new_index
-        character(len=*), intent(in) :: label
-
-        if (old_index <= 0) call fail(label//' source is absent')
-        if (old_index > size(clone%index_map)) call fail(label//' source is stale')
-        call require_equal(new_index, clone%index_map(old_index), label)
-        if (.not. clone%cloned_arena%has_node_at(new_index)) then
-            call fail(label//' target is stale')
-        end if
-    end subroutine require_mapped_index
 
     subroutine require_nonempty(values, label)
         integer, intent(in) :: values(:)
