@@ -128,6 +128,16 @@
         end if
     end function next_tokens_form_control
 
+    ! A DO iterator separates its bounds with "," (F2023 R1125) or, for the
+    ! range form fortfront also accepts, with ":".
+    logical function is_iterator_separator(tok) result(is_separator)
+        type(token_t), intent(in) :: tok
+
+        is_separator = .false.
+        if (tok%kind /= TK_OPERATOR) return
+        is_separator = tok%text == "," .or. tok%text == ":"
+    end function is_iterator_separator
+
     logical function parse_standard_control(parser, arena, control) result(success)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -145,16 +155,32 @@
         tok = parser%consume()
         if (tok%kind /= TK_OPERATOR .or. tok%text /= "=") return
 
+        ! Past the "name =" prefix this statement can only be a DO iterator
+        ! (F2023 R1125 loop-control), so a malformed remainder is a hard
+        ! syntax error rather than a silent parse failure.
         control%start_index = parse_logical_or(parser, arena)
-        if (control%start_index <= 0) return
+        if (control%start_index <= 0) then
+            call parser%error("Syntax error in DO iterator: expected an "// &
+                "initial loop bound expression")
+            return
+        end if
 
+        tok = parser%peek()
+        if (.not. is_iterator_separator(tok)) then
+            call parser%error_at_token("Syntax error in DO iterator: expected "// &
+                "',' after the initial loop bound", tok, &
+                suggestion="write the iterator as do var = start, end [, step]")
+            return
+        end if
         tok = parser%consume()
-        if (tok%kind /= TK_OPERATOR) return
         allow_colon_step = tok%text == ":"
-        if (.not. (tok%text == "," .or. tok%text == ":")) return
 
         control%end_index = parse_logical_or(parser, arena)
-        if (control%end_index <= 0) return
+        if (control%end_index <= 0) then
+            call parser%error("Syntax error in DO iterator: expected a "// &
+                "terminal loop bound expression")
+            return
+        end if
 
         if (.not. parser%is_at_end()) then
             tok = parser%peek()

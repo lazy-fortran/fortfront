@@ -330,14 +330,21 @@
         end if
         token = parser%consume()
 
+        ! Past "( expr , name =" the item can only be an io-implied-do
+        ! (F2023 R1224), so the rest of the iterator and its closing right
+        ! parenthesis are required rather than speculative.
         start_index = parse_comparison(parser, arena)
         if (start_index <= 0) then
+            call parser%error("Syntax error in iterator: expected an initial "// &
+                "bound expression")
             expr_index = fail_and_restore()
             return
         end if
 
         token = parser%peek()
         if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+            call parser%error_at_token("Syntax error in iterator: expected "// &
+                "',' after the initial bound", token)
             expr_index = fail_and_restore()
             return
         end if
@@ -345,6 +352,8 @@
 
         end_index = parse_comparison(parser, arena)
         if (end_index <= 0) then
+            call parser%error("Syntax error in iterator: expected a terminal "// &
+                "bound expression")
             expr_index = fail_and_restore()
             return
         end if
@@ -355,6 +364,8 @@
             token = parser%consume()
             step_index = parse_comparison(parser, arena)
             if (step_index <= 0) then
+                call parser%error("Syntax error in iterator: expected a "// &
+                    "stride expression")
                 expr_index = fail_and_restore()
                 return
             end if
@@ -362,6 +373,9 @@
 
         token = parser%peek()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
+            call parser%error_at_token("Expected a right parenthesis closing "// &
+                "the implied-DO in the I/O list", token, &
+                suggestion="close the implied-DO with ')'")
             expr_index = fail_and_restore()
             return
         end if
