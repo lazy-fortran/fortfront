@@ -23,6 +23,7 @@ module semantic_explicit_interface_checker
     public :: validate_explicit_interface_for_subroutine_call
     public :: validate_call_target_has_no_type
     public :: build_explicit_interface_name_cache
+    public :: is_part_reference
 
     ! Classification of a name found in an enclosing scoping unit.
     integer, parameter :: TARGET_KIND_NONE = 0
@@ -34,6 +35,21 @@ module semantic_explicit_interface_checker
     integer, parameter :: MAX_SCOPE_WALK = 64
 
 contains
+
+    ! True when the stored call designator is a part reference rather than a
+    ! bare procedure name: a type-bound call (`b%show`), a coindexed call
+    ! (`x[1]%c%sub`), or an array-element base (`arr(i)%sub`).  Such a call
+    ! names a binding of a declared type, so name-based lookup of the stored
+    ! text against declarations of the enclosing scope is meaningless.
+    logical function is_part_reference(designator) result(is_part)
+        character(len=*), intent(in) :: designator
+
+        is_part = index(designator, '%') > 0
+        if (is_part) return
+        is_part = index(designator, '[') > 0
+        if (is_part) return
+        is_part = index(designator, '(') > 0
+    end function is_part_reference
 
     ! F2018 C1521 / 15.5.1: the procedure designator in a CALL statement must
     ! name a subroutine.  A name that is declared with a type in an accessible
@@ -53,6 +69,10 @@ contains
         if (len_trim(expr%name) == 0) return
 
         proc_name = to_lower(trim(expr%name))
+        ! A part reference (type-bound call, coindexed or array-element base)
+        ! is not a bare procedure name: its binding is resolved through the
+        ! declared type, so the base object legitimately has a type.
+        if (is_part_reference(proc_name)) return
         if (is_intrinsic_subroutine(proc_name)) return
 
         scope_index = expr_index
@@ -224,6 +244,9 @@ contains
         is_typed = .false.
         if (decl%is_external) return
         if (decl%is_pointer) return
+        ! `procedure(iface) :: f` declares a procedure (commonly a dummy
+        ! procedure), not a typed data object, so calling it is correct.
+        if (declares_a_procedure(decl)) return
 
         if (decl%is_multi_declaration) then
             if (.not. allocated(decl%var_names)) return
@@ -237,6 +260,17 @@ contains
             is_typed = names_match(decl%var_name, name)
         end if
     end function declaration_gives_name_a_type
+
+    ! A declaration whose type name starts with the PROCEDURE keyword names a
+    ! procedure, e.g. `procedure(one) :: f` or `procedure(), pointer :: p`.
+    logical function declares_a_procedure(decl) result(is_proc)
+        type(declaration_node), intent(in) :: decl
+
+        is_proc = .false.
+        if (.not. allocated(decl%type_name)) return
+        if (len(decl%type_name) < 9) return
+        is_proc = to_lower(decl%type_name(1:9)) == 'procedure'
+    end function declares_a_procedure
 
     logical function names_match(node_name, lowered_name) result(matches)
         character(len=:), allocatable, intent(in) :: node_name

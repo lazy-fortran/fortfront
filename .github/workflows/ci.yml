@@ -111,6 +111,12 @@ jobs:
         ulimit -s 512 || true
         RUN_SYSTEM_TESTS=1 make test
 
+    - name: Corpus Rejection Gate (issue #2924)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Checking that no corpus file became newly rejected..."
+        make check-rejection-gate
+
     - name: Verify Project Root Cleanliness After Tests (issue #2148)
       if: runner.os == 'Linux'
       run: |
