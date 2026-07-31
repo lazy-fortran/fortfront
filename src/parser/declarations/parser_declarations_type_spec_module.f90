@@ -100,25 +100,35 @@ contains
 
         select case (base_lower)
         case ("type", "class")
-            call parse_parenthesized_derived(parser, arena, type_spec)
+            call parse_parenthesized_derived(parser, arena, type_spec, token)
         case ("character")
-            call parse_parenthesized_character(parser, type_spec)
+            call parse_parenthesized_character(parser, type_spec, token)
         case default
             call capture_parenthesized_content(parser, type_spec)
         end select
     end subroutine parse_parenthesized_spec
 
-    subroutine parse_parenthesized_derived(parser, arena, type_spec)
+    subroutine parse_parenthesized_derived(parser, arena, type_spec, open_paren)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t), intent(in) :: open_paren
         type(token_t), allocatable :: collected_tokens(:)
         character(len=:), allocatable :: derived_text
+        logical :: closed
 
         call clear_derived_type_storage(type_spec)
         type_spec%is_derived_type = .true.
 
-        call gather_derived_type_tokens(parser, collected_tokens)
+        call gather_derived_type_tokens(parser, collected_tokens, closed)
+        ! F2018 R703: the derived-type-spec parenthesis must be closed. Running
+        ! off the end of the statement means the type-spec is malformed.
+        if (.not. closed) then
+            call parser%error_at_token( &
+                "Malformed type-spec: missing ')' after the derived type name", &
+                open_paren)
+        end if
+
         if (allocated(collected_tokens)) then
             call analyze_derived_type_tokens(type_spec, collected_tokens, arena, &
                 parser)
@@ -141,19 +151,22 @@ contains
         end if
     end subroutine parse_parenthesized_derived
 
-    subroutine gather_derived_type_tokens(parser, tokens)
+    subroutine gather_derived_type_tokens(parser, tokens, closed)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), allocatable, intent(out) :: tokens(:)
+        logical, intent(out) :: closed
         type(token_t) :: token
         integer :: depth
 
         depth = 0
+        closed = .false.
         do while (.not. parser%is_at_end())
             token = parser%peek()
             select case (token%text)
             case (")")
                 if (depth == 0) then
                     token = parser%consume()
+                    closed = .true.
                     exit
                 else
                     depth = depth - 1
@@ -171,9 +184,10 @@ contains
         end do
     end subroutine gather_derived_type_tokens
 
-    subroutine parse_parenthesized_character(parser, type_spec)
+    subroutine parse_parenthesized_character(parser, type_spec, open_paren)
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t), intent(in) :: open_paren
         type(token_t) :: token
         type(token_t), allocatable :: param_tokens(:)
         type(token_t), allocatable :: cleaned_tokens(:)
@@ -181,14 +195,17 @@ contains
         character(len=:), allocatable :: param_text
         integer :: param_start, param_end
         logical :: first_param
+        logical :: closed
 
         collected_text = ""
         first_param = .true.
+        closed = .false.
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%text == ")") then
                 token = parser%consume()
+                closed = .true.
                 exit
             end if
 
@@ -221,6 +238,14 @@ contains
 
             call consume_comma_if_present(parser)
         end do
+
+        ! F2018 R721: the char-selector parenthesis must be closed. Running off
+        ! the end of the statement means the CHARACTER declaration is malformed.
+        if (.not. closed) then
+            call parser%error_at_token( &
+                "Syntax error in CHARACTER declaration: missing ')' after the "// &
+                "length or kind selector", open_paren)
+        end if
 
         if (len_trim(collected_text) > 0) then
             type_spec%type_name = trim(type_spec%base_keyword)//"("// &
