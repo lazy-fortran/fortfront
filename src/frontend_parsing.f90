@@ -45,6 +45,8 @@ module frontend_parsing
         reset_nested_internal_procedure_error, &
         has_nested_internal_procedure_error, &
         get_nested_internal_procedure_message
+    use parser_label_validation_module, only: reset_statement_label_error, &
+        has_statement_label_error, get_statement_label_message
     use frontend_program_unit_scanner, only: detect_explicit_program_unit, &
         is_inside_module, is_program_unit_start, &
         unit_has_meaningful_content, &
@@ -105,6 +107,7 @@ contains
         error_msg = ""
         prog_index = 0
         call reset_nested_internal_procedure_error()
+        call reset_statement_label_error()
         call clear_parser_errors()
         call ensure_if_do_registration()
 
@@ -116,6 +119,10 @@ contains
         if (should_use_mixed_constructs(tokens_local, mixed_result)) then
             call parse_mixed_construct_file(tokens_local, arena, mixed_result, &
                 prog_index, error_msg, diagnostics)
+            if (has_statement_label_error()) then
+                error_msg = get_statement_label_message()
+                prog_index = 0
+            end if
             call export_parser_errors(diagnostics, parser_errors)
             return
         end if
@@ -131,6 +138,13 @@ contains
                 call export_parser_errors(diagnostics, parser_errors)
                 return
             end if
+        end if
+
+        if (has_statement_label_error()) then
+            error_msg = get_statement_label_message()
+            prog_index = 0
+            call export_parser_errors(diagnostics, parser_errors)
+            return
         end if
 
         if (has_nested_internal_procedure_error()) then

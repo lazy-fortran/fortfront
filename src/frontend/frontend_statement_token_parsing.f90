@@ -8,6 +8,8 @@ module frontend_statement_token_parsing
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use error_reporting, only: error_collection_t
+    use parser_label_validation_module, only: validate_label_context, &
+        is_statement_label_text
 
     implicit none
     private
@@ -63,6 +65,7 @@ contains
             return
         end if
 
+        call check_label_separator(tokens, stmt_start, stmt_end)
         effective_start = compute_effective_statement_start(tokens, stmt_start, &
             stmt_end)
         call build_statement_tokens(tokens, effective_start, stmt_end, stmt_tokens)
@@ -76,6 +79,34 @@ contains
         body_indices = [body_indices, stmt_index]
         call append_additional_indices_from_dispatcher(body_indices)
     end subroutine process_regular_statement
+
+    ! A free-form statement label is separated from the statement by blanks;
+    ! a digit string used as a construct name (`10: a=10`) is invalid.
+    subroutine check_label_separator(tokens, stmt_start, stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start
+        integer, intent(in) :: stmt_end
+        integer :: i, label_idx
+
+        label_idx = 0
+        do i = stmt_start, stmt_end
+            if (tokens(i)%kind == TK_WHITESPACE) cycle
+            if (tokens(i)%kind == TK_NUMBER) label_idx = i
+            exit
+        end do
+
+        if (label_idx == 0) return
+        if (.not. is_statement_label_text(tokens(label_idx)%text)) return
+
+        do i = label_idx + 1, stmt_end
+            if (tokens(i)%kind == TK_WHITESPACE) cycle
+            if (tokens(i)%kind /= TK_OPERATOR) return
+            if (tokens(i)%text /= ":") return
+            call validate_label_context(tokens(label_idx)%text, .true., .true., &
+                tokens(label_idx)%line, tokens(label_idx)%column)
+            return
+        end do
+    end subroutine check_label_separator
 
     integer function compute_effective_statement_start(tokens, stmt_start, stmt_end) &
             result(effective_start)
@@ -159,6 +190,7 @@ contains
         end do
 
         if (label_end_idx > 0) then
+            call check_statement_label(stmt_tokens, label_end_idx, stmt_label)
             allocate (tokens_without_label(size(stmt_tokens) - label_end_idx))
             tokens_without_label = stmt_tokens(label_end_idx + 1:size(stmt_tokens))
             call move_alloc(tokens_without_label, stmt_tokens)
@@ -174,6 +206,30 @@ contains
             end if
         end if
     end subroutine parse_statement_tokens_with_optional_label
+
+    ! Validate the digits of a leading statement label and require that the
+    ! label is attached to a statement.
+    subroutine check_statement_label(stmt_tokens, label_end_idx, stmt_label)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: label_end_idx
+        character(len=*), intent(in) :: stmt_label
+        logical :: has_statement
+        integer :: i
+
+        has_statement = .false.
+        do i = label_end_idx + 1, size(stmt_tokens)
+            select case (stmt_tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT, TK_EOF)
+                cycle
+            case default
+                has_statement = .true.
+                exit
+            end select
+        end do
+
+        call validate_label_context(stmt_label, has_statement, .false., &
+            stmt_tokens(label_end_idx)%line, stmt_tokens(label_end_idx)%column)
+    end subroutine check_statement_label
 
     subroutine append_additional_indices_from_dispatcher(body_indices)
         integer, allocatable, intent(inout) :: body_indices(:)

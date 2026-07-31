@@ -6,6 +6,7 @@ module parser_execution_statements_module
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, &
         TK_STRING, TK_NEWLINE, TK_KEYWORD
     use parser_state_module, only: parser_state_t
+    use parser_label_validation_module, only: validate_label_context
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
         parse_derived_type_def, parser_is_at_type_definition
     use parser_definition_statements_module, only: parse_function_definition, &
