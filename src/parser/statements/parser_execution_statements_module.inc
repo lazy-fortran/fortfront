@@ -53,6 +53,7 @@
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t) :: token
+        type(token_t) :: label_token
         type(parser_prefix_buffer_t) :: prefix_buffer
         character(len=16), allocatable :: pending_prefixes(:)
         character(len=:), allocatable :: lowered
@@ -92,8 +93,9 @@
                 ! Save the label text
                 stmt_label = trim(token%text)
                 ! Consume the label and get next token
-                token = parser%consume()
+                label_token = parser%consume()
                 token = parser%peek()
+                call validate_program_body_label(stmt_label, label_token, token)
                 if (token%kind == TK_KEYWORD) then
                     lowered = trim(to_lower(token%text))
                 else
@@ -900,6 +902,29 @@
             end if
         end subroutine append_statement
     end subroutine parse_program_body
+
+    ! Reject invalid statement labels found in an explicit program body.
+    subroutine validate_program_body_label(label_text, label_token, next_token)
+        character(len=*), intent(in) :: label_text
+        type(token_t), intent(in) :: label_token
+        type(token_t), intent(in) :: next_token
+        logical :: has_statement
+        logical :: colon_follows
+
+        has_statement = .true.
+        select case (next_token%kind)
+        case (TK_NEWLINE, TK_EOF, TK_COMMENT)
+            has_statement = .false.
+        end select
+
+        colon_follows = .false.
+        if (next_token%kind == TK_OPERATOR) then
+            if (allocated(next_token%text)) colon_follows = next_token%text == ":"
+        end if
+
+        call validate_label_context(label_text, has_statement, colon_follows, &
+            label_token%line, label_token%column)
+    end subroutine validate_program_body_label
 
     ! Handle single vs multi-variable declarations (duplicate of dispatcher logic)
     subroutine handle_variable_declaration(parser, arena, stmt_index)
