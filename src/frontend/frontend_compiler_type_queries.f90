@@ -1,12 +1,12 @@
 module frontend_compiler_type_queries
     use ast_arena_modern, only: ast_arena_t
-    use ast_base, only: ast_node, LITERAL_INTEGER, LITERAL_REAL, &
+    use ast_base, only: ast_node, string_t, LITERAL_INTEGER, LITERAL_REAL, &
         LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
         call_or_subscript_node, component_access_node, assignment_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         derived_type_node
-    use ast_nodes_misc, only: complex_literal_node
+    use ast_nodes_misc, only: complex_literal_node, use_statement_node
     use ast_nodes_procedure, only: function_def_node
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_name_at_node, resolve_identifier_binding
@@ -803,6 +803,9 @@ contains
             if (kind_value > 0) return
         end if
 
+        if (resolve_iso_c_binding_kind(arena, reference_index, lowered, &
+            kind_value)) return
+
         kind_value = conventional_kind_selector(lowered)
     end function resolve_kind_selector
 
@@ -826,6 +829,109 @@ contains
             kind_value = 0
         end select
     end function conventional_kind_selector
+
+    logical function resolve_iso_c_binding_kind(arena, reference_index, selector, &
+            kind_value) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: reference_index
+        character(len=*), intent(in) :: selector
+        integer, intent(out) :: kind_value
+        integer :: current, child, i
+        logical :: imported
+        character(len=:), allocatable :: canonical_selector, remote_selector
+
+        found = .false.
+        kind_value = 0
+        imported = .false.
+        canonical_selector = compact_lower(selector)
+        current = reference_index
+        do while (current > 0)
+            if (.not. arena%has_node_at(current)) return
+            if (allocated(arena%entries(current)%child_indices)) then
+                do i = 1, arena%entries(current)%child_count
+                    child = arena%entries(current)%child_indices(i)
+                    if (.not. arena%has_node_at(child)) cycle
+                    select type (use_node => arena%entries(child)%node)
+                        type is (use_statement_node)
+                        if (.not. allocated(use_node%module_name)) cycle
+                        if (compact_lower(use_node%module_name) /= &
+                            'iso_c_binding') cycle
+                        if (.not. use_node%has_only) then
+                            imported = .true.
+                        else if (allocated(use_node%only_list)) then
+                            imported = use_list_contains(use_node%only_list, selector)
+                        end if
+                        if (.not. imported .and. allocated(use_node%rename_list)) then
+                            remote_selector = ''
+                            imported = use_rename_contains(use_node%rename_list, &
+                                selector, remote_selector)
+                            if (imported) canonical_selector = remote_selector
+                        end if
+                        if (imported) exit
+                    end select
+                end do
+            end if
+            if (imported) exit
+            current = arena%entries(current)%parent_index
+        end do
+        if (.not. imported) return
+
+        select case (compact_lower(canonical_selector))
+        case ('c_signed_char', 'c_int8_t', 'c_int_least8_t', &
+                'c_int_fast8_t', 'c_bool', 'c_char')
+            kind_value = 1
+        case ('c_short', 'c_int16_t', 'c_int_least16_t', 'c_int_fast16_t')
+            kind_value = 2
+        case ('c_int', 'c_int32_t', 'c_int_least32_t', 'c_int_fast32_t', &
+                'c_float', 'c_float32')
+            kind_value = 4
+        case ('c_long', 'c_long_long', 'c_size_t', 'c_intptr_t', &
+                'c_ptrdiff_t', 'c_intmax_t', 'c_int64_t', 'c_int_least64_t', &
+                'c_int_fast64_t', 'c_double', 'c_float64')
+            kind_value = 8
+        case ('c_long_double', 'c_float128')
+            kind_value = 16
+        case default
+            return
+        end select
+        found = .true.
+    end function resolve_iso_c_binding_kind
+
+    logical function use_list_contains(list, selector) result(found)
+        type(string_t), allocatable, intent(in) :: list(:)
+        character(len=*), intent(in) :: selector
+        integer :: i
+
+        found = .false.
+        do i = 1, size(list)
+            if (.not. allocated(list(i)%s)) cycle
+            if (compact_lower(list(i)%s) == compact_lower(selector)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function use_list_contains
+
+    logical function use_rename_contains(list, selector, remote) result(found)
+        type(string_t), allocatable, intent(in) :: list(:)
+        character(len=*), intent(in) :: selector
+        character(len=:), allocatable, intent(out) :: remote
+        integer :: i
+
+        found = .false.
+        remote = ''
+        i = 1
+        do while (i + 1 <= size(list))
+            if (allocated(list(i)%s)) then
+                if (compact_lower(list(i)%s) == compact_lower(selector)) then
+                    if (allocated(list(i + 1)%s)) remote = list(i + 1)%s
+                    found = .true.
+                    return
+                end if
+            end if
+            i = i + 2
+        end do
+    end function use_rename_contains
 
     recursive subroutine resolve_named_integer_constant(arena, reference_index, &
             name, value, visiting)
@@ -917,11 +1023,78 @@ contains
             case ("**")
                 if (rhs >= 0) value = lhs**rhs
             end select
+            type is (call_or_subscript_node)
+            if (.not. allocated(expr%name)) then
+                visiting(expr_index) = .false.
+                return
+            end if
+            select case (compact_lower(expr%name))
+            case ("selected_real_kind")
+                call evaluate_selected_real_kind(arena, expr, value, visiting)
+            case ("selected_int_kind")
+                call evaluate_selected_int_kind(arena, expr, value, visiting)
+            end select
         class default
             if (expr%is_constant) value = expr%constant_integer
         end select
         visiting(expr_index) = .false.
     end subroutine evaluate_integer_constant
+
+    subroutine evaluate_selected_real_kind(arena, node, value, visiting)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        integer, intent(out) :: value
+        logical, intent(inout) :: visiting(:)
+        integer :: precision, range_value
+
+        value = 0
+        precision = 0
+        range_value = 0
+        if (.not. allocated(node%arg_indices)) return
+        if (size(node%arg_indices) >= 1) then
+            call evaluate_integer_constant(arena, node%arg_indices(1), &
+                precision, visiting)
+        end if
+        if (size(node%arg_indices) >= 2) then
+            call evaluate_integer_constant(arena, node%arg_indices(2), &
+                range_value, visiting)
+        end if
+
+        if (precision <= 6 .and. range_value <= 37) then
+            value = 4
+        else if (precision <= 15 .and. range_value <= 307) then
+            value = 8
+        else if (precision <= 33 .and. range_value <= 4931) then
+            value = 16
+        else
+            value = -1
+        end if
+    end subroutine evaluate_selected_real_kind
+
+    subroutine evaluate_selected_int_kind(arena, node, value, visiting)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        integer, intent(out) :: value
+        logical, intent(inout) :: visiting(:)
+        integer :: range_value
+
+        value = 0
+        range_value = 0
+        if (.not. allocated(node%arg_indices)) return
+        if (size(node%arg_indices) < 1) return
+        call evaluate_integer_constant(arena, node%arg_indices(1), range_value, visiting)
+        if (range_value <= 2) then
+            value = 1
+        else if (range_value <= 4) then
+            value = 2
+        else if (range_value <= 9) then
+            value = 4
+        else if (range_value <= 18) then
+            value = 8
+        else
+            value = -1
+        end if
+    end subroutine evaluate_selected_int_kind
 
     subroutine real_result_kind_from_argument(arena, node, visiting, kind_value)
         type(ast_arena_t), intent(inout) :: arena

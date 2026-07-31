@@ -1,5 +1,6 @@
 program test_compiler_resolved_type_query
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_c_binding, only: c_int, c_double, c_size_t
     use fortfront_compiler, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         resolved_type_query_t, query_resolved_type, &
@@ -55,6 +56,10 @@ program test_compiler_resolved_type_query
     call require_intrinsic_call_kind('abs', 1, TREAL, 8)
     call require_shadowed_kind_selector()
     call require_renamed_kind_selector()
+    call require_iso_c_binding_kinds()
+    call require_indirect_kind_selectors()
+    call require_array_declaration_ranks()
+    call require_unresolved_kind_remains_unknown()
     call require_unavailable_result()
     call require_unavailable_without_semantics(source)
 
@@ -282,6 +287,143 @@ contains
         end do
         call require(matched, 'renamed dp declaration was not found')
     end subroutine require_renamed_kind_selector
+
+    subroutine require_iso_c_binding_kinds()
+        character(len=*), parameter :: source = &
+            'program main'//new_line('a')// &
+            '  use, intrinsic :: iso_c_binding, only: c_int, c_double, c_size_t'// &
+            new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer(c_int) :: int_value'//new_line('a')// &
+            '  real(c_double) :: real_value'//new_line('a')// &
+            '  integer(c_size_t) :: size_value'//new_line('a')// &
+            'end program main'
+        type(compiler_frontend_result_t) :: iso_result
+
+        call compile_frontend_from_string(source, iso_result, options)
+        call require(iso_result%parse_ok, &
+            'iso_c_binding query source did not parse')
+        call require(iso_result%semantic_ok, &
+            'iso_c_binding query source did not analyze: '// &
+            iso_result%error_msg)
+        call require_result_declaration(iso_result, 'int_value', TINT, c_int, 0)
+        call require_result_declaration(iso_result, 'real_value', TREAL, &
+            c_double, 0)
+        call require_result_declaration(iso_result, 'size_value', TINT, &
+            c_size_t, 0)
+    end subroutine require_iso_c_binding_kinds
+
+    subroutine require_indirect_kind_selectors()
+        character(len=*), parameter :: source = &
+            'program main'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer, parameter :: real_kind = selected_real_kind(12)'// &
+            new_line('a')// &
+            '  real(real_kind) :: value'//new_line('a')// &
+            '  value = 1.0_real_kind'//new_line('a')// &
+            'end program main'
+        type(compiler_frontend_result_t) :: alias_result
+        integer, parameter :: expected_kind = selected_real_kind(12)
+
+        call compile_frontend_from_string(source, alias_result, options)
+        call require(alias_result%parse_ok, &
+            'indirect kind query source did not parse')
+        call require(alias_result%semantic_ok, &
+            'indirect kind query source did not analyze: '// &
+            alias_result%error_msg)
+        call require_result_declaration(alias_result, 'value', TREAL, &
+            expected_kind, 0)
+    end subroutine require_indirect_kind_selectors
+
+    subroutine require_array_declaration_ranks()
+        character(len=*), parameter :: source = &
+            'subroutine array_shapes(explicit_value, assumed_value)'// &
+            new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer :: explicit_value(2, 3)'//new_line('a')// &
+            '  integer :: assumed_value(:, :)'//new_line('a')// &
+            '  integer, allocatable :: allocatable_value(:)'//new_line('a')// &
+            '  integer, pointer :: pointer_value(:)'//new_line('a')// &
+            'end subroutine array_shapes'
+        type(compiler_frontend_result_t) :: array_result
+
+        call compile_frontend_from_string(source, array_result, options)
+        call require(array_result%parse_ok, &
+            'array rank query source did not parse')
+        call require(array_result%semantic_ok, &
+            'array rank query source did not analyze: '// &
+            array_result%error_msg)
+        call require_result_declaration(array_result, 'explicit_value', TINT, 4, 2)
+        call require_result_declaration(array_result, 'assumed_value', TINT, 4, 2)
+        call require_result_declaration(array_result, 'allocatable_value', TINT, 4, 1)
+        call require_result_declaration(array_result, 'pointer_value', TINT, 4, 1)
+    end subroutine require_array_declaration_ranks
+
+    subroutine require_unresolved_kind_remains_unknown()
+        character(len=*), parameter :: source = &
+            'program main'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  real(unknown_kind) :: value'//new_line('a')// &
+            'end program main'
+        type(compiler_frontend_result_t) :: unresolved_result
+        type(resolved_type_query_t) :: query
+        character(len=:), allocatable :: name, error_msg
+        logical :: matched
+        integer :: i
+
+        call compile_frontend_from_string(source, unresolved_result, options)
+        call require(unresolved_result%parse_ok, &
+            'unresolved kind query source did not parse')
+        matched = .false.
+        do i = 1, unresolved_result%arena%size
+            if (.not. is_declaration_node(unresolved_result%arena, i)) cycle
+            call get_declaration_var_name(unresolved_result%arena, i, name, error_msg)
+            if (len_trim(error_msg) > 0) cycle
+            if (trim(name) /= 'value') cycle
+            query = query_resolved_type(unresolved_result%arena, i)
+            call require(.not. query%found, &
+                'unresolved kind was guessed instead of rejected')
+            call require(len_trim(query%diagnostic) > 0, &
+                'unresolved kind did not return a diagnostic')
+            matched = .true.
+            exit
+        end do
+        call require(matched, 'unresolved kind declaration was not found')
+    end subroutine require_unresolved_kind_remains_unknown
+
+    subroutine require_result_declaration(result_value, expected_name, &
+            expected_type, expected_kind, expected_rank)
+        type(compiler_frontend_result_t), intent(in) :: result_value
+        character(len=*), intent(in) :: expected_name
+        integer, intent(in) :: expected_type, expected_kind, expected_rank
+        character(len=:), allocatable :: name, error_msg
+        type(resolved_type_query_t) :: query
+        logical :: matched
+        integer :: i, expected_storage_bits
+
+        matched = .false.
+        do i = 1, result_value%arena%size
+            if (.not. is_declaration_node(result_value%arena, i)) cycle
+            call get_declaration_var_name(result_value%arena, i, name, error_msg)
+            if (len_trim(error_msg) > 0) cycle
+            if (trim(name) /= expected_name) cycle
+            query = query_resolved_type(result_value%arena, i)
+            call require(query%found, &
+                'declaration '//expected_name//' did not resolve: '//query%diagnostic)
+            call require(query%type_kind == expected_type, &
+                'declaration '//expected_name//' resolved to the wrong type')
+            call require(query%kind_value == expected_kind, &
+                'declaration '//expected_name//' resolved to the wrong kind')
+            call require(query%rank == expected_rank, &
+                'declaration '//expected_name//' resolved to the wrong rank')
+            expected_storage_bits = 8 * expected_kind
+            call require(query%storage_size_bits == expected_storage_bits, &
+                'declaration '//expected_name//' reported the wrong storage size')
+            matched = .true.
+            exit
+        end do
+        call require(matched, 'resolved declaration not found: '//expected_name)
+    end subroutine require_result_declaration
 
     subroutine require_unavailable_result()
         type(resolved_type_query_t) :: query
