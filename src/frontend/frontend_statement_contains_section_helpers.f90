@@ -177,6 +177,18 @@ contains
                         end if
                     end do
 
+                    ! A bare END statement is the END of this procedure
+                    ! (Fortran 2023 R1537/R1503: the subprogram name and even
+                    ! the SUBROUTINE/FUNCTION keyword are optional). Without
+                    ! this, the scan kept looking for "end subroutine" and
+                    ! swallowed every following sibling procedure into this
+                    ! one, so the host's CONTAINS section listed only the
+                    ! first of them.
+                    if (end_statement_is_bare(tokens, next_idx)) then
+                        end_pos = i
+                        exit
+                    end if
+
                     if (next_idx <= size(tokens)) then
                         if (tokens(next_idx)%kind == TK_KEYWORD .or. &
                             tokens(next_idx)%kind == TK_IDENTIFIER) then
@@ -206,6 +218,26 @@ contains
             end_pos = i
         end do
     end subroutine find_procedure_end
+
+    ! True when nothing but the statement terminator follows the END keyword,
+    ! i.e. the statement is "END" on its own rather than "END SUBROUTINE",
+    ! "END IF" or any other construct terminator.
+    logical function end_statement_is_bare(tokens, next_idx) result(is_bare)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: next_idx
+
+        is_bare = .true.
+        if (next_idx > size(tokens)) return
+
+        select case (tokens(next_idx)%kind)
+        case (TK_NEWLINE, TK_COMMENT, TK_EOF)
+            return
+        case (TK_OPERATOR)
+            is_bare = trim(tokens(next_idx)%text) == ";"
+        case default
+            is_bare = .false.
+        end select
+    end function end_statement_is_bare
 
 end module frontend_statement_token_walking_helpers
 
