@@ -434,10 +434,15 @@
                             if (body(check_pos:check_pos) == new_line('A') .or. &
                                 body(check_pos:check_pos) == ';') exit
                         end do
-                        ! If not a declaration, skip (it's a function call)
+                        ! If not a declaration, skip (it's a function call),
+                        ! unless the reference is the target of an assignment:
+                        ! "mm(1) = i" defines an element of the result.
                         if (.not. is_declaration) then
-                            start_pos = pos + len(old_name)
-                            cycle
+                            if (.not. is_element_assignment_target(body, pos, &
+                                len(old_name))) then
+                                start_pos = pos + len(old_name)
+                                cycle
+                            end if
                         end if
                     end block
                 end if
@@ -453,6 +458,48 @@
             start_pos = pos + len(new_name)
         end do
     end subroutine rename_result_variable_in_body
+
+    ! True when "name(" at pos opens the left-hand side of an assignment,
+    ! that is when the reference starts its statement and the parenthesised
+    ! subscript list is followed by a single '='.
+    logical function is_element_assignment_target(body, pos, name_len) &
+            result(is_target)
+        character(len=*), intent(in) :: body
+        integer, intent(in) :: pos
+        integer, intent(in) :: name_len
+        integer :: i, depth
+
+        is_target = .false.
+
+        do i = pos - 1, 1, -1
+            if (body(i:i) == new_line('A')) exit
+            if (body(i:i) /= ' ') return
+        end do
+
+        depth = 0
+        do i = pos + name_len, len(body)
+            select case (body(i:i))
+            case ('(')
+                depth = depth + 1
+            case (')')
+                depth = depth - 1
+                if (depth == 0) exit
+            case (new_line('A'))
+                return
+            end select
+        end do
+        if (depth /= 0) return
+
+        do i = i + 1, len(body)
+            if (body(i:i) == ' ') cycle
+            if (body(i:i) /= '=') return
+            if (i < len(body)) then
+                if (body(i + 1:i + 1) == '=') return
+            end if
+            is_target = .true.
+            return
+        end do
+    end function is_element_assignment_target
 
     logical function should_rename_deferred_char_result(node) result(should_rename)
         type(function_def_node), intent(in) :: node
