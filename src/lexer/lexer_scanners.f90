@@ -12,6 +12,9 @@ module lexer_scanners
         scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
+    ! Public source character classification (F2018 6.1 character set)
+    public :: is_legal_source_char, is_name_body_char, is_percent_prefix_char
+
 contains
 
     ! Scan a number token (including Hollerith constants like 2Hab)
@@ -594,6 +597,43 @@ contains
         end select
     end function is_logical_constant
 
-    ! Helper function to convert string to lowercase
+    ! True for characters that may appear in free-form source text outside of
+    ! comments and character literals: printable ASCII plus tab/newline/CR.
+    pure logical function is_legal_source_char(c) result(legal)
+        character, intent(in) :: c
+        integer :: code
+
+        code = iachar(c)
+        legal = .false.
+        if (code >= 32 .and. code <= 126) legal = .true.
+        if (code == 9) legal = .true.
+        if (code == 10) legal = .true.
+        if (code == 13) legal = .true.
+    end function is_legal_source_char
+
+    ! True for characters that may continue a Fortran name.
+    pure logical function is_name_body_char(c) result(is_body)
+        character, intent(in) :: c
+
+        select case (c)
+        case ('a':'z', 'A':'Z', '0':'9', '_')
+            is_body = .true.
+        case default
+            is_body = .false.
+        end select
+    end function is_name_body_char
+
+    ! True for characters that may legally precede a '%' part-reference or
+    ! type-parameter inquiry separator.
+    pure logical function is_percent_prefix_char(c) result(is_prefix)
+        character, intent(in) :: c
+
+        select case (c)
+        case ('a':'z', 'A':'Z', '0':'9', '_', ')', ']')
+            is_prefix = .true.
+        case default
+            is_prefix = .false.
+        end select
+    end function is_percent_prefix_char
 
 end module lexer_scanners
