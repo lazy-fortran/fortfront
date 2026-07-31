@@ -55,7 +55,7 @@ contains
 
         print *, 'Testing END INTERFACE OPERATOR without symbol (rejected)...'
         call expect_frontend_error(operator_block('operator ( .gt. )', &
-            'operator'), 'END INTERFACE OPERATOR (.gt.)', passed)
+            'operator'), 'END INTERFACE operator(.gt.)', passed)
     end subroutine test_operator_end_without_symbol_rejected
 
     subroutine test_operator_end_with_other_symbol_rejected(passed)
@@ -63,7 +63,7 @@ contains
 
         print *, 'Testing END INTERFACE OPERATOR with other symbol (rejected)...'
         call expect_frontend_error(operator_block('operator ( .gt. )', &
-            'operator (.lt.)'), 'does not match', passed)
+            'operator (.lt.)'), 'END INTERFACE operator(.gt.)', passed)
     end subroutine test_operator_end_with_other_symbol_rejected
 
     subroutine test_named_end_with_other_name_rejected(passed)

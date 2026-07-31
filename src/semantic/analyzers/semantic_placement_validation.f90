@@ -3,14 +3,33 @@ module semantic_placement_validation
     ! to one kind of program section (issue #2896).
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node
+    use ast_nodes_core, only: program_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
         error_collection_t
     implicit none
     private
 
     public :: validate_main_program_declaration_placement
+    public :: validate_declaration_placement_in_arena
 
 contains
+
+    ! Whole-arena sweep: every main program in the arena is checked, which
+    ! does not depend on the root kind the inference dispatch selects.
+    subroutine validate_declaration_placement_in_arena(arena, errors)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (program_node)
+                call validate_main_program_declaration_placement(arena, &
+                    node%body_indices, errors)
+            end select
+        end do
+    end subroutine validate_declaration_placement_in_arena
 
     ! F2018 C858: the PROTECTED attribute is permitted only in the
     ! specification part of a module. A main program has no module semantics
