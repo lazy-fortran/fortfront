@@ -587,7 +587,8 @@ contains
             is_optional=.false., &
             is_target=.false., &
             line=token%line, &
-            column=token%column)
+            column=token%column, &
+            is_alternate_return=(trim(token%text) == "*"))
         param_indices = [param_indices, param_index]
     end subroutine append_untyped_parameter
 

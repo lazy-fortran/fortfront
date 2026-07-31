@@ -312,7 +312,7 @@ contains
     function push_parameter_declaration(arena, name, type_name, kind_value, &
             intent_value, is_optional, is_target, &
             is_unsigned, dimension_indices, line, column, &
-            parent_index, character_length_expr) &
+            parent_index, character_length_expr, is_alternate_return) &
             result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
@@ -321,6 +321,7 @@ contains
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: character_length_expr
+        logical, intent(in), optional :: is_alternate_return
         integer :: param_index
         type(parameter_declaration_node) :: param
 
@@ -353,6 +354,8 @@ contains
         param%is_optional = resolve_optional_flag(is_optional, .false.)
         param%is_target = resolve_optional_flag(is_target, .false.)
         param%is_unsigned = resolve_optional_flag(is_unsigned, .false.)
+        param%is_alternate_return = resolve_optional_flag(is_alternate_return, &
+            .false.)
 
         call assign_dimension_metadata(param%is_array, param%dimension_indices, &
             dimension_indices)

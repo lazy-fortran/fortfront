@@ -11,6 +11,7 @@ module ast_factory_statements
     use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
         error_stop_node, cycle_node, exit_node, &
         continue_node, pause_node, nullify_node
+    use ast_nodes_transfer, only: alt_return_spec_node
     use ast_nodes_io, only: io_implied_do_node
     use ast_nodes_legacy, only: common_block_node, enum_node
     implicit none
@@ -25,6 +26,7 @@ module ast_factory_statements
     public :: push_stop, push_return, push_entry, push_continue, push_goto, &
         push_error_stop
     public :: push_cycle, push_exit, push_pause, push_nullify
+    public :: push_alt_return_spec
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
     public :: push_common_block, push_enum
@@ -379,18 +381,44 @@ contains
     end function push_stop
 
     ! Create RETURN statement node and add to stack
-    function push_return(arena, line, column, parent_index) result(return_index)
+    function push_return(arena, line, column, parent_index, selector_index) &
+            result(return_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: line, column, parent_index
+        integer, intent(in), optional :: selector_index
         integer :: return_index
         type(return_node) :: return_stmt
         return_stmt%uid = generate_uid()
         if (present(line)) return_stmt%line = line
         if (present(column)) return_stmt%column = column
+        if (present(selector_index)) then
+            if (selector_index > 0) then
+                return_stmt%selector_index = selector_index
+                return_stmt%has_selector = .true.
+            end if
+        end if
 
         call arena%push(return_stmt, "return_node", parent_index)
         return_index = arena%size
     end function push_return
+
+    ! Create alternate return spec node (*<label>) and add to stack
+    function push_alt_return_spec(arena, label_value, line, column, &
+            parent_index) result(spec_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: label_value
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: spec_index
+        type(alt_return_spec_node) :: spec
+
+        spec%uid = generate_uid()
+        spec%label_value = label_value
+        if (present(line)) spec%line = line
+        if (present(column)) spec%column = column
+
+        call arena%push(spec, "alt_return_spec", parent_index)
+        spec_index = arena%size
+    end function push_alt_return_spec
 
     ! Create ENTRY statement node and add to stack
     function push_entry(arena, name, params_text, param_indices, line, column, &

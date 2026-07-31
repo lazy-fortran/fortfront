@@ -68,7 +68,7 @@ contains
         integer :: return_index
 
         type(token_t) :: token
-        integer :: line, column
+        integer :: line, column, selector_index
 
         ! Consume 'return' keyword
         token = parser%peek()
@@ -76,9 +76,22 @@ contains
         column = token%column
         token = parser%consume()
 
+        ! Optional alternate-return selector: RETURN <scalar-int-expr>
+        selector_index = 0
+        token = parser%peek()
+        ! A bare identifier after RETURN is not treated as a selector: lazy
+        ! Fortran uses `return <name>` for a result value.
+        if (token%line == line) then
+            if (token%kind == TK_NUMBER) then
+                selector_index = parse_comparison(parser, arena)
+            else if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                selector_index = parse_comparison(parser, arena)
+            end if
+        end if
+
         ! Create RETURN node
         return_index = push_return(arena, line=line, column=column, &
-            parent_index=parent_index)
+            parent_index=parent_index, selector_index=selector_index)
     end function parse_return_statement
 
     function parse_entry_statement(parser, arena, parent_index) result(entry_index)
