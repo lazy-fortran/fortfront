@@ -37,3 +37,11 @@ f90/pr93423.f90
 f90/submodule_36.f90
 f90/pr89943_3.f90
 f90/pr89943_4.f90
+f90/class_dummy_5.f90
+f90/do_concurrent_3.f90
+f90/elemental_args_check_2.f90
+f90/elemental_pointer_1.f90
+f90/elemental_result_1.f90
+f90/impure_assignment_2.f90
+f90/pure_formal_proc_3.f90
+f90/recursive_check_3.f90
