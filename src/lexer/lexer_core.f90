@@ -32,6 +32,9 @@ module lexer_core
     ! Re-export utilities
     public :: to_lower, resize_tokens, resize_trivia_buffer
 
+    ! Source character validation
+    public :: validate_source_characters
+
 contains
 
     pure function normalize_line_endings(source) result(normalized)
@@ -72,6 +75,119 @@ contains
             normalized = buffer(1:write_pos)
         end if
     end function normalize_line_endings
+
+    ! Reject characters that cannot appear in free-form Fortran source and
+    ! names that do not start with a letter. Comments and character literals
+    ! may carry any byte, so they are skipped. Returns an empty message when
+    ! the source is lexically valid.
+    subroutine validate_source_characters(source, error_msg)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable, intent(out) :: error_msg
+        character(len=:), allocatable :: src
+        character :: c, quote, prev, prev_adj
+        integer :: pos, line_num, col_num, src_len
+        logical :: in_string, in_comment
+
+        error_msg = ""
+        src = normalize_line_endings(source)
+        src_len = len(src)
+
+        pos = 1
+        line_num = 1
+        col_num = 1
+        in_string = .false.
+        in_comment = .false.
+        quote = ' '
+        prev = ' '
+        prev_adj = ' '
+
+        do while (pos <= src_len)
+            c = src(pos:pos)
+
+            if (c == char(10)) then
+                in_string = .false.
+                in_comment = .false.
+                prev = ' '
+                prev_adj = ' '
+                line_num = line_num + 1
+                col_num = 1
+                pos = pos + 1
+                cycle
+            end if
+
+            if (in_comment) then
+                pos = pos + 1
+                col_num = col_num + 1
+                cycle
+            end if
+
+            if (in_string) then
+                if (c == quote) in_string = .false.
+                pos = pos + 1
+                col_num = col_num + 1
+                cycle
+            end if
+
+            if (.not. is_legal_source_char(c)) then
+                error_msg = invalid_char_message(c, line_num, col_num)
+                return
+            end if
+
+            select case (c)
+            case ('!', '#')
+                in_comment = .true.
+            case ('''', '"')
+                in_string = .true.
+                quote = c
+            case ('_')
+                ! A name must start with a letter, so a leading underscore is
+                ! only valid when it continues the immediately preceding name.
+                if (.not. is_name_body_char(prev_adj)) then
+                    error_msg = name_char_message(line_num, col_num)
+                    return
+                end if
+            case ('%')
+                if (.not. is_percent_prefix_char(prev)) then
+                    error_msg = invalid_char_message(c, line_num, col_num)
+                    return
+                end if
+            end select
+
+            ! Blanks and continuation markers do not change the significant
+            ! predecessor used by the part-reference rule.
+            select case (c)
+            case (' ', char(9), '&')
+                continue
+            case default
+                prev = c
+            end select
+            prev_adj = c
+
+            pos = pos + 1
+            col_num = col_num + 1
+        end do
+    end subroutine validate_source_characters
+
+    pure function invalid_char_message(c, line_num, col_num) result(msg)
+        character, intent(in) :: c
+        integer, intent(in) :: line_num, col_num
+        character(len=:), allocatable :: msg
+        character(len=64) :: buffer
+
+        write (buffer, '(A,Z2.2,A,I0,A,I0)') "Invalid character 0x", &
+            iachar(c), " at line ", line_num, ", column ", col_num
+        msg = trim(buffer)
+    end function invalid_char_message
+
+    pure function name_char_message(line_num, col_num) result(msg)
+        integer, intent(in) :: line_num, col_num
+        character(len=:), allocatable :: msg
+        character(len=64) :: buffer
+
+        write (buffer, '(A,I0,A,I0)') "Invalid character in name at line ", &
+            line_num, ", column ", col_num
+        msg = trim(buffer)
+    end function name_char_message
 
     ! Main tokenization function with error handling
     function tokenize_safe(source) result(tokenize_res)
