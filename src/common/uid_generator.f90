@@ -48,7 +48,7 @@ contains
 
         !$omp critical(uid_generator_state)
         call init_uid_generator_unlocked(start_value, generation)
-        !$omp end critical
+        !$omp end critical(uid_generator_state)
     end subroutine init_uid_generator
 
     subroutine init_uid_generator_unlocked(start_value, generation)
@@ -85,7 +85,7 @@ contains
 
         uid%value = current_uid_value
         uid%generation = current_generation
-        !$omp end critical
+        !$omp end critical(uid_generator_state)
     end function generate_uid
 
     ! Reset the UID generator (for new compilation or arena reset)
@@ -107,7 +107,7 @@ contains
             current_generation = current_generation + 1
         end if
         initialized = .true.
-        !$omp end critical
+        !$omp end critical(uid_generator_state)
     end subroutine reset_uid_generator
 
     ! Check if two UIDs are equal
@@ -134,7 +134,7 @@ contains
 
         !$omp critical(uid_generator_state)
         generation = current_generation
-        !$omp end critical
+        !$omp end critical(uid_generator_state)
     end function get_current_generation
 
     ! Check if UID is valid (non-zero)
