@@ -63,11 +63,12 @@ contains
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (handle_interface_end(parser, token)) exit
+            if (handle_interface_end(parser, token, interface_name, &
+                interface_kind, operator_symbol)) exit
 
             stmt_index = 0
             if (try_parse_interface_procedure(parser, arena, prefix_buffer, token, &
-                stmt_index)) then
+                is_abstract_interface, stmt_index)) then
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 end if
@@ -89,11 +90,12 @@ contains
     end function parse_interface_block
 
     logical function try_parse_interface_procedure(parser, arena, prefix_buffer, &
-            token, stmt_index) result(handled)
+            token, is_abstract, stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         type(token_t), intent(in) :: token
+        logical, intent(in) :: is_abstract
         integer, intent(out) :: stmt_index
 
         character(len=:), allocatable :: lowered_text
@@ -105,6 +107,8 @@ contains
         if (.not. (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) return
 
         lowered_text = to_lower(token%text)
+
+        call reject_module_procedure_in_abstract(parser, lowered_text, is_abstract)
 
         if (is_procedure_prefix(lowered_text)) then
             call append_interface_prefix(prefix_buffer, lowered_text)
@@ -129,6 +133,22 @@ contains
         stmt_index = parse_interface_procedure(parser, arena, prefix_buffer)
         handled = .true.
     end function try_parse_interface_procedure
+
+    ! F2018 C1414: a module-procedure-stmt may appear only in a generic
+    ! interface block. An abstract interface block is never generic, so
+    ! MODULE PROCEDURE inside ABSTRACT INTERFACE has no valid meaning.
+    subroutine reject_module_procedure_in_abstract(parser, lowered_text, is_abstract)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=*), intent(in) :: lowered_text
+        logical, intent(in) :: is_abstract
+
+        if (.not. is_abstract) return
+        if (trim(lowered_text) /= "module") return
+        if (.not. is_module_procedure_declaration(parser)) return
+
+        call parser%error("MODULE PROCEDURE statement is not allowed in an "// &
+            "ABSTRACT INTERFACE block; it must be in a generic module interface.")
+    end subroutine reject_module_procedure_in_abstract
 
     function parse_interface_procedure(parser, arena, prefix_buffer) &
             result(proc_index)

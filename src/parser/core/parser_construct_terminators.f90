@@ -160,7 +160,8 @@ contains
 
         if (kind == "interface") then
             if (len_trim(stack(depth)%spec) > 0 .and. len_trim(spec) > 0) then
-                if (trim(stack(depth)%spec) /= trim(spec)) then
+                if (normalized_spec(stack(depth)%spec) /= &
+                    normalized_spec(spec)) then
                     error_msg = diagnostic("Expecting END INTERFACE "// &
                         trim(stack(depth)%spec)//" statement", token)
                     return
@@ -183,6 +184,27 @@ contains
         error_msg = diagnostic("END"//upper_kind(stack(depth)%kind)// &
             " statement expected", token)
     end subroutine close_bare_end
+
+    ! A relational operator has two spellings that denote the same generic
+    ! spec, so compare END INTERFACE specs in one normalised form.
+    function normalized_spec(spec) result(normalized)
+        character(len=*), intent(in) :: spec
+        character(len=:), allocatable :: normalized
+        character(len=4), parameter :: dotted(6) = &
+            [".gt.", ".lt.", ".ge.", ".le.", ".eq.", ".ne."]
+        character(len=2), parameter :: symbols(6) = &
+            ["> ", "< ", ">=", "<=", "==", "/="]
+        integer :: i, pos
+
+        normalized = to_lower(trim(spec))
+        do i = 1, size(dotted)
+            pos = index(normalized, dotted(i))
+            if (pos > 0) then
+                normalized = normalized(1:pos - 1)//trim(symbols(i))// &
+                    normalized(pos + len(dotted(i)):)
+            end if
+        end do
+    end function normalized_spec
 
     function upper_kind(kind) result(text)
         character(len=*), intent(in) :: kind
