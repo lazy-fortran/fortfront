@@ -146,8 +146,10 @@ contains
                 ! A name must start with a letter, so a leading underscore is
                 ! only valid when it continues the immediately preceding name.
                 if (.not. is_name_body_char(prev_adj)) then
-                    error_msg = name_char_message(line_num, col_num)
-                    return
+                    if (.not. is_literal_kind_suffix(src, pos)) then
+                        error_msg = name_char_message(line_num, col_num)
+                        return
+                    end if
                 end if
             case ('%')
                 if (.not. is_percent_prefix_char(prev)) then
@@ -170,6 +172,59 @@ contains
             col_num = col_num + 1
         end do
     end subroutine validate_source_characters
+
+    ! An underscore directly after '.' starts the kind parameter of a literal
+    ! whose mantissa ends in a decimal point (3._dp, 0._k1, 5._4) or of a
+    ! logical literal (.false._8, .TRUE._4). Any other '.' before an
+    ! underscore, for example a defined or intrinsic operator, is still a
+    ! name that does not start with a letter.
+    pure logical function is_literal_kind_suffix(src, pos) result(is_suffix)
+        character(len=*), intent(in) :: src
+        integer, intent(in) :: pos
+        integer :: dot_pos
+        character :: before
+
+        is_suffix = .false.
+        dot_pos = pos - 1
+        if (dot_pos < 1) return
+        if (src(dot_pos:dot_pos) /= '.') return
+
+        if (dot_pos >= 2) then
+            before = src(dot_pos - 1:dot_pos - 1)
+            if (before >= '0' .and. before <= '9') then
+                is_suffix = .true.
+                return
+            end if
+        end if
+
+        is_suffix = ends_with_logical_literal(src, dot_pos)
+    end function is_literal_kind_suffix
+
+    ! True when src(:dot_pos) ends in '.true.' or '.false.' and that text is
+    ! not the tail of a longer name.
+    pure logical function ends_with_logical_literal(src, dot_pos) result(is_logical)
+        character(len=*), intent(in) :: src
+        integer, intent(in) :: dot_pos
+        integer :: start_pos
+
+        is_logical = .false.
+
+        start_pos = dot_pos - 5
+        if (start_pos >= 1) then
+            if (to_lower(src(start_pos:dot_pos)) == '.true.') is_logical = .true.
+        end if
+
+        if (.not. is_logical) then
+            start_pos = dot_pos - 6
+            if (start_pos >= 1) then
+                if (to_lower(src(start_pos:dot_pos)) == '.false.') is_logical = .true.
+            end if
+        end if
+
+        if (.not. is_logical) return
+        if (start_pos <= 1) return
+        if (is_name_body_char(src(start_pos - 1:start_pos - 1))) is_logical = .false.
+    end function ends_with_logical_literal
 
     pure function invalid_char_message(c, line_num, col_num) result(msg)
         character, intent(in) :: c
