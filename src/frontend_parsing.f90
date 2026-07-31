@@ -20,6 +20,7 @@ module frontend_parsing
     use error_handling, only: result_t
     use error_reporting, only: error_collection_t, error_record_t
     use parser_dispatcher_module, only: clear_parser_errors
+    use parser_construct_terminators_module, only: validate_construct_terminators
 
     ! Import from split modules
     use frontend_program_units, only: parse_program_unit, &
@@ -102,6 +103,7 @@ contains
         type(token_t), allocatable :: tokens_local(:)
         character(len=:), allocatable :: nested_error
         character(len=:), allocatable :: unit_error
+        character(len=:), allocatable :: terminator_error
         type(error_collection_t), target :: diagnostics
 
         error_msg = ""
@@ -114,6 +116,14 @@ contains
         tokens_local = tokens
         call normalize_keyword_identifiers(tokens_local)
         debug_units = debug_dump_enabled()
+
+        call validate_construct_terminators(tokens_local, terminator_error)
+        if (len_trim(terminator_error) > 0) then
+            error_msg = terminator_error
+            prog_index = 0
+            call export_parser_errors(diagnostics, parser_errors)
+            return
+        end if
 
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (should_use_mixed_constructs(tokens_local, mixed_result)) then
