@@ -72,12 +72,20 @@ contains
         end if
     end subroutine begin_interface_block
 
-    logical function handle_interface_end(parser, first_token) result(is_end)
+    logical function handle_interface_end(parser, first_token, interface_name, &
+            interface_kind, operator_symbol) result(is_end)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: interface_name
+        character(len=*), intent(in) :: interface_kind
+        character(len=*), intent(in) :: operator_symbol
 
         type(token_t) :: next_token
         character(len=:), allocatable :: lowered_text
+        character(len=:), allocatable :: end_kind
+        character(len=:), allocatable :: end_name
+        character(len=:), allocatable :: end_symbol
+        logical :: has_end_spec
 
         is_end = .false.
         ! Accept both TK_KEYWORD and TK_IDENTIFIER for end/endinterface
@@ -89,12 +97,10 @@ contains
         ! Check for endinterface as single keyword
         if (trim(lowered_text) == "endinterface") then
             next_token = parser%consume()
-            ! Optionally consume interface name
-            next_token = parser%peek()
-            if (next_token%kind == TK_IDENTIFIER .or. &
-                next_token%kind == TK_KEYWORD) then
-                next_token = parser%consume()
-            end if
+            call collect_end_generic_spec(parser, end_kind, end_name, end_symbol, &
+                has_end_spec)
+            call check_end_generic_spec(parser, interface_name, interface_kind, &
+                operator_symbol, end_kind, end_name, end_symbol, has_end_spec)
             is_end = .true.
             return
         end if
@@ -113,13 +119,155 @@ contains
         next_token = parser%consume()
         next_token = parser%consume()
 
-        next_token = parser%peek()
-        if (next_token%kind == TK_IDENTIFIER .or. &
-            next_token%kind == TK_KEYWORD) then
-            next_token = parser%consume()
-        end if
+        call collect_end_generic_spec(parser, end_kind, end_name, end_symbol, &
+            has_end_spec)
+        call check_end_generic_spec(parser, interface_name, interface_kind, &
+            operator_symbol, end_kind, end_name, end_symbol, has_end_spec)
 
         is_end = .true.
     end function handle_interface_end
+
+    ! Read the optional generic-spec of an end-interface-stmt: a generic name,
+    ! or OPERATOR/ASSIGNMENT/READ/WRITE followed by a parenthesised designator.
+    subroutine collect_end_generic_spec(parser, end_kind, end_name, end_symbol, &
+            has_end_spec)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: end_kind
+        character(len=:), allocatable, intent(out) :: end_name
+        character(len=:), allocatable, intent(out) :: end_symbol
+        logical, intent(out) :: has_end_spec
+
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+
+        end_kind = "interface"
+        end_name = ""
+        end_symbol = ""
+        has_end_spec = .false.
+
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+
+        has_end_spec = .true.
+        lowered = to_lower(trim(token%text))
+
+        if (lowered /= "operator" .and. lowered /= "assignment" .and. &
+            lowered /= "read" .and. lowered /= "write") then
+            end_name = trim(token%text)
+            token = parser%consume()
+            return
+        end if
+
+        end_kind = lowered
+        token = parser%consume()
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR) return
+        if (trim(token%text) /= "(") return
+
+        token = parser%consume()
+        token = parser%peek()
+        end_symbol = trim(token%text)
+        token = parser%consume()
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+            token = parser%consume()
+        end if
+    end subroutine collect_end_generic_spec
+
+    ! F2018 R1503/R1504: when an end-interface-stmt carries a generic-spec it
+    ! must be the generic-spec of the interface-stmt that opened the block.
+    subroutine check_end_generic_spec(parser, interface_name, interface_kind, &
+            operator_symbol, end_kind, end_name, end_symbol, has_end_spec)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=*), intent(in) :: interface_name
+        character(len=*), intent(in) :: interface_kind
+        character(len=*), intent(in) :: operator_symbol
+        character(len=*), intent(in) :: end_kind
+        character(len=*), intent(in) :: end_name
+        character(len=*), intent(in) :: end_symbol
+        logical, intent(in) :: has_end_spec
+
+        logical :: block_has_spec
+        logical :: matches
+
+        if (.not. has_end_spec) return
+
+        block_has_spec = trim(interface_kind) /= "interface" .or. &
+            len_trim(interface_name) > 0
+        if (.not. block_has_spec) then
+            call parser%error("END INTERFACE must not name a generic spec "// &
+                "because the INTERFACE statement has none.")
+            return
+        end if
+
+        matches = trim(end_kind) == trim(interface_kind)
+        if (matches) then
+            if (trim(interface_kind) == "interface") then
+                matches = to_lower(trim(end_name)) == to_lower(trim(interface_name))
+            else
+                matches = normalized_operator(end_symbol) == &
+                    normalized_operator(operator_symbol)
+            end if
+        end if
+
+        if (matches) return
+
+        call parser%error("END INTERFACE generic spec does not match the "// &
+            "INTERFACE statement; expecting "//expected_end_text(interface_name, &
+            interface_kind, operator_symbol)//".")
+    end subroutine check_end_generic_spec
+
+    function expected_end_text(interface_name, interface_kind, operator_symbol) &
+            result(text)
+        character(len=*), intent(in) :: interface_name
+        character(len=*), intent(in) :: interface_kind
+        character(len=*), intent(in) :: operator_symbol
+        character(len=:), allocatable :: text
+
+        if (trim(interface_kind) == "interface") then
+            text = "END INTERFACE "//trim(interface_name)
+        else
+            text = "END INTERFACE "//upper_case(trim(interface_kind))// &
+                " ("//trim(operator_symbol)//")"
+        end if
+    end function expected_end_text
+
+    ! Relational operators have two spellings that denote the same generic
+    ! spec, so compare them in one normalised form.
+    function normalized_operator(symbol) result(normalized)
+        character(len=*), intent(in) :: symbol
+        character(len=:), allocatable :: normalized
+
+        normalized = to_lower(trim(symbol))
+        select case (normalized)
+        case (".gt.")
+            normalized = ">"
+        case (".lt.")
+            normalized = "<"
+        case (".ge.")
+            normalized = ">="
+        case (".le.")
+            normalized = "<="
+        case (".eq.")
+            normalized = "=="
+        case (".ne.")
+            normalized = "/="
+        end select
+    end function normalized_operator
+
+    function upper_case(text) result(upper)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: upper
+        integer :: i
+        integer :: code
+
+        upper = text
+        do i = 1, len(upper)
+            code = iachar(upper(i:i))
+            if (code >= iachar("a") .and. code <= iachar("z")) then
+                upper(i:i) = achar(code - 32)
+            end if
+        end do
+    end function upper_case
 
 end module parser_interface_block_headers_module

@@ -26,6 +26,8 @@ use semantic_submodule_validation, only: validate_submodule_interfaces
 use semantic_bind_c_validation, only: validate_global_binding_labels
 use semantic_strict_argument_type_checker_validation, only: &
     validate_value_dummy_attributes_in_arena
+use semantic_placement_validation, only: &
+    validate_declaration_placement_in_arena
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -128,6 +130,10 @@ contains
         ! Reject procedure references that IMPLICIT NONE (EXTERNAL) requires
         ! to be explicitly declared (F2018 8.7).
         call check_external_implicit_none(arena, ctx%errors)
+
+        ! Reject declarations whose attributes are confined to another kind of
+        ! program section (F2018 C858 for PROTECTED).
+        call validate_declaration_placement_in_arena(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
