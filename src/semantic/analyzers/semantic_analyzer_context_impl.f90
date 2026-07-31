@@ -10,7 +10,8 @@ use parser_type_hooks_module, only: consume_type_annotations, &
 use semantic_annotation_utils, only: type_from_annotation
 use semantic_inference_helpers, only: check_implicit_none, &
     process_declaration_variables
-use semantic_undefined_variable_checker, only: check_undefined_variables_generic
+use semantic_undefined_variable_checker, only: check_undefined_variables_generic, &
+    check_external_implicit_none
 use semantic_walrus_checker, only: check_walrus_redeclaration
 use constant_transformation, only: fold_constants_in_arena
 use error_handling, only: create_error_collection
@@ -22,6 +23,9 @@ use semantic_use_nature_validation, only: validate_use_module_nature
 use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
 use semantic_submodule_validation, only: validate_submodule_interfaces
+use semantic_bind_c_validation, only: validate_global_binding_labels
+use semantic_strict_argument_type_checker_validation, only: &
+    validate_value_dummy_attributes_in_arena
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -110,6 +114,20 @@ contains
         ! Separate module subprograms are checked against the interface bodies
         ! of their ancestor module, which only the whole arena exposes.
         call validate_submodule_interfaces(arena, ctx%errors)
+
+        ! Reject duplicate global BIND(C) binding labels (F2018 C1553). The
+        ! binding label namespace spans the whole compilation unit, so this
+        ! runs once over the arena rather than per scoping unit.
+        call validate_global_binding_labels(arena, ctx%errors)
+
+        ! Reject VALUE dummy arguments that carry a conflicting attribute
+        ! (F2018 C863). The sweep is arena-wide so every procedure definition
+        ! is covered, not only those the inference dispatch visits.
+        call validate_value_dummy_attributes_in_arena(arena, ctx%errors)
+
+        ! Reject procedure references that IMPLICIT NONE (EXTERNAL) requires
+        ! to be explicitly declared (F2018 8.7).
+        call check_external_implicit_none(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
