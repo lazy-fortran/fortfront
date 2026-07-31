@@ -45,3 +45,9 @@ f90/elemental_result_1.f90
 f90/impure_assignment_2.f90
 f90/pure_formal_proc_3.f90
 f90/recursive_check_3.f90
+f90/finalize_22.f90
+f90/pr104572.f90
+f90/typebound_override_1.f90
+f90/typebound_override_2.f90
+f90/typebound_override_4.f90
+f90/typebound_override_5.f90
