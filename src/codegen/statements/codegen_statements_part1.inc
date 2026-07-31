@@ -344,9 +344,24 @@
         character(len=:), allocatable :: code
 
         code = "return"
+        if (node%has_selector) then
+            if (node%selector_index > 0) then
+                code = code//" "//generate_code_from_arena(arena, &
+                    node%selector_index)
+            end if
+        end if
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_return
+
+    function generate_code_alt_return_spec(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(alt_return_spec_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        code = "*"//int_to_string(node%label_value)
+    end function generate_code_alt_return_spec
 
     function generate_code_entry(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena

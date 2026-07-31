@@ -18,6 +18,9 @@ module fortfront_compiler
         get_case_default_body, get_case_range_info, &
         get_select_type_info, get_type_guard_info, &
         get_dummy_allocatable_attribute, &
+        get_alternate_return_label, &
+        get_return_selector, &
+        is_alternate_return_dummy, &
         get_program_body_info, &
         get_module_body_info, &
         get_function_body_info, &

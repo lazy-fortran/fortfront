@@ -8,6 +8,7 @@ module ast_nodes_transfer
     ! Public types
     public :: cycle_node, exit_node, stop_node, return_node, entry_node
     public :: goto_node, error_stop_node, continue_node, pause_node, nullify_node
+    public :: alt_return_spec_node, create_alt_return_spec
     ! Constructors migrated from ast_core
     public :: create_cycle, create_exit, create_stop, create_return, create_entry
     public :: create_goto, create_error_stop, create_continue, create_pause
@@ -44,12 +45,23 @@ module ast_nodes_transfer
 
     ! Return statement node
     type, extends(ast_node) :: return_node
-        ! RETURN statement has no additional data
+        ! Alternate-return selector: RETURN <scalar-int-expr>
+        logical :: has_selector = .false. ! Distinguishes RETURN from RETURN 0
+        integer :: selector_index = 0 ! Selector expression index
     contains
         procedure :: accept => return_accept
         procedure :: assign => return_assign
         generic :: assignment(=) => assign
     end type return_node
+
+    ! Alternate return spec used as actual argument: *<label>
+    type, extends(ast_node) :: alt_return_spec_node
+        integer :: label_value = 0 ! Branch target statement label
+    contains
+        procedure :: accept => alt_return_spec_accept
+        procedure :: assign => alt_return_spec_assign
+        generic :: assignment(=) => assign
+    end type alt_return_spec_node
 
     ! Entry statement node
     type, extends(ast_node) :: entry_node
@@ -230,16 +242,57 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
+        lhs%has_selector = rhs%has_selector
+        lhs%selector_index = rhs%selector_index
     end subroutine return_assign
 
-    function create_return(line, column) result(node)
+    function create_return(line, column, selector_index) result(node)
         integer, intent(in), optional :: line, column
+        integer, intent(in), optional :: selector_index
         type(return_node) :: node
 
         node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
+        if (present(selector_index)) then
+            if (selector_index > 0) then
+                node%selector_index = selector_index
+                node%has_selector = .true.
+            end if
+        end if
     end function create_return
+
+    ! Alternate return spec implementations
+    subroutine alt_return_spec_accept(this, visitor)
+        class(alt_return_spec_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine alt_return_spec_accept
+
+    subroutine alt_return_spec_assign(lhs, rhs)
+        class(alt_return_spec_node), intent(inout) :: lhs
+        class(alt_return_spec_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%label_value = rhs%label_value
+    end subroutine alt_return_spec_assign
+
+    function create_alt_return_spec(label_value, line, column) result(node)
+        integer, intent(in) :: label_value
+        integer, intent(in), optional :: line, column
+        type(alt_return_spec_node) :: node
+
+        node%uid = generate_uid()
+        node%label_value = label_value
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_alt_return_spec
 
     ! Entry statement implementations
     subroutine entry_accept(this, visitor)

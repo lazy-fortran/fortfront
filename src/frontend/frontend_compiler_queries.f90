@@ -8,7 +8,8 @@ module frontend_compiler_queries
         pointer_assignment_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
-    use ast_nodes_transfer, only: nullify_node
+    use ast_nodes_transfer, only: nullify_node, return_node, &
+        alt_return_spec_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node, module_node, block_data_node, &
         submodule_node, multi_unit_container_node, type_binding_node
@@ -46,6 +47,9 @@ module frontend_compiler_queries
     public :: get_select_type_info
     public :: get_type_guard_info
     public :: get_dummy_allocatable_attribute
+    public :: get_alternate_return_label
+    public :: get_return_selector
+    public :: is_alternate_return_dummy
     public :: get_program_body_info
     public :: get_module_body_info
     public :: get_function_body_info
@@ -956,6 +960,56 @@ contains
             is_alloc = .false.
         end select
     end function get_dummy_allocatable_attribute
+
+    ! Compiler-facing query: statement label of an alternate return spec
+    ! (`*<label>` actual argument).  Returns 0 for any other node kind.
+    function get_alternate_return_label(arena, node_index) result(label)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: label
+
+        label = 0
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (alt_return_spec_node)
+            label = node%label_value
+        end select
+    end function get_alternate_return_label
+
+    ! Compiler-facing query: alternate-return selector of a RETURN statement.
+    ! A plain RETURN reports has_selector = .false., which stays distinct from
+    ! RETURN 0.
+    subroutine get_return_selector(arena, node_index, has_selector, &
+            selector_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical, intent(out) :: has_selector
+        integer, intent(out) :: selector_index
+
+        has_selector = .false.
+        selector_index = 0
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (return_node)
+            has_selector = node%has_selector
+            selector_index = node%selector_index
+        end select
+    end subroutine get_return_selector
+
+    ! Compiler-facing query: whether a dummy argument is an alternate-return
+    ! slot (`*` in the dummy argument list).
+    function is_alternate_return_dummy(arena, node_index) result(is_alt)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_alt
+
+        is_alt = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (parameter_declaration_node)
+            is_alt = node%is_alternate_return
+        end select
+    end function is_alternate_return_dummy
 
     ! Compiler-facing query: return the name and body statement indices of a
     ! program_node.  Wrong node kind returns zero-length body_indices, an empty
