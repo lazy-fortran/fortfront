@@ -25,6 +25,12 @@ module ast_nodes_legacy
         logical :: is_bind_c = .false.
         type(string_t), allocatable :: enumerator_names(:)
         integer, allocatable :: enumerator_values(:)
+        ! Constraint violations found while parsing the ENUM body. The parser
+        ! records them here instead of failing the parse so that the semantic
+        ! layer reports them as source diagnostics with their own location.
+        type(string_t), allocatable :: violation_messages(:)
+        integer, allocatable :: violation_lines(:)
+        integer, allocatable :: violation_columns(:)
     contains
         procedure :: accept => enum_accept
         procedure :: assign => enum_assign
@@ -96,6 +102,21 @@ contains
             lhs%enumerator_values = rhs%enumerator_values
         else if (allocated(lhs%enumerator_values)) then
             deallocate (lhs%enumerator_values)
+        end if
+        if (allocated(rhs%violation_messages)) then
+            lhs%violation_messages = rhs%violation_messages
+        else if (allocated(lhs%violation_messages)) then
+            deallocate (lhs%violation_messages)
+        end if
+        if (allocated(rhs%violation_lines)) then
+            lhs%violation_lines = rhs%violation_lines
+        else if (allocated(lhs%violation_lines)) then
+            deallocate (lhs%violation_lines)
+        end if
+        if (allocated(rhs%violation_columns)) then
+            lhs%violation_columns = rhs%violation_columns
+        else if (allocated(lhs%violation_columns)) then
+            deallocate (lhs%violation_columns)
         end if
     end subroutine enum_assign
 

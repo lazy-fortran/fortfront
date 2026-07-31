@@ -16,6 +16,7 @@ use constant_transformation, only: fold_constants_in_arena
 use error_handling, only: create_error_collection
 use type_hierarchy, only: create_type_hierarchy
 use semantic_type_hierarchy_validation, only: populate_type_hierarchy
+use semantic_enum_validation, only: validate_enum_definitions
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -87,6 +88,10 @@ contains
         ! Register derived types and their EXTENDS parents so polymorphic
         ! resolution can consult the (now populated) inheritance hierarchy.
         call populate_type_hierarchy(arena, ctx%type_hierarchy, ctx%errors)
+
+        ! Report ENUM constraint violations recorded by the parser. The sweep
+        ! is arena-wide so module-level enumerations are covered too.
+        call validate_enum_definitions(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
