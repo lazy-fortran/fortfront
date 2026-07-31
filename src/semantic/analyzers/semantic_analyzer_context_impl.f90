@@ -24,6 +24,8 @@ use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
 use semantic_submodule_validation, only: validate_submodule_interfaces
 use semantic_bind_c_validation, only: validate_global_binding_labels
+use semantic_strict_argument_type_checker_validation, only: &
+    validate_value_dummy_attributes_in_arena
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -117,6 +119,11 @@ contains
         ! binding label namespace spans the whole compilation unit, so this
         ! runs once over the arena rather than per scoping unit.
         call validate_global_binding_labels(arena, ctx%errors)
+
+        ! Reject VALUE dummy arguments that carry a conflicting attribute
+        ! (F2018 C863). The sweep is arena-wide so every procedure definition
+        ! is covered, not only those the inference dispatch visits.
+        call validate_value_dummy_attributes_in_arena(arena, ctx%errors)
 
         ! Reject procedure references that IMPLICIT NONE (EXTERNAL) requires
         ! to be explicitly declared (F2018 8.7).

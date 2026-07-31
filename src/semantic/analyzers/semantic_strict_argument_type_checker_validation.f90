@@ -2,6 +2,7 @@ module semantic_strict_argument_type_checker_validation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
         error_collection_t
     use semantic_unsigned_integer_mix_diagnostics, only: &
@@ -18,8 +19,30 @@ module semantic_strict_argument_type_checker_validation
 
     public :: validate_call_against_interface
     public :: validate_value_dummy_attributes
+    public :: validate_value_dummy_attributes_in_arena
 
 contains
+
+    ! Whole-arena sweep for the VALUE attribute conflicts of C863. Running it
+    ! once over the arena covers every procedure definition, including the
+    ! ones the per-node inference dispatch never reaches.
+    subroutine validate_value_dummy_attributes_in_arena(arena, errors)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (function_def_node)
+                call validate_value_dummy_attributes(arena, node%param_indices, &
+                    node%body_indices, node%name, errors)
+                type is (subroutine_def_node)
+                call validate_value_dummy_attributes(arena, node%param_indices, &
+                    node%body_indices, node%name, errors)
+            end select
+        end do
+    end subroutine validate_value_dummy_attributes_in_arena
 
     ! Reject dummy arguments whose VALUE attribute conflicts with another
     ! declared attribute (F2018 C863: an entity with the VALUE attribute

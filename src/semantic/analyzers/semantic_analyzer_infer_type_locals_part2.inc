@@ -44,11 +44,6 @@
                                            expr%body_indices, expr%bind_c_clause, &
                                            expr%name, this%errors)
 
-            ! Enforce VALUE attribute conflicts on dummies (F2018 C863)
-            call validate_value_dummy_attributes(arena, expr%param_indices, &
-                                                 expr%body_indices, expr%name, &
-                                                 this%errors)
-
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
             post_frame%has_cached_type = .true.
@@ -97,11 +92,6 @@
             call validate_bind_c_procedure(arena, expr%param_indices, &
                                            expr%body_indices, expr%bind_c_clause, &
                                            expr%name, this%errors)
-
-            ! Enforce VALUE attribute conflicts on dummies (F2018 C863)
-            call validate_value_dummy_attributes(arena, expr%param_indices, &
-                                                 expr%body_indices, expr%name, &
-                                                 this%errors)
 
             call init_post_frame(current, post_frame)
             post_frame%leave_scope = .true.
