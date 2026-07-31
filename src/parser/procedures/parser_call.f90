@@ -1,12 +1,14 @@
 module parser_call_module
     ! Shared call-statement parser used across control-flow helpers
     use lexer_core, only: token_t
-    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
+    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
+        TK_NUMBER
     use parser_inline_instantiation_module, only: consume_inline_instantiation
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_subroutine_call, push_literal
+    use ast_factory, only: push_subroutine_call, push_literal, &
+        push_alt_return_spec
     use ast_types, only: LITERAL_STRING
     implicit none
     private
@@ -14,6 +16,38 @@ module parser_call_module
     public :: parse_call_statement
 
 contains
+
+    ! An alternate return spec is a `*` immediately followed by a statement
+    ! label, appearing where an actual argument is expected.
+    function is_alt_return_spec(parser) result(is_spec)
+        type(parser_state_t), intent(in) :: parser
+        logical :: is_spec
+        type(token_t) :: star_token, label_token
+
+        is_spec = .false.
+        star_token = parser%get_token_at_index(parser%current_token)
+        if (star_token%kind /= TK_OPERATOR) return
+        if (star_token%text /= "*") return
+        label_token = parser%get_token_at_index(parser%current_token + 1)
+        if (label_token%kind /= TK_NUMBER) return
+        is_spec = verify(trim(label_token%text), "0123456789") == 0
+    end function is_alt_return_spec
+
+    function parse_alt_return_spec(parser, arena) result(spec_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: spec_index
+        type(token_t) :: token
+        integer :: label_value, ios
+
+        token = parser%consume() ! consume '*'
+        spec_index = 0
+        token = parser%consume() ! consume label
+        read (token%text, *, iostat=ios) label_value
+        if (ios /= 0) return
+        spec_index = push_alt_return_spec(arena, label_value, &
+            token%line, token%column)
+    end function parse_alt_return_spec
 
     subroutine parse_call_arguments(parser, arena, arg_indices)
         use ast_nodes_core, only: assignment_node
@@ -33,7 +67,11 @@ contains
                 exit
             end if
 
-            arg_index = parse_range(parser, arena)
+            if (is_alt_return_spec(parser)) then
+                arg_index = parse_alt_return_spec(parser, arena)
+            else
+                arg_index = parse_range(parser, arena)
+            end if
             if (arg_index > 0) then
                 ! Mark assignment nodes as keyword arguments
                 if (arg_index <= arena%size) then

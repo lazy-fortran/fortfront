@@ -25,6 +25,7 @@ module codegen_statements
     public :: generate_code_format_statement
     public :: generate_code_termination
     public :: generate_code_return
+    public :: generate_code_alt_return_spec
     public :: generate_code_entry
     public :: generate_code_continue
     public :: generate_code_goto
