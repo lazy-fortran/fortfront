@@ -8,15 +8,180 @@ module semantic_bind_c_validation
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node
     use ast_nodes_bounds, only: array_bounds_node, range_expression_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
+    use scope_manager, only: binding_label_table_t
     use string_utils_mod, only: int_to_string, to_lower
     implicit none
     private
 
     public :: validate_bind_c_derived_type, validate_bind_c_procedure
+    public :: validate_global_binding_labels
     public :: has_bind_c_attribute
 
 contains
+
+    ! Reject duplicate global BIND(C) binding labels (Fortran 2018 C1553:
+    ! a binding label shall not be the same as the binding label of any
+    ! other global entity). The binding label namespace is flat across the
+    ! whole compilation unit, so the whole arena is scanned once.
+    subroutine validate_global_binding_labels(arena, errors)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        type(binding_label_table_t) :: labels
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (function_def_node)
+                call register_procedure_label(labels, node%bind_c_clause, &
+                    node%name, node%line, node%column, errors)
+                type is (subroutine_def_node)
+                call register_procedure_label(labels, node%bind_c_clause, &
+                    node%name, node%line, node%column, errors)
+                type is (declaration_node)
+                call register_declaration_labels(labels, node, errors)
+            end select
+        end do
+    end subroutine validate_global_binding_labels
+
+    ! Register the binding label of a BIND(C) procedure definition or
+    ! interface body. A procedure without BIND(C) owns no binding label.
+    subroutine register_procedure_label(labels, clause, name, line, column, errors)
+        type(binding_label_table_t), intent(inout) :: labels
+        character(len=:), allocatable, intent(in) :: clause
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: line, column
+        type(error_collection_t), intent(inout) :: errors
+
+        if (.not. allocated(clause)) return
+        if (len_trim(clause) == 0) return
+        if (len_trim(name) == 0) return
+        call register_label(labels, binding_label_from_clause(clause, name), &
+            name, line, column, errors)
+    end subroutine register_procedure_label
+
+    ! Register the binding label of a BIND(C) variable declaration. An
+    ! explicit NAME= applies to a single entity; a multi-entity BIND(C)
+    ! declaration gives every entity its own default label.
+    subroutine register_declaration_labels(labels, decl, errors)
+        type(binding_label_table_t), intent(inout) :: labels
+        type(declaration_node), intent(in) :: decl
+        type(error_collection_t), intent(inout) :: errors
+        integer :: i
+
+        if (.not. decl%is_bind_c) return
+
+        if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+            do i = 1, size(decl%var_names)
+                call register_label(labels, to_lower(trim(decl%var_names(i))), &
+                    trim(decl%var_names(i)), decl%line, decl%column, errors)
+            end do
+            return
+        end if
+
+        if (.not. allocated(decl%var_name)) return
+        if (allocated(decl%bind_name)) then
+            call register_label(labels, strip_quotes(decl%bind_name), &
+                decl%var_name, decl%line, decl%column, errors)
+        else
+            call register_label(labels, to_lower(decl%var_name), decl%var_name, &
+                decl%line, decl%column, errors)
+        end if
+    end subroutine register_declaration_labels
+
+    subroutine register_label(labels, label, entity, line, column, errors)
+        type(binding_label_table_t), intent(inout) :: labels
+        character(len=*), intent(in) :: label
+        character(len=*), intent(in) :: entity
+        integer, intent(in) :: line, column
+        type(error_collection_t), intent(inout) :: errors
+        character(len=:), allocatable :: other_entity
+        integer :: other_line, other_column
+        logical :: has_collision
+
+        if (len_trim(label) == 0) return
+        call labels%register(label, entity, line, column, has_collision, &
+            other_entity, other_line, other_column)
+        if (.not. has_collision) return
+
+        call errors%add_error( &
+            message='BIND(C) binding label "'//trim(label)//'" of "'// &
+            trim(entity)//'" collides with global entity "'// &
+            trim(other_entity)//'"', &
+            code=ERROR_SEMANTIC, &
+            component='semantic_bind_c_validation', &
+            context='line '//int_to_string(line)//', column '// &
+            int_to_string(column)//'; first use at line '// &
+            int_to_string(other_line), &
+            suggestion='give each global BIND(C) entity a distinct '// &
+            'NAME= binding label', line=line, column=column, &
+            end_line=line, end_column=column + 1)
+    end subroutine register_label
+
+    ! Extract the binding label from a verbatim BIND(C) clause. Without an
+    ! explicit NAME= the label is the lower-cased entity name. An explicit
+    ! empty NAME= means the entity has no binding label at all.
+    function binding_label_from_clause(clause, name) result(label)
+        character(len=*), intent(in) :: clause
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: label
+        character(len=:), allocatable :: lowered
+        integer :: name_pos, eq_pos, close_pos
+
+        lowered = to_lower(clause)
+        name_pos = index(lowered, 'name')
+        if (name_pos == 0) then
+            label = to_lower(trim(name))
+            return
+        end if
+
+        eq_pos = index(lowered(name_pos:), '=')
+        if (eq_pos == 0) then
+            label = to_lower(trim(name))
+            return
+        end if
+        eq_pos = name_pos + eq_pos
+
+        close_pos = index(clause(eq_pos:), ')')
+        if (close_pos == 0) then
+            label = strip_quotes(clause(eq_pos:))
+        else
+            label = strip_quotes(clause(eq_pos:eq_pos + close_pos - 2))
+        end if
+    end function binding_label_from_clause
+
+    ! Remove surrounding blanks and one layer of string quotes.
+    function strip_quotes(text) result(stripped)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: stripped
+        integer :: first, last
+
+        stripped = ''
+        first = 1
+        last = len(text)
+        do while (first <= last)
+            if (text(first:first) /= ' ') exit
+            first = first + 1
+        end do
+        do while (last >= first)
+            if (text(last:last) /= ' ') exit
+            last = last - 1
+        end do
+        if (last < first) return
+
+        if (last > first) then
+            if (text(first:first) == '"' .or. text(first:first) == "'") then
+                if (text(last:last) == text(first:first)) then
+                    first = first + 1
+                    last = last - 1
+                end if
+            end if
+        end if
+        if (last < first) return
+        stripped = text(first:last)
+    end function strip_quotes
 
     ! Returns .true. when an attribute clause carries a BIND(C) attribute.
     ! The clause is taken verbatim from source, so the match is case
@@ -125,6 +290,10 @@ contains
                 call report_dummy(errors, proc_name, decl%var_name, &
                     'an assumed-shape array dummy argument', &
                     decl%line, decl%column)
+            else if (is_non_interoperable_character(decl)) then
+                call report_dummy(errors, proc_name, decl%var_name, &
+                    'a character dummy argument of length other than 1', &
+                    decl%line, decl%column)
             end if
         end select
     end subroutine check_bind_c_dummy
@@ -168,6 +337,61 @@ contains
         if (len(decl%type_name) < 9) return
         is_proc = to_lower(decl%type_name(1:9)) == 'procedure'
     end function is_procedure_declaration
+
+    ! True when a dummy is of type character with a length that is known at
+    ! this layer to differ from 1 (F2018 18.3.1: an interoperable character
+    ! entity has character length 1, and an assumed-length character dummy
+    ! is not interoperable). Only assumed length and integer-literal lengths
+    ! are judged; a length given by a named constant or other expression is
+    ! left alone because its value is not resolved here.
+    function is_non_interoperable_character(decl) result(is_bad)
+        type(declaration_node), intent(in) :: decl
+        logical :: is_bad
+        character(len=:), allocatable :: length_text
+        integer :: value, stat
+
+        is_bad = .false.
+        if (.not. allocated(decl%type_name)) return
+        if (base_type_keyword(decl%type_name) /= 'character') return
+        if (.not. decl%has_character_length) return
+        if (.not. allocated(decl%character_length_expr)) return
+
+        length_text = character_length_value(decl%character_length_expr)
+        if (len(length_text) == 0) return
+        if (length_text == '*') then
+            is_bad = .true.
+            return
+        end if
+        if (verify(length_text, '0123456789') /= 0) return
+        read (length_text, *, iostat=stat) value
+        if (stat /= 0) return
+        is_bad = value /= 1
+    end function is_non_interoperable_character
+
+    ! The declared type name keeps its parameter list, e.g. "character(len=4)".
+    function base_type_keyword(type_name) result(keyword)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: keyword
+        integer :: paren
+
+        paren = index(type_name, '(')
+        if (paren > 0) then
+            keyword = to_lower(trim(adjustl(type_name(1:paren - 1))))
+        else
+            keyword = to_lower(trim(adjustl(type_name)))
+        end if
+    end function base_type_keyword
+
+    ! The length expression may arrive as "4" or as "len=4".
+    function character_length_value(length_expr) result(value_text)
+        character(len=*), intent(in) :: length_expr
+        character(len=:), allocatable :: value_text
+        integer :: eq_pos
+
+        value_text = trim(adjustl(length_expr))
+        eq_pos = index(to_lower(value_text), 'len=')
+        if (eq_pos == 1) value_text = trim(adjustl(value_text(5:)))
+    end function character_length_value
 
     ! True when any dimension of an array declaration is assumed size (*).
     function has_assumed_size_dummy(arena, decl) result(is_assumed_size)

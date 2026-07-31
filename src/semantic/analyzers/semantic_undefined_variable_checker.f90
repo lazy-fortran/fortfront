@@ -4,8 +4,16 @@ module semantic_undefined_variable_checker
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
         call_or_subscript_node, array_literal_node, program_node
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node
+    use ast_nodes_control, only: do_loop_node, do_while_node, case_default_node
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
+    use ast_nodes_misc, only: implicit_statement_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+        subroutine_call_node
+    use intrinsic_registry, only: is_intrinsic_subroutine
+    use semantic_external_declaration_names, only: collect_declared_procedures
+    use string_utils_mod, only: to_lower
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use type_system_unified, only: poly_type_t, mono_type_t, &
         create_poly_type, type_var_t
@@ -18,8 +26,181 @@ module semantic_undefined_variable_checker
     private
 
     public :: check_undefined_variables_generic
+    public :: check_external_implicit_none
+
+    ! Upper bound on explicitly declared procedure names tracked per scoping
+    ! unit. A unit that exceeds it is skipped so the check never guesses.
+    integer, parameter :: MAX_DECLARED_NAMES = 512
 
 contains
+
+    ! Reject a procedure reference that IMPLICIT NONE (EXTERNAL) requires to
+    ! be explicitly declared (Fortran 2018 8.7: with an EXTERNAL implicit
+    ! none specifier, a procedure referenced in the scoping unit shall have
+    ! an explicit interface or be explicitly declared to have the EXTERNAL
+    ! attribute). Only CALL statements are judged, because only they are
+    ! unambiguously procedure references without resolved types.
+    subroutine check_external_implicit_none(arena, errors)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (unit => arena%entries(i)%node)
+                type is (program_node)
+                call check_external_unit(arena, unit%body_indices, errors)
+                type is (function_def_node)
+                call check_external_unit(arena, unit%body_indices, errors)
+                type is (subroutine_def_node)
+                call check_external_unit(arena, unit%body_indices, errors)
+            end select
+        end do
+    end subroutine check_external_implicit_none
+
+    subroutine check_external_unit(arena, body_indices, errors)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        type(error_collection_t), intent(inout) :: errors
+        character(len=64) :: declared(MAX_DECLARED_NAMES)
+        integer :: declared_count
+        logical :: usable
+
+        if (.not. allocated(body_indices)) return
+        if (.not. has_external_implicit_none(arena, body_indices)) return
+
+        call collect_declared_procedures(arena, body_indices, declared, &
+            declared_count, usable)
+        ! A USE without an ONLY list can supply any name, so the unit is
+        ! left alone rather than risking a false rejection.
+        if (.not. usable) return
+
+        call report_undeclared_calls(arena, body_indices, declared, &
+            declared_count, errors)
+    end subroutine check_external_unit
+
+    ! True when the unit's specification part carries IMPLICIT NONE with an
+    ! EXTERNAL specifier, e.g. "implicit none (type, external)".
+    function has_external_implicit_none(arena, body_indices) result(has_spec)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        logical :: has_spec
+        integer :: i
+
+        has_spec = .false.
+        if (.not. allocated(body_indices)) return
+        do i = 1, size(body_indices)
+            if (body_indices(i) <= 0) cycle
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+                type is (implicit_statement_node)
+                if (.not. stmt%is_none) cycle
+                if (.not. allocated(stmt%none_spec)) cycle
+                if (index(to_lower(stmt%none_spec), 'external') > 0) has_spec = .true.
+            end select
+        end do
+    end function has_external_implicit_none
+
+    ! Walk the unit's executable statements and report every CALL naming a
+    ! procedure that is neither explicitly declared nor an intrinsic
+    ! subroutine. Contained procedures and interface bodies are not entered;
+    ! they are separate scoping units.
+    subroutine report_undeclared_calls(arena, body_indices, declared, &
+            declared_count, errors)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        character(len=64), intent(in) :: declared(:)
+        integer, intent(in) :: declared_count
+        type(error_collection_t), intent(inout) :: errors
+        integer, allocatable :: pending(:)
+        integer :: count, current, i
+
+        allocate (pending(64))
+        count = 0
+        do i = 1, size(body_indices)
+            call enqueue(body_indices(i))
+        end do
+
+        do while (count > 0)
+            current = pending(count)
+            count = count - 1
+            if (.not. arena%has_node_at(current)) cycle
+            select type (stmt => arena%entries(current)%node)
+                type is (subroutine_call_node)
+                call report_call(stmt)
+                type is (if_node)
+                call enqueue_all(stmt%then_body_indices)
+                call enqueue_all(stmt%else_body_indices)
+                type is (do_loop_node)
+                call enqueue_all(stmt%body_indices)
+                type is (do_while_node)
+                call enqueue_all(stmt%body_indices)
+                type is (associate_node)
+                call enqueue_all(stmt%body_indices)
+                type is (block_construct_node)
+                call enqueue_all(stmt%body_indices)
+                type is (select_case_node)
+                call enqueue_all(stmt%case_indices)
+                call enqueue(stmt%default_index)
+                type is (case_block_node)
+                call enqueue_all(stmt%body_indices)
+                type is (case_default_node)
+                call enqueue_all(stmt%body_indices)
+            end select
+        end do
+
+    contains
+
+        subroutine enqueue(idx)
+            integer, intent(in) :: idx
+            integer, allocatable :: grown(:)
+
+            if (idx <= 0) return
+            if (count >= size(pending)) then
+                allocate (grown(2*size(pending)))
+                grown(1:count) = pending(1:count)
+                call move_alloc(grown, pending)
+            end if
+            count = count + 1
+            pending(count) = idx
+        end subroutine enqueue
+
+        subroutine enqueue_all(indices)
+            integer, allocatable, intent(in) :: indices(:)
+            integer :: k
+
+            if (.not. allocated(indices)) return
+            do k = 1, size(indices)
+                call enqueue(indices(k))
+            end do
+        end subroutine enqueue_all
+
+        subroutine report_call(stmt)
+            type(subroutine_call_node), intent(in) :: stmt
+            character(len=:), allocatable :: lowered
+            integer :: k
+
+            if (.not. allocated(stmt%name)) return
+            if (len_trim(stmt%name) == 0) return
+            lowered = to_lower(trim(stmt%name))
+            do k = 1, declared_count
+                if (trim(declared(k)) == lowered) return
+            end do
+            if (is_intrinsic_subroutine(lowered)) return
+
+            call errors%add_result(create_error_result( &
+                "Procedure '"//trim(stmt%name)//"' is not explicitly "// &
+                "declared under IMPLICIT NONE (EXTERNAL)", &
+                ERROR_SEMANTIC, &
+                component="semantic_undefined_variable_checker", &
+                context="check_external_implicit_none", &
+                suggestion="declare an explicit interface for the procedure "// &
+                "or give it the EXTERNAL attribute", &
+                line=stmt%line, column=stmt%column, end_line=stmt%line, &
+                end_column=stmt%column + 1))
+        end subroutine report_call
+
+    end subroutine report_undeclared_calls
 
     ! Generic implementation that works with any context type
     subroutine check_undefined_variables_generic(scopes, errors, input_mode, arena, &
