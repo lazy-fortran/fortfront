@@ -91,8 +91,12 @@
             ! Clear label for this statement
             if (allocated(stmt_label)) deallocate (stmt_label)
 
-            ! Check for numeric statement label like 10  i = i + 1
-            if (token%kind == TK_NUMBER) then
+            ! Check for numeric statement label like 10  i = i + 1.
+            ! A statement label is only a label when it opens the statement,
+            ! i.e. it is the first thing on its source line (or follows a ';').
+            ! A digit string later on the line is part of the statement, such
+            ! as the unit number in `flush 6`.
+            if (token%kind == TK_NUMBER .and. label_opens_statement(parser)) then
                 ! Save the label text
                 stmt_label = trim(token%text)
                 ! Consume the label and get next token
@@ -161,6 +165,35 @@
         end do
 
     contains
+        ! True when the token at the parser position is the first thing on its
+        ! source line, or directly follows a ';' statement separator. Only such
+        ! a digit string can be a statement label (F2003 R313).
+        logical function label_opens_statement(parser_ref) result(opens)
+            type(parser_state_t), intent(in) :: parser_ref
+            integer :: idx, label_line
+
+            opens = .true.
+            if (.not. associated(parser_ref%tokens)) return
+            idx = parser_ref%current_token
+            if (idx < 1 .or. idx > size(parser_ref%tokens)) return
+            label_line = parser_ref%tokens(idx)%line
+
+            do idx = parser_ref%current_token - 1, 1, -1
+                select case (parser_ref%tokens(idx)%kind)
+                case (TK_WHITESPACE, TK_COMMENT)
+                    cycle
+                case (TK_NEWLINE, TK_EOF)
+                    return
+                case (TK_OPERATOR)
+                    if (allocated(parser_ref%tokens(idx)%text)) then
+                        if (parser_ref%tokens(idx)%text == ";") return
+                    end if
+                end select
+                opens = parser_ref%tokens(idx)%line /= label_line
+                return
+            end do
+        end function label_opens_statement
+
         subroutine reset_pending_prefixes()
             if (allocated(pending_prefixes)) then
                 block
