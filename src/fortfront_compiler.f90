@@ -24,6 +24,17 @@ module fortfront_compiler
         get_subroutine_body_info, &
         get_used_modules, get_defined_module, &
         used_module_t, defined_module_t, &
+        program_unit_query_t, declaration_query_t, &
+        derived_type_query_t, type_binding_query_t, &
+        use_statement_query_t, interface_query_t, visibility_query_t, &
+        namelist_query_t, data_statement_query_t, common_block_query_t, &
+        enum_query_t, statement_function_query_t, block_data_query_t, &
+        query_program_units, query_program_unit, query_declarations, &
+        query_declaration, query_derived_type, query_type_binding, &
+        query_use_statement, query_use_statements, query_interface, &
+        query_visibility, query_namelist, query_data_statement, &
+        query_common_block, query_enum, query_statement_function, &
+        query_block_data, &
         array_slice_query_t, array_bounds_query_t, &
         range_expression_query_t, component_access_query_t, &
         array_literal_query_t, pointer_assignment_query_t, nullify_query_t, &
