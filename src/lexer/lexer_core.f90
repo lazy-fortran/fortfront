@@ -28,6 +28,7 @@ module lexer_core
     public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
         scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
+    public :: find_unterminated_character_constant
 
     ! Re-export utilities
     public :: to_lower, resize_tokens, resize_trivia_buffer

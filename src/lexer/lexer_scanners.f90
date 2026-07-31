@@ -11,6 +11,7 @@ module lexer_scanners
     public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
         scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
+    public :: find_unterminated_character_constant
 
     ! Public source character classification (F2018 6.1 character set)
     public :: is_legal_source_char, is_name_body_char, is_percent_prefix_char
@@ -534,6 +535,128 @@ contains
 
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_logical_token_safe
+
+    ! Locate the first unterminated character constant in a source text.
+    !
+    ! A character context that is not closed before the end of its line is only
+    ! legal when the line is continued and the next line resumes the constant
+    ! with a leading ampersand (F2018 6.3.2.4). Otherwise the constant runs off
+    ! the end of the line and off the end of the program unit. Returns the line
+    ! and column of the opening delimiter.
+    function find_unterminated_character_constant(source, line_num, col_num) &
+            result(found)
+        character(len=*), intent(in) :: source
+        integer, intent(out) :: line_num, col_num
+        logical :: found
+        integer :: source_len, line_start, line_end, current_line, open_col
+        logical :: quote_open
+
+        found = .false.
+        line_num = 0
+        col_num = 0
+        source_len = len(source)
+        line_start = 1
+        current_line = 1
+
+        do while (line_start <= source_len)
+            line_end = line_start - 1
+            do while (line_end < source_len)
+                if (source(line_end + 1:line_end + 1) == char(10)) exit
+                if (source(line_end + 1:line_end + 1) == char(13)) exit
+                line_end = line_end + 1
+            end do
+
+            call scan_line_quotes(source(line_start:line_end), quote_open, open_col)
+            if (quote_open) then
+                if (line_is_continued(source(line_start:line_end))) then
+                    if (continuation_resumes(source, line_end + 1)) return
+                end if
+                found = .true.
+                line_num = current_line
+                col_num = open_col
+                return
+            end if
+
+            if (line_end >= source_len) return
+            line_start = line_end + 2
+            if (source(line_end + 1:line_end + 1) == char(13)) then
+                if (line_start <= source_len) then
+                    if (source(line_start:line_start) == char(10)) then
+                        line_start = line_start + 1
+                    end if
+                end if
+            end if
+            current_line = current_line + 1
+        end do
+    end function find_unterminated_character_constant
+
+    ! Whether a line ends inside a character context, and where that context
+    ! was opened. A comment delimiter outside a character context ends the line.
+    subroutine scan_line_quotes(line, quote_open, open_col)
+        character(len=*), intent(in) :: line
+        logical, intent(out) :: quote_open
+        integer, intent(out) :: open_col
+        character :: c, quote_char
+        integer :: i
+
+        quote_open = .false.
+        open_col = 0
+        quote_char = ' '
+        i = 1
+        do while (i <= len(line))
+            c = line(i:i)
+            if (quote_open) then
+                if (c == quote_char) then
+                    if (i < len(line)) then
+                        if (line(i + 1:i + 1) == quote_char) then
+                            i = i + 2
+                            cycle
+                        end if
+                    end if
+                    quote_open = .false.
+                end if
+            else
+                if (c == '!') return
+                if (c == "'" .or. c == '"') then
+                    quote_open = .true.
+                    quote_char = c
+                    open_col = i
+                end if
+            end if
+            i = i + 1
+        end do
+    end subroutine scan_line_quotes
+
+    ! Whether a line ends with a continuation ampersand.
+    function line_is_continued(line) result(is_continued)
+        character(len=*), intent(in) :: line
+        logical :: is_continued
+        integer :: trimmed_len
+
+        is_continued = .false.
+        trimmed_len = len_trim(line)
+        if (trimmed_len == 0) return
+        is_continued = line(trimmed_len:trimmed_len) == '&'
+    end function line_is_continued
+
+    ! Whether the text after a continued character context resumes it with the
+    ! mandatory leading ampersand.
+    function continuation_resumes(source, start_pos) result(resumes)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: start_pos
+        logical :: resumes
+        integer :: i
+        character :: c
+
+        resumes = .false.
+        do i = start_pos, len(source)
+            c = source(i:i)
+            if (c == ' ' .or. c == char(9) .or. c == char(10) .or. &
+                c == char(13)) cycle
+            resumes = c == '&'
+            return
+        end do
+    end function continuation_resumes
 
     ! Helper function to check if a word is a keyword
     function is_keyword(word) result(keyword)

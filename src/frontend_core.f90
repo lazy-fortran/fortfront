@@ -7,6 +7,7 @@ module frontend_core
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, &
         validate_source_characters, &
+        find_unterminated_character_constant, &
         TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
         TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
         to_lower
@@ -161,11 +162,30 @@ contains
         character(len=*), intent(out) :: error_msg
 
         error_msg = ""
+        call unterminated_character_constant_error(source, error_msg)
+        if (len_trim(error_msg) > 0) return
         call tokenize_core(source, tokens)
         if (allocated(tokens)) then
             call normalize_line_continuations(tokens)
         end if
     end subroutine lex_file
+
+    ! Reject a character literal that is never closed. Leaves error_msg empty
+    ! when every character context on every line is terminated.
+    subroutine unterminated_character_constant_error(source, error_msg)
+        character(len=*), intent(in) :: source
+        character(len=*), intent(out) :: error_msg
+        integer :: bad_line, bad_column
+        character(len=32) :: line_text, column_text
+
+        error_msg = ""
+        if (.not. find_unterminated_character_constant(source, bad_line, &
+                                                       bad_column)) return
+        write (line_text, '(I0)') bad_line
+        write (column_text, '(I0)') bad_column
+        error_msg = "Unterminated character constant at line "// &
+                    trim(line_text)//", column "//trim(column_text)
+    end subroutine unterminated_character_constant_error
 
     ! Simple interface functions for clean pipeline usage
     subroutine lex_source(source_code, tokens, error_msg)
@@ -178,6 +198,17 @@ contains
             allocate (tokens(0))
             return
         end if
+
+        block
+            character(len=MAX_FRONTEND_ERROR_LEN) :: literal_error
+
+            call unterminated_character_constant_error(source_code, literal_error)
+            if (len_trim(literal_error) > 0) then
+                allocate (tokens(0))
+                error_msg = trim(literal_error)
+                return
+            end if
+        end block
 
         call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
