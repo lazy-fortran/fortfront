@@ -189,6 +189,27 @@ contains
         end do
     end function find_statement_start
 
+    ! True when "submodule" at stmt_start starts a submodule-stmt, which is
+    ! recognisable by the '(' introducing the parent identifier.
+    pure logical function begins_submodule_unit(tokens, stmt_start) result(is_unit)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start
+        integer :: i
+
+        is_unit = .false.
+        do i = stmt_start + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                cycle
+            case (TK_OPERATOR)
+                is_unit = (tokens(i)%text == "(")
+                return
+            case default
+                return
+            end select
+        end do
+    end function begins_submodule_unit
+
     pure subroutine detect_multiline_construct(tokens, stmt_start, &
             is_multiline, nesting_level)
         type(token_t), intent(in) :: tokens(:)
@@ -243,6 +264,9 @@ contains
                 end do
             end if
         case ("submodule")
+            ! Only a submodule-stmt (F2018 R1117) opens a program unit; the
+            ! name may also be an ordinary variable, as in "submodule = 7".
+            if (.not. begins_submodule_unit(tokens, stmt_start)) return
             is_multiline = .true.
             nesting_level = 1
         case ("type")

@@ -21,6 +21,7 @@ use semantic_literal_form_validation, only: validate_literal_forms
 use semantic_use_nature_validation, only: validate_use_module_nature
 use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
+use semantic_submodule_validation, only: validate_submodule_interfaces
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -105,6 +106,10 @@ contains
         ! including a bare module root, which the dispatch below skips.
         call validate_use_module_nature(arena, ctx%errors)
         call validate_local_name_collisions(arena, ctx%errors)
+
+        ! Separate module subprograms are checked against the interface bodies
+        ! of their ancestor module, which only the whole arena exposes.
+        call validate_submodule_interfaces(arena, ctx%errors)
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)

@@ -64,6 +64,7 @@ module parser_execution_statements_module
     use parser_common_statement_module, only: parse_common_statement
     use parser_enum_statement_module, only: parse_enum_construct
     use parser_trailing_comment_module, only: capture_trailing_comment
+    use parser_submodule_placement_module, only: reject_misplaced_submodule
     implicit none
     private
 

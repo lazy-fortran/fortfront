@@ -39,6 +39,7 @@ docs_unsigned_integers_out.f90  # EXTENSION: uint/wrap_* intrinsics are fortfron
 # Submodule standalone examples require parent module compilation
 issue_1827_submodule_simple.f90  # LIMITATION: submodule needs parent module (#1827)
 issue_1827_submodule_with_contents.f90  # LIMITATION: submodule needs parent module (#1827)
+submodule_module_procedure_valid.f90  # LIMITATION: emission drops the dummy arguments of a separate module procedure
 
 # ============================================================================
 # ERROR-TESTS - Intentionally invalid input for error detection testing

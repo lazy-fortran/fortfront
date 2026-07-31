@@ -427,10 +427,33 @@ contains
         if (pos <= size(tokens)) then
             if (tokens(pos)%kind == TK_KEYWORD .and. &
                 to_lower(tokens(pos)%text) == "submodule") then
-                is_start = .true.
+                ! A submodule-stmt (F2018 R1117) always continues with the
+                ! parenthesised parent identifier; "submodule = 7" is an
+                ! assignment to an ordinary variable of that name.
+                is_start = submodule_parent_follows(tokens, pos)
             end if
         end if
     end function is_submodule_start
+
+    function submodule_parent_follows(tokens, pos) result(follows)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: follows
+        integer :: i
+
+        follows = .false.
+        do i = pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                cycle
+            case (TK_OPERATOR)
+                follows = (tokens(i)%text == "(")
+                return
+            case default
+                return
+            end select
+        end do
+    end function submodule_parent_follows
 
     function is_program_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
