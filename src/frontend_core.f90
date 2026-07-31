@@ -6,6 +6,7 @@ module frontend_core
     use fortfront_constants, only: MAX_FRONTEND_ERROR_LEN
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, &
+        validate_source_characters, &
         TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
         TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
         to_lower
@@ -172,12 +173,16 @@ contains
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
 
+        call validate_source_characters(source_code, error_msg)
+        if (len_trim(error_msg) > 0) then
+            allocate (tokens(0))
+            return
+        end if
+
         call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
-            allocate (character(len=22) :: error_msg)
             error_msg = "Failed to tokenize source"
         else
-            allocate (character(len=0) :: error_msg)
             error_msg = ""
             call normalize_line_continuations(tokens)
         end if
