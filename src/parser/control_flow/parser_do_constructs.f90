@@ -11,6 +11,8 @@ module parser_do_constructs_module
     use parser_select_constructs_module, only: parse_select_case
     use parser_array_constructs_module, only: parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
+    use parser_do_concurrent_locality_module, only: &
+        parse_do_concurrent_locality_specs
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, &
         null_statement_callbacks, &

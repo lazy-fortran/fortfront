@@ -552,19 +552,42 @@ contains
         if (current%text /= "=") return
         current = parser%consume()
 
+        ! Past "name =" the construct can only be an implied-DO control
+        ! (F2023 R777 ac-implied-do-control), so a malformed remainder is a
+        ! syntax error in the iterator rather than a speculative parse failure.
         start_index = helpers%parse_comparison(parser, arena)
+        if (start_index <= 0) then
+            call parser%error("Syntax error in iterator: expected an initial "// &
+                "bound expression")
+            return
+        end if
 
         current = parser%peek()
-        if (current%text /= ",") return
+        if (current%text /= ",") then
+            call parser%error_at_token("Syntax error in iterator: expected "// &
+                "',' after the initial bound", current, &
+                suggestion="write the iterator as (expr, var = start, end)")
+            return
+        end if
         current = parser%consume()
 
         end_index = helpers%parse_comparison(parser, arena)
+        if (end_index <= 0) then
+            call parser%error("Syntax error in iterator: expected a terminal "// &
+                "bound expression")
+            return
+        end if
 
         step_index = 0
         current = parser%peek()
         if (current%text == ",") then
             current = parser%consume()
             step_index = helpers%parse_comparison(parser, arena)
+            if (step_index <= 0) then
+                call parser%error("Syntax error in iterator: expected a "// &
+                    "stride expression")
+                return
+            end if
         end if
 
         success = .true.
