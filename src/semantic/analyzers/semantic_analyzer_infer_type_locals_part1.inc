@@ -423,6 +423,12 @@
             type(mono_type_t) :: control_type
             integer :: i
 
+            ! The body of DO CONCURRENT is a pure context (F2008 8.1.6.5)
+            if (expr%is_concurrent) then
+                call validate_do_concurrent_purity(arena, expr%body_indices, &
+                                                   this%errors)
+            end if
+
             call process_do_loop_body(expr, int_scheme, control_type)
             if (allocated(expr%var_name)) then
                 call this%scopes%define(expr%var_name, int_scheme)

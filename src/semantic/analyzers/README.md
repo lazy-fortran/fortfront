@@ -71,7 +71,8 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_identifier_context.f90 | Identifier usage context tracking |
 | semantic_undefined_variable_checker.f90 | Detect usage of undefined variables |
 | semantic_walrus_checker.f90 | Detect same-scope redeclaration via walrus `:=` |
-| semantic_pure_validation.f90 | Enforce PURE/ELEMENTAL body restrictions (no I/O, STOP, PAUSE) |
+| semantic_pure_validation.f90 | Enforce PURE/ELEMENTAL body restrictions (no I/O, STOP, PAUSE) and reject impure intrinsic subroutine calls inside DO CONCURRENT |
+| semantic_pure_dummy_validation.f90 | Enforce PURE dummy-argument rules: no polymorphic INTENT(OUT) dummy, dummy procedures must be PURE, PURE FUNCTION dummies are not definable |
 | semantic_bind_c_validation.f90 | Enforce BIND(C) interoperability constraints on derived-type components and procedure dummies (F2003 15.3.2) |
 | semantic_elemental_validation.f90 | Enforce ELEMENTAL scalar-dummy restriction (no array dummies) |
 | semantic_type_hierarchy_validation.f90 | Register derived types and EXTENDS parents into the inheritance hierarchy; report unknown-parent EXTENDS |
