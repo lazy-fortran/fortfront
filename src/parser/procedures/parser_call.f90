@@ -120,6 +120,34 @@ contains
                     subroutine_name = subroutine_name//instantiation_text
                     deallocate (instantiation_text)
                 end if
+            else if (token%kind == TK_OPERATOR .and. token%text == "[") then
+                ! Coindexed designator: call x[1]%c%sub().  Keep the image
+                ! selector in the name so later analysis sees a part reference
+                ! instead of the bare base-object name.
+                block
+                    integer :: bracket_depth
+                    character(len=:), allocatable :: image_text
+
+                    token = parser%consume()
+                    bracket_depth = 1
+                    image_text = "["
+
+                    do while (.not. parser%is_at_end() .and. bracket_depth > 0)
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR) then
+                            if (token%text == "[") then
+                                bracket_depth = bracket_depth + 1
+                            else if (token%text == "]") then
+                                bracket_depth = bracket_depth - 1
+                            end if
+                        end if
+                        if (bracket_depth > 0) then
+                            image_text = image_text//trim(token%text)
+                        end if
+                        token = parser%consume()
+                    end do
+                    subroutine_name = subroutine_name//image_text//"]"
+                end block
             else if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 ! This might be array indices (arr(i)%method) or final arguments
                 ! Parse the parenthesized expression

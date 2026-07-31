@@ -14,7 +14,7 @@ program test_reject_bind_02_diagnostics
 
     call test_character_dummy_length_four_rejected(all_tests_passed)
     call test_character_dummy_length_one_accepted(all_tests_passed)
-    call test_assumed_length_character_dummy_rejected(all_tests_passed)
+    call test_assumed_length_character_dummy_accepted(all_tests_passed)
     call test_non_bind_c_character_dummy_accepted(all_tests_passed)
     call test_value_pointer_dummy_rejected(all_tests_passed)
     call test_value_allocatable_dummy_rejected(all_tests_passed)
@@ -55,18 +55,21 @@ contains
         call expect_frontend_success(source, passed)
     end subroutine test_character_dummy_length_one_accepted
 
-    subroutine test_assumed_length_character_dummy_rejected(passed)
+    ! Issue #2924: an assumed-length character dummy is permitted in a
+    ! BIND(C) procedure; gfortran accepts it and gfortran.dg/c-prototypes_2.F90
+    ! relies on it, so this form must not be rejected.
+    subroutine test_assumed_length_character_dummy_accepted(passed)
         logical, intent(inout) :: passed
         character(len=:), allocatable :: source
 
-        print *, 'BIND(C) assumed-length character dummy (rejected)...'
+        print *, 'BIND(C) assumed-length character dummy (accepted)...'
         source = 'subroutine put_text(text) bind(c, name="put_text_c")'// &
             new_line('a')// &
             'implicit none'//new_line('a')// &
             'character(len=*) :: text'//new_line('a')// &
             'end subroutine put_text'
-        call expect_frontend_error(source, 'length other than 1', passed)
-    end subroutine test_assumed_length_character_dummy_rejected
+        call expect_frontend_success(source, passed)
+    end subroutine test_assumed_length_character_dummy_accepted
 
     subroutine test_non_bind_c_character_dummy_accepted(passed)
         logical, intent(inout) :: passed

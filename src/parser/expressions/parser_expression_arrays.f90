@@ -432,6 +432,13 @@ contains
         if (open_paren%kind /= TK_OPERATOR) return
         if (open_paren%text /= "(") return
 
+        ! An old-style array constructor `(/ ... /)` nested as an ac-value
+        ! opens with the same "(" but is not a parenthesised item.
+        token = parser%get_token_at_index(parser%current_token + 1)
+        if (token%kind == TK_OPERATOR) then
+            if (token%text == "/") return
+        end if
+
         pos = parser%current_token + 1
         depth = 1
         item_count = 1

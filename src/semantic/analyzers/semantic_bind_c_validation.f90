@@ -8,6 +8,7 @@ module semantic_bind_c_validation
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node
     use ast_nodes_bounds, only: array_bounds_node, range_expression_node
+    use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
     use scope_manager, only: binding_label_table_t
@@ -29,10 +30,17 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(error_collection_t), intent(inout) :: errors
         type(binding_label_table_t) :: labels
+        logical, allocatable :: is_interface_body(:)
         integer :: i
+
+        call mark_interface_bodies(arena, is_interface_body)
 
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
+            ! An interface body describes an external procedure that is
+            ! declared elsewhere; it is not itself a global entity, so two
+            ! interface bodies may repeat a binding label (F2018 C1552).
+            if (is_interface_body(i)) cycle
             select type (node => arena%entries(i)%node)
                 type is (function_def_node)
                 call register_procedure_label(labels, node%bind_c_clause, &
@@ -45,6 +53,30 @@ contains
             end select
         end do
     end subroutine validate_global_binding_labels
+
+    ! Flag every arena entry that is the body of an interface block.
+    subroutine mark_interface_bodies(arena, is_interface_body)
+        type(ast_arena_t), intent(in) :: arena
+        logical, allocatable, intent(out) :: is_interface_body(:)
+        integer :: i, j, body_index
+
+        allocate (is_interface_body(max(arena%size, 1)))
+        is_interface_body = .false.
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (interface_block_node)
+                if (.not. allocated(node%procedure_indices)) cycle
+                do j = 1, size(node%procedure_indices)
+                    body_index = node%procedure_indices(j)
+                    if (body_index < 1) cycle
+                    if (body_index > arena%size) cycle
+                    is_interface_body(body_index) = .true.
+                end do
+            end select
+        end do
+    end subroutine mark_interface_bodies
 
     ! Register the binding label of a BIND(C) procedure definition or
     ! interface body. A procedure without BIND(C) owns no binding label.
@@ -358,10 +390,9 @@ contains
 
         length_text = character_length_value(decl%character_length_expr)
         if (len(length_text) == 0) return
-        if (length_text == '*') then
-            is_bad = .true.
-            return
-        end if
+        ! An assumed-length character dummy is permitted in a BIND(C)
+        ! interface (F2018 18.3.1 / 15.3.7), so it is not rejected here.
+        if (length_text == '*') return
         if (verify(length_text, '0123456789') /= 0) return
         read (length_text, *, iostat=stat) value
         if (stat /= 0) return
