@@ -211,12 +211,16 @@ contains
     end function push_common_block
 
     function push_enum(arena, enumerator_names, enumerator_values, is_bind_c, &
-            line, column, parent_index) result(enum_index)
+            line, column, parent_index, violation_messages, violation_lines, &
+            violation_columns) result(enum_index)
         type(ast_arena_t), intent(inout) :: arena
         type(string_t), intent(in) :: enumerator_names(:)
         integer, intent(in) :: enumerator_values(:)
         logical, intent(in) :: is_bind_c
         integer, intent(in), optional :: line, column, parent_index
+        type(string_t), intent(in), optional :: violation_messages(:)
+        integer, intent(in), optional :: violation_lines(:)
+        integer, intent(in), optional :: violation_columns(:)
         integer :: enum_index
         type(enum_node) :: node
 
@@ -224,6 +228,9 @@ contains
         node%enumerator_names = enumerator_names
         node%enumerator_values = enumerator_values
         node%is_bind_c = is_bind_c
+        if (present(violation_messages)) node%violation_messages = violation_messages
+        if (present(violation_lines)) node%violation_lines = violation_lines
+        if (present(violation_columns)) node%violation_columns = violation_columns
         if (present(line)) node%line = line
         if (present(column)) node%column = column
         call arena%push(node, "enum", parent_index)

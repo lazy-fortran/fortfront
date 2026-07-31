@@ -8,3 +8,8 @@ f90/issue_2562_where_invalid_if.f90
 f90/issue_2591_unsigned_mixing_error.f90
 lf/issue_2816_walrus_redeclaration.lf
 f90/issue_2819_pure_with_print.f90
+f90/enum_2.f90
+f90/enum_3.f90
+f90/enum_6.f90
+f90/enum_7.f90
+f90/enum_8.f90
