@@ -52,3 +52,10 @@ issue_2753_unsigned_argument_mixing_error.f90  # ERROR-TEST: signed/unsigned arg
 issue_2819_implied_do_index_out_of_scope.f90  # ERROR-TEST: implied-DO index in own bounds (#2819)
 issue_2819_implied_do_index_shadow.f90  # ERROR-TEST: nested implied-DO index shadowing (#2819)
 issue_2855_external_intrinsic_conflict.f90  # ERROR-TEST: entity both intrinsic and external (F2018 8.5.9) (#2855)
+
+# Round-trip gaps uncovered while adding the issue #2891 rejection fixtures.
+# The sources are valid (gfortran -std=f2018 accepts them); fortfront parses
+# and accepts them too, but its emitter loses part of the construct.
+pr19936_3_ok.f90  # BUG: legacy (/ ... /) implied-do loses its (/ /) wrapper on emit
+pr96099_1_ok.f90  # BUG: IMPLICIT CLASS(t) (x) loses the letter-spec list on emit
+implicit_kind_selector_letter_specs.f90  # BUG: IMPLICIT with a kind/len selector loses the letter-spec list on emit

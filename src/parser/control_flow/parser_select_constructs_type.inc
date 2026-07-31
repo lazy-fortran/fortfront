@@ -124,8 +124,20 @@
 
         ok = .true.
 
+        ! F2018 R1155/R1156: the type-guard parentheses must hold a
+        ! type-spec. An empty or otherwise nameless "( )" is a syntax error,
+        ! not a construct fortfront may silently drop.
         if (type_name_token%kind /= TK_IDENTIFIER .and. &
             type_name_token%kind /= TK_KEYWORD) then
+            if (guard_keyword == "type") then
+                call parser%error_at_token( &
+                    "Syntax error in TYPE IS specification: expected a "// &
+                    "type-spec inside the parentheses", type_name_token)
+            else
+                call parser%error_at_token( &
+                    "Syntax error in CLASS IS specification: expected a "// &
+                    "type-spec inside the parentheses", type_name_token)
+            end if
             ok = .false.
             return
         end if

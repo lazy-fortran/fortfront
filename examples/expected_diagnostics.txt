@@ -24,3 +24,10 @@ f90/contiguous_12.f90
 f90/external_initializer.f90
 f90/iso_fortran_env_4.f90
 f90/type_decl_4.f90
+f90/class_is_1.f90
+f90/type_is_1.f90
+f90/pr91660_1.f90
+f90/pr91715.f90
+f90/pr96099_1.f90
+f90/pr96099_2.f90
+f90/pr19936_3.f90

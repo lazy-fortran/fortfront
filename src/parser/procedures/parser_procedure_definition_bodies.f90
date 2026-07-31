@@ -558,7 +558,7 @@ contains
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: stmt_size
         type(ast_arena_t), intent(inout) :: arena
-        type(parser_state_t), intent(in) :: parent_parser
+        type(parser_state_t), intent(inout) :: parent_parser
         integer :: first_token
         character(len=:), allocatable :: token_lower, stmt_label
         type(parser_state_t) :: block_parser
@@ -666,7 +666,7 @@ contains
         type(token_t), intent(in) :: stmt_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t) :: select_parser
-        type(parser_state_t), intent(in) :: parent_parser
+        type(parser_state_t), intent(inout) :: parent_parser
         type(token_t) :: next_token
         character(len=:), allocatable :: next_lower
 
@@ -728,6 +728,11 @@ contains
         else
             select_index = 0
         end if
+
+        ! The sub-parser is about to go out of scope; hand its diagnostics to
+        ! the enclosing parser so a rejected SELECT arm is reported instead of
+        ! silently dropping the construct.
+        call parent_parser%absorb_errors(select_parser)
     end function parse_select_statement_tokens
 
     logical function handle_contains_procedure(parser, arena, token, prefix_buffer, &
