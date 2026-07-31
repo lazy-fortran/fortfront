@@ -399,7 +399,8 @@
         integer, intent(in) :: unit_start
         character(len=*), intent(in) :: unit_type
         integer, intent(out) :: unit_end
-        integer :: i, interface_nesting
+        integer :: i, interface_nesting, prev_idx
+        logical :: opens_interface
         character(len=:), allocatable :: lowered
 
         unit_end = unit_start
@@ -412,7 +413,18 @@
             else if (tokens(i)%kind == TK_KEYWORD .or. &
                      tokens(i)%kind == TK_IDENTIFIER) then
                 lowered = to_lower(trim(tokens(i)%text))
+                opens_interface = .false.
                 if (lowered == "interface" .and. interface_nesting == 0) then
+                    ! "end interface" closes a block, it never opens one
+                    opens_interface = .true.
+                    prev_idx = find_prev_nontrivial_index(tokens, i)
+                    if (prev_idx > 0) then
+                        if (token_is_word_at(tokens, prev_idx, "end")) then
+                            opens_interface = .false.
+                        end if
+                    end if
+                end if
+                if (opens_interface) then
                     interface_nesting = interface_nesting + 1
                 else if (lowered == "end") then
                     if (i + 1 <= size(tokens)) then
