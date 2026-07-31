@@ -44,6 +44,10 @@ module frontend_compiler_resolution
     end type declaration_binding_t
 
     public :: get_scope_bindings
+    ! Scope enumeration primitives, shared with the semantic validators that
+    ! diagnose per-scoping-unit conflicts (issues #2887 and #2888).
+    public :: is_scope_node
+    public :: get_scope_statement_indices
     public :: resolve_name_in_scope
     public :: resolve_name_at_node
     public :: resolve_identifier_binding
