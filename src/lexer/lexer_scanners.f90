@@ -554,6 +554,10 @@ contains
         found = .false.
         line_num = 0
         col_num = 0
+        ! The scan understands free-form lines only.  Fixed-form sources split
+        ! character constants across a column-6 continuation, which this scan
+        ! would misread as an unterminated constant.
+        if (source_is_fixed_form(source)) return
         source_len = len(source)
         line_start = 1
         current_line = 1
@@ -568,9 +572,11 @@ contains
 
             call scan_line_quotes(source(line_start:line_end), quote_open, open_col)
             if (quote_open) then
-                if (line_is_continued(source(line_start:line_end))) then
-                    if (continuation_resumes(source, line_end + 1)) return
-                end if
+                ! A trailing ampersand continues the character constant on the
+                ! next line.  The leading ampersand of the continuation line is
+                ! optional in practice (compilers only warn when it is absent),
+                ! so a continued line is never reported here.
+                if (line_is_continued(source(line_start:line_end))) return
                 found = .true.
                 line_num = current_line
                 col_num = open_col
@@ -639,24 +645,79 @@ contains
         is_continued = line(trimmed_len:trimmed_len) == '&'
     end function line_is_continued
 
-    ! Whether the text after a continued character context resumes it with the
-    ! mandatory leading ampersand.
-    function continuation_resumes(source, start_pos) result(resumes)
+    ! Whether the source is fixed form.  Two independent signals are accepted:
+    ! a column-6 continuation line, or a column-1 comment marker together with
+    ! a statement indented to column 7.  Both are impossible in free form.
+    function source_is_fixed_form(source) result(is_fixed)
         character(len=*), intent(in) :: source
-        integer, intent(in) :: start_pos
-        logical :: resumes
-        integer :: i
+        logical :: is_fixed
+        logical :: saw_comment_marker, saw_column_seven_statement
+        integer :: pos, line_start, line_end, source_len, i
         character :: c
 
-        resumes = .false.
-        do i = start_pos, len(source)
-            c = source(i:i)
-            if (c == ' ' .or. c == char(9) .or. c == char(10) .or. &
-                c == char(13)) cycle
-            resumes = c == '&'
-            return
+        is_fixed = .false.
+        saw_comment_marker = .false.
+        saw_column_seven_statement = .false.
+        source_len = len(source)
+        line_start = 1
+
+        do while (line_start <= source_len)
+            line_end = line_start - 1
+            do while (line_end < source_len)
+                c = source(line_end + 1:line_end + 1)
+                if (c == char(10)) exit
+                if (c == char(13)) exit
+                line_end = line_end + 1
+            end do
+
+            if (line_end - line_start + 1 >= 1) then
+                c = source(line_start:line_start)
+                if (c == 'C' .or. c == 'c' .or. c == '*') then
+                    saw_comment_marker = .true.
+                end if
+            end if
+
+            if (line_end - line_start + 1 >= 7) then
+                if (source(line_start:line_start + 5) == '      ') then
+                    saw_column_seven_statement = .true.
+                end if
+            end if
+
+            if (saw_comment_marker .and. saw_column_seven_statement) then
+                is_fixed = .true.
+                return
+            end if
+
+            if (line_end - line_start + 1 >= 6) then
+                is_fixed = .true.
+                do i = 0, 4
+                    pos = line_start + i
+                    c = source(pos:pos)
+                    if (c == ' ') cycle
+                    if (c == char(9)) cycle
+                    if (c >= '0' .and. c <= '9') cycle
+                    is_fixed = .false.
+                    exit
+                end do
+                if (is_fixed) then
+                    c = source(line_start + 5:line_start + 5)
+                    is_fixed = c /= ' ' .and. c /= '0' .and. c /= char(9)
+                end if
+                if (is_fixed) return
+            end if
+
+            if (line_end >= source_len) return
+            line_start = line_end + 2
+            if (source(line_end + 1:line_end + 1) == char(13)) then
+                if (line_start <= source_len) then
+                    if (source(line_start:line_start) == char(10)) then
+                        line_start = line_start + 1
+                    end if
+                end if
+            end if
         end do
-    end function continuation_resumes
+    end function source_is_fixed_form
+
 
     ! Helper function to check if a word is a keyword
     function is_keyword(word) result(keyword)

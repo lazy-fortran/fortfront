@@ -12,6 +12,7 @@ module semantic_undefined_variable_checker
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         subroutine_call_node
     use intrinsic_registry, only: is_intrinsic_subroutine
+    use semantic_explicit_interface_checker, only: is_part_reference
     use semantic_external_declaration_names, only: collect_declared_procedures
     use string_utils_mod, only: to_lower
     use ast_nodes_io, only: print_statement_node, read_statement_node
@@ -183,6 +184,10 @@ contains
             if (.not. allocated(stmt%name)) return
             if (len_trim(stmt%name) == 0) return
             lowered = to_lower(trim(stmt%name))
+            ! Type-bound and coindexed calls name a binding of a declared
+            ! type, not an external procedure, so IMPLICIT NONE (EXTERNAL)
+            ! never requires a separate declaration for them.
+            if (is_part_reference(lowered)) return
             do k = 1, declared_count
                 if (trim(declared(k)) == lowered) return
             end do
