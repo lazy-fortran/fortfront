@@ -3,8 +3,7 @@ module parser_assignment_module
         TK_STRING, &
         TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_range, parse_logical_eqv, &
-        at_statement_end
+    use parser_expressions_module, only: parse_range, parse_logical_eqv
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
         push_identifier, push_literal, push_complex_literal
@@ -44,12 +43,7 @@ contains
                 end block
             end if
 
-            if (name_does_not_begin_a_statement(op_token)) then
-                call parser%error_at_token( &
-                    "Unclassifiable statement: '"//trim(id_token%text)// &
-                    "' is a name, and a name can only start an assignment", &
-                    id_token)
-            else if (op_token%kind == TK_OPERATOR) then
+            if (op_token%kind == TK_OPERATOR) then
                 select case (op_token%text)
                 case ("=")
                     op_token = parser%consume()
@@ -168,56 +162,9 @@ contains
                     end if
                 end select
             end if
-            if (stmt_index > 0) call reject_trailing_tokens(parser)
         end if
     end subroutine parse_assignment_statement
 
-    ! A leading name reaches this parser only when no earlier dispatcher
-    ! claimed the statement, so the only thing it can still be is the target
-    ! of an assignment or a pointer assignment. One follower rules that out:
-    ! a comma, because is_multi_var_assignment has already established that
-    ! the statement holds no '=' at all, so this is not a multi-target
-    ! assignment either.
-    !
-    ! Free form requires a blank between a statement keyword and a following
-    ! name (Fortran 2023 6.3.2.1), so "printf, 'check'" lexes as the single
-    ! name "printf" rather than PRINT with format f, which is what
-    ! gfortran.dg/print_fmt_2.f90 diagnoses.
-    !
-    ! A name that simply ends the statement is deliberately not reported.
-    ! It is equally unclassifiable, but the parser currently leaves the
-    ! trailing name of constructs such as "end type derived_type" unconsumed
-    ! and relies on the statement loop skipping it, so rejecting that shape
-    ! would reject valid programs.
-    logical function name_does_not_begin_a_statement(follower) result(is_bad)
-        type(token_t), intent(in) :: follower
-
-        is_bad = .false.
-        if (follower%kind /= TK_OPERATOR) return
-        is_bad = trim(follower%text) == ","
-    end function name_does_not_begin_a_statement
-
-    ! An assignment statement is complete once its right-hand expression is
-    ! parsed; anything other than a statement terminator after it leaves the
-    ! statement unclassifiable (gfortran.dg/pr56520.f90, "c = exp(a) )").
-    ! Reporting it here keeps the stray tokens from being silently skipped by
-    ! the statement loop.
-    subroutine reject_trailing_tokens(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: token
-
-        if (at_statement_end(parser)) return
-
-        token = parser%peek()
-        call parser%error_at_token( &
-            "Unclassifiable statement: unexpected '"//trim(token%text)// &
-            "' after the end of the assignment", token)
-    end subroutine reject_trailing_tokens
-
-    ! Both scans stop at the end of the current statement. Reading on into the
-    ! following lines made an unrelated later assignment supply the '=' that
-    ! this statement lacks, so "printf, 'check'" followed anywhere below by
-    ! "x = 1" was treated as the start of a multi-target assignment.
     logical function is_multi_var_assignment(parser)
         type(parser_state_t), intent(in) :: parser
         integer :: pos
@@ -227,7 +174,6 @@ contains
         saw_equals = .false.
 
         do pos = parser%current_token, size(parser%tokens)
-            if (token_ends_statement(parser%tokens(pos))) exit
             select case (parser%tokens(pos)%kind)
             case (TK_OPERATOR)
                 if (parser%tokens(pos)%text == "=") then
@@ -251,7 +197,6 @@ contains
             paren_depth = 0
 
             do while (pos < size(parser%tokens))
-                if (token_ends_statement(parser%tokens(pos))) exit
                 if (parser%tokens(pos)%kind == TK_OPERATOR) then
                     text = parser%tokens(pos)%text
                     select case (text)
@@ -272,19 +217,6 @@ contains
             end do
         end block
     end function is_multi_var_assignment
-
-    logical function token_ends_statement(token) result(is_end)
-        type(token_t), intent(in) :: token
-
-        select case (token%kind)
-        case (TK_EOF, TK_NEWLINE)
-            is_end = .true.
-        case (TK_OPERATOR)
-            is_end = trim(token%text) == ";"
-        case default
-            is_end = .false.
-        end select
-    end function token_ends_statement
 
     subroutine parse_multi_variable_assignment(parser, arena, stmt_index, &
             extra_indices)
