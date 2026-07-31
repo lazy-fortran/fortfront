@@ -17,6 +17,7 @@ module frontend_transformation_structure
         set_line_length_config, get_line_length_config
     use codegen_type_utils, only: set_type_standardization, &
         get_type_standardization
+    use source_bom, only: decode_source_bom
     use standardizer, only: set_standardizer_type_standardization, &
         get_standardizer_type_standardization
     implicit none

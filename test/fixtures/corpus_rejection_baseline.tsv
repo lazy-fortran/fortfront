@@ -507,7 +507,7 @@ ACCEPTED	examples/f90/type_is_1_ok.f90
 ACCEPTED	examples/f90/undefined_var_recursive_type.f90
 ACCEPTED	examples/f90/undefined_var_segfault.f90
 ACCEPTED	examples/f90/use_intrinsic_only.f90
-REJECTED	examples/f90/utf8_bom_example.f90
+ACCEPTED	examples/f90/utf8_bom_example.f90
 ACCEPTED	examples/f90/variable_tracking_array_access.f90
 ACCEPTED	examples/f90/variable_tracking_binary_ops.f90
 ACCEPTED	examples/f90/variable_tracking_complex_expr.f90
