@@ -51,6 +51,39 @@ program test_reject_label_01_diagnostics
         '   print *, a'//nl// &
         'end program pr24640', failures)
 
+    ! Issue #2944: a digit string that is not at the start of the statement is
+    ! part of the statement, not a label. Sources taken from the corpus files
+    ! named in the issue; all are accepted by gfortran -fsyntax-only.
+
+    ! lfortran/integration_tests/flush_04.f90
+    call expect_accepted('flush_04.f90 unit number', &
+        'program flush_04'//nl// &
+        '    use iso_fortran_env, only: output_unit, error_unit'//nl// &
+        '    implicit none'//nl// &
+        '    flush output_unit'//nl// &
+        '    flush error_unit'//nl// &
+        '    flush 6'//nl// &
+        'end program flush_04', failures)
+
+    ! lfortran/integration_tests/read_79.f90
+    call expect_accepted('read_79.f90 substring unit', &
+        'program read_79'//nl// &
+        '  logical :: x'//nl// &
+        '  integer :: stat'//nl// &
+        '  character(len=64) :: stored_data'//nl// &
+        '  stored_data = '' F'''//nl// &
+        '  stat = 0'//nl// &
+        '  read(stored_data(2:2), *, iostat=stat) x'//nl// &
+        '  if (stat /= 0) error stop'//nl// &
+        'end program read_79', failures)
+
+    ! gfortran.dg/comma_IO_extension_1.f90
+    call expect_accepted('comma_IO_extension_1.f90', &
+        'program extracomma'//nl// &
+        '  implicit none'//nl// &
+        '  write (*,*), 1, 2, 3'//nl// &
+        'end program extracomma', failures)
+
     ! Named construct labels keep working: they are identifiers, not labels.
     call expect_accepted('named construct label', &
         'program named'//nl// &
