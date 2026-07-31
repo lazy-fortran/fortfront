@@ -5,7 +5,9 @@ module parser_declaration_attributes_module
     use parser_expressions_module, only: parse_range
     use declaration_attribute_utils, only: declaration_attribute_info_t, &
         reset_declaration_attributes, &
-        set_declaration_intent
+        set_declaration_intent, &
+        attribute_validation_t, &
+        validate_attribute_addition
     implicit none
     private
 
@@ -44,7 +46,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_attribute_info_t), intent(inout) :: attr_info
 
-        type(token_t) :: token
+        type(token_t) :: token, attribute_token
         character(len=:), allocatable :: lowered
 
         handled = .false.
@@ -54,7 +56,17 @@ contains
         end if
 
         token = parser%peek()
+        attribute_token = token
         lowered = to_lower(trim(token%text))
+
+        ! INTENT is checked inside its own handler because the conflict rules
+        ! depend on the direction, which is not known until it is parsed.
+        if (is_declaration_attribute_keyword(lowered)) then
+            if (lowered /= "intent") then
+                call check_attribute_addition(parser, attr_info, lowered, &
+                    attribute_token)
+            end if
+        end if
 
         select case (lowered)
         case ("allocatable")
@@ -82,7 +94,8 @@ contains
             call handle_dimension_attribute(parser, arena, attr_info, handled)
         case ("intent")
             token = parser%consume()
-            call handle_intent_attribute(parser, attr_info, handled)
+            call handle_intent_attribute(parser, attr_info, handled, &
+                attribute_token)
         case ("bind")
             token = parser%consume()
             call handle_bind_attribute(parser, attr_info, handled)
@@ -127,6 +140,34 @@ contains
         end select
     end function parse_single_declaration_attribute
 
+    logical function is_declaration_attribute_keyword(name) result(is_attribute)
+        character(len=*), intent(in) :: name
+
+        select case (name)
+        case ("allocatable", "pointer", "parameter", "external", "unsigned", &
+                "dimension", "intent", "bind", "optional", "save", "target", &
+                "volatile", "protected", "asynchronous", "contiguous", "value", &
+                "public", "private")
+            is_attribute = .true.
+        case default
+            is_attribute = .false.
+        end select
+    end function is_declaration_attribute_keyword
+
+    subroutine check_attribute_addition(parser, attr_info, name, token)
+        type(parser_state_t), intent(inout) :: parser
+        type(declaration_attribute_info_t), intent(in) :: attr_info
+        character(len=*), intent(in) :: name
+        type(token_t), intent(in) :: token
+
+        type(attribute_validation_t) :: validation
+
+        validation = validate_attribute_addition(attr_info, name)
+        if (validation%valid) return
+        if (.not. allocated(validation%message)) return
+        call parser%error_at_token(validation%message, token)
+    end subroutine check_attribute_addition
+
     subroutine handle_dimension_attribute(parser, arena, attr_info, handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -151,10 +192,11 @@ contains
         attr_info%has_global_dimensions = .true.
     end subroutine handle_dimension_attribute
 
-    subroutine handle_intent_attribute(parser, attr_info, handled)
+    subroutine handle_intent_attribute(parser, attr_info, handled, attribute_token)
         type(parser_state_t), intent(inout) :: parser
         type(declaration_attribute_info_t), intent(inout) :: attr_info
         logical, intent(out) :: handled
+        type(token_t), intent(in) :: attribute_token
 
         type(token_t) :: token
         character(len=:), allocatable :: lowered
@@ -178,14 +220,10 @@ contains
         token = parser%peek()
         lowered = to_lower(trim(token%text))
         select case (lowered)
-        case ("in")
-            call set_declaration_intent(attr_info, "in")
-            token = parser%consume()
-        case ("out")
-            call set_declaration_intent(attr_info, "out")
-            token = parser%consume()
-        case ("inout")
-            call set_declaration_intent(attr_info, "inout")
+        case ("in", "out", "inout")
+            call check_attribute_addition(parser, attr_info, &
+                "intent(" // lowered // ")", attribute_token)
+            call set_declaration_intent(attr_info, lowered)
             token = parser%consume()
         case default
             return

@@ -75,6 +75,8 @@ contains
         call parse_variable_dimensions(parser, arena, local_dimension_indices, &
             has_local_dimensions)
         initializer_index = parse_variable_initializer(parser, arena, type_spec)
+        call validate_entity_attributes(parser, attr_info, has_local_dimensions, &
+            initializer_index, identifier_token)
 
         if (has_local_dimensions .and. allocated(local_dimension_indices)) then
             decl_index = add_single_declaration( &
@@ -95,6 +97,40 @@ contains
             end if
         end if
     end function parse_declaration
+
+    ! Attribute rules that the attr-spec list alone cannot decide because they
+    ! also depend on the entity's array spec or its initializer.
+    subroutine validate_entity_attributes(parser, attr_info, has_local_dims, &
+            initializer_index, entity_token)
+        type(parser_state_t), intent(inout) :: parser
+        type(declaration_attribute_info_t), intent(in) :: attr_info
+        logical, intent(in) :: has_local_dims
+        integer, intent(in) :: initializer_index
+        type(token_t), intent(in) :: entity_token
+
+        logical :: is_array
+
+        ! F2023 C8xx: an entity declared EXTERNAL is a procedure, so it has no
+        ! object to initialize.
+        if (attr_info%is_external) then
+            if (initializer_index > 0) then
+                call parser%error_at_token( &
+                    "EXTERNAL attribute conflicts with initialization", &
+                    entity_token)
+                return
+            end if
+        end if
+
+        ! F2023 C830: CONTIGUOUS requires an array pointer or an assumed-shape
+        ! array. Only the unambiguous scalar case is rejected here.
+        is_array = has_local_dims .or. attr_info%has_global_dimensions
+        if (attr_info%is_contiguous) then
+            if (.not. is_array) then
+                call parser%error_at_token( &
+                    "CONTIGUOUS attribute requires an array", entity_token)
+            end if
+        end if
+    end subroutine validate_entity_attributes
 
     subroutine skip_declaration_separator(parser)
         type(parser_state_t), intent(inout) :: parser
