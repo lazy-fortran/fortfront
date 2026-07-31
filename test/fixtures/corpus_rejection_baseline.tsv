@@ -111,7 +111,7 @@ ACCEPTED	examples/f90/f2003_type_bound_array_call.f90
 REJECTED	examples/f90/finalize_22.f90
 ACCEPTED	examples/f90/finalize_22_valid.f90
 ACCEPTED	examples/f90/if_multiline_guard.f90
-REJECTED	examples/f90/implicit_kind_selector_letter_specs.f90
+ACCEPTED	examples/f90/implicit_kind_selector_letter_specs.f90
 ACCEPTED	examples/f90/implicit_letter_spec_forms.f90
 ACCEPTED	examples/f90/implicit_none_single.f90
 REJECTED	examples/f90/impure_assignment_2.f90
@@ -452,8 +452,6 @@ REJECTED	examples/f90/pr104572.f90
 ACCEPTED	examples/f90/pr104572_valid.f90
 REJECTED	examples/f90/pr19936_3.f90
 ACCEPTED	examples/f90/pr19936_3_ok.f90
-REJECTED	examples/f90/pr56520.f90
-REJECTED	examples/f90/pr67526.f90
 REJECTED	examples/f90/pr77583.f90
 REJECTED	examples/f90/pr89943_3.f90
 REJECTED	examples/f90/pr89943_4.f90
@@ -465,7 +463,6 @@ REJECTED	examples/f90/pr93423.f90
 REJECTED	examples/f90/pr96099_1.f90
 ACCEPTED	examples/f90/pr96099_1_ok.f90
 REJECTED	examples/f90/pr96099_2.f90
-REJECTED	examples/f90/print_fmt_2.f90
 ACCEPTED	examples/f90/program_scaffold_preserve.f90
 ACCEPTED	examples/f90/program_scaffold_special_name.f90
 REJECTED	examples/f90/protected_9.f90

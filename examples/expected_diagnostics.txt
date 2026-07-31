@@ -13,9 +13,6 @@ f90/enum_3.f90
 f90/enum_6.f90
 f90/enum_7.f90
 f90/enum_8.f90
-f90/pr56520.f90
-f90/pr67526.f90
-f90/print_fmt_2.f90
 f90/parameter_save.f90
 f90/public_private_module.f90
 f90/pr77583.f90
