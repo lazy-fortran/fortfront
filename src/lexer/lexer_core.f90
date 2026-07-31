@@ -4,6 +4,7 @@ module lexer_core
     use lexer_scanners
     use error_handling
     use string_utils_mod, only: to_lower
+    use source_bom, only: decode_source_bom
     implicit none
     private
 
@@ -90,7 +91,8 @@ contains
         logical :: in_string, in_comment
 
         error_msg = ""
-        src = normalize_line_endings(source)
+        call decode_source_bom(source, src)
+        src = normalize_line_endings(src)
         src_len = len(src)
 
         pos = 1
@@ -272,7 +274,8 @@ contains
         logical :: pending_format
         integer :: format_paren_depth
 
-        src = normalize_line_endings(source)
+        call decode_source_bom(source, src)
+        src = normalize_line_endings(src)
 
         pos = 1
         line_num = 1
@@ -361,7 +364,8 @@ contains
         type(trivia_token_t), allocatable :: pending_trivia(:)
         integer :: pos, line_num, col_num, source_len
 
-        src = normalize_line_endings(source)
+        call decode_source_bom(source, src)
+        src = normalize_line_endings(src)
 
         pos = 1
         line_num = 1
