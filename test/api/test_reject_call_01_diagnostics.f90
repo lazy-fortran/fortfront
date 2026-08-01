@@ -227,18 +227,7 @@ contains
         character(len=:), allocatable :: source
 
         print *, 'Testing intrinsic actual with matching argument count (accepted)...'
-        source = 'module m'//new_line('a')// &
-            'implicit none'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'subroutine sub(a)'//new_line('a')// &
-            'interface'//new_line('a')// &
-            'function a(x)'//new_line('a')// &
-            'real :: a, x'//new_line('a')// &
-            'end function a'//new_line('a')// &
-            'end interface'//new_line('a')// &
-            'print *, a(4.0)'//new_line('a')// &
-            'end subroutine sub'//new_line('a')// &
-            'end module m'//new_line('a')// &
+        source = unary_dummy_function_module()//new_line('a')// &
             'program p'//new_line('a')// &
             'use m'//new_line('a')// &
             'implicit none'//new_line('a')// &
@@ -300,6 +289,25 @@ contains
             'end subroutine sub'//new_line('a')// &
             'end module m'
     end function dummy_function_module
+
+    ! As dummy_function_module, but the dummy function takes one argument, so
+    ! an intrinsic actual with matching arity is accepted.
+    function unary_dummy_function_module() result(text)
+        character(len=:), allocatable :: text
+
+        text = 'module m'//new_line('a')// &
+            'implicit none'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'subroutine sub(a)'//new_line('a')// &
+            'interface'//new_line('a')// &
+            'function a(x)'//new_line('a')// &
+            'real :: a, x'//new_line('a')// &
+            'end function a'//new_line('a')// &
+            'end interface'//new_line('a')// &
+            'print *, a(4.0)'//new_line('a')// &
+            'end subroutine sub'//new_line('a')// &
+            'end module m'
+    end function unary_dummy_function_module
 
     ! Module whose subroutine `test` takes a dummy subroutine with one
     ! INTENT(IN), OPTIONAL integer argument.
