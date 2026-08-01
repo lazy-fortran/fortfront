@@ -73,7 +73,31 @@ contains
 
             i = i + 1
         end do
+
+        ! The token stream ended with constructs still open. Every scanner
+        ! downstream locates a construct's span by matching its terminator; with
+        ! no terminator to match, the span runs to the end of the unit and
+        ! silently swallows everything after the construct. Rejecting here is
+        ! what keeps that from producing a shorter AST than the source
+        ! (issue #2983).
+        call report_unclosed_constructs(stack, depth, error_msg)
     end subroutine validate_construct_terminators
+
+    subroutine report_unclosed_constructs(stack, depth, error_msg)
+        type(open_construct_t), intent(in) :: stack(:)
+        integer, intent(in) :: depth
+        character(len=:), allocatable, intent(inout) :: error_msg
+
+        character(len=32) :: line_text, column_text
+
+        if (depth <= 0) return
+
+        write (line_text, '(I0)') stack(depth)%line
+        write (column_text, '(I0)') stack(depth)%column
+        error_msg = "Expecting END"//upper_kind(stack(depth)%kind)// &
+            " statement for the construct opened at line "//trim(line_text)// &
+            ", column "//trim(column_text)
+    end subroutine report_unclosed_constructs
 
     subroutine handle_statement(tokens, j, lowered, stack, depth, error_msg)
         type(token_t), intent(in) :: tokens(:)
@@ -94,6 +118,15 @@ contains
         case ("do")
             if (.not. starts_do_construct(tokens, j)) return
             call push_construct(stack, depth, "do", "", tokens(j))
+        case ("if")
+            if (.not. starts_block_if(tokens, j)) return
+            call push_construct(stack, depth, "if", "", tokens(j))
+        case ("select")
+            if (.not. starts_select_construct(tokens, j)) return
+            call push_construct(stack, depth, "select", "", tokens(j))
+        case ("associate")
+            if (.not. starts_associate_construct(tokens, j)) return
+            call push_construct(stack, depth, "associate", "", tokens(j))
         case ("interface")
             call push_construct(stack, depth, "interface", &
                 statement_remainder(tokens, j + 1), tokens(j))
@@ -101,6 +134,13 @@ contains
             call close_construct(stack, depth, "block", "", tokens(j), error_msg)
         case ("enddo")
             call close_construct(stack, depth, "do", "", tokens(j), error_msg)
+        case ("endif")
+            call close_construct(stack, depth, "if", "", tokens(j), error_msg)
+        case ("endselect")
+            call close_construct(stack, depth, "select", "", tokens(j), error_msg)
+        case ("endassociate")
+            call close_construct(stack, depth, "associate", "", tokens(j), &
+                error_msg)
         case ("endinterface")
             call close_construct(stack, depth, "interface", &
                 statement_remainder(tokens, j + 1), tokens(j), error_msg)
@@ -115,6 +155,14 @@ contains
                 call close_construct(stack, depth, "block", "", tokens(j), error_msg)
             case ("do")
                 call close_construct(stack, depth, "do", "", tokens(j), error_msg)
+            case ("if")
+                call close_construct(stack, depth, "if", "", tokens(j), error_msg)
+            case ("select")
+                call close_construct(stack, depth, "select", "", tokens(j), &
+                    error_msg)
+            case ("associate")
+                call close_construct(stack, depth, "associate", "", tokens(j), &
+                    error_msg)
             case ("interface")
                 call close_construct(stack, depth, "interface", &
                     statement_remainder(tokens, k + 1), tokens(j), error_msg)
@@ -219,6 +267,12 @@ contains
             text = " BLOCK"
         case ("do")
             text = " DO"
+        case ("if")
+            text = " IF"
+        case ("select")
+            text = " SELECT"
+        case ("associate")
+            text = " ASSOCIATE"
         case default
             text = " INTERFACE"
         end select
@@ -324,6 +378,60 @@ contains
         end if
         is_construct = .true.
     end function starts_do_construct
+
+    ! Only the block form of IF opens a construct: its statement ends with
+    ! THEN. "if (x) i = 1" is a single statement with no terminator.
+    logical function starts_block_if(tokens, j) result(is_construct)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: j
+
+        integer :: k, prev
+
+        is_construct = .false.
+        if (tokens(j)%kind /= TK_KEYWORD) return
+
+        prev = j
+        k = next_significant(tokens, j + 1)
+        do while (k > 0)
+            if (.not. continues_statement(tokens, prev, k)) exit
+            prev = k
+            k = next_significant(tokens, k + 1)
+        end do
+        if (prev == j) return
+        is_construct = to_lower(trim(tokens(prev)%text)) == "then"
+    end function starts_block_if
+
+    ! SELECT opens a construct only in the CASE, TYPE and RANK forms.
+    logical function starts_select_construct(tokens, j) result(is_construct)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: j
+
+        integer :: k
+
+        is_construct = .false.
+        if (tokens(j)%kind /= TK_KEYWORD) return
+        k = next_significant(tokens, j + 1)
+        if (.not. continues_statement(tokens, j, k)) return
+        select case (to_lower(trim(tokens(k)%text)))
+        case ("case", "type", "rank")
+            is_construct = .true.
+        end select
+    end function starts_select_construct
+
+    ! ASSOCIATE opens a construct when followed by its association list.
+    logical function starts_associate_construct(tokens, j) result(is_construct)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: j
+
+        integer :: k
+
+        is_construct = .false.
+        if (tokens(j)%kind /= TK_KEYWORD) return
+        k = next_significant(tokens, j + 1)
+        if (.not. continues_statement(tokens, j, k)) return
+        if (tokens(k)%kind /= TK_OPERATOR) return
+        is_construct = trim(tokens(k)%text) == "("
+    end function starts_associate_construct
 
     function statement_remainder(tokens, start) result(text)
         type(token_t), intent(in) :: tokens(:)
