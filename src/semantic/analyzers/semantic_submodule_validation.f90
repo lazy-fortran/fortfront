@@ -216,6 +216,9 @@ contains
             interface_is_module, interface_label)
         if (.not. allocated(interface_label)) return
         if (.not. allocated(label)) return
+        ! A MODULE PROCEDURE body carries no binding label of its own; it
+        ! inherits the one from its interface body (F2023 C1554).
+        if (len_trim(label) == 0) return
         if (label == interface_label) return
 
         call report(errors, 'mismatch in BIND(C) names ("'//label//'"/"'// &
