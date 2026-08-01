@@ -592,7 +592,7 @@ contains
 
         token = parser%peek()
         if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
-            token%text == "end") then
+            to_lower(trim(token%text)) == "end") then
             return
         end if
 
@@ -1237,14 +1237,15 @@ contains
 
         ! Handle end of type definition
         if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
-            token%text &
-            == "end") then
+            to_lower(trim(adjustl(token%text))) == "end") then
             return
         end if
 
-        ! Check for type declaration keywords
+        ! Check for type declaration keywords. Fortran keywords are
+        ! case-insensitive: matching the raw source spelling dropped every
+        ! component written in upper case (issue #2966).
         if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
-            select case (trim(adjustl(token%text)))
+            select case (to_lower(trim(adjustl(token%text))))
             case ("integer", "real", "complex", "logical", "character", &
                     "type", "class", "double", "procedure")
                 comp_index = parse_declaration(parser, arena)
