@@ -325,9 +325,51 @@
             type is (interface_block_node)
                 if (contains_seen) cycle
                 call extract_declaration_names(arena, idx, state)
+            type is (block_construct_node)
+                ! A BLOCK construct has its own specification part. Its local
+                ! entities are not visible outside it (F2018 11.1.4), but the
+                ! identifier walk below does descend into the block body, so
+                ! without recording these names an assignment to a block-local
+                ! is mistaken for an undeclared program-scope variable and a
+                ! declaration is invented for it -- with the fallback type,
+                ! not the declared one (issue #2989).
+                if (contains_seen) cycle
+                if (allocated(decl%body_indices)) then
+                    call record_block_local_names(arena, decl%body_indices, state)
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
+
+    ! Record the names a BLOCK construct declares, descending through nested
+    ! BLOCKs. Only declarations are recorded: a name merely assigned inside a
+    ! block is host-associated from the enclosing scope, so it must still reach
+    ! the program-scope collector.
+    recursive subroutine record_block_local_names(arena, body_indices, state)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, j, idx
+
+        do i = 1, size(body_indices)
+            idx = body_indices(i)
+            if (.not. arena%has_node_at(idx)) cycle
+            select type (inner => arena%entries(idx)%node)
+            type is (declaration_node)
+                if (inner%is_multi_declaration .and. allocated(inner%var_names)) then
+                    do j = 1, size(inner%var_names)
+                        call record_declared_name(state, trim(inner%var_names(j)))
+                    end do
+                else
+                    call record_declared_name(state, trim(inner%var_name))
+                end if
+            type is (block_construct_node)
+                if (allocated(inner%body_indices)) then
+                    call record_block_local_names(arena, inner%body_indices, state)
+                end if
+            end select
+        end do
+    end subroutine record_block_local_names
 
     subroutine collect_namelist_groups(arena, prog, state)
         type(ast_arena_t), intent(in) :: arena
