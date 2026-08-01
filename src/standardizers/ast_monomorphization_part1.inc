@@ -269,8 +269,9 @@
         integer, intent(inout) :: module_count
         character(len=*), allocatable, intent(inout) :: module_names(:)
         type(type_signature_t), allocatable :: proc_sigs(:)
+        type(type_signature_t), allocatable :: all_sigs(:)
         integer, allocatable :: variant_indices(:)
-        integer :: mod_idx
+        integer :: mod_idx, sig_i
 
         if (procedure_has_explicit_types(arena, proc_idx)) then
             handled = .false.
@@ -287,9 +288,17 @@
             return
         end if
 
+        ! Issue #2971: keep every call site's signature, not just the unique
+        ! ones, so each call can be routed to the specialization made for it.
+        all_sigs = proc_sigs
+        do sig_i = 1, size(all_sigs)
+            call normalize_signature_param_types(all_sigs(sig_i))
+        end do
+
         call normalize_and_deduplicate_signatures(proc_sigs, handled)
         if (.not. handled) then
             if (allocated(proc_sigs)) deallocate (proc_sigs)
+            if (allocated(all_sigs)) deallocate (all_sigs)
             return
         end if
 
@@ -299,10 +308,68 @@
                                                variant_indices)
         call register_generated_module(mod_idx, proc_name, module_indices, &
                                        module_count, module_names)
+        call rename_call_sites_to_specializations(arena, proc_name, all_sigs, &
+                                                  proc_sigs)
 
+        if (allocated(all_sigs)) deallocate (all_sigs)
         if (allocated(proc_sigs)) deallocate (proc_sigs)
         if (allocated(variant_indices)) deallocate (variant_indices)
     end subroutine process_specializable_procedure
+
+    ! Issue #2971: every call site must name the specialization created for it,
+    ! leaving the untyped original unreferenced.
+    subroutine rename_call_sites_to_specializations(arena, proc_name, all_sigs, &
+                                                    unique_sigs)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: proc_name
+        type(type_signature_t), intent(in) :: all_sigs(:)
+        type(type_signature_t), intent(in) :: unique_sigs(:)
+        integer :: j, k
+        character(len=:), allocatable :: mangled_name
+
+        do j = 1, size(all_sigs)
+            if (all_sigs(j)%call_site_node <= 0) cycle
+            do k = 1, size(unique_sigs)
+                if (.not. signatures_are_identical(all_sigs(j), &
+                                                   unique_sigs(k))) cycle
+                mangled_name = signature_mangled_name(proc_name, unique_sigs(k))
+                call set_call_site_name(arena, all_sigs(j)%call_site_node, &
+                                        proc_name, mangled_name)
+                exit
+            end do
+        end do
+    end subroutine rename_call_sites_to_specializations
+
+    function signature_mangled_name(proc_name, signature) result(mangled_name)
+        character(len=*), intent(in) :: proc_name
+        type(type_signature_t), intent(in) :: signature
+        character(len=:), allocatable :: mangled_name
+
+        if (allocated(signature%param_type_strings)) then
+            mangled_name = mangle_procedure_name(proc_name, &
+                                                 signature%param_kinds, &
+                                                 signature%param_type_strings)
+        else
+            mangled_name = mangle_procedure_name(proc_name, &
+                                                 signature%param_kinds)
+        end if
+    end function signature_mangled_name
+
+    subroutine set_call_site_name(arena, call_index, expected_name, new_name)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: call_index
+        character(len=*), intent(in) :: expected_name
+        character(len=*), intent(in) :: new_name
+
+        if (len_trim(new_name) == 0) return
+        if (.not. arena%has_node_at(call_index)) return
+        select type (node => arena%entries(call_index)%node)
+        type is (call_or_subscript_node)
+            if (.not. allocated(node%name)) return
+            if (node%name /= expected_name) return
+            node%name = trim(new_name)
+        end select
+    end subroutine set_call_site_name
 
     subroutine debug_log_signatures(signatures, proc_name)
         type(signatures_map_t), intent(in) :: signatures
