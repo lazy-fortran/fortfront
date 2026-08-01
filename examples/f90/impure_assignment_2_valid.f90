@@ -1,6 +1,7 @@
 program impure_assignment_2_valid
-    ! VALID neighbour of impure_assignment_2.f90. The PURE function only reads
-    ! its dummy argument; the definition of the dummy moves into an impure
+    ! VALID neighbour of impure_assignment_2.f90. The pointer result is
+    ! produced by a PURE subroutine, where a POINTER dummy may be the target
+    ! of a pointer assignment; the definition of the dummy moves into an impure
     ! subroutine where a variable definition context is allowed.
     implicit none
 
@@ -10,11 +11,11 @@ program impure_assignment_2_valid
 
 contains
 
-    pure function give_next(node) result(res)
+    pure subroutine give_next(node, res)
         type(node_type), pointer :: node
         type(node_type), pointer :: res
         res => node%next
-    end function give_next
+    end subroutine give_next
 
     subroutine link(node, other)
         type(node_type), pointer :: node
