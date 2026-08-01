@@ -12,6 +12,10 @@ module parser_construct_terminators_module
     private
 
     public :: validate_construct_terminators
+    ! Token-stream helpers shared with the statement placement validator so
+    ! that both validators walk statements the same way.
+    public :: is_trivia, is_statement_start, skip_statement_label
+    public :: next_significant, continues_statement, diagnostic
 
     type :: open_construct_t
         character(len=:), allocatable :: kind
