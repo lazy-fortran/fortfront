@@ -6,7 +6,6 @@ program test_module_distribution
     ! When: The build system collects all .mod files
     ! Then: All required Fortran modules should be available for external use
     !
-    use test_filesystem_helpers, only: cleanup_file
     implicit none
 
     integer :: test_count, pass_count
@@ -75,6 +74,8 @@ program test_module_distribution
     end if
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     subroutine test_core_modules_available()
         ! Given: A static library build with module collection

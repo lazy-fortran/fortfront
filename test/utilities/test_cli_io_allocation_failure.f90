@@ -1,7 +1,5 @@
 program test_cli_io_allocation_failure
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-        make_temp_file_path
     implicit none
 
     character(len=:), allocatable :: text
@@ -19,6 +17,8 @@ program test_cli_io_allocation_failure
     print *, 'PASS: CLI I/O allocation failure branch covered'
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     subroutine test_small_input(is_windows)
         logical, intent(in) :: is_windows

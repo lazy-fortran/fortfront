@@ -3,9 +3,6 @@ module test_roundtrip_core
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
-    use test_filesystem_helpers, only: create_temp_directory, &
-        cleanup_temp_directory
-    use test_shell_commands, only: build_compile_command
     implicit none
     private
 
@@ -28,6 +25,9 @@ module test_roundtrip_core
     end type roundtrip_result_t
 
 contains
+
+    include '../common/filesystem_helpers.inc'
+    include '../common/shell_commands.inc'
 
     subroutine run_roundtrip_test(source, result, skip_compile, is_windows)
         character(len=*), intent(in) :: source
