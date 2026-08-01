@@ -5,6 +5,7 @@ module scope_manager
     use identifier_table, only: identifier_table_t, identifier_table_init, &
         identifier_table_intern, identifier_table_find, &
         identifier_id_kind
+    use string_utils_mod, only: to_lower
     use error_handling, only: &
         success_result, ERROR_MEMORY
     implicit none
@@ -574,7 +575,8 @@ module scope_manager
 
                         do i = 1, this%count
                             if (.not. allocated(this%entries(i)%label)) cycle
-                            if (this%entries(i)%label /= trim(label)) cycle
+                            if (to_lower(this%entries(i)%label) /= &
+                                to_lower(trim(label))) cycle
                             if (.not. allocated(this%entries(i)%entity)) cycle
                             if (same_entity_name(this%entries(i)%entity, entity)) return
                             has_collision = .true.
