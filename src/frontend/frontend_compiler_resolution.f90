@@ -51,6 +51,7 @@ module frontend_compiler_resolution
     public :: resolve_name_in_scope
     public :: resolve_name_at_node
     public :: resolve_identifier_binding
+    public :: find_module_index
 
 contains
 

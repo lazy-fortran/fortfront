@@ -20,6 +20,7 @@ use semantic_type_hierarchy_validation, only: populate_type_hierarchy
 use semantic_enum_validation, only: validate_enum_definitions
 use semantic_literal_form_validation, only: validate_literal_forms
 use semantic_use_nature_validation, only: validate_use_module_nature
+use semantic_use_export_validation, only: validate_use_only_exports
 use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
 use semantic_submodule_validation, only: validate_submodule_interfaces
@@ -111,6 +112,7 @@ contains
         ! Whole-arena scoping-unit checks. They run for every root kind,
         ! including a bare module root, which the dispatch below skips.
         call validate_use_module_nature(arena, ctx%errors)
+        call validate_use_only_exports(arena, ctx%errors)
         call validate_local_name_collisions(arena, ctx%errors)
 
         ! Separate module subprograms are checked against the interface bodies

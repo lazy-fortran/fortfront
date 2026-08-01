@@ -3,7 +3,7 @@ module parser_import_resolution_module
     ! Import resolution module for use, include statements
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_STRING, &
         TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-        TK_WHITESPACE
+        TK_WHITESPACE, TK_EOF
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_use_statement, push_include_statement, push_literal
@@ -11,6 +11,7 @@ module parser_import_resolution_module
     use ast_types, only: LITERAL_STRING
     use string_types, only: string_t
     use url_utilities, only: extract_module_from_url
+    use generic_spec_names, only: make_generic_spec
     implicit none
     private
 
@@ -141,6 +142,7 @@ contains
             character(len=:), allocatable :: local_name, remote_name
 
             token = parser%peek()
+            if (parse_generic_spec_entry(parser)) return
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
                 local_name = trimmed_or_empty(token%text)
@@ -162,6 +164,83 @@ contains
                 end if
             end if
         end subroutine parse_single_identifier_with_rename
+
+        ! A USE ONLY list entry may be a generic spec: OPERATOR(op) or
+        ! ASSIGNMENT(=). Store it in the canonical spec form so that the two
+        ! spellings of a relational operator compare equal.
+        logical function parse_generic_spec_entry(parser) result(handled)
+            type(parser_state_t), intent(inout) :: parser
+            type(token_t) :: token
+            type(token_t) :: next_token
+            character(len=:), allocatable :: spec_kind
+            character(len=:), allocatable :: symbol
+            character(len=:), allocatable :: spec
+            character(len=:), allocatable :: target_spec
+
+            handled = .false.
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+            spec_kind = to_lower(trim(token%text))
+            if (spec_kind /= "operator" .and. spec_kind /= "assignment") return
+            next_token = parser%get_token_at_index(parser%current_token + 1)
+            if (next_token%kind /= TK_OPERATOR) return
+            if (trim(next_token%text) /= "(") return
+
+            handled = .true.
+            token = parser%consume() ! spec keyword
+            token = parser%consume() ! '('
+            token = parser%peek()
+            symbol = trim(token%text)
+            if (token%kind /= TK_EOF) token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                token = parser%consume()
+            end if
+            spec = make_generic_spec(spec_kind, symbol)
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == "=>") then
+                token = parser%consume()
+                if (parse_generic_spec_target(parser, target_spec)) then
+                    call append_rename_pair(spec, target_spec)
+                    return
+                end if
+            end if
+            call append_only(spec)
+        end function parse_generic_spec_entry
+
+        ! The target of a rename may itself be a generic spec, as in
+        ! OPERATOR(.local.) => OPERATOR(.remote.).
+        logical function parse_generic_spec_target(parser, spec) result(parsed)
+            type(parser_state_t), intent(inout) :: parser
+            character(len=:), allocatable, intent(out) :: spec
+            type(token_t) :: token
+            type(token_t) :: next_token
+            character(len=:), allocatable :: spec_kind
+            character(len=:), allocatable :: symbol
+
+            parsed = .false.
+            spec = ""
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+            spec_kind = to_lower(trim(token%text))
+            if (spec_kind /= "operator" .and. spec_kind /= "assignment") return
+            next_token = parser%get_token_at_index(parser%current_token + 1)
+            if (next_token%kind /= TK_OPERATOR) return
+            if (trim(next_token%text) /= "(") return
+
+            parsed = .true.
+            token = parser%consume() ! spec keyword
+            token = parser%consume() ! '('
+            token = parser%peek()
+            symbol = trim(token%text)
+            if (token%kind /= TK_EOF) token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                token = parser%consume()
+            end if
+            spec = make_generic_spec(spec_kind, symbol)
+        end function parse_generic_spec_target
 
         function trimmed_or_empty(text) result(clean)
             character(len=*), intent(in) :: text

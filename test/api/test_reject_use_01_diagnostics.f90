@@ -19,6 +19,19 @@ program test_reject_use_01_diagnostics
     all_passed = .true.
     if (.not. test_conflicting_natures_rejected()) all_passed = .false.
     if (.not. test_corrected_neighbour_accepted()) all_passed = .false.
+    if (.not. test_missing_export_rejected('use_9', 'operator(.func.)')) &
+        all_passed = .false.
+    if (.not. test_missing_export_rejected('use_19', 'operator(/)')) &
+        all_passed = .false.
+    if (.not. test_missing_export_rejected('operator_6', 'operator(.none.)')) &
+        all_passed = .false.
+    if (.not. test_missing_export_rejected('interface_operator_3', &
+        'operator(/=)')) all_passed = .false.
+    if (.not. test_accepted('use_9_corrected')) all_passed = .false.
+    if (.not. test_accepted('use_19_corrected')) all_passed = .false.
+    if (.not. test_accepted('operator_6_corrected')) all_passed = .false.
+    if (.not. test_accepted('interface_operator_3_corrected')) &
+        all_passed = .false.
 
     if (all_passed) then
         print *, 'All reject-use-01 diagnostics tests passed.'
@@ -77,6 +90,58 @@ contains
         end if
         print *, '  PASS: corrected neighbour still accepted'
     end function test_corrected_neighbour_accepted
+
+    ! A USE ONLY list may only access entities the module really exports
+    ! (F2023 14.2.2). The expected entity text is the canonical generic spec.
+    logical function test_missing_export_rejected(basename, entity) result(ok)
+        character(len=*), intent(in) :: basename
+        character(len=*), intent(in) :: entity
+        type(compiler_frontend_result_t) :: result
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: text
+
+        ok = .true.
+        call read_example('examples/f90/'//basename//'.f90', source)
+        call compile_standard(source, result)
+
+        if (result%success()) then
+            print *, '  FAIL: accepted missing export in ', basename
+            ok = .false.
+            return
+        end if
+
+        text = lowered(diagnostic_of(result))
+        if (index(text, 'not found in module') == 0) then
+            print *, '  FAIL: wrong rule for ', basename, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        if (index(text, lowered(entity)) == 0) then
+            print *, '  FAIL: diagnostic does not name ', entity, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        print *, '  PASS: missing export rejected in ', basename
+    end function test_missing_export_rejected
+
+    logical function test_accepted(basename) result(ok)
+        character(len=*), intent(in) :: basename
+        type(compiler_frontend_result_t) :: result
+        character(len=:), allocatable :: source
+
+        ok = .true.
+        call read_example('examples/f90/'//basename//'.f90', source)
+        call compile_standard(source, result)
+        if (.not. result%success()) then
+            print *, '  FAIL: rejected valid ', basename, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        print *, '  PASS: accepted ', basename
+    end function test_accepted
 
     subroutine compile_standard(source, result)
         character(len=*), intent(in) :: source
