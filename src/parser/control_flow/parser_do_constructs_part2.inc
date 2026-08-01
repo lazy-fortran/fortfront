@@ -57,11 +57,20 @@
             integer, allocatable :: temp_body_indices(:)
             type(token_t) :: token
             integer :: stmt_start, stmt_end, j, token_count, next_index
+            integer :: block_end, do_pos
+            logical :: handled_block
             type(token_t), allocatable, target :: stmt_tokens(:)
 
             allocate (temp_body_indices(0))
 
             do while (.not. parser%is_at_end())
+                ! The DO WHILE header is a complete line.  Consume its trailing
+                ! trivia before taking the first body statement; otherwise the
+                ! leading newline or indentation is handed to the one-line
+                ! statement parser as if it were source code.
+                parser%current_token = skip_trivia_tokens(parser%tokens, &
+                                                          parser%current_token)
+                if (parser%is_at_end()) exit
                 token = parser%peek()
 
                 if (token%kind == TK_KEYWORD .and. token%text == "end") then
@@ -78,6 +87,29 @@
 
                 stmt_start = parser%current_token
                 stmt_end = stmt_start
+
+                ! A construct in a DO WHILE body must be handed to the
+                ! construct parser as one token range.  Parsing only the
+                ! header line creates an empty control node and leaves its
+                ! body as siblings of that node.
+                handled_block = .false.
+                do_pos = stmt_start
+                if (parser%tokens(do_pos)%kind == TK_KEYWORD) then
+                    select case (to_lower(parser%tokens(do_pos)%text))
+                    case ("if")
+                        block_end = find_matching_end_if(parser%tokens, do_pos)
+                        if (block_end > do_pos) then
+                            stmt_end = block_end
+                            handled_block = .true.
+                        end if
+                    case ("do")
+                        block_end = find_matching_end_do(parser%tokens, do_pos)
+                        if (block_end > do_pos) then
+                            stmt_end = block_end
+                            handled_block = .true.
+                        end if
+                    end select
+                end if
 
                 if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
                     if (parser%tokens(stmt_start)%text == "enddo" .or. &
@@ -100,21 +132,23 @@
                     end if
                 end if
 
-                do j = stmt_start, size(parser%tokens)
-                    select case (parser%tokens(j)%kind)
-                    case (TK_EOF)
-                        stmt_end = j
-                        exit
-                    case (TK_NEWLINE)
-                        if (j == stmt_start) then
+                if (.not. handled_block) then
+                    do j = stmt_start, size(parser%tokens)
+                        select case (parser%tokens(j)%kind)
+                        case (TK_EOF)
                             stmt_end = j
-                        else
-                            stmt_end = j - 1
-                        end if
-                        exit
-                    end select
-                    stmt_end = j
-                end do
+                            exit
+                        case (TK_NEWLINE)
+                            if (j == stmt_start) then
+                                stmt_end = j
+                            else
+                                stmt_end = j - 1
+                            end if
+                            exit
+                        end select
+                        stmt_end = j
+                    end do
+                end if
 
                 if (stmt_end >= stmt_start) then
                     token_count = stmt_end - stmt_start + 1
