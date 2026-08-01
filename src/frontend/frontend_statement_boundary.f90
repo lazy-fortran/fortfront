@@ -341,7 +341,11 @@ contains
             end if
         case ("type")
             if (tokens(stmt_start)%text == "type" .and. idx > stmt_start) then
-                nesting_level = nesting_level + 1
+                ! Component declarations such as "type(a_t) :: y" reuse the
+                ! keyword but do not open a nested definition.
+                if (is_type_start(tokens, idx)) then
+                    nesting_level = nesting_level + 1
+                end if
             end if
         case ("forall")
             if (idx > stmt_start) then
