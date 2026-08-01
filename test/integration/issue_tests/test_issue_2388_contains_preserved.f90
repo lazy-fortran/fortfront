@@ -151,14 +151,13 @@ program test_issue_2388_contains_preserved
 
 contains
 
+    include '../../common/filesystem_helpers.inc'
+    include '../../common/shell_commands.inc'
+
     include '../../common/read_example.inc'
 
 
     subroutine assert_compiles(text, basename)
-        use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-            cleanup_temp_directory, join_path, &
-            path_separator_for
-        use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: basename
         character(len=:), allocatable :: filename

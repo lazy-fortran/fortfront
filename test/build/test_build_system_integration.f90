@@ -6,7 +6,6 @@ program test_build_system_integration
     ! When: Build commands are executed with proper configuration
     ! Then: The build system reliably produces all required artifacts
     !
-    use test_filesystem_helpers, only: cleanup_file
     implicit none
 
     integer :: test_count, pass_count
@@ -70,6 +69,8 @@ program test_build_system_integration
     end if
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     subroutine test_fpm_configuration()
         ! Given: An fpm.toml file for the fortfront project

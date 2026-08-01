@@ -1,8 +1,4 @@
 module test_module_discovery
-    use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-        directory_from_path, find_last_separator, &
-        join_path, &
-        path_separator_for
     implicit none
     private
     public :: get_module_directory
@@ -11,6 +7,8 @@ module test_module_discovery
     public :: fallback_module_dir_search
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     function get_module_directory(executable_path) result(module_dir)
         character(len=*), intent(in) :: executable_path

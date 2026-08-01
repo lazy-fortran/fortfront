@@ -1,12 +1,6 @@
-module test_shell_commands
-    implicit none
-    private
-    public :: build_compile_command
-    public :: quote_for_shell
-    public :: verify_shell_helpers
-
-contains
-
+! Shared shell-command helpers for tests (issue #2909).
+! Textually included inside a test program's `contains` section so that
+! this scaffolding never compiles into libfortfront.
     function build_compile_command(output_file, module_dir, temp_dir, &
             is_windows) result(command)
         character(len=*), intent(in) :: output_file
@@ -125,5 +119,3 @@ contains
             end if
         end if
     end subroutine verify_shell_helpers
-
-end module test_shell_commands

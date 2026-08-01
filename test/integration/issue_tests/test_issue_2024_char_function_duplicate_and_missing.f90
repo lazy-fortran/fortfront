@@ -64,6 +64,8 @@ program test_issue_2024_char_function_duplicate_and_missing
 
 contains
 
+    include '../../common/shell_commands.inc'
+
     subroutine assert_no_duplicate_declaration(text, var_name)
         character(len=*), intent(in) :: text, var_name
         integer :: count, pos
@@ -98,7 +100,6 @@ contains
     end subroutine assert_contains
 
     subroutine test_compilation(source_text, basename)
-        use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: source_text, basename
         character(len=256) :: filename, cmd, temp_dir, obj_file
         integer :: unit, ios, exit_code
