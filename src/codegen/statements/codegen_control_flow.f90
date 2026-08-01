@@ -1,5 +1,6 @@
 module codegen_control_flow
     use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
     use ast_nodes_control
     use type_system_unified
     use codegen_indent
@@ -22,6 +23,29 @@ module codegen_control_flow
     public :: generate_code_block_construct
 
 contains
+
+    ! "name: " for a named construct, empty otherwise. One helper for every
+    ! construct so the spelling cannot drift between them (#2984).
+    function construct_prefix(node) result(text)
+        class(ast_node), intent(in) :: node
+        character(len=:), allocatable :: text
+
+        text = ""
+        if (.not. allocated(node%construct_name)) return
+        if (len_trim(node%construct_name) == 0) return
+        text = trim(adjustl(node%construct_name))//": "
+    end function construct_prefix
+
+    ! " name" for the END statement of a named construct, empty otherwise.
+    function construct_suffix(node) result(text)
+        class(ast_node), intent(in) :: node
+        character(len=:), allocatable :: text
+
+        text = ""
+        if (.not. allocated(node%construct_name)) return
+        if (len_trim(node%construct_name) == 0) return
+        text = " "//trim(adjustl(node%construct_name))
+    end function construct_suffix
 
     function append_header_comment(code, comment) result(out)
         character(len=:), allocatable, intent(in) :: code
@@ -110,7 +134,7 @@ contains
         end if
 
         ! Generate if statement in block form
-        code = "if ("//cond_code//") then"
+        code = construct_prefix(node)//"if ("//cond_code//") then"
         code = append_header_comment(code, node%trailing_comment)
 
         ! Generate then body
@@ -152,7 +176,8 @@ contains
         end if
 
         ! Generate end if
-        code = code//new_line('A')//repeat("    ", indent_level)//"end if"
+        code = code//new_line('A')//repeat("    ", indent_level)//"end if"// &
+            construct_suffix(node)
     end function generate_code_if
 
     ! Try to generate single-line IF statement if conditions are met
@@ -164,6 +189,11 @@ contains
         character(len=:), allocatable :: stmt_code
         integer :: stmt_index
 
+        ! A named IF must keep its block form: there is nowhere to put the
+        ! construct name on a one-line IF (#2984).
+        if (allocated(node%construct_name)) then
+            if (len_trim(node%construct_name) > 0) return
+        end if
         if (.not. allocated(node%then_body_indices)) return
         if (size(node%then_body_indices) /= 1) return
 
@@ -233,30 +263,18 @@ contains
             if (allocated(node%type_spec) .and. len_trim(node%type_spec) > 0) then
                 index_code = trim(node%type_spec)//" :: "//var_code
             end if
-            if (allocated(node%label)) then
-                code = trim(adjustl(node%label))//": do concurrent ("// &
-                    index_code// &
-                    " = "//start_code//":"//end_code
-                end_keyword = "end do "//trim(adjustl(node%label))
-            else
-                code = "do concurrent ("//index_code//" = "//start_code//":"// &
-                    end_code
-                end_keyword = "end do"
-            end if
+            code = construct_prefix(node)//"do concurrent ("//index_code// &
+                " = "//start_code//":"//end_code
+            end_keyword = "end do"//construct_suffix(node)
             if (len(step_code) > 0) then
                 code = code//":"//step_code
             end if
             code = code//")"
         else
             ! Regular DO loop syntax: do var = start, end [, step]
-            if (allocated(node%label)) then
-                code = trim(adjustl(node%label))//": do "//var_code//" = "// &
-                    start_code//", "//end_code
-                end_keyword = "end do "//trim(adjustl(node%label))
-            else
-                code = "do "//var_code//" = "//start_code//", "//end_code
-                end_keyword = "end do"
-            end if
+            code = construct_prefix(node)//"do "//var_code//" = "// &
+                start_code//", "//end_code
+            end_keyword = "end do"//construct_suffix(node)
             if (len(step_code) > 0) then
                 code = code//", "//step_code
             end if
@@ -323,7 +341,7 @@ contains
         end if
 
         ! Generate select case statement
-        code = "select case ("//expr_code//")"
+        code = construct_prefix(node)//"select case ("//expr_code//")"
 
         ! Generate case blocks
         if (allocated(node%case_indices)) then
@@ -410,7 +428,8 @@ contains
         end if
 
         ! Generate end select
-        code = code//new_line('A')//repeat("    ", indent_level)//"end select"
+        code = code//new_line('A')//repeat("    ", indent_level)//"end select"// &
+            construct_suffix(node)
     end function generate_code_select_case
 
     ! Generate code for select type statements
@@ -432,7 +451,7 @@ contains
         end if
 
         ! Generate select type statement
-        code = "select type ("//expr_code//")"
+        code = construct_prefix(node)//"select type ("//expr_code//")"
 
         ! Generate type guard blocks
         if (allocated(node%guard_indices)) then
@@ -489,7 +508,8 @@ contains
         end if
 
         ! Generate end select
-        code = code//new_line('A')//repeat("    ", indent_level)//"end select"
+        code = code//new_line('A')//repeat("    ", indent_level)//"end select"// &
+            construct_suffix(node)
     end function generate_code_select_type
 
     ! Generate code for SELECT RANK constructs
@@ -512,7 +532,7 @@ contains
         end if
 
         ! Generate select rank statement
-        code = "select rank ("//expr_code//")"
+        code = construct_prefix(node)//"select rank ("//expr_code//")"
 
         ! Generate rank blocks
         if (allocated(node%rank_indices)) then
@@ -566,7 +586,8 @@ contains
         end if
 
         ! Generate end select
-        code = code//new_line('A')//repeat("    ", indent_level)//"end select"
+        code = code//new_line('A')//repeat("    ", indent_level)//"end select"// &
+            construct_suffix(node)
     end function generate_code_select_rank
 
     ! Generate code for where constructs
@@ -692,7 +713,7 @@ contains
         indent_level = 0
 
         ! Generate associate statement
-        code = "associate ("
+        code = construct_prefix(node)//"associate ("
 
         ! Generate associations
         if (allocated(node%associations)) then
@@ -724,7 +745,7 @@ contains
 
         ! Generate end associate
         code = code//new_line('A')//repeat("    ", indent_level)
-        code = code//"end associate"
+        code = code//"end associate"//construct_suffix(node)
     end function generate_code_associate
 
     function generate_code_block_construct(arena, node, node_index) result(code)
@@ -736,7 +757,7 @@ contains
         integer :: indent_level
 
         indent_level = 0
-        code = "block"
+        code = construct_prefix(node)//"block"
 
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_internal( &
@@ -747,7 +768,7 @@ contains
         end if
 
         code = code//new_line('A')//repeat("    ", indent_level)
-        code = code//"end block"
+        code = code//"end block"//construct_suffix(node)
     end function generate_code_block_construct
 
     ! Internal function to generate grouped body

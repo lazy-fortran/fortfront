@@ -1,7 +1,7 @@
 module ast_nodes_associate
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t, copy_ast_node_base
     implicit none
     private
 
@@ -49,16 +49,7 @@ contains
         class(associate_node), intent(in) :: rhs
         integer :: i
 
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         ! Copy associations
         if (allocated(rhs%associations)) then
@@ -107,15 +98,7 @@ contains
         class(block_construct_node), intent(inout) :: lhs
         class(block_construct_node), intent(in) :: rhs
 
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
 
         if (allocated(rhs%body_indices)) then
             lhs%body_indices = rhs%body_indices

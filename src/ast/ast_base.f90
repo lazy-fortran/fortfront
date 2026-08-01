@@ -41,6 +41,11 @@ module ast_base
         ! Statement label (for GOTO targets, like 10  i = i + 1)
         character(len=:), allocatable :: stmt_label
 
+        ! Construct name of a named construct ("check: if (...) then ...
+        ! end if check"). EXIT and CYCLE refer to a construct by this name, so
+        ! it has to survive on the node for a consumer to resolve them.
+        character(len=:), allocatable :: construct_name
+
         ! Trailing inline comment (e.g. "x = 1  ! set x")
         character(len=:), allocatable :: trailing_comment
 
@@ -104,6 +109,11 @@ contains
             lhs%stmt_label = rhs%stmt_label
         else if (allocated(lhs%stmt_label)) then
             deallocate (lhs%stmt_label)
+        end if
+        if (allocated(rhs%construct_name)) then
+            lhs%construct_name = rhs%construct_name
+        else if (allocated(lhs%construct_name)) then
+            deallocate (lhs%construct_name)
         end if
         if (allocated(rhs%trailing_comment)) then
             lhs%trailing_comment = rhs%trailing_comment

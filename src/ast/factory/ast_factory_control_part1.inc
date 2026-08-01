@@ -99,7 +99,12 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
         loop_node%uid = generate_uid()
 
         loop_node%var_name = var_name
-        if (present(loop_label)) loop_node%label = loop_label
+        if (present(loop_label)) then
+            loop_node%label = loop_label
+            ! Every construct reports its name through the same base field so
+            ! one query serves all of them (#2984).
+            loop_node%construct_name = loop_label
+        end if
         if (present(is_concurrent)) loop_node%is_concurrent = is_concurrent
         if (present(type_spec) .and. len_trim(type_spec) > 0) loop_node%type_spec = type_spec
 
@@ -165,7 +170,10 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
         while_node%uid = generate_uid()
 
         ! Set label if provided
-        if (present(loop_label)) while_node%label = loop_label
+        if (present(loop_label)) then
+            while_node%label = loop_label
+            while_node%construct_name = loop_label
+        end if
 
         ! Set condition index
         if (condition_index > 0 .and. condition_index <= arena%size) then

@@ -1,7 +1,7 @@
 module ast_nodes_conditional
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t, copy_ast_node_base
     implicit none
     private
 
@@ -140,16 +140,7 @@ contains
         class(if_node), intent(inout) :: lhs
         class(if_node), intent(in) :: rhs
         integer :: i
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%then_body_indices)) then
@@ -180,15 +171,7 @@ contains
         class(select_case_node), intent(inout) :: lhs
         class(select_case_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
         lhs%default_index = rhs%default_index
@@ -210,15 +193,7 @@ contains
         class(case_block_node), intent(inout) :: lhs
         class(case_block_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
             if (allocated(lhs%value_indices)) deallocate (lhs%value_indices)
@@ -242,15 +217,7 @@ contains
         class(case_range_node), intent(inout) :: lhs
         class(case_range_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%start_value = rhs%start_value
         lhs%end_value = rhs%end_value
@@ -266,15 +233,7 @@ contains
         class(case_default_node), intent(inout) :: lhs
         class(case_default_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
@@ -293,15 +252,7 @@ contains
         class(select_type_node), intent(inout) :: lhs
         class(select_type_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
         lhs%default_index = rhs%default_index
@@ -323,15 +274,7 @@ contains
         class(type_guard_block_node), intent(inout) :: lhs
         class(type_guard_block_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%guard_type = rhs%guard_type
         lhs%type_name_index = rhs%type_name_index
@@ -353,15 +296,7 @@ contains
         class(select_rank_node), intent(inout) :: lhs
         class(select_rank_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
         lhs%default_index = rhs%default_index
@@ -383,15 +318,7 @@ contains
         class(rank_block_node), intent(inout) :: lhs
         class(rank_block_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%rank_value = rhs%rank_value
         ! Deep copy allocatable array

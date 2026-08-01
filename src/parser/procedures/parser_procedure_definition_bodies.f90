@@ -580,6 +580,7 @@ contains
         integer :: first_token
         integer :: keyword_token
         character(len=:), allocatable :: token_lower, stmt_label
+        character(len=:), allocatable :: construct_name
         type(token_t), allocatable, target :: construct_tokens(:)
         type(parser_state_t) :: block_parser
         type(token_t) :: token
@@ -611,6 +612,11 @@ contains
         ! moves past it here (issue #2888).
         keyword_token = construct_keyword_position(stmt_tokens, stmt_size, &
                                                    first_token)
+        ! Keep the construct name: EXIT and CYCLE refer to a construct by it,
+        ! and a consumer cannot resolve them from an anonymous node (#2984).
+        if (keyword_token > first_token) then
+            construct_name = trim(stmt_tokens(first_token)%text)
+        end if
 
         if (keyword_token <= stmt_size) then
             if (stmt_tokens(keyword_token)%kind == TK_KEYWORD) then
@@ -676,6 +682,11 @@ contains
         if (stmt_index > 0 .and. allocated(stmt_label)) then
             if (arena%has_node_at(stmt_index)) then
                 arena%entries(stmt_index)%node%stmt_label = stmt_label
+            end if
+        end if
+        if (stmt_index > 0 .and. allocated(construct_name)) then
+            if (arena%has_node_at(stmt_index)) then
+                arena%entries(stmt_index)%node%construct_name = construct_name
             end if
         end if
     end function parse_body_statement_tokens
