@@ -461,6 +461,10 @@
         if (.not. allocated(func%body_indices)) return
         if (param_idx > size(param_map)) return
 
+        has_decl = parameter_declared_by_interface(arena, func%body_indices, &
+            param_map(param_idx)%name)
+        if (has_decl) return
+
         do body_idx = 1, size(func%body_indices)
             if (func%body_indices(body_idx) <= 0 .or. &
                 func%body_indices(body_idx) > arena%size) cycle

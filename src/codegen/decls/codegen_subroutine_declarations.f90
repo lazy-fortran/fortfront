@@ -13,6 +13,7 @@ module codegen_subroutine_declarations
         filter_implicit_statements, &
         append_parameter_declaration, &
         is_parameter_name, ensure_local_var_capacity, &
+        parameter_declared_by_interface, &
         is_local_var_collected, add_declared_vars, &
         add_single_declared_var
     use codegen_grouped_body_params, only: generate_grouped_body_with_params
@@ -160,6 +161,10 @@ contains
         has_decl = .false.
         if (.not. allocated(sub%body_indices)) return
         if (param_idx > size(param_map)) return
+
+        has_decl = parameter_declared_by_interface(arena, sub%body_indices, &
+            param_map(param_idx)%name)
+        if (has_decl) return
 
         do j = 1, size(sub%body_indices)
             body_idx = sub%body_indices(j)

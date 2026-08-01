@@ -381,6 +381,11 @@
         if (exists_in_list(state%var_names, state%var_count, name)) return
         if (exists_in_list(state%use_associated_names, &
                            state%use_associated_count, name)) return
+        ! A name known to be a procedure in this scope (contained procedure or
+        ! INTRINSIC declared) is a procedure reference, not an implicitly typed
+        ! variable (Issue #2950).
+        if (exists_in_list(state%internal_funcs, state%internal_count, &
+                           normalized_name)) return
 
         type_buf = mono_type_to_string(inferred_type, &
                                        include_shape=.true., &

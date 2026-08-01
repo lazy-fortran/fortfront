@@ -60,6 +60,4 @@ issue_2855_external_intrinsic_conflict.f90  # ERROR-TEST: entity both intrinsic 
 pr19936_3_ok.f90  # BUG: legacy (/ ... /) implied-do loses its (/ /) wrapper on emit
 pr96099_1_ok.f90  # BUG: IMPLICIT CLASS(t) (x) loses the letter-spec list on emit
 implicit_kind_selector_letter_specs.f90  # BUG: IMPLICIT with a kind/len selector loses the letter-spec list on emit
-elemental_args_check_2_valid.f90  # BUG: dummy procedure emitted as a data declaration (#2934)
-pure_formal_proc_3_valid.f90  # BUG: dummy procedure emitted as a data declaration (#2934)
 impure_assignment_2_valid.f90  # BUG: TARGET copied into a type definition (#2934)

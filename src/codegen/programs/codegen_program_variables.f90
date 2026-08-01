@@ -8,7 +8,7 @@ module codegen_program_variables
         allocate_statement_node, interface_block_node, &
         module_procedure_node, implicit_statement_node, &
         comment_node, directive_node, blank_line_node, &
-        namelist_statement_node
+        namelist_statement_node, intrinsic_statement_node
     use ast_nodes_data, only: declaration_node, module_node, derived_type_node
     use ast_nodes_legacy, only: enum_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
