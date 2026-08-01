@@ -220,7 +220,19 @@ contains
         token = parser%peek()
         lowered = to_lower(trim(token%text))
         select case (lowered)
-        case ("in", "out", "inout")
+        case ("in")
+            token = parser%consume()
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                if (to_lower(trim(token%text)) == "out") then
+                    token = parser%consume()
+                    lowered = "inout"
+                end if
+            end if
+            call check_attribute_addition(parser, attr_info, &
+                "intent(" // lowered // ")", attribute_token)
+            call set_declaration_intent(attr_info, lowered)
+        case ("out", "inout")
             call check_attribute_addition(parser, attr_info, &
                 "intent(" // lowered // ")", attribute_token)
             call set_declaration_intent(attr_info, lowered)

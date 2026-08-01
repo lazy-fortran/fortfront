@@ -2,7 +2,8 @@ module parser_statement_core_module
     use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
         TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
-    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_state_module, only: parser_state_t, create_parser_state, &
+        reject_unconsumed_tokens
     use parser_expressions_module, only: parse_expression
     use parser_io_statements_module, only: parse_print_statement, &
         & parse_write_statement, parse_read_statement, &
@@ -79,6 +80,10 @@ contains
         first_token = parser%peek()
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
+            if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0 .and. &
+                    .not. parser%has_errors()) then
+                call reject_unconsumed_tokens(parser)
+            end if
             if (present(consumed_count)) consumed_count = parser%current_token - 1
             return
         end if
@@ -96,6 +101,9 @@ contains
                         stmt_indices(1) = stmt_index
                         if (present(consumed_count)) consumed_count = &
                             parser%current_token - 1
+                        if (.not. parser%has_errors()) then
+                            call reject_unconsumed_tokens(parser)
+                        end if
                         return
                     end if
                 end if

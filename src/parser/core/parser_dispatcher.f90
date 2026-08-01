@@ -5,7 +5,8 @@ module parser_dispatcher_module
         TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
         TK_WHITESPACE, to_lower
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
-    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_state_module, only: parser_state_t, create_parser_state, &
+        reject_unconsumed_tokens
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
         parse_derived_type_def, parser_is_at_type_definition

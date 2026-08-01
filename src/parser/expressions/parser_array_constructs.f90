@@ -13,7 +13,8 @@ module parser_array_constructs_module
         allocate_stmt_tokens_with_eof, &
         skip_whitespace_and_semicolons
     use parser_basic_statement_module, only: parse_statement_body
-    use parser_if_constructs_module, only: parse_if, parse_if_condition
+    use parser_if_constructs_module, only: parse_if, parse_if_condition, &
+        parse_do_loop_callback
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
         parse_select_rank
     use ast_arena_modern, only: ast_arena_t
@@ -31,6 +32,7 @@ contains
 
         callbacks = null_statement_callbacks()
         callbacks%parse_if => parse_if
+        callbacks%parse_do_loop => parse_do_loop_callback
         callbacks%parse_where => parse_where_construct
         callbacks%parse_associate => parse_associate
         callbacks%parse_block => parse_block_construct
@@ -313,6 +315,9 @@ contains
         integer, allocatable :: body_indices(:)
         integer :: assoc_count, body_count
         integer :: line, column
+        integer :: nested_index
+        type(statement_callbacks_t) :: callbacks
+
 
         ! Get position
         token = parser%peek()
@@ -453,6 +458,7 @@ contains
         ! Parse body statements until 'end associate'
         body_count = 0
         allocate (body_indices(100)) ! Initial allocation
+        callbacks = build_associate_callbacks()
 
         do while (.not. parser%is_at_end())
             call skip_whitespace_and_semicolons(parser)
@@ -479,12 +485,51 @@ contains
                 exit
             end if
 
+            ! Nested constructs must be parsed against the parent token stream;
+            ! slicing only the opening line leaves their body outside the AST.
+            nested_index = 0
+            if (token%kind == TK_KEYWORD) then
+                select case (to_lower(token%text))
+                case ('if')
+                    if (associated(callbacks%parse_if)) &
+                        nested_index = callbacks%parse_if(parser, arena)
+                case ('do')
+                    if (associated(callbacks%parse_do_loop)) &
+                        nested_index = callbacks%parse_do_loop(parser, arena)
+                case ('where')
+                    if (associated(callbacks%parse_where)) &
+                        nested_index = callbacks%parse_where(parser, arena)
+                case ('forall')
+                    if (associated(callbacks%parse_forall)) &
+                        nested_index = callbacks%parse_forall(parser, arena)
+                case ('associate')
+                    if (associated(callbacks%parse_associate)) &
+                        nested_index = callbacks%parse_associate(parser, arena)
+                case ('block')
+                    if (associated(callbacks%parse_block)) &
+                        nested_index = callbacks%parse_block(parser, arena)
+                end select
+            end if
+            if (nested_index > 0) then
+                body_count = body_count + 1
+                if (body_count > size(body_indices)) then
+                    block
+                        integer, allocatable :: temp(:)
+                        allocate (temp(size(body_indices) + 100))
+                        temp(1:size(body_indices)) = body_indices
+                        temp(size(body_indices) + 1:) = 0
+                        call move_alloc(temp, body_indices)
+                    end block
+                end if
+                body_indices(body_count) = nested_index
+                cycle
+            end if
+
             block
                 type(token_t), allocatable, target :: stmt_tokens(:)
                 integer, allocatable :: stmt_indices(:)
                 integer :: remaining_count, consumed_tokens, k
                 integer :: stmt_end, last_token_index
-                type(statement_callbacks_t) :: callbacks
 
                 stmt_end = find_statement_end(parser%tokens, parser%current_token)
                 if (stmt_end < parser%current_token) then
@@ -502,7 +547,6 @@ contains
                 stmt_tokens(remaining_count + 1)%column = &
                     parser%tokens(last_token_index)%column + 1
 
-                callbacks = build_associate_callbacks()
                 stmt_indices = parse_basic_statement_core( &
                     stmt_tokens, arena, callbacks=callbacks, &
                     consumed_count=consumed_tokens, parent_parser=parser)

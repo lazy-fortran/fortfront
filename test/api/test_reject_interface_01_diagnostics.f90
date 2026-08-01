@@ -30,6 +30,7 @@ program test_reject_interface_01_diagnostics
     call test_separate_module_procedure_accepted(all_tests_passed)
     call test_assumed_length_external_function_accepted(all_tests_passed)
     call test_call_with_interface_block_accepted(all_tests_passed)
+    call test_call_with_use_associated_interface_accepted(all_tests_passed)
 
     if (all_tests_passed) then
         print *, 'All interface declaration rejection tests passed'
@@ -324,6 +325,33 @@ contains
             'end subroutine foo'
         call expect_frontend_accepts(source, passed)
     end subroutine test_call_with_interface_block_accepted
+
+    ! A USE-associated interface block is explicit in the importing scope.
+    subroutine test_call_with_use_associated_interface_accepted(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing call with a USE-associated interface (accepted)...'
+        source = 'module provider'//new_line('a')// &
+            'interface'//new_line('a')// &
+            'subroutine foo(a)'//new_line('a')// &
+            'real :: a(:)'//new_line('a')// &
+            'end subroutine foo'//new_line('a')// &
+            'end interface'//new_line('a')// &
+            'end module provider'//new_line('a')// &
+            'module caller'//new_line('a')// &
+            'use provider'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'subroutine invoke(a)'//new_line('a')// &
+            'real :: a(:)'//new_line('a')// &
+            'call foo(a)'//new_line('a')// &
+            'end subroutine invoke'//new_line('a')// &
+            'end module caller'//new_line('a')// &
+            'subroutine foo(a)'//new_line('a')// &
+            'real :: a(:)'//new_line('a')// &
+            'end subroutine foo'
+        call expect_frontend_accepts(source, passed)
+    end subroutine test_call_with_use_associated_interface_accepted
 
     subroutine expect_frontend_error(source, expected, passed)
         use frontend_compiler_api, only: compiler_frontend_options_t, &

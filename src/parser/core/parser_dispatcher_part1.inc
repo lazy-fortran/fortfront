@@ -40,6 +40,14 @@
             stmt_index = parse_as_expression(tokens, arena, parser)
         end select
 
+        if (stmt_index > 0 .and. .not. parser%has_errors()) then
+            select case (to_lower(trim(first_token%text)))
+            case ("integer", "real", "logical", "character", "complex", &
+                    "double", "class", "procedure", "type", "data")
+                call reject_unconsumed_tokens(parser)
+            end select
+        end if
+
         if (parser%has_errors()) then
             if (present(error_msg)) error_msg = parser%get_error_messages()
             last_parser_errors = parser%get_error_messages()
@@ -656,6 +664,10 @@
                                                  stmt_index)) then
                 stmt_index = parse_assignment_or_expression(parser, arena)
             end if
+        end if
+
+        if (stmt_index == 0 .and. .not. parser%has_errors()) then
+            call parser%error_at_token("Unclassifiable statement", first_token)
         end if
     end subroutine dispatch_identifier_token
 

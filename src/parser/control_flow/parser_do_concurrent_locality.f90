@@ -35,6 +35,7 @@ contains
 
         do
             call skip_blanks(parser)
+            call skip_continuation(parser)
             tok = parser%peek()
             if (ends_locality_list(tok)) return
 
@@ -302,6 +303,22 @@ contains
             tok = parser%consume()
         end do
     end subroutine skip_blanks
+
+    subroutine skip_continuation(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: tok
+
+        tok = parser%peek()
+        if (tok%kind /= TK_OPERATOR .or. tok%text /= "&") return
+        tok = parser%consume()
+
+        do
+            tok = parser%peek()
+            if (tok%kind /= TK_WHITESPACE .and. tok%kind /= TK_COMMENT .and. &
+                tok%kind /= TK_NEWLINE) return
+            tok = parser%consume()
+        end do
+    end subroutine skip_continuation
 
     logical function name_already_seen(name, seen) result(is_present)
         character(len=*), intent(in) :: name

@@ -127,7 +127,6 @@ contains
 
         print *, 'Testing PROTECTED in an implicit main program (rejected)...'
         source = 'real, protected :: x'//new_line('a')// &
-            'x = 1'//new_line('a')// &
             'end'
         call expect_frontend_error(source, 'specification part of a module', &
             passed)

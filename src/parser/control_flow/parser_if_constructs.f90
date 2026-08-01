@@ -20,7 +20,7 @@ module parser_if_constructs_module
     private
 
     public :: parse_if, parse_if_condition, parse_elseif_block
-    public :: register_parse_do_loop
+    public :: register_parse_do_loop, parse_do_loop_callback
 
     abstract interface
         function parse_do_loop_interface(parser, arena) result(loop_index)

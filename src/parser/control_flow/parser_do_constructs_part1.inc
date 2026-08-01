@@ -612,6 +612,7 @@
             end if
 
             if (.not. parse_concurrent_control_list(parser, arena, controls)) then
+                call parser%error("Invalid DO CONCURRENT control list")
                 loop_index = 0
                 return
             end if
@@ -663,6 +664,7 @@
         block
             integer, allocatable :: body_indices(:)
             integer :: stmt_start, stmt_end, j, token_count, next_index
+            integer :: nested_index
             type(token_t), allocatable, target :: stmt_tokens(:)
             type(token_t) :: next_token
             type(statement_callbacks_t) :: callbacks
@@ -749,6 +751,22 @@
                 if (stmt_start > size(parser%tokens)) then
                     parser%current_token = stmt_start
                     exit
+                end if
+
+                ! ASSOCIATE is a full construct, not a one-line statement.
+                ! Parse it against the parent stream so its body remains nested
+                ! in this DO node instead of being emitted as later siblings.
+                nested_index = 0
+                if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                    if (to_lower(parser%tokens(stmt_start)%text) == 'associate') then
+                        if (associated(callbacks%parse_associate)) then
+                            nested_index = callbacks%parse_associate(parser, arena)
+                        end if
+                    end if
+                end if
+                if (nested_index > 0) then
+                    body_indices = [body_indices, nested_index]
+                    cycle
                 end if
 
                 if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then

@@ -57,9 +57,12 @@ contains
             end if
         end if
 
+        var_name = identifier_token%text
+        call parse_variable_dimensions(parser, arena, local_dimension_indices, &
+            has_local_dimensions)
         handled_multi = handle_multi_variable_declaration( &
             parser, arena, type_spec, attr_info, identifier_token, &
-            decl_index)
+            decl_index, has_local_dimensions, local_dimension_indices)
         if (handled_multi) then
             if (decl_index > 0 .and. decl_index <= arena%size) then
                 if (arena%has_node_at(decl_index)) then
@@ -73,9 +76,6 @@ contains
             return
         end if
 
-        var_name = identifier_token%text
-        call parse_variable_dimensions(parser, arena, local_dimension_indices, &
-            has_local_dimensions)
         initializer_index = parse_variable_initializer(parser, arena, type_spec)
         call validate_entity_attributes(parser, attr_info, has_local_dimensions, &
             initializer_index, identifier_token)
@@ -174,19 +174,28 @@ contains
 
     logical function handle_multi_variable_declaration(parser, arena, type_spec, &
             attr_info, first_token, &
-            decl_index) result(is_multi)
+            decl_index, has_first_dimensions, first_dimension_indices) result(is_multi)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
         type(token_t), intent(in) :: first_token
         integer, intent(out) :: decl_index
+        logical, intent(in), optional :: has_first_dimensions
+        integer, allocatable, intent(in), optional :: first_dimension_indices(:)
         character(len=64), allocatable :: var_names(:)
+        integer, allocatable :: entity_dimension_indices(:)
         integer :: var_count
         type(token_t) :: token
+        type(declaration_attribute_info_t) :: multi_attr_info
+        logical :: first_has_dimensions, has_entity_dimensions
 
         decl_index = 0
         is_multi = .false.
+
+        first_has_dimensions = .false.
+        if (present(has_first_dimensions)) first_has_dimensions = &
+            has_first_dimensions
 
         if (parser%is_at_end()) then
             return
@@ -220,6 +229,14 @@ contains
                 end if
             end if
 
+            if (first_has_dimensions) then
+                call parse_variable_dimensions(parser, arena, entity_dimension_indices, &
+                    has_entity_dimensions)
+                if (.not. has_entity_dimensions) then
+                    return
+                end if
+            end if
+
             var_count = var_count + 1
             if (var_count > size(var_names)) then
                 call grow_var_name_buffer(var_names)
@@ -227,8 +244,17 @@ contains
             var_names(var_count) = trim(token%text)
         end do
 
+        multi_attr_info = attr_info
+        if (first_has_dimensions .and. present(first_dimension_indices)) then
+            multi_attr_info%has_global_dimensions = .true.
+            if (allocated(multi_attr_info%global_dimension_indices)) then
+                deallocate (multi_attr_info%global_dimension_indices)
+            end if
+            allocate (multi_attr_info%global_dimension_indices, &
+                source=first_dimension_indices)
+        end if
         decl_index = emit_multi_declaration( &
-            arena, type_spec, attr_info, var_names(1:var_count))
+            arena, type_spec, multi_attr_info, var_names(1:var_count))
         if (decl_index > 0) then
             is_multi = .true.
         end if

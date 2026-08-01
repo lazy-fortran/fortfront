@@ -5,7 +5,7 @@ module frontend_compiler_api
     use ast_arena_source_text, only: set_source_text
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
-    use error_reporting, only: error_record_t
+    use error_reporting, only: error_record_t, format_error_message
     use frontend_tooling_api, only: read_file_contents, message_has_error
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use frontend_compiler_type_queries, only: &
@@ -62,7 +62,9 @@ contains
         type(compiler_frontend_options_t) :: opts
         type(token_t), allocatable :: local_tokens(:)
         character(len=:), allocatable :: lex_error
+        character(len=:), allocatable :: parser_diagnostics
         character(len=MAX_PARSE_ERROR_LEN) :: parse_error
+        integer :: i
 
         opts = compiler_frontend_options_t()
         if (present(options)) opts = options
@@ -87,6 +89,26 @@ contains
             call set_result_error(result, parse_error)
             if (allocated(local_tokens)) deallocate (local_tokens)
             return
+        end if
+
+        ! Some statement-level parsers report through the diagnostic sink while
+        ! still returning a usable root. Such input is not a valid compilation
+        ! unit: preserve those diagnostics in the compiler API instead of
+        ! silently lowering the partially parsed AST.
+        if (allocated(result%parser_errors)) then
+            if (size(result%parser_errors) > 0) then
+                parser_diagnostics = ''
+                do i = 1, size(result%parser_errors)
+                    if (len_trim(parser_diagnostics) > 0) then
+                        parser_diagnostics = parser_diagnostics//new_line('a')
+                    end if
+                    parser_diagnostics = parser_diagnostics// &
+                        format_error_message(result%parser_errors(i))
+                end do
+                call set_result_error(result, parser_diagnostics)
+                if (allocated(local_tokens)) deallocate (local_tokens)
+                return
+            end if
         end if
 
         result%parse_ok = result%root_index > 0
