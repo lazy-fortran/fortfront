@@ -1094,6 +1094,18 @@ contains
         if (next_idx > size(parser%tokens)) return
 
         token_local = parser%tokens(next_idx)
+        ! Interface procedure bodies may use the abbreviated bare END form.
+        ! It terminates the procedure when followed by a line boundary; if it
+        ! is left for the outer interface parser, that parser can consume the
+        ! following END INTERFACE as ordinary body text and swallow the next
+        ! interface block.
+        if (token_local%kind == TK_NEWLINE .or. &
+            token_local%kind == TK_COMMENT .or. &
+            token_local%kind == TK_EOF) then
+            token_local = parser%consume()
+            is_end = .true.
+            return
+        end if
         if (token_local%kind /= TK_KEYWORD) return
 
         if (to_lower(trim(token_local%text)) /= trim(end_keyword)) return
