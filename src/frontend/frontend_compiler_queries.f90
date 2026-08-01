@@ -53,6 +53,7 @@ module frontend_compiler_queries
     public :: get_type_guard_info
     public :: get_dummy_allocatable_attribute
     public :: get_alternate_return_label
+    public :: get_construct_name
     public :: get_return_selector
     public :: is_alternate_return_dummy
     public :: get_program_body_info
@@ -1037,6 +1038,22 @@ contains
 
     ! Compiler-facing query: statement label of an alternate return spec
     ! (`*<label>` actual argument).  Returns 0 for any other node kind.
+    ! Compiler-facing query: the construct name of a named construct
+    ! ("check: if (...) then ... end if check"), or an empty string when the
+    ! construct is unnamed or the node is not a construct. EXIT and CYCLE name
+    ! the construct they target, so a consumer resolves them by matching their
+    ! label against this over the enclosing constructs.
+    function get_construct_name(arena, node_index) result(name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: name
+
+        name = ""
+        if (.not. arena%has_node_at(node_index)) return
+        if (.not. allocated(arena%entries(node_index)%node%construct_name)) return
+        name = trim(arena%entries(node_index)%node%construct_name)
+    end function get_construct_name
+
     function get_alternate_return_label(arena, node_index) result(label)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index

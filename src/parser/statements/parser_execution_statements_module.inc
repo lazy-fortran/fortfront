@@ -887,8 +887,11 @@
             type(parser_state_t), intent(inout) :: parser_ref
             type(ast_arena_t), intent(inout) :: arena_ref
             type(token_t) :: next_token
+            character(len=:), allocatable :: construct_label
 
             ! Check for labeled construct: identifier : keyword
+            next_token = parser_ref%peek()
+            construct_label = trim(next_token%text)
             next_token = parser_ref%consume()  ! Consume identifier
             next_token = parser_ref%peek()
             if (next_token%kind == TK_OPERATOR .and. next_token%text == ":") then
@@ -904,9 +907,17 @@
                             stmt_index = parse_do_loop(parser_ref, arena_ref)
                             return
                         else if (is_control_flow_keyword(keyword_text)) then
-                            ! Other control flow keywords - rewind and route
-                            parser_ref%current_token = parser_ref%current_token - 2
+                            ! Every other construct parser starts at the
+                            ! construct keyword, so route from there and record
+                            ! the construct name on the node afterwards; EXIT
+                            ! and CYCLE refer to it by name (#2984).
                             stmt_index = route_control_flow(parser_ref, arena_ref)
+                            if (stmt_index > 0) then
+                                if (arena_ref%has_node_at(stmt_index)) then
+                                    arena_ref%entries(stmt_index)%node% &
+                                        construct_name = construct_label
+                                end if
+                            end if
                             return
                         else
                             ! Not control flow, rewind and parse as assignment

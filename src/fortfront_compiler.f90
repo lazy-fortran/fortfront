@@ -22,6 +22,7 @@ module fortfront_compiler
         get_select_type_info, get_type_guard_info, &
         get_dummy_allocatable_attribute, &
         get_alternate_return_label, &
+        get_construct_name, &
         get_return_selector, &
         is_alternate_return_dummy, &
         get_program_body_info, &
