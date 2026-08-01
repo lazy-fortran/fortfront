@@ -279,6 +279,11 @@ contains
             case ("pure", "elemental")
                 do i = 1, size(param_map)
                     if (.not. allocated(param_map(i)%name)) cycle
+                    ! F2018 C1583: POINTER dummies are exempt from the
+                    ! INTENT(IN) requirement of PURE/ELEMENTAL procedures, and
+                    ! an invented INTENT(IN) makes pointer assignment to their
+                    ! targets illegal.
+                    if (param_map(i)%is_pointer) cycle
                     if (len_trim(param_map(i)%intent_str) == 0) then
                         param_map(i)%intent_str = "in"
                     end if
@@ -299,6 +304,7 @@ contains
         do i = 1, size(param_map)
             if (.not. allocated(param_map(i)%name)) cycle
             if (param_map(i)%is_mutated) cycle
+            if (param_map(i)%is_pointer) cycle
             if (len_trim(param_map(i)%intent_str) == 0) then
                 ! Check if this parameter is a procedure type
                 ! ISO/IEC 1539-1:2018 Section 15.4.3.2: procedure dummy arguments

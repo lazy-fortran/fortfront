@@ -73,9 +73,8 @@ contains
             type is (range_subscript_node)
             call collect_target_names(arena, expr%base_expr_index, names, count)
             type is (component_access_node)
-            if (allocated(expr%component_name)) then
-                call append_name(names, count, expr%component_name)
-            end if
+            ! Only the base object can acquire TARGET; a component name is not
+            ! an independent entity and TARGET is illegal in a type definition.
             if (expr%base_expr_index > 0) then
                 call collect_target_names(arena, expr%base_expr_index, names, count)
             end if
@@ -99,6 +98,8 @@ contains
 
             select type (decl => arena%entries(i)%node)
                 type is (declaration_node)
+                ! TARGET and POINTER are mutually exclusive attributes.
+                if (decl%is_pointer) cycle
                 if (allocated(decl%var_name)) then
                     candidate = to_lower(trim(decl%var_name))
                     if (candidate == lowered_name) then

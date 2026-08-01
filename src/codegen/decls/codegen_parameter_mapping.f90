@@ -35,6 +35,7 @@ contains
 
         if (present(owner)) then
             do i = 1, size(param_map)
+                if (param_map(i)%is_pointer) cycle
                 if (len_trim(param_map(i)%intent_str) == 0) then
                     owner_intent = get_owner_intent(owner, i)
                     if (len_trim(owner_intent) > 0) then
@@ -58,6 +59,7 @@ contains
             param_map(i)%intent_str = ""
             param_map(i)%is_optional = .false.
             param_map(i)%is_target = .false.
+            param_map(i)%is_pointer = .false.
             param_map(i)%is_mutated = .false.
 
             idx = param_indices(i)
@@ -115,7 +117,8 @@ contains
                             intent_str, &
                             body_node%has_intent, &
                             body_node%is_optional, &
-                            body_node%is_target)
+                            body_node%is_target, &
+                            body_node%is_pointer)
                     end do
                 else
                     if (body_node%has_intent) then
@@ -127,7 +130,8 @@ contains
                         intent_str, &
                         body_node%has_intent, &
                         body_node%is_optional, &
-                        body_node%is_target)
+                        body_node%is_target, &
+                        body_node%is_pointer)
                 end if
             end select
         end do
@@ -264,14 +268,19 @@ contains
     end subroutine set_parameter_mutated
 
     subroutine update_parameter_entry(param_map, name, intent_value, has_intent, &
-            is_optional, is_target)
+            is_optional, is_target, is_pointer)
         type(parameter_info_t), intent(inout) :: param_map(:)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: intent_value
         logical, intent(in) :: has_intent
         logical, intent(in) :: is_optional
         logical, intent(in) :: is_target
+        logical, intent(in), optional :: is_pointer
         integer :: i
+        logical :: pointer_flag
+
+        pointer_flag = .false.
+        if (present(is_pointer)) pointer_flag = is_pointer
 
         do i = 1, size(param_map)
             if (.not. allocated(param_map(i)%name)) cycle
@@ -279,6 +288,13 @@ contains
 
             if (has_intent .and. len_trim(intent_value) > 0) then
                 param_map(i)%intent_str = trim(intent_value)
+            end if
+            ! F2018 C1583: a POINTER dummy is exempt from the INTENT(IN)
+            ! requirement; an invented INTENT(IN) would make pointer assignment
+            ! to its target illegal, so never synthesize one.
+            if (pointer_flag) then
+                param_map(i)%is_pointer = .true.
+                if (.not. has_intent) param_map(i)%intent_str = ""
             end if
             param_map(i)%is_optional = is_optional
             param_map(i)%is_target = is_target
