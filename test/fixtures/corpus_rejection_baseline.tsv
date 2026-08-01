@@ -115,6 +115,7 @@ ACCEPTED	examples/f90/implicit_kind_selector_letter_specs.f90
 ACCEPTED	examples/f90/implicit_letter_spec_forms.f90
 ACCEPTED	examples/f90/implicit_none_single.f90
 REJECTED	examples/f90/impure_assignment_2.f90
+REJECTED	examples/f90/impure_assignment_1.f90
 ACCEPTED	examples/f90/impure_assignment_2_valid.f90
 ACCEPTED	examples/f90/interface_only_block.f90
 ACCEPTED	examples/f90/interface_parse.f90
