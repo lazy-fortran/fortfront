@@ -4,6 +4,7 @@ module parser_assignment_module
         TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_range, parse_logical_eqv
+    use parser_utilities, only: peek_next_nontrivial_token
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
         push_identifier, push_literal, push_complex_literal
@@ -21,6 +22,7 @@ contains
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout), optional :: extra_indices(:)
         type(token_t) :: id_token, op_token
+        type(token_t) :: target_start_token
         integer :: target_index, value_index
         character(len=:), allocatable :: assignment_op
         logical :: is_multi_assignment
@@ -77,14 +79,22 @@ contains
                     target_index = push_identifier(arena, id_token%text, &
                         id_token%line, &
                         id_token%column)
+                    target_start_token = peek_next_nontrivial_token(parser)
                     ! Use parse_logical_eqv to exclude = operator (prevents chained
                     ! pointer assignment)
                     value_index = parse_logical_eqv(parser, arena)
                     if (value_index > 0) then
-                        stmt_index = push_pointer_assignment(arena, target_index, &
-                            value_index, &
-                            id_token%line, &
-                            id_token%column)
+                        if (target_start_token%kind == TK_OPERATOR .and. &
+                            trim(target_start_token%text) == "(") then
+                            call parser%error_at_token( &
+                                'Pointer assignment target must be a designator', &
+                                target_start_token)
+                        else
+                            stmt_index = push_pointer_assignment(arena, target_index, &
+                                value_index, &
+                                id_token%line, &
+                                id_token%column)
+                        end if
                     end if
                 case ("(", "%", ".")
                     block
@@ -142,16 +152,25 @@ contains
                         end if
                     end do
 
+                    target_start_token = peek_next_nontrivial_token(parser)
+
                     ! Use parse_logical_eqv to exclude = operator (prevents chained
                     ! assignment in array/derived type assignments)
                     value_index = parse_logical_eqv(parser, arena)
                     if (value_index > 0 .and. target_index > 0) then
                         if (.not. allocated(assignment_op)) assignment_op = "="
                         if (assignment_op == "=>") then
-                            stmt_index = push_pointer_assignment(arena, target_index, &
-                                value_index, &
-                                id_token%line, &
-                                id_token%column)
+                            if (target_start_token%kind == TK_OPERATOR .and. &
+                                trim(target_start_token%text) == "(") then
+                                call parser%error_at_token( &
+                                    'Pointer assignment target must be a designator', &
+                                    target_start_token)
+                            else
+                                stmt_index = push_pointer_assignment(arena, target_index, &
+                                    value_index, &
+                                    id_token%line, &
+                                    id_token%column)
+                            end if
                         else
                             stmt_index = push_assignment(arena, target_index, &
                                 value_index, &

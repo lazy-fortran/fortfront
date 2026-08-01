@@ -5,7 +5,7 @@ module semantic_explicit_interface_checker
     use ast_nodes_data, only: declaration_node, module_node, submodule_node, &
         multi_unit_container_node, parameter_declaration_node
     use ast_nodes_misc, only: contains_node, interface_block_node, &
-        module_procedure_node
+        module_procedure_node, use_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
         subroutine_def_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
@@ -326,21 +326,74 @@ contains
             type is (module_node)
             found = indices_declare_name(arena, scope%declaration_indices, name)
             if (found) return
+            found = used_module_declares_name(arena, scope%declaration_indices, &
+                name)
+            if (found) return
             found = indices_declare_name(arena, scope%procedure_indices, name)
+            if (found) return
+            found = used_module_declares_name(arena, scope%procedure_indices, name)
             type is (program_node)
             found = indices_declare_name(arena, scope%body_indices, name)
+            if (found) return
+            found = used_module_declares_name(arena, scope%body_indices, name)
             type is (function_def_node)
             found = names_match(scope%name, name)
             if (found) return
             found = indices_declare_name(arena, scope%body_indices, name)
+            if (found) return
+            found = used_module_declares_name(arena, scope%body_indices, name)
             type is (subroutine_def_node)
             found = names_match(scope%name, name)
             if (found) return
             found = indices_declare_name(arena, scope%body_indices, name)
+            if (found) return
+            found = used_module_declares_name(arena, scope%body_indices, name)
         class default
             found = .false.
         end select
     end function scope_declares_name
+
+    ! A USE statement makes an interface block in the referenced module
+    ! visible in the importing scope. The whole-file explicit-interface check
+    ! runs independently of the normal name resolver, so account for this
+    ! visibility here as well (notably USE-associated LAPACK-style interfaces).
+    logical function used_module_declares_name(arena, indices, name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: indices(:)
+        character(len=*), intent(in) :: name
+
+        integer :: i
+        integer :: module_index
+
+        found = .false.
+        if (.not. allocated(indices)) return
+        do i = 1, size(indices)
+            if (.not. arena%has_node_at(indices(i))) cycle
+            select type (use_stmt => arena%entries(indices(i))%node)
+                type is (use_statement_node)
+                if (.not. allocated(use_stmt%module_name)) cycle
+                if (use_stmt%has_only) cycle
+                do module_index = 1, arena%size
+                    if (.not. arena%has_node_at(module_index)) cycle
+                    select type (module => arena%entries(module_index)%node)
+                        type is (module_node)
+                        if (.not. names_match(module%name, &
+                            to_lower(trim(use_stmt%module_name)))) cycle
+                        found = indices_declare_name(arena, &
+                            module%declaration_indices, name)
+                        if (found) return
+                        found = indices_declare_name(arena, &
+                            module%procedure_indices, name)
+                        if (found) return
+                    class default
+                        cycle
+                    end select
+                end do
+            class default
+                cycle
+            end select
+        end do
+    end function used_module_declares_name
 
     logical function indices_declare_name(arena, indices, name) result(found)
         type(ast_arena_t), intent(in) :: arena

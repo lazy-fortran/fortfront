@@ -3,7 +3,8 @@ module parser_procedure_definition_bodies_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, &
         TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF, TK_NUMBER
-    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_state_module, only: parser_state_t, create_parser_state, &
+        reject_unconsumed_tokens
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
@@ -675,6 +676,11 @@ contains
                 stmt_index = parse_statement_in_if_block(block_parser, arena, &
                     stmt_tokens(max(1, &
                     first_token)))
+                if (stmt_index > 0 .and. .not. block_parser%has_errors() .and. &
+                        statement_needs_trailing_check(stmt_tokens, first_token)) then
+                    call reject_unconsumed_tokens(block_parser)
+                end if
+                call parent_parser%absorb_errors(block_parser)
             else
                 stmt_index = 0
             end if
@@ -690,6 +696,23 @@ contains
             end if
         end if
     end function parse_body_statement_tokens
+
+    logical function statement_needs_trailing_check(stmt_tokens, first_token) &
+            result(needs_check)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: first_token
+        character(len=:), allocatable :: lowered
+
+        needs_check = .false.
+        if (first_token < 1 .or. first_token > size(stmt_tokens)) return
+        if (stmt_tokens(first_token)%kind /= TK_KEYWORD) return
+        lowered = to_lower(trim(stmt_tokens(first_token)%text))
+        select case (lowered)
+        case ("integer", "real", "logical", "character", "complex", &
+                "double", "class", "procedure", "type", "data")
+            needs_check = .true.
+        end select
+    end function statement_needs_trailing_check
 
     ! Index of the construct keyword of a statement, skipping a leading
     ! construct name. Only the DO construct is named here: its parser accepts

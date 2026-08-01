@@ -1,5 +1,5 @@
 module parser_state_module
-    use lexer_core, only: token_t, TK_EOF
+    use lexer_core, only: token_t, TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use error_reporting, only: error_collection_t
     implicit none
     private
@@ -40,9 +40,30 @@ module parser_state_module
     end type parser_state_t
 
     ! Public constructors
-    public :: create_parser_state
+    public :: create_parser_state, reject_unconsumed_tokens
 
 contains
+
+    ! A parser state normally represents one complete statement slice. Reject
+    ! a successful parse that leaves a significant token behind so malformed
+    ! trailing text cannot be mistaken for a valid statement prefix.
+    subroutine reject_unconsumed_tokens(this)
+        type(parser_state_t), intent(inout) :: this
+        type(token_t) :: token
+        integer :: i
+
+        do i = this%current_token, this%get_token_count()
+            token = this%get_token_at_index(i)
+            select case (token%kind)
+            case (TK_EOF, TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                call this%error_at_token( &
+                    "Syntax error: unexpected token after statement", token)
+                return
+            end select
+        end do
+    end subroutine reject_unconsumed_tokens
 
     ! Create parser state from tokens (view into caller-owned buffer)
     function create_parser_state(tokens, diagnostic_sink) result(state)

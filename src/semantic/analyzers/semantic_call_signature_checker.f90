@@ -262,7 +262,9 @@ contains
         integer, allocatable :: body_indices(:)
         character(len=:), allocatable :: dummy_name
         character(len=:), allocatable :: actual_name
+        character(len=:), allocatable :: expected_interface_name
         type(name_entity_t) :: actual
+        type(name_entity_t) :: expected_interface
         integer :: iface_index
         integer :: i
 
@@ -287,6 +289,27 @@ contains
 
             actual = resolve_name_in_scopes(arena, scope_stack, depth, actual_name)
             if (actual%kind == ENTITY_NONE) cycle
+
+            ! `PROCEDURE(iface) :: g` names the interface through a procedure
+            ! declaration rather than an INTERFACE block nested in the caller.
+            ! Resolve that named interface and compare its characteristics with
+            ! the actual procedure, including nested procedure dummies.
+            expected_interface_name = procedure_interface_name(arena, body_indices, &
+                dummy_name)
+            if (len_trim(expected_interface_name) > 0 .and. &
+                    actual%kind /= ENTITY_VARIABLE .and. &
+                    actual%kind /= ENTITY_PROCEDURE) then
+                expected_interface = resolve_name_in_scopes(arena, scope_stack, &
+                    depth, expected_interface_name)
+                if (expected_interface%kind == ENTITY_SUBROUTINE .or. &
+                        expected_interface%kind == ENTITY_FUNCTION) then
+                    call compare_procedure_characteristics(arena, errors, &
+                        scope_stack, depth, stmt, expected_interface, actual, &
+                        expected_interface_name, actual_name, 0)
+                    cycle
+                end if
+            end if
+
             if (actual%kind == ENTITY_VARIABLE) cycle
             if (actual%kind == ENTITY_PROCEDURE) cycle
 
@@ -322,6 +345,298 @@ contains
             return
         end select
     end subroutine compare_with_dummy_interface
+
+    recursive subroutine compare_procedure_characteristics(arena, errors, &
+            scope_stack, depth, stmt, expected, actual, expected_name, &
+            actual_name, level)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer, intent(in) :: scope_stack(:)
+        integer, intent(in) :: depth
+        type(subroutine_call_node), intent(in) :: stmt
+        type(name_entity_t), intent(in) :: expected, actual
+        character(len=*), intent(in) :: expected_name, actual_name
+        integer, intent(in) :: level
+
+        if (level > 16) return
+        if (expected%kind == ENTITY_SUBROUTINE) then
+            if (actual%kind /= ENTITY_SUBROUTINE) then
+                call emit_call_error(errors, "'"//trim(actual_name)// &
+                    "' does not match the subroutine dummy procedure '"// &
+                    trim(expected_name)//"'", &
+                    "pass a procedure whose interface matches the dummy procedure", &
+                    stmt%line, stmt%column)
+                return
+            end if
+            call compare_subroutine_characteristics(arena, errors, scope_stack, &
+                depth, stmt, expected, actual, expected_name, actual_name, level)
+        else if (expected%kind == ENTITY_FUNCTION) then
+            if (actual%kind /= ENTITY_FUNCTION) then
+                call emit_call_error(errors, "'"//trim(actual_name)// &
+                    "' is not a function, but the dummy procedure '"// &
+                    trim(expected_name)//"' is", &
+                    "pass a function whose interface matches the dummy procedure", &
+                    stmt%line, stmt%column)
+                return
+            end if
+            call compare_function_characteristics(arena, errors, scope_stack, &
+                depth, stmt, expected, actual, expected_name, actual_name, level)
+        end if
+    end subroutine compare_procedure_characteristics
+
+    recursive subroutine compare_subroutine_characteristics(arena, errors, &
+            scope_stack, depth, stmt, expected, actual, expected_name, &
+            actual_name, level)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer, intent(in) :: scope_stack(:)
+        integer, intent(in) :: depth
+        type(subroutine_call_node), intent(in) :: stmt
+        type(name_entity_t), intent(in) :: expected, actual
+        character(len=*), intent(in) :: expected_name, actual_name
+        integer, intent(in) :: level
+
+        integer, allocatable :: expected_params(:), actual_params(:)
+        integer, allocatable :: expected_body(:), actual_body(:)
+        character(len=:), allocatable :: expected_dummy, actual_dummy
+        character(len=:), allocatable :: expected_type, actual_type
+        character(len=:), allocatable :: expected_iface_name, actual_iface_name
+        character(len=:), allocatable :: message
+        type(name_entity_t) :: expected_iface, actual_iface
+        character(len=:), allocatable :: expected_intent, actual_intent
+        logical :: expected_optional, actual_optional
+        logical :: expected_found, actual_found
+        integer :: i, expected_count, actual_count
+
+        if (expected%def_index <= 0 .or. actual%def_index <= 0) return
+        if (.not. arena%has_node_at(expected%def_index)) return
+        if (.not. arena%has_node_at(actual%def_index)) return
+
+        select type (expected_node => arena%entries(expected%def_index)%node)
+            type is (subroutine_def_node)
+            if (allocated(expected_node%param_indices)) then
+                expected_params = expected_node%param_indices
+            else
+                allocate (expected_params(0))
+            end if
+            if (allocated(expected_node%body_indices)) then
+                expected_body = expected_node%body_indices
+            else
+                allocate (expected_body(0))
+            end if
+        class default
+            return
+        end select
+
+        select type (actual_node => arena%entries(actual%def_index)%node)
+            type is (subroutine_def_node)
+            if (allocated(actual_node%param_indices)) then
+                actual_params = actual_node%param_indices
+            else
+                allocate (actual_params(0))
+            end if
+            if (allocated(actual_node%body_indices)) then
+                actual_body = actual_node%body_indices
+            else
+                allocate (actual_body(0))
+            end if
+        class default
+            return
+        end select
+
+        expected_count = size(expected_params)
+        actual_count = size(actual_params)
+        if (expected_count /= actual_count) then
+            call emit_call_error(errors, "'"//trim(actual_name)// &
+                "' has the wrong number of arguments for dummy procedure '"// &
+                trim(expected_name)//"'", &
+                "match the dummy procedure interface", stmt%line, stmt%column)
+            return
+        end if
+
+        do i = 1, expected_count
+            expected_dummy = param_name(arena, expected_params(i))
+            actual_dummy = param_name(arena, actual_params(i))
+            call procedure_dummy_type(arena, expected_body, expected_params(i), &
+                expected_dummy, expected_type)
+            call procedure_dummy_type(arena, actual_body, actual_params(i), &
+                actual_dummy, actual_type)
+
+            call dummy_attributes(arena, expected_body, expected_dummy, &
+                expected_intent, expected_optional, expected_found)
+            call dummy_attributes(arena, actual_body, actual_dummy, &
+                actual_intent, actual_optional, actual_found)
+            if (expected_found .and. actual_found) then
+                if (expected_intent /= actual_intent .or. &
+                        expected_optional .neqv. actual_optional) then
+                    call emit_call_error(errors, "Dummy argument '"// &
+                        trim(actual_dummy)//"' of '"//trim(actual_name)// &
+                        "' does not match procedure interface '"// &
+                        trim(expected_name)//"'", &
+                        "match dummy argument attributes", stmt%line, stmt%column)
+                    return
+                end if
+            end if
+
+            expected_iface_name = procedure_interface_name_from_type(expected_type)
+            actual_iface_name = procedure_interface_name_from_type(actual_type)
+            if (len_trim(expected_iface_name) > 0 .or. &
+                    len_trim(actual_iface_name) > 0) then
+                if (len_trim(expected_iface_name) == 0 .or. &
+                        len_trim(actual_iface_name) == 0) then
+                    message = "Procedure dummy argument '"//trim(actual_dummy)// &
+                        "' of '"//trim(actual_name)// &
+                        "' has an incompatible interface"
+                    call emit_call_error(errors, message, &
+                        "pass a procedure with the declared dummy interface", &
+                        stmt%line, stmt%column)
+                    return
+                end if
+                expected_iface = resolve_name_in_scopes(arena, scope_stack, depth, &
+                    expected_iface_name)
+                actual_iface = resolve_name_in_scopes(arena, scope_stack, depth, &
+                    actual_iface_name)
+                if ((expected_iface%kind == ENTITY_SUBROUTINE .or. &
+                        expected_iface%kind == ENTITY_FUNCTION) .and. &
+                        (actual_iface%kind == ENTITY_SUBROUTINE .or. &
+                        actual_iface%kind == ENTITY_FUNCTION)) then
+                    call compare_procedure_characteristics(arena, errors, &
+                        scope_stack, depth, stmt, expected_iface, actual_iface, &
+                        expected_iface_name, actual_iface_name, level + 1)
+                else if (expected_iface_name /= actual_iface_name) then
+                    call emit_call_error(errors, "Procedure dummy argument '"// &
+                        trim(actual_dummy)//"' of '"//trim(actual_name)// &
+                        "' has an incompatible interface", &
+                        "pass a procedure with the declared dummy interface", &
+                        stmt%line, stmt%column)
+                    return
+                end if
+            else if (len_trim(expected_type) > 0 .and. &
+                    len_trim(actual_type) > 0 .and. &
+                    to_lower(trim(expected_type)) /= to_lower(trim(actual_type))) then
+                call emit_call_error(errors, "Dummy argument '"//trim(actual_dummy)// &
+                    "' of '"//trim(actual_name)// &
+                    "' has an incompatible type", &
+                    "match the dummy procedure interface", stmt%line, stmt%column)
+                return
+            end if
+        end do
+    end subroutine compare_subroutine_characteristics
+
+    recursive subroutine compare_function_characteristics(arena, errors, &
+            scope_stack, depth, stmt, expected, actual, expected_name, &
+            actual_name, level)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        integer, intent(in) :: scope_stack(:)
+        integer, intent(in) :: depth
+        type(subroutine_call_node), intent(in) :: stmt
+        type(name_entity_t), intent(in) :: expected, actual
+        character(len=*), intent(in) :: expected_name, actual_name
+        integer, intent(in) :: level
+
+        ! Function-valued procedure dummies are uncommon in the corpus. Reuse
+        ! the existing function checker for their top-level count/result rules;
+        ! nested procedure dummies are handled by the subroutine path above.
+        if (expected%def_index <= 0 .or. actual%def_index <= 0) return
+        select type (expected_node => arena%entries(expected%def_index)%node)
+            type is (function_def_node)
+            select type (actual_node => arena%entries(actual%def_index)%node)
+                type is (function_def_node)
+                if (allocated(expected_node%param_indices) .neqv. &
+                        allocated(actual_node%param_indices)) then
+                    call emit_call_error(errors, "Function interface mismatch for '"// &
+                        trim(actual_name)//"'", "match the dummy procedure interface", &
+                        stmt%line, stmt%column)
+                else if (allocated(expected_node%param_indices)) then
+                    if (size(expected_node%param_indices) /= &
+                            size(actual_node%param_indices)) then
+                        call emit_call_error(errors, "Function interface mismatch for '"// &
+                            trim(actual_name)//"'", &
+                            "match the dummy procedure interface", stmt%line, &
+                            stmt%column)
+                    end if
+                end if
+            class default
+                return
+            end select
+        class default
+            return
+        end select
+    end subroutine compare_function_characteristics
+
+    subroutine procedure_dummy_type(arena, body_indices, param_index, name, type_text)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        integer, intent(in) :: param_index
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable, intent(out) :: type_text
+
+        integer :: i
+
+        type_text = ''
+        if (allocated(body_indices)) then
+            do i = 1, size(body_indices)
+                if (.not. arena%has_node_at(body_indices(i))) cycle
+                select type (decl => arena%entries(body_indices(i))%node)
+                    type is (declaration_node)
+                    if (.not. declaration_names_entity(decl, to_lower(trim(name)))) &
+                        cycle
+                    if (allocated(decl%type_name)) type_text = trim(decl%type_name)
+                    return
+                class default
+                    cycle
+                end select
+            end do
+        end if
+        if (.not. arena%has_node_at(param_index)) return
+        select type (param => arena%entries(param_index)%node)
+            type is (parameter_declaration_node)
+            if (allocated(param%type_name)) type_text = trim(param%type_name)
+        end select
+    end subroutine procedure_dummy_type
+
+    function procedure_interface_name(arena, body_indices, name) result(interface_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: type_text
+        integer :: i
+
+        interface_name = ''
+        if (.not. allocated(body_indices)) return
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (decl => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                if (.not. declaration_names_entity(decl, to_lower(trim(name)))) &
+                    cycle
+                if (.not. allocated(decl%type_name)) return
+                type_text = decl%type_name
+                interface_name = procedure_interface_name_from_type(type_text)
+                return
+            class default
+                cycle
+            end select
+        end do
+    end function procedure_interface_name
+
+    function procedure_interface_name_from_type(type_text) result(interface_name)
+        character(len=*), intent(in) :: type_text
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: lowered
+        integer :: open_pos, close_pos
+
+        interface_name = ''
+        lowered = to_lower(trim(adjustl(type_text)))
+        if (index(lowered, 'procedure') /= 1) return
+        open_pos = index(lowered, '(')
+        close_pos = index(lowered, ')', back=.true.)
+        if (open_pos <= 0 .or. close_pos <= open_pos + 1) return
+        interface_name = trim(adjustl(lowered(open_pos + 1:close_pos - 1)))
+        if (interface_name == '*') interface_name = ''
+    end function procedure_interface_name_from_type
 
     subroutine compare_actual_with_function_dummy(arena, errors, stmt, actual, &
             actual_name, iface)

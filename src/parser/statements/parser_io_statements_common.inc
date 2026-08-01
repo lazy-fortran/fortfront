@@ -302,6 +302,15 @@
         column = token%column
         token = parser%consume()  ! consume (
 
+        ! A legacy array constructor starts with `(/`, not with an I/O
+        ! implied-do expression.  Leave it for the expression parser; without
+        ! this guard the slash is misread as division with a missing left node.
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "/") then
+            expr_index = fail_and_restore()
+            return
+        end if
+
         value_expr_index = parse_comparison(parser, arena)
         if (value_expr_index <= 0) then
             expr_index = fail_and_restore()

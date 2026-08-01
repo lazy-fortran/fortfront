@@ -2,7 +2,7 @@ module semantic_placement_validation
     ! Rejects declarations that name an attribute which the standard confines
     ! to one kind of program section (issue #2896).
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: declaration_node
+    use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_core, only: program_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
         error_collection_t
@@ -24,12 +24,35 @@ contains
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
-                type is (program_node)
-                call validate_main_program_declaration_placement(arena, &
-                    node%body_indices, errors)
+                type is (declaration_node)
+                if (.not. node%is_protected) cycle
+                if (declaration_is_in_module_spec(arena, i)) cycle
+                call emit_protected_outside_module(errors, node%line, node%column)
             end select
         end do
     end subroutine validate_declaration_placement_in_arena
+
+    logical function declaration_is_in_module_spec(arena, declaration_index) &
+            result(in_module_spec)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: declaration_index
+        integer :: module_index, j
+
+        in_module_spec = .false.
+        do module_index = 1, arena%size
+            if (.not. arena%has_node_at(module_index)) cycle
+            select type (module => arena%entries(module_index)%node)
+                type is (module_node)
+                if (.not. allocated(module%declaration_indices)) cycle
+                do j = 1, size(module%declaration_indices)
+                    if (module%declaration_indices(j) == declaration_index) then
+                        in_module_spec = .true.
+                        return
+                    end if
+                end do
+            end select
+        end do
+    end function declaration_is_in_module_spec
 
     ! F2018 C858: the PROTECTED attribute is permitted only in the
     ! specification part of a module. A main program has no module semantics

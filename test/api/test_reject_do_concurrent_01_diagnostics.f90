@@ -126,6 +126,31 @@ program test_reject_do_concurrent_01_diagnostics
         "end program p", &
         "bare DO CONCURRENT")
 
+    ! Inline comments after a continuation marker must not hide the next
+    ! locality-spec from the duplicate-name check.
+    call expect_rejected( &
+        "program p"//new_line('a')// &
+        "  integer :: i, sum, max_val"//new_line('a')// &
+        "  do concurrent (i = 1:10) shared(sum, max_val) &"//new_line('a')// &
+        "      reduce(+:sum) & ! duplicate sum"//new_line('a')// &
+        "      reduce(max:max_val)"//new_line('a')// &
+        "  end do"//new_line('a')// &
+        "end program p", &
+        "has already been specified", &
+        "duplicate locality name across continuation comments")
+
+    ! A conditional-mask header is not yet lowered by this parser; reject it
+    ! explicitly instead of silently dropping the DO construct.
+    call expect_rejected( &
+        "program p"//new_line('a')// &
+        "  integer :: i, x"//new_line('a')// &
+        "  do concurrent (i = 1:10, i <= 8)"//new_line('a')// &
+        "    x = i"//new_line('a')// &
+        "  end do"//new_line('a')// &
+        "end program p", &
+        "Invalid DO CONCURRENT control list", &
+        "unsupported conditional-mask header")
+
     if (failures /= 0) then
         write (error_unit, '(A,I0,A)') "FAIL: ", failures, " locality checks"
         error stop 1

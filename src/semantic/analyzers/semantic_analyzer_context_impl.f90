@@ -23,6 +23,8 @@ use semantic_use_nature_validation, only: validate_use_module_nature
 use semantic_use_export_validation, only: validate_use_only_exports
 use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
+use semantic_derived_type_reference_validation, only: &
+    validate_derived_type_references
 use semantic_submodule_validation, only: validate_submodule_interfaces
 use semantic_bind_c_validation, only: validate_global_binding_labels
 use semantic_interface_declaration_validation, only: &
@@ -121,6 +123,7 @@ contains
         call validate_use_module_nature(arena, ctx%errors)
         call validate_use_only_exports(arena, ctx%errors)
         call validate_local_name_collisions(arena, ctx%errors)
+        call validate_derived_type_references(arena, ctx%errors)
 
         ! Separate module subprograms are checked against the interface bodies
         ! of their ancestor module, which only the whole arena exposes.
