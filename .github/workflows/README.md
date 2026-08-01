@@ -34,8 +34,8 @@ This directory contains GitHub Actions CI/CD workflow definitions for automated 
 **3. Duplication Check**
 - Validates zero-duplication policy
 - Detects end-to-end tests with inline full programs
-- Status: WARNING mode (provides visibility, does not block)
-- Commands: `make check-duplication`
+- Status: BLOCKING (violations fail CI; issue #2910)
+- Commands: `make check-duplication`, `make check-duplication-gate`
 - Script: `scripts/check_test_duplication.py`
 
 **4. Round-Trip Validation**

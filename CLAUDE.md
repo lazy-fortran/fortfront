@@ -310,11 +310,12 @@ end program
 
 **Issue #1975 - Test Deduplication Migration**
 
-**Status: complete.** The end-to-end test deduplication is done: `make check-duplication` reports 0 violations and 0 warnings. End-to-end tests reference `examples/`; unit tests keep small inline inputs as described above.
+**Status: enforced.** `make check-duplication` reports 0 violations; some tests remain in the advisory warning band (6-15 inline `new_line('a')` occurrences), which the gate reports but does not fail on. End-to-end tests reference `examples/`; unit tests keep small inline inputs as described above.
 
-**CI Enforcement** (ACTIVE):
+**CI Enforcement** (ACTIVE — blocking since issue #2910):
 - Check script: `scripts/check_test_duplication.py`
-- Make target: `make check-duplication`
+- Make target: `make check-duplication` (fails the build on violations)
+- Negative control: `make check-duplication-gate` proves the gate can still fail
 - CI workflow: `.github/workflows/ci.yml`
 
 Keep it at zero: new end-to-end tests must use `read_example()` rather than inline full programs.

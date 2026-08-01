@@ -1,4 +1,4 @@
-.PHONY: all build test test-small-stack check-duplication check-doc-links check-rejection-gate check-root-cleanliness clean help libfortfront.a
+.PHONY: all build test test-small-stack check-duplication check-duplication-gate check-doc-links check-rejection-gate check-root-cleanliness clean help libfortfront.a
 
 # Default target
 all: build
@@ -56,6 +56,10 @@ test-small-stack:
 check-duplication:
 	@python3 scripts/check_test_duplication.py
 
+# Negative control (issue #2910): prove the duplication gate can still fail.
+check-duplication-gate:
+	@bash scripts/test_check_test_duplication.sh
+
 # Corpus rejection gate (issue #2924): no example may become newly rejected.
 # Run the same script with --corpus <gfortran.dg> for the full conformance diff.
 check-rejection-gate:
@@ -105,6 +109,7 @@ help:
 	@echo "  make test     - Run tests"
 	@echo "  make test-small-stack [TEST_STACK_KB=1024] - Run tests with small stack"
 	@echo "  make check-duplication - Check for test duplication violations"
+	@echo "  make check-duplication-gate - Negative control for the duplication gate"
 	@echo "  make check-rejection-gate - Fail on newly rejected corpus files"
 	@echo "  make check-doc-links - Check repository Markdown for broken relative links"
 	@echo "  make check-root-cleanliness - Check project root for polluting files (issue #2148)"
