@@ -560,6 +560,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t), intent(inout) :: parent_parser
         integer :: first_token
+        integer :: keyword_token
         character(len=:), allocatable :: token_lower, stmt_label
         type(parser_state_t) :: block_parser
         type(token_t) :: token
@@ -586,9 +587,15 @@ contains
             end if
         end if
 
-        if (first_token <= stmt_size) then
-            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
-                token_lower = to_lower(stmt_tokens(first_token)%text)
+        ! A construct name (name: DO ...) precedes the construct keyword; the
+        ! DO parser consumes the name itself, so only the dispatch position
+        ! moves past it here (issue #2888).
+        keyword_token = construct_keyword_position(stmt_tokens, stmt_size, &
+                                                   first_token)
+
+        if (keyword_token <= stmt_size) then
+            if (stmt_tokens(keyword_token)%kind == TK_KEYWORD) then
+                token_lower = to_lower(stmt_tokens(keyword_token)%text)
                 if (trim(token_lower) == "if") then
                     if (associated(parent_parser%diagnostic_sink)) then
                         stmt_index = parse_if_statement_tokens(stmt_tokens, arena, &
@@ -643,6 +650,50 @@ contains
             end if
         end if
     end function parse_body_statement_tokens
+
+    ! Index of the construct keyword of a statement, skipping a leading
+    ! construct name. Only the DO construct is named here: its parser accepts
+    ! the name, the other construct parsers do not yet.
+    integer function construct_keyword_position(stmt_tokens, stmt_size, &
+            first_token) result(keyword_token)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        integer, intent(in) :: first_token
+        integer :: colon_token
+        integer :: candidate
+
+        keyword_token = first_token
+        if (first_token > stmt_size) return
+        if (stmt_tokens(first_token)%kind /= TK_IDENTIFIER) return
+        colon_token = next_significant_token(stmt_tokens, stmt_size, &
+                                             first_token + 1)
+        if (colon_token > stmt_size) return
+        if (stmt_tokens(colon_token)%kind /= TK_OPERATOR) return
+        if (trim(stmt_tokens(colon_token)%text) /= ":") return
+        candidate = next_significant_token(stmt_tokens, stmt_size, colon_token + 1)
+        if (candidate > stmt_size) return
+        if (stmt_tokens(candidate)%kind /= TK_KEYWORD) return
+        if (to_lower(trim(stmt_tokens(candidate)%text)) /= "do") return
+        keyword_token = candidate
+    end function construct_keyword_position
+
+    ! Index of the next token that is not whitespace, a newline or a comment.
+    integer function next_significant_token(stmt_tokens, stmt_size, start_token) &
+            result(token_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        integer, intent(in) :: start_token
+
+        token_index = start_token
+        do while (token_index <= stmt_size)
+            select case (stmt_tokens(token_index)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                token_index = token_index + 1
+            case default
+                return
+            end select
+        end do
+    end function next_significant_token
 
     integer function parse_do_statement_tokens(stmt_tokens, arena, parent_parser) &
             result(do_index)

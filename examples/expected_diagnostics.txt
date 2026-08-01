@@ -52,3 +52,10 @@ f90/typebound_override_1.f90
 f90/typebound_override_2.f90
 f90/typebound_override_4.f90
 f90/typebound_override_5.f90
+f90/common_29.f90
+f90/host_assoc_types_1.f90
+f90/pr104351.f90
+f90/pr123375.f90
+f90/pr77414.f90
+f90/pr96102.f90
+f90/used_types_25.f90
