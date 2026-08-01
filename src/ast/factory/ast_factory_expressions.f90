@@ -110,8 +110,12 @@ contains
             ! Semantic analysis will set is_character_substring flag for character types
             block
                 integer :: array_name_index
-                array_name_index = push_identifier(arena, name, line, column, &
-                    parent_index)
+                if (present(base_expr_index) .and. base_expr_index > 0) then
+                    array_name_index = base_expr_index
+                else
+                    array_name_index = push_identifier(arena, name, line, column, &
+                        parent_index)
+                end if
                 node_index = push_array_slice(arena, array_name_index, &
                     arg_indices, size(arg_indices), line, &
                     column, parent_index)
