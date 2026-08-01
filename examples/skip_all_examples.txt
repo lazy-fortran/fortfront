@@ -57,3 +57,7 @@ lf/issue_652_multi_var_allocatable.lf
 f90/debug_error_missing_then.f90
 f90/issue_256_fix_suggestion.f90
 f90/issue_256_invalid_syntax_missing_then.f90
+f90/issue_2910_statement_query_forms.f90
+f90/issue_2910_program_unit_query_forms.f90
+f90/issue_2924_coindexed_type_bound_call.f90
+f90/issue_2924_implicit_none_external_type_bound.f90
