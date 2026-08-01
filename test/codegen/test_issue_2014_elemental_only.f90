@@ -1,8 +1,5 @@
 program test_issue_2014_elemental_only
     use transformation_api, only: compile_source, compilation_options_t
-    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-        cleanup_temp_directory, join_path, &
-        path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -79,4 +76,9 @@ program test_issue_2014_elemental_only
     999 continue
     call cleanup_temp_directory(temp_dir, is_windows)
     stop exit_code
+
+contains
+
+    include '../common/filesystem_helpers.inc'
+
 end program test_issue_2014_elemental_only

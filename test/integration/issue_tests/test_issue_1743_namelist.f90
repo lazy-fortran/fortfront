@@ -1,8 +1,5 @@
 program test_namelist
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-        cleanup_temp_directory, join_path, &
-        path_separator_for
     implicit none
     integer :: nx, ny
     real(dp) :: dx, dy
@@ -31,5 +28,10 @@ program test_namelist
     print *, 'Namelist written'
 
     call cleanup_temp_directory(temp_dir, is_windows)
+
+
+contains
+
+    include '../../common/filesystem_helpers.inc'
 
 end program test_namelist

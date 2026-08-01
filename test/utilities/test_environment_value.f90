@@ -1,6 +1,5 @@
 program test_environment_value
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use test_filesystem_helpers, only: get_environment_value
     implicit none
 
     character(len=:), allocatable :: path_value
@@ -27,4 +26,9 @@ program test_environment_value
     end if
 
     print *, 'PASS: get_environment_value returns stable, safe results'
+
+contains
+
+    include '../common/filesystem_helpers.inc'
+
 end program test_environment_value

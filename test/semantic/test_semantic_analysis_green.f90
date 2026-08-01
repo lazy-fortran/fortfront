@@ -1,8 +1,5 @@
 program test_semantic_analysis_green
     use transformation_api, only: compile_source, compilation_options_t
-    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
-        cleanup_temp_directory, join_path, &
-        path_separator_for
     implicit none
 
     logical :: all_passed
@@ -41,6 +38,8 @@ program test_semantic_analysis_green
     stop exit_code
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     logical function test_array_assignment_semantics()
         character(len=:), allocatable :: input_file, output_file

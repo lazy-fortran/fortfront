@@ -1,26 +1,6 @@
-module test_filesystem_helpers
-    use fortfront_constants, only: MAX_EXAMPLE_PATH_LEN, MAX_TEST_SEARCH_LINE_LEN
-    implicit none
-    private
-    public :: find_fortfront_executable
-    public :: check_if_windows
-    public :: cleanup_file
-    public :: create_temp_directory
-    public :: get_temp_base_directory
-    public :: get_environment_value
-    public :: make_temp_file_path
-    public :: ensure_directory_exists
-    public :: cleanup_temp_directory
-    public :: extract_example_basename
-    public :: extract_relative_example_path
-    public :: normalize_path_string
-    public :: join_path
-    public :: directory_from_path
-    public :: find_last_separator
-    public :: path_separator_for
-
-contains
-
+! Shared filesystem helpers for tests (issue #2909).
+! Textually included inside a test program's `contains` section so that
+! this scaffolding never compiles into libfortfront.
     function get_environment_value(name) result(value)
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: value
@@ -173,7 +153,8 @@ contains
         character(len=*), intent(in) :: preferred_suffix
         character(len=:), allocatable, intent(inout) :: executable_path
         character(len=:), allocatable :: fallback
-        character(len=MAX_TEST_SEARCH_LINE_LEN) :: line
+        integer, parameter :: TEST_SEARCH_LINE_LEN = 512
+        character(len=TEST_SEARCH_LINE_LEN) :: line
         integer :: unit_num, ios
         logical :: exists
 
@@ -422,7 +403,8 @@ contains
 
     pure function extract_example_basename(filepath) result(name)
         character(len=*), intent(in) :: filepath
-        character(len=MAX_EXAMPLE_PATH_LEN) :: name
+        integer, parameter :: TEST_PATH_LEN = 256
+        character(len=TEST_PATH_LEN) :: name
         character(len=:), allocatable :: trimmed
         integer :: sep_pos
 
@@ -442,8 +424,9 @@ contains
 
     pure function extract_relative_example_path(filepath) result(relative)
         character(len=*), intent(in) :: filepath
-        character(len=MAX_EXAMPLE_PATH_LEN) :: relative
-        character(len=MAX_EXAMPLE_PATH_LEN) :: normalized
+        integer, parameter :: TEST_PATH_LEN = 256
+        character(len=TEST_PATH_LEN) :: relative
+        character(len=TEST_PATH_LEN) :: normalized
         character(len=:), allocatable :: trimmed
         integer :: pos
 
@@ -475,7 +458,8 @@ contains
 
     pure function normalize_path_string(value) result(normalized)
         character(len=*), intent(in) :: value
-        character(len=MAX_EXAMPLE_PATH_LEN) :: normalized
+        integer, parameter :: TEST_PATH_LEN = 256
+        character(len=TEST_PATH_LEN) :: normalized
         integer :: i
 
         normalized = adjustl(trim(value))
@@ -557,5 +541,3 @@ contains
             if (is_win) sep = '\'
         end if
     end function path_separator_for
-
-end module test_filesystem_helpers

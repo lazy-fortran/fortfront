@@ -1,8 +1,5 @@
 module test_example_lists
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use test_filesystem_helpers, only: &
-        extract_relative_example_path, &
-        normalize_path_string
     implicit none
     private
     public :: load_example_list
@@ -15,6 +12,8 @@ module test_example_lists
     public :: is_expected_diagnostic
 
 contains
+
+    include '../common/filesystem_helpers.inc'
 
     subroutine load_example_list(filename, entries, num_entries)
         character(len=*), intent(in) :: filename
