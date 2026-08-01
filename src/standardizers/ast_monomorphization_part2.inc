@@ -826,6 +826,14 @@
 
         call arena%push(new_func, "function_def")
         new_idx = arena%size
+        ! Issue #2958: the specialization must own its parameters and body so
+        ! that every name inside it resolves to a declaration of this copy.
+        if (allocated(new_param_indices)) then
+            call link_children_to_parent(arena, new_idx, new_param_indices)
+        end if
+        if (allocated(body_indices_copy)) then
+            call link_children_to_parent(arena, new_idx, body_indices_copy)
+        end if
     end function clone_function_with_signature
 
     function clone_function_parameters(arena, orig_func, signature) &
@@ -890,6 +898,7 @@
         integer :: new_idx
         type(subroutine_def_node), pointer :: orig_subr
         type(subroutine_def_node) :: new_subr
+        integer :: body_i
         integer, allocatable :: new_param_indices(:)
         integer, allocatable :: body_indices_copy(:)
         character(len=:), allocatable :: mangled_name
@@ -917,6 +926,15 @@
         if (allocated(orig_subr%body_indices)) then
             allocate (body_indices_copy(size(orig_subr%body_indices)))
             body_indices_copy = orig_subr%body_indices
+            do body_i = 1, size(body_indices_copy)
+                body_indices_copy(body_i) = clone_ast_subtree(arena, &
+                                                              body_indices_copy(body_i))
+            end do
+            call get_subroutine_node(arena, sub_idx, orig_subr)
+            if (.not. associated(orig_subr)) then
+                new_idx = 0
+                return
+            end if
         else
             allocate (body_indices_copy(0))
         end if
@@ -957,6 +975,12 @@
 
         call arena%push(new_subr, "subroutine_def")
         new_idx = arena%size
+        if (allocated(new_param_indices)) then
+            call link_children_to_parent(arena, new_idx, new_param_indices)
+        end if
+        if (allocated(body_indices_copy)) then
+            call link_children_to_parent(arena, new_idx, body_indices_copy)
+        end if
 
         call infer_intent_for_cloned_subroutine(arena, new_idx, new_subr)
     end function clone_subroutine_with_signature
