@@ -730,8 +730,6 @@
                     type is (subroutine_call_node)
                         call collect_subroutine_signature(this%signatures, arena, &
                                                           call_expr, node_index)
-                        call validate_call_target_has_no_type(arena, this%errors, &
-                                                             call_expr, node_index)
                         if (this%operating_mode == OPERATING_MODE_STRICT) then
                             call ensure_explicit_interface_cache()
                             call validate_explicit_interface_for_subroutine_call( &
