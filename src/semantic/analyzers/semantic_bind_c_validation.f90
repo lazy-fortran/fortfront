@@ -5,8 +5,10 @@ module semantic_bind_c_validation
     ! assumed-shape or assumed-size array dummy arguments or procedure dummy
     ! arguments. Non-interoperable constructs are reported as semantic errors.
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: declaration_node, derived_type_node, &
-        parameter_declaration_node
+    use ast_nodes_core, only: program_node
+    use ast_nodes_data, only: block_data_node, declaration_node, &
+        derived_type_node, module_node, parameter_declaration_node, &
+        submodule_node
     use ast_nodes_bounds, only: array_bounds_node, range_expression_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
@@ -34,6 +36,28 @@ contains
         integer :: i
 
         call mark_interface_bodies(arena, is_interface_body)
+
+        ! Register ordinary program-unit names first. This keeps any later
+        ! diagnostic attached to the actual BIND(C) entity that collides with
+        ! the global name, rather than to the implicit name registered here.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (is_interface_body(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (program_node)
+                call register_global_entity_label(labels, node%name, node%line, &
+                    node%column, errors)
+                type is (module_node)
+                call register_global_entity_label(labels, node%name, node%line, &
+                    node%column, errors)
+                type is (submodule_node)
+                call register_global_entity_label(labels, node%name, node%line, &
+                    node%column, errors)
+                type is (block_data_node)
+                call register_global_entity_label(labels, node%name, node%line, &
+                    node%column, errors)
+            end select
+        end do
 
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
@@ -93,6 +117,21 @@ contains
         call register_label(labels, binding_label_from_clause(clause, name), &
             name, line, column, errors)
     end subroutine register_procedure_label
+
+    ! Program-unit names occupy the same global identifier namespace as
+    ! explicit BIND(C) labels. Register them even without BIND(C), so a
+    ! procedure label cannot silently collide with a module or program name.
+    subroutine register_global_entity_label(labels, name, line, column, errors)
+        type(binding_label_table_t), intent(inout) :: labels
+        character(len=:), allocatable, intent(in) :: name
+        integer, intent(in) :: line, column
+        type(error_collection_t), intent(inout) :: errors
+
+        if (.not. allocated(name)) return
+        if (len_trim(name) == 0) return
+        call register_label(labels, to_lower(trim(name)), trim(name), line, &
+            column, errors)
+    end subroutine register_global_entity_label
 
     ! Register the binding label of a BIND(C) variable declaration. An
     ! explicit NAME= applies to a single entity; a multi-entity BIND(C)

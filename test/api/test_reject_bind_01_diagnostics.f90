@@ -12,6 +12,7 @@ program test_reject_bind_01_diagnostics
     print *, '=== reject-bind-01: duplicate global BIND(C) labels ==='
 
     call test_duplicate_procedure_labels_rejected(all_tests_passed)
+    call test_global_entity_and_procedure_label_clash_rejected(all_tests_passed)
     call test_distinct_procedure_labels_accepted(all_tests_passed)
     call test_variable_and_procedure_label_clash_rejected(all_tests_passed)
     call test_distinct_variable_and_procedure_labels_accepted(all_tests_passed)
@@ -43,6 +44,20 @@ contains
             'end module dup_labels'
         call expect_frontend_error(source, 'binding label "shared_symbol"', passed)
     end subroutine test_duplicate_procedure_labels_rejected
+
+    subroutine test_global_entity_and_procedure_label_clash_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'A procedure label matching a module name (rejected)...'
+        source = 'module test_bug'//new_line('a')// &
+            'use, intrinsic :: iso_c_binding'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'subroutine test() bind(c, name="Test_Bug")'//new_line('a')// &
+            'end subroutine test'//new_line('a')// &
+            'end module test_bug'
+        call expect_frontend_error(source, 'collides with global entity', passed)
+    end subroutine test_global_entity_and_procedure_label_clash_rejected
 
     subroutine test_distinct_procedure_labels_accepted(passed)
         logical, intent(inout) :: passed
