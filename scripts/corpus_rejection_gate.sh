@@ -105,10 +105,19 @@ echo "corpus rejection gate: $total files, probe $probe" >&2
 
 probe_one() {
     local file=$1
-    local rel line status
+    local rel line status rc err
     rel=${file#"$project_root"/}
-    line=$(timeout "$FF_GATE_TIMEOUT_S" "$FF_GATE_PROBE" "$file" 2>/dev/null)
-    if [[ $? -ne 0 || -z "$line" ]]; then
+    err=$(mktemp)
+    line=$(timeout "$FF_GATE_TIMEOUT_S" "$FF_GATE_PROBE" "$file" 2>"$err")
+    rc=$?
+    # Anything the probe writes to stderr -- a runtime abort, a scanner
+    # invariant, an instrumentation trace -- used to be discarded here, which
+    # made a whole class of diagnostic invisible to the gate. Keep it.
+    if [[ -s "$err" ]]; then
+        sed "s|^|$rel\t|" "$err" >>"$FF_GATE_STDERR_LOG"
+    fi
+    rm -f "$err"
+    if [[ $rc -ne 0 || -z "$line" ]]; then
         status=REJECTED
     elif [[ "$line" == *'"parse_ok":true'* && "$line" == *'"semantic_ok":true'* ]]; then
         status=ACCEPTED
@@ -120,15 +129,24 @@ probe_one() {
 export -f probe_one
 export FF_GATE_PROBE="$probe"
 export FF_GATE_TIMEOUT_S="$timeout_s"
+export FF_GATE_STDERR_LOG="$out.stderr.log"
 export project_root
 
 mkdir -p "$(dirname -- "$out")"
+: >"$out.stderr.log"
 xargs -a "$file_list" -d '\n' -P "$jobs" -n 1 \
     bash -c 'probe_one "$0"' | sort -k2,2 >"$out"
 
 accepted=$(grep -c '^ACCEPTED' "$out" || true)
 rejected=$(grep -c '^REJECTED' "$out" || true)
 echo "gate report: $out (accepted=$accepted rejected=$rejected)" >&2
+stderr_files=$(cut -f1 "$out.stderr.log" | sort -u | grep -c . || true)
+if ((stderr_files > 0)); then
+    echo "probe stderr: $stderr_files file(s) wrote to stderr;" \
+        "see $out.stderr.log" >&2
+else
+    rm -f "$out.stderr.log"
+fi
 
 [[ -n "$baseline" ]] || exit 0
 [[ -f "$baseline" ]] || die "baseline report not found: $baseline"
