@@ -141,6 +141,35 @@ program test_reject_end_01_diagnostics
         "   end do"//nl// &
         "end program p"//nl)
 
+    ! Issue #2949: end_block_label_1.f90 terminates BLOCK with a labelled
+    ! END BLOCK used as a GOTO target.
+    call assert_accepted("end_block_label_1.f90", &
+        "program p"//nl// &
+        "   integer :: i"//nl// &
+        "   i = 0"//nl// &
+        "   block"//nl// &
+        "     if (i == 0) goto 1"//nl// &
+        "     i = 2"//nl// &
+        "1  end block"//nl// &
+        "   print *, i"//nl// &
+        "end"//nl)
+    call assert_accepted("labelled-end-do", &
+        "program p"//nl// &
+        "   integer :: i"//nl// &
+        "   do"//nl// &
+        "      exit"//nl// &
+        "2  end do"//nl// &
+        "end"//nl)
+
+    ! A labelled terminator must still be validated against its construct.
+    call assert_rejected("labelled-mismatched-terminator", &
+        "program p"//nl// &
+        "   block"//nl// &
+        "   do"//nl// &
+        "3  end block"//nl// &
+        "end"//nl, &
+        "Expecting END DO statement")
+
     write (output_unit, '(A)') "PASS: reject-end-01 construct terminator diagnostics"
 
 contains
