@@ -318,6 +318,15 @@ end program
 - Negative control: `make check-duplication-gate` proves the gate can still fail
 - CI workflow: `.github/workflows/ci.yml`
 
+**Do not read "blocking in CI" as "cannot land".** PRs here are squash-merged
+with `--admin` without waiting for CI, so a CI gate is not a merge
+precondition: a violation can reach `main` and sit there until someone runs
+the target locally. That is exactly how #2990 happened — the gate was made
+blocking by #2910, and a new violation landed anyway three weeks later, while
+this file still said the gate was at zero. **Run `make check-duplication`
+yourself before merging anything that adds or edits a test.** Treat the
+statement above as a claim that was true when written, not as a live signal.
+
 Keep it at zero: new end-to-end tests must use `read_example()` rather than inline full programs.
 
 **How to Check Status**:
