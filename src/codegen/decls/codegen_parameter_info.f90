@@ -11,6 +11,7 @@ module codegen_parameter_info
         character(len=:), allocatable :: intent_str
         logical :: is_optional
         logical :: is_target
+        logical :: is_pointer
         logical :: is_mutated
     end type parameter_info_t
 
