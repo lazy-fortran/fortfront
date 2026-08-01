@@ -20,6 +20,10 @@ f90/protected_9.f90
 f90/contiguous_12.f90
 f90/external_initializer.f90
 f90/iso_fortran_env_4.f90
+f90/use_9.f90
+f90/use_19.f90
+f90/operator_6.f90
+f90/interface_operator_3.f90
 f90/type_decl_4.f90
 f90/class_is_1.f90
 f90/type_is_1.f90

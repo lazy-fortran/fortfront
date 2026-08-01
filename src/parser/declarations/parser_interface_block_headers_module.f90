@@ -1,5 +1,6 @@
 module parser_interface_block_headers_module
     use string_utils_mod, only: to_lower
+    use generic_spec_names, only: normalize_generic_operator
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR
     use parser_state_module, only: parser_state_t
     implicit none
@@ -205,8 +206,8 @@ contains
             if (trim(interface_kind) == "interface") then
                 matches = to_lower(trim(end_name)) == to_lower(trim(interface_name))
             else
-                matches = normalized_operator(end_symbol) == &
-                    normalized_operator(operator_symbol)
+                matches = normalize_generic_operator(end_symbol) == &
+                    normalize_generic_operator(operator_symbol)
             end if
         end if
 
@@ -231,29 +232,6 @@ contains
                 " ("//trim(operator_symbol)//")"
         end if
     end function expected_end_text
-
-    ! Relational operators have two spellings that denote the same generic
-    ! spec, so compare them in one normalised form.
-    function normalized_operator(symbol) result(normalized)
-        character(len=*), intent(in) :: symbol
-        character(len=:), allocatable :: normalized
-
-        normalized = to_lower(trim(symbol))
-        select case (normalized)
-        case (".gt.")
-            normalized = ">"
-        case (".lt.")
-            normalized = "<"
-        case (".ge.")
-            normalized = ">="
-        case (".le.")
-            normalized = "<="
-        case (".eq.")
-            normalized = "=="
-        case (".ne.")
-            normalized = "/="
-        end select
-    end function normalized_operator
 
     function upper_case(text) result(upper)
         character(len=*), intent(in) :: text
