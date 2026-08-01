@@ -581,7 +581,13 @@ subroutine handle_identifier_assignment_target(arena, assign, target, &
 
     existing_idx = find_existing_variable_index(target%name, var_names, &
         var_count)
-    var_type = infer_assignment_type(arena, assign%value_index)
+    ! Copying an already inferred derived binding propagates its type
+    ! (Issue #2941): "q = p" where p is type(p_t) makes q type(p_t).
+    var_type = copied_derived_var_type(arena, assign%value_index, var_names, &
+        var_types, var_count)
+    if (len_trim(var_type) == 0) then
+        var_type = infer_assignment_type(arena, assign%value_index)
+    end if
 
     if (existing_idx > 0) then
         call update_existing_variable_type(existing_idx, var_type, &
@@ -593,6 +599,35 @@ subroutine handle_identifier_assignment_target(arena, assign, target, &
             func_count)
     end if
 end subroutine handle_identifier_assignment_target
+
+! Type of a bare identifier RHS when that identifier was already inferred to
+! be of derived type; empty otherwise.
+function copied_derived_var_type(arena, value_index, var_names, var_types, &
+        var_count) result(var_type)
+    type(ast_arena_t), intent(in) :: arena
+    integer, intent(in) :: value_index
+    character(len=64), intent(in) :: var_names(:)
+    character(len=64), intent(in) :: var_types(:)
+    integer, intent(in) :: var_count
+    character(len=64) :: var_type
+    integer :: source_idx
+
+    var_type = ""
+    if (value_index <= 0 .or. value_index > arena%size) return
+    if (.not. allocated(arena%entries(value_index)%node)) return
+
+    select type (v => arena%entries(value_index)%node)
+        type is (identifier_node)
+        if (.not. allocated(v%name)) return
+        source_idx = find_existing_variable_index(v%name, var_names, var_count)
+    class default
+        return
+    end select
+
+    if (source_idx <= 0) return
+    if (index(to_lower(var_types(source_idx)), "type(") /= 1) return
+    var_type = var_types(source_idx)
+end function copied_derived_var_type
 
 function find_existing_variable_index(var_name, var_names, var_count) &
         result(idx)
@@ -728,6 +763,11 @@ subroutine update_existing_variable_type(existing_idx, var_type, var_types)
 
     ! Do not overwrite allocatable declarations (fixes #2069)
     if (index(to_lower(var_types(existing_idx)), 'allocatable') > 0) then
+        ! Keep existing allocatable type
+        ! A derived binding keeps its type; a later intrinsic-valued
+        ! assignment must not silently retype it (Issue #2941).
+    else if (index(to_lower(var_types(existing_idx)), 'type(') == 1 &
+            .and. index(to_lower(var_type), 'type(') /= 1) then
         ! Keep existing allocatable type
     else if (is_character_type_string(var_types(existing_idx)) &
             .and. is_character_type_string(var_type)) then

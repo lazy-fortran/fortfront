@@ -295,7 +295,12 @@ contains
                     do i = start_pos + 1, size(tokens)
                         if (tokens(i)%kind == TK_KEYWORD) then
                             if (trim(tokens(i)%text) == "type") then
-                                depth = depth + 1
+                                ! Only a type *definition* nests. A component
+                                ! declaration "type(a_t) :: y" and the closing
+                                ! "end type" keyword must not raise the depth.
+                                if (opens_type_definition(tokens, i)) then
+                                    depth = depth + 1
+                                end if
                             else if (trim(tokens(i)%text) == "end") then
                                 ! Check next token for "type"
                                 if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == &
@@ -337,6 +342,28 @@ contains
                 ! Default to end of tokens
                 end_pos = size(tokens)
             end subroutine find_declaration_range
+
+            ! True when the "type" keyword at pos opens a derived type
+            ! definition rather than a component/entity declaration or the
+            ! "type" of a closing "end type".
+            function opens_type_definition(tokens, pos) result(opens)
+                type(token_t), intent(in) :: tokens(:)
+                integer, intent(in) :: pos
+                logical :: opens
+
+                opens = .true.
+
+                if (pos > 1) then
+                    if (tokens(pos - 1)%kind == TK_KEYWORD) then
+                        if (trim(tokens(pos - 1)%text) == "end") opens = .false.
+                    end if
+                end if
+                if (.not. opens) return
+
+                if (pos < size(tokens)) then
+                    if (trim(tokens(pos + 1)%text) == "(") opens = .false.
+                end if
+            end function opens_type_definition
 
             logical function line_continues(tokens, newline_pos) result(continues)
                 type(token_t), intent(in) :: tokens(:)
