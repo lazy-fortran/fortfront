@@ -90,10 +90,11 @@ jobs:
 
     - name: Check Test Duplication (CLAUDE.md compliance)
       if: runner.os == 'Linux'
-      continue-on-error: true
       run: |
         echo "Checking for end-to-end test duplication violations..."
-        make check-duplication || echo "⚠️ Found test duplication violations - see issue #1975"
+        make check-duplication
+        echo "Negative control: the gate must still be able to fail (issue #2910)"
+        make check-duplication-gate
 
     - name: Clean Project Root Before Tests (issue #2148)
       if: runner.os == 'Linux'

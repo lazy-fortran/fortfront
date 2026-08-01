@@ -34,23 +34,8 @@ contains
         character(len=:), allocatable :: source
         integer :: i
 
-        source = 'module m'//new_line('a')// &
-            '  use dep, only: local => remote'//new_line('a')// &
-            '  private'//new_line('a')// &
-            '  integer, parameter :: n = 2'//new_line('a')// &
-            '  type :: pair'//new_line('a')// &
-            '    integer :: x'//new_line('a')// &
-            '  contains'//new_line('a')// &
-            '    procedure :: show'//new_line('a')// &
-            '  end type pair'//new_line('a')// &
-            'contains'//new_line('a')// &
-            '  subroutine show(self)'//new_line('a')// &
-            '    type(pair) :: self'//new_line('a')// &
-            '  end subroutine show'//new_line('a')// &
-            'end module m'//new_line('a')// &
-            'program p'//new_line('a')// &
-            '  use m'//new_line('a')// &
-            'end program p'
+        call read_example( &
+            'examples/f90/issue_2910_program_unit_query_forms.f90', source)
         call compile_parse_only(source, result, 'module and program')
 
         units = query_program_units(result%arena, result%root_index)
@@ -352,5 +337,7 @@ contains
         write (error_unit, '(2a)') 'FAIL: ', trim(message)
         error stop 1
     end subroutine require
+
+    include '../common/read_example.inc'
 
 end program test_compiler_program_unit_queries

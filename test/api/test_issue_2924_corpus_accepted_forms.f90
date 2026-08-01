@@ -77,29 +77,8 @@ contains
         character(len=:), allocatable :: source
 
         print *, 'Coindexed type-bound call (accepted)...'
-        source = 'module m_coarray_call'//new_line('a')// &
-            'implicit none'//new_line('a')// &
-            'type :: t0'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'procedure, nopass :: sub => t0_sub'//new_line('a')// &
-            'end type t0'//new_line('a')// &
-            'type :: t1'//new_line('a')// &
-            'type(t0) :: nopoly'//new_line('a')// &
-            'end type t1'//new_line('a')// &
-            'type :: t2'//new_line('a')// &
-            'type(t1) :: c'//new_line('a')// &
-            'end type t2'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'subroutine t0_sub()'//new_line('a')// &
-            'print *, 1'//new_line('a')// &
-            'end subroutine t0_sub'//new_line('a')// &
-            'end module m_coarray_call'//new_line('a')// &
-            'program p_coarray_call'//new_line('a')// &
-            'use m_coarray_call, only: t2'//new_line('a')// &
-            'implicit none'//new_line('a')// &
-            'type(t2) :: x[*]'//new_line('a')// &
-            'call x[1]%c%nopoly%sub()'//new_line('a')// &
-            'end program p_coarray_call'
+        call read_example( &
+            'examples/f90/issue_2924_coindexed_type_bound_call.f90', source)
         call expect_frontend_success(source, passed)
     end subroutine test_coindexed_type_bound_call_accepted
 
@@ -110,25 +89,9 @@ contains
         character(len=:), allocatable :: source
 
         print *, 'Type-bound call under IMPLICIT NONE (EXTERNAL) (accepted)...'
-        source = 'module m_tbp_external'//new_line('a')// &
-            'implicit none (type, external)'//new_line('a')// &
-            'type :: box_t'//new_line('a')// &
-            'integer :: v = 1'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'procedure :: show => box_show'//new_line('a')// &
-            'end type box_t'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'subroutine box_show(self)'//new_line('a')// &
-            'class(box_t), intent(in) :: self'//new_line('a')// &
-            'print *, self%v'//new_line('a')// &
-            'end subroutine box_show'//new_line('a')// &
-            'end module m_tbp_external'//new_line('a')// &
-            'program p_tbp_external'//new_line('a')// &
-            'use m_tbp_external, only: box_t'//new_line('a')// &
-            'implicit none (type, external)'//new_line('a')// &
-            'type(box_t) :: b'//new_line('a')// &
-            'call b%show()'//new_line('a')// &
-            'end program p_tbp_external'
+        call read_example( &
+            'examples/f90/issue_2924_implicit_none_external_type_bound.f90', &
+            source)
         call expect_frontend_success(source, passed)
     end subroutine test_external_implicit_none_type_bound_accepted
 
@@ -311,5 +274,7 @@ contains
             print *, '  PASS'
         end if
     end subroutine expect_frontend_success
+
+    include '../common/read_example.inc'
 
 end program test_issue_2924_corpus_accepted_forms

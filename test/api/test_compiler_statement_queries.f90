@@ -35,50 +35,8 @@ contains
     function statement_source() result(source)
         character(len=:), allocatable :: source
 
-        source = 'program statements'//new_line('a')// &
-            'class(*), allocatable :: object'//new_line('a')// &
-            'integer :: values(3), choice, ios'//new_line('a')// &
-            'logical :: mask(3), opened'//new_line('a')// &
-            "open(unit=10,file='data.txt',status='old',access='sequential',"// &
-            "form='formatted',recl=80,blank='null',position='rewind',"// &
-            "action='read',delim='quote',pad='yes',iostat=ios,err=900)"// &
-            new_line('a')// &
-            "close(unit=10,status='keep',iostat=ios,err=900)"//new_line('a')// &
-            'close(unit=11)'//new_line('a')// &
-            'rewind(unit=10,iostat=ios,err=900)'//new_line('a')// &
-            'backspace(unit=10,iostat=ios,err=900)'//new_line('a')// &
-            'endfile(unit=10,iostat=ios,err=900)'//new_line('a')// &
-            'inquire(unit=10,opened=opened,iostat=ios,err=900)'//new_line('a')// &
-            "print '(I0)', choice"//new_line('a')// &
-            "write(unit=10,fmt='(I0)',iostat=ios,err=900) choice"// &
-            new_line('a')// &
-            "read(unit=10,fmt='(I0)',iostat=ios,end=800,err=900) choice"// &
-            new_line('a')// &
-            '700 format(I0)'//new_line('a')// &
-            'associate(alias => choice)'//new_line('a')// &
-            'values(1) = alias'//new_line('a')//'end associate'//new_line('a')// &
-            'block'//new_line('a')//'integer :: local'//new_line('a')// &
-            'local = choice'//new_line('a')//'end block'//new_line('a')// &
-            'allocate(object, source=choice)'//new_line('a')// &
-            'select type (object)'//new_line('a')//'type is (integer)'// &
-            new_line('a')//'values(1) = object'//new_line('a')// &
-            'class default'//new_line('a')//'values(1) = 0'//new_line('a')// &
-            'end select'//new_line('a')//'select rank(values)'//new_line('a')// &
-            'rank(1)'//new_line('a')//'values = 1'//new_line('a')// &
-            'rank default'//new_line('a')//'values = 0'//new_line('a')// &
-            'end select'//new_line('a')//'where(mask)'//new_line('a')// &
-            'values = 1'//new_line('a')//'elsewhere(.not. mask)'//new_line('a')// &
-            'values = 2'//new_line('a')//'elsewhere'//new_line('a')// &
-            'values = 3'//new_line('a')//'end where'//new_line('a')// &
-            'where(mask) values = 3'//new_line('a')//'goto 100'//new_line('a')// &
-            'goto (100,200), choice'//new_line('a')//'pause 1'//new_line('a')// &
-            "pause 'hold'"//new_line('a')//'pause'//new_line('a')// &
-            '100 continue'//new_line('a')//'200 continue'//new_line('a')// &
-            '800 continue'//new_line('a')//'900 continue'//new_line('a')// &
-            'contains'//new_line('a')//'subroutine inner'//new_line('a')// &
-            'goto 100'//new_line('a')//'100 continue'//new_line('a')// &
-            'end subroutine inner'//new_line('a')// &
-            'end program statements'
+        call read_example('examples/f90/issue_2910_statement_query_forms.f90', &
+            source)
     end function statement_source
 
     subroutine test_io_queries(arena)
@@ -504,5 +462,7 @@ contains
         write (error_unit, '(A)') 'FAIL: '//message
         error stop 1
     end subroutine fail
+
+    include '../common/read_example.inc'
 
 end program test_compiler_statement_queries
