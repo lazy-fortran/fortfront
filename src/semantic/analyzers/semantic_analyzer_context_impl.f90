@@ -34,6 +34,8 @@ use semantic_strict_argument_type_checker_validation, only: &
 use semantic_placement_validation, only: &
     validate_declaration_placement_in_arena
 use semantic_call_signature_checker, only: validate_call_signatures_in_arena
+use semantic_lazy_module_generic_validation, only: &
+    validate_lazy_module_generics
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -143,6 +145,13 @@ contains
         ! (F2018 C863). The sweep is arena-wide so every procedure definition
         ! is covered, not only those the inference dispatch visits.
         call validate_value_dummy_attributes_in_arena(arena, ctx%errors)
+
+        ! Reject a module-contained untyped Lazy procedure that is referenced
+        ! at conflicting argument types: monomorphization does not specialize
+        ! module procedures, so one body would serve both. Issue #2978.
+        if (ctx%input_mode == INPUT_MODE_LAZY) then
+            call validate_lazy_module_generics(arena, ctx%errors)
+        end if
 
         ! Reject procedure-call signature mismatches (F2018 15.5.1 and
         ! 15.5.2.9). The sweep resolves scopes structurally, so it reaches
