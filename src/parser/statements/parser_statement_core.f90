@@ -28,6 +28,7 @@ module parser_statement_core_module
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_allocatable_statements_module, only: parse_allocatable_statement
+    use parser_value_statements_module, only: parse_value_statement
     use parser_statement_detection_module, only: find_statement_end, &
         extend_if_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
@@ -224,6 +225,10 @@ contains
                 else
                     stmt_index = 0
                 end if
+            end if
+
+            if (lowered == "value") then
+                stmt_index = parse_value_statement(parser, arena)
             end if
         end block
     end function parse_keyword_statement

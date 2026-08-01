@@ -31,6 +31,7 @@ program test_reject_call_01_diagnostics
     call test_dummy_procedure_intent_mismatch_rejected(all_tests_passed)
     call test_dummy_procedure_intent_match_accepted(all_tests_passed)
     call test_dummy_procedure_optional_mismatch_rejected(all_tests_passed)
+    call test_function_dummy_type_mismatch_rejected(all_tests_passed)
     call test_external_result_type_mismatch_rejected(all_tests_passed)
     call test_external_result_type_match_accepted(all_tests_passed)
     call test_impure_call_in_do_concurrent_rejected(all_tests_passed)
@@ -384,6 +385,40 @@ contains
             'end program p'
         call expect_frontend_error(source, 'OPTIONAL mismatch in argument', passed)
     end subroutine test_dummy_procedure_optional_mismatch_rejected
+
+    subroutine test_function_dummy_type_mismatch_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing function dummy argument type mismatch (rejected)...'
+        source = 'module m'//new_line('a')// &
+            'type test_type'//new_line('a')// &
+            'integer :: id = 1'//new_line('a')// &
+            'end type test_type'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'real function fun1(t,x)'//new_line('a')// &
+            'real, intent(in) :: x'//new_line('a')// &
+            'type(test_type) :: t'//new_line('a')// &
+            'fun1 = cos(x)'//new_line('a')// &
+            'end function fun1'//new_line('a')// &
+            'end module m'//new_line('a')// &
+            'program p'//new_line('a')// &
+            'use m'//new_line('a')// &
+            'implicit none'//new_line('a')// &
+            'call test(fun1)'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'subroutine test(proc)'//new_line('a')// &
+            'interface'//new_line('a')// &
+            'real function proc(t,x)'//new_line('a')// &
+            'import :: test_type'//new_line('a')// &
+            'real, intent(in) :: x'//new_line('a')// &
+            'class(test_type) :: t'//new_line('a')// &
+            'end function proc'//new_line('a')// &
+            'end interface'//new_line('a')// &
+            'end subroutine test'//new_line('a')// &
+            'end program p'
+        call expect_frontend_error(source, 'Type mismatch in argument', passed)
+    end subroutine test_function_dummy_type_mismatch_rejected
 
     subroutine test_external_result_type_mismatch_rejected(passed)
         logical, intent(inout) :: passed

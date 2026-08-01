@@ -42,6 +42,18 @@ contains
                     node%body_indices, node%name, errors)
             end select
         end do
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (decl => arena%entries(i)%node)
+                type is (declaration_node)
+                if (.not. decl%is_value) cycle
+                if (declaration_is_in_procedure_body(arena, i)) cycle
+                call emit_value_scope_error(decl, decl%var_name, errors)
+            class default
+                cycle
+            end select
+        end do
     end subroutine validate_value_dummy_attributes_in_arena
 
     ! Reject dummy arguments whose VALUE attribute conflicts with another
@@ -59,14 +71,16 @@ contains
         character(len=:), allocatable :: param_names(:)
         integer :: i
 
-        if (.not. allocated(param_indices)) return
         if (.not. allocated(body_indices)) return
-        if (size(param_indices) <= 0) return
 
-        allocate (character(len=64) :: param_names(size(param_indices)))
-        do i = 1, size(param_indices)
-            param_names(i) = resolve_param_name(arena, param_indices(i), i)
-        end do
+        if (allocated(param_indices)) then
+            allocate (character(len=64) :: param_names(size(param_indices)))
+            do i = 1, size(param_indices)
+                param_names(i) = resolve_param_name(arena, param_indices(i), i)
+            end do
+        else
+            allocate (character(len=64) :: param_names(0))
+        end if
 
         do i = 1, size(body_indices)
             if (body_indices(i) <= 0) cycle
@@ -85,23 +99,47 @@ contains
         character(len=*), intent(in) :: param_names(:)
         character(len=*), intent(in) :: proc_name
         type(error_collection_t), intent(inout) :: errors
+        integer :: i
+
+        if (.not. decl%is_value) return
+        if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+            do i = 1, size(decl%var_names)
+                call check_value_named_declaration(decl, decl%var_names(i), &
+                    param_names, proc_name, errors)
+            end do
+        else if (allocated(decl%var_name)) then
+            call check_value_named_declaration(decl, decl%var_name, param_names, &
+                proc_name, errors)
+        end if
+    end subroutine check_value_dummy_declaration
+
+    subroutine check_value_named_declaration(decl, name, param_names, proc_name, &
+            errors)
+        type(declaration_node), intent(in) :: decl
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: param_names(:)
+        character(len=*), intent(in) :: proc_name
+        type(error_collection_t), intent(inout) :: errors
         character(len=:), allocatable :: conflict
         integer :: i
         logical :: is_dummy
 
-        if (.not. decl%is_value) return
-        if (.not. allocated(decl%var_name)) return
-
         is_dummy = .false.
         do i = 1, size(param_names)
-            if (to_lower(trim(param_names(i))) == to_lower(trim(decl%var_name))) then
+            if (to_lower(trim(param_names(i))) == to_lower(trim(name))) then
                 is_dummy = .true.
+                exit
             end if
         end do
-        if (.not. is_dummy) return
+        if (.not. is_dummy) then
+            call emit_value_scope_error(decl, name, errors)
+            return
+        end if
 
         conflict = ''
-        if (decl%is_pointer) then
+        if (decl%is_array) then
+            conflict = 'DIMENSION'
+        else if (decl%is_pointer) then
             conflict = 'POINTER'
         else if (decl%is_allocatable) then
             conflict = 'ALLOCATABLE'
@@ -116,7 +154,7 @@ contains
         if (len_trim(conflict) == 0) return
 
         call errors%add_result(create_error_result( &
-            'VALUE dummy argument "'//trim(decl%var_name)//'" of "'// &
+            'VALUE dummy argument "'//trim(name)//'" of "'// &
             trim(proc_name)//'" must not have the '//trim(conflict)// &
             ' attribute', ERROR_SEMANTIC, &
             component="semantic_strict_argument_type_checker_validation", &
@@ -124,7 +162,54 @@ contains
             suggestion="drop VALUE or drop the conflicting attribute", &
             line=decl%line, column=decl%column, end_line=decl%line, &
             end_column=decl%column + 1))
-    end subroutine check_value_dummy_declaration
+    end subroutine check_value_named_declaration
+
+    subroutine emit_value_scope_error(decl, name, errors)
+        type(declaration_node), intent(in) :: decl
+        character(len=*), intent(in) :: name
+        type(error_collection_t), intent(inout) :: errors
+
+        if (len_trim(name) == 0) return
+        call errors%add_result(create_error_result( &
+            'VALUE attribute is only permitted on dummy argument "'// &
+            trim(name)//'"', ERROR_SEMANTIC, &
+            component="semantic_strict_argument_type_checker_validation", &
+            context="value_dummy_attribute_check", &
+            suggestion="remove VALUE or declare the name as a dummy argument", &
+            line=decl%line, column=decl%column, end_line=decl%line, &
+            end_column=decl%column + 1))
+    end subroutine emit_value_scope_error
+
+    logical function declaration_is_in_procedure_body(arena, decl_index) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        integer :: i, j
+
+        found = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (function_def_node)
+                if (.not. allocated(node%body_indices)) cycle
+                do j = 1, size(node%body_indices)
+                    if (node%body_indices(j) == decl_index) then
+                        found = .true.
+                        return
+                    end if
+                end do
+                type is (subroutine_def_node)
+                if (.not. allocated(node%body_indices)) cycle
+                do j = 1, size(node%body_indices)
+                    if (node%body_indices(j) == decl_index) then
+                        found = .true.
+                        return
+                    end if
+                end do
+            class default
+                cycle
+            end select
+        end do
+    end function declaration_is_in_procedure_body
 
     subroutine validate_call_against_interface(arena, errors, proc_name, &
             arg_indices, param_indices, body_indices)

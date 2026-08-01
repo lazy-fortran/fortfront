@@ -52,6 +52,7 @@ module parser_dispatcher_module
         parse_namelist_statement
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
+    use parser_value_statements_module, only: parse_value_statement
     use parser_enum_statement_module, only: parse_enum_construct
     use parser_control_flow_router_module, only: route_control_flow
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier

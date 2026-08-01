@@ -15,6 +15,7 @@ program test_pdt_type_parameters
 
     call test_type_parameter_formals()
     call test_type_parameter_actuals()
+    call test_empty_type_parameter_list_rejected()
 
     print *, 'PASS: derived-type parameters are represented and queryable'
 
@@ -95,5 +96,29 @@ contains
             error stop 1
         end if
     end subroutine test_type_parameter_actuals
+
+    subroutine test_empty_type_parameter_list_rejected()
+        type(compiler_frontend_result_t) :: result
+        type(compiler_frontend_options_t) :: options
+        character(:), allocatable :: source
+
+        source = 'program t'//new_line('a')// &
+            '  type :: box_t()'//new_line('a')// &
+            '  end type box_t'//new_line('a')// &
+            'end program t'
+        options = compiler_frontend_options_t()
+        options%run_semantics = .true.
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(source, result, options)
+        if (result%success()) then
+            print *, 'FAIL: empty PDT parameter list was accepted'
+            error stop 1
+        end if
+        if (index(result%diagnostic_text, 'type parameter list') == 0) then
+            print *, 'FAIL: empty PDT parameter list diagnostic missing'
+            print *, trim(result%diagnostic_text)
+            error stop 1
+        end if
+    end subroutine test_empty_type_parameter_list_rejected
 
 end program test_pdt_type_parameters

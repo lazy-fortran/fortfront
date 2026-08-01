@@ -30,6 +30,7 @@ module parser_module_structures_module
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_allocatable_statements_module, only: parse_allocatable_statement
+    use parser_value_statements_module, only: parse_value_statement
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -190,6 +191,8 @@ contains
             ! The ALLOCATABLE statement adds an attribute to a declaration
             ! that is already in the arena, so it contributes no new index.
             if (parse_allocatable_statement(parser, arena)) stmt_index = -1
+        case ("value")
+            stmt_index = parse_value_statement(parser, arena)
         end select
     end function parse_module_declaration_statement
 

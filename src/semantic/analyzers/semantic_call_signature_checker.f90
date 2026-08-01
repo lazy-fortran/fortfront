@@ -357,6 +357,37 @@ contains
                 trim(iface%name)//"' is", &
                 "pass a function, or change the dummy procedure interface", &
                 stmt%line, stmt%column)
+        case (ENTITY_FUNCTION)
+            if (actual%def_index <= 0) return
+            if (.not. arena%has_node_at(actual%def_index)) return
+            select type (target => arena%entries(actual%def_index)%node)
+                type is (function_def_node)
+                actual_count = 0
+                if (allocated(target%param_indices)) then
+                    actual_count = size(target%param_indices)
+                end if
+                if (actual_count /= expected_count) then
+                    call emit_call_error(errors, "'"//trim(actual_name)// &
+                        "' has the wrong number of arguments for the dummy "// &
+                        "function '"//trim(iface%name)//"'", &
+                        "match the dummy function interface", stmt%line, &
+                        stmt%column)
+                    return
+                end if
+                if (function_types_differ(iface%return_type, &
+                        target%return_type)) then
+                    call emit_call_error(errors, &
+                        "Type mismatch in function result of '"// &
+                        trim(actual_name)//"'", &
+                        "give the actual function the result type the dummy "// &
+                        "procedure interface requires", stmt%line, stmt%column)
+                    return
+                end if
+                call compare_function_dummy_types(arena, errors, stmt, iface, &
+                    target, actual_name)
+            class default
+                return
+            end select
         case (ENTITY_EXTERNAL)
             if (external_has_type(arena, actual%decl_index, actual_name)) return
             call emit_call_error(errors, "'"//trim(actual_name)// &
@@ -367,6 +398,81 @@ contains
                 stmt%line, stmt%column)
         end select
     end subroutine compare_actual_with_function_dummy
+
+    subroutine compare_function_dummy_types(arena, errors, stmt, expected, &
+            actual, actual_name)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        type(subroutine_call_node), intent(in) :: stmt
+        type(function_def_node), intent(in) :: expected
+        type(function_def_node), intent(in) :: actual
+        character(len=*), intent(in) :: actual_name
+
+        character(len=:), allocatable :: expected_type
+        character(len=:), allocatable :: actual_type
+        character(len=:), allocatable :: dummy_name
+        integer :: i
+        integer :: expected_count
+
+        expected_count = 0
+        if (allocated(expected%param_indices)) then
+            expected_count = size(expected%param_indices)
+        end if
+
+        do i = 1, expected_count
+            dummy_name = param_name(arena, expected%param_indices(i))
+            if (len_trim(dummy_name) == 0) cycle
+            call dummy_type_text(arena, expected%body_indices, dummy_name, &
+                expected_type)
+            call dummy_type_text(arena, actual%body_indices, &
+                param_name(arena, actual%param_indices(i)), actual_type)
+            if (len_trim(expected_type) == 0 .or. &
+                    len_trim(actual_type) == 0) cycle
+            if (function_types_differ(expected_type, actual_type)) then
+                call emit_call_error(errors, "Type mismatch in argument '"// &
+                    trim(dummy_name)//"' of procedure '"//trim(actual_name)// &
+                    "'", &
+                    "give the actual function the same dummy argument type as "// &
+                    "the interface", stmt%line, stmt%column)
+                return
+            end if
+        end do
+    end subroutine compare_function_dummy_types
+
+    subroutine dummy_type_text(arena, body_indices, name, type_text)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable, intent(out) :: type_text
+
+        integer :: i
+
+        type_text = ''
+        if (.not. allocated(body_indices)) return
+        if (len_trim(name) == 0) return
+
+        do i = 1, size(body_indices)
+            if (.not. arena%has_node_at(body_indices(i))) cycle
+            select type (decl => arena%entries(body_indices(i))%node)
+                type is (declaration_node)
+                if (.not. declaration_names_entity(decl, to_lower(trim(name)))) &
+                    cycle
+                if (allocated(decl%type_name)) type_text = trim(decl%type_name)
+                return
+            class default
+                cycle
+            end select
+        end do
+    end subroutine dummy_type_text
+
+    logical function function_types_differ(expected, actual) result(differ)
+        character(len=:), allocatable, intent(in) :: expected
+        character(len=:), allocatable, intent(in) :: actual
+
+        differ = .false.
+        if (len_trim(expected) == 0 .or. len_trim(actual) == 0) return
+        differ = to_lower(trim(expected)) /= to_lower(trim(actual))
+    end function function_types_differ
 
     subroutine compare_actual_with_subroutine_dummy(arena, errors, stmt, actual, &
             actual_name, iface)
