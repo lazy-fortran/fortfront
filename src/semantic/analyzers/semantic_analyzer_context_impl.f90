@@ -25,6 +25,10 @@ use semantic_local_name_collision_validation, only: &
     validate_local_name_collisions
 use semantic_submodule_validation, only: validate_submodule_interfaces
 use semantic_bind_c_validation, only: validate_global_binding_labels
+use semantic_interface_declaration_validation, only: &
+    validate_interface_declarations
+use semantic_explicit_interface_checker, only: &
+    validate_whole_file_explicit_interface
 use semantic_strict_argument_type_checker_validation, only: &
     validate_value_dummy_attributes_in_arena
 use semantic_placement_validation, only: &
@@ -124,6 +128,16 @@ contains
         ! binding label namespace spans the whole compilation unit, so this
         ! runs once over the arena rather than per scoping unit.
         call validate_global_binding_labels(arena, ctx%errors)
+
+        ! Reject declarations that contradict an interface body of the same
+        ! scoping unit, and module-procedure-stmt names declared INTRINSIC
+        ! (F2018 15.4.3.2, C846, C1514). Issue #2883.
+        call validate_interface_declarations(arena, ctx%errors)
+
+        ! Reject references to an external subprogram of the same file whose
+        ! interface must be explicit (F2018 15.4.2.2). Issue #2883.
+        call validate_whole_file_explicit_interface(arena, ctx%errors, &
+            ctx%input_mode == INPUT_MODE_STANDARD)
 
         ! Reject VALUE dummy arguments that carry a conflicting attribute
         ! (F2018 C863). The sweep is arena-wide so every procedure definition

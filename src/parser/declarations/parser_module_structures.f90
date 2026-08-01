@@ -26,6 +26,10 @@ module parser_module_structures_module
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_instantiate_statement_module, only: parse_instantiate_statement
     use parser_enum_statement_module, only: parse_enum_construct
+    use parser_external_statements_module, only: parse_external_statement
+    use parser_intrinsic_statements_module, only: parse_intrinsic_statement
+    use parser_dimension_statements_module, only: parse_dimension_statement
+    use parser_allocatable_statements_module, only: parse_allocatable_statement
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -176,6 +180,16 @@ contains
             stmt_index = parse_enum_construct(parser, arena)
         case ("enumerator")
             stmt_index = handle_enum_construct(parser, arena, to_lower(token%text))
+        case ("external")
+            stmt_index = parse_external_statement(parser, arena)
+        case ("intrinsic")
+            stmt_index = parse_intrinsic_statement(parser, arena)
+        case ("dimension")
+            stmt_index = parse_dimension_statement(parser, arena)
+        case ("allocatable")
+            ! The ALLOCATABLE statement adds an attribute to a declaration
+            ! that is already in the arena, so it contributes no new index.
+            if (parse_allocatable_statement(parser, arena)) stmt_index = -1
         end select
     end function parse_module_declaration_statement
 
@@ -426,7 +440,8 @@ contains
         case ("public", "private", "use", "include", "namelist", "integer", &
                 "real", "logical", "character", "complex", "procedure", &
                 "type", "class", "module", "implicit", "interface", &
-                "abstract", "instantiate", "enum", "enumerator", "parameter")
+                "abstract", "instantiate", "enum", "enumerator", "parameter", &
+                "external", "intrinsic", "dimension", "allocatable")
             module_declaration_keyword = .true.
         case default
             module_declaration_keyword = .false.
