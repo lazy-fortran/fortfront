@@ -31,7 +31,6 @@
         integer, allocatable :: body_indices_copy(:)
         character(len=:), allocatable :: lowered_return
         integer :: i
-        type(declaration_node) :: decl_copy
         logical :: has_result_decl
         integer :: new_decl_idx
         integer, allocatable :: dim_indices(:)
@@ -51,7 +50,11 @@
             original_body_indices = orig_func%body_indices
             allocate (body_indices_copy(size(original_body_indices)))
             do i = 1, size(original_body_indices)
-                body_indices_copy(i) = original_body_indices(i)
+                ! Issue #2958: the specialization owns its body. Sharing the
+                ! original statements left every name in the copy bound to the
+                ! original procedure's declarations.
+                body_indices_copy(i) = clone_ast_subtree(arena, &
+                                                         original_body_indices(i))
                 if (body_indices_copy(i) < 1) cycle
                 if (body_indices_copy(i) > arena%size) cycle
                 if (.not. allocated(arena%entries(body_indices_copy(i))%node)) cycle
@@ -61,33 +64,29 @@
                     if (.not. allocated(decl%var_name)) cycle
                     if (trim(decl%var_name) /= trim(result_name)) cycle
                     has_result_decl = .true.
-                    decl_copy = decl
-                    decl_copy%uid = generate_uid()
                     if (len_trim(return_type) > 0) then
-                        decl_copy%type_name = trim(return_type)
+                        decl%type_name = trim(return_type)
                     end if
-                    decl_copy%has_kind = .false.
+                    decl%has_kind = .false.
                     if (len_trim(lowered_return) > 0) then
-                        decl_copy%is_allocatable = &
+                        decl%is_allocatable = &
                             index(lowered_return, "allocatable") > 0
-                        decl_copy%is_array = &
+                        decl%is_array = &
                             index(lowered_return, "dimension(") > 0
                     else
-                        decl_copy%is_allocatable = .false.
-                        decl_copy%is_array = .false.
+                        decl%is_allocatable = .false.
+                        decl%is_array = .false.
                     end if
-                    if (decl_copy%is_array) then
+                    if (decl%is_array) then
                         call extract_dimension_from_type_string( &
-                             decl_copy%type_name, decl_copy%dimension_indices)
-                        decl_copy%type_name = strip_dimension_from_type( &
-                             decl_copy%type_name)
+                             decl%type_name, decl%dimension_indices)
+                        decl%type_name = strip_dimension_from_type( &
+                             decl%type_name)
                     else
-                        if (allocated(decl_copy%dimension_indices)) then
-                            deallocate (decl_copy%dimension_indices)
+                        if (allocated(decl%dimension_indices)) then
+                            deallocate (decl%dimension_indices)
                         end if
                     end if
-                    call arena%push(decl_copy, "declaration")
-                    body_indices_copy(i) = arena%size
                 end select
             end do
         else
