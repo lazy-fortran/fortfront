@@ -1,6 +1,7 @@
 module ast_monomorphization
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
+    use ast_subtree_clone, only: clone_ast_subtree
     use ast_nodes_core, only: program_node, call_or_subscript_node, &
         assignment_node, identifier_node, literal_node, &
         create_program
