@@ -35,6 +35,8 @@ module frontend_transformation_pipeline
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
+    use parser_statement_placement_module, only: &
+        set_statement_placement_input_mode
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use semantic_operating_mode, only: OPERATING_MODE_INFER, &
         OPERATING_MODE_STRICT
@@ -209,6 +211,7 @@ contains
 
         ! Set input mode in standardizer to distinguish standard vs lazy Fortran
         call set_standardizer_input_mode(context%input_mode)
+        call set_statement_placement_input_mode(context%input_mode)
 
         if (context%operating_mode == OPERATING_MODE_STRICT) then
             call tokenize_core(input, tokens)

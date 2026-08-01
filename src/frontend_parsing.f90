@@ -21,6 +21,7 @@ module frontend_parsing
     use error_reporting, only: error_collection_t, error_record_t
     use parser_dispatcher_module, only: clear_parser_errors
     use parser_construct_terminators_module, only: validate_construct_terminators
+    use parser_statement_placement_module, only: validate_statement_placement
 
     ! Import from split modules
     use frontend_program_units, only: parse_program_unit, &
@@ -104,6 +105,7 @@ contains
         character(len=:), allocatable :: nested_error
         character(len=:), allocatable :: unit_error
         character(len=:), allocatable :: terminator_error
+        character(len=:), allocatable :: placement_error
         type(error_collection_t), target :: diagnostics
 
         error_msg = ""
@@ -120,6 +122,14 @@ contains
         call validate_construct_terminators(tokens_local, terminator_error)
         if (len_trim(terminator_error) > 0) then
             error_msg = terminator_error
+            prog_index = 0
+            call export_parser_errors(diagnostics, parser_errors)
+            return
+        end if
+
+        call validate_statement_placement(tokens_local, placement_error)
+        if (len_trim(placement_error) > 0) then
+            error_msg = placement_error
             prog_index = 0
             call export_parser_errors(diagnostics, parser_errors)
             return

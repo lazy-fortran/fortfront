@@ -2,6 +2,11 @@ program test_reject_placement_01_diagnostics
     ! Rejection coverage for constructs in forbidden program sections
     ! (issue #2896).
     !
+    ! Statement placement: a statement that the standard confines to one kind
+    ! of program section must be rejected where it cannot appear, and the
+    ! corrected neighbouring form must stay accepted. The fixtures are reduced
+    ! from the gfortran.dg files that record each constraint.
+    !
     ! Rule under test: F2018 C858. The PROTECTED attribute may appear only in
     ! the specification part of a module. A main program has no module to
     ! protect anything from, so the attribute is invalid there.
@@ -14,6 +19,8 @@ program test_reject_placement_01_diagnostics
 
     print *, '=== Reject misplaced declarations (issue #2896) ==='
 
+    call test_misplaced_fixtures_rejected(all_tests_passed)
+    call test_corrected_neighbours_accepted(all_tests_passed)
     call test_protected_in_main_program_rejected(all_tests_passed)
     call test_protected_in_implicit_main_rejected(all_tests_passed)
     call test_protected_in_multi_declaration_rejected(all_tests_passed)
@@ -30,6 +37,76 @@ program test_reject_placement_01_diagnostics
     end if
 
 contains
+
+    ! Every listed invalid form produces a diagnostic naming its own rule.
+    subroutine test_misplaced_fixtures_rejected(passed)
+        logical, intent(inout) :: passed
+
+        call expect_example_error('examples/f90/blockdata_8.f90', &
+            'STATEMENT FUNCTION statement is not allowed inside of BLOCK DATA', &
+            passed)
+        call expect_example_error( &
+            'examples/f90/misplaced_implicit_character.f90', &
+            'IMPLICIT statement at (1) cannot follow data declaration', passed)
+        call expect_example_error('examples/f90/misplaced_statement.f90', &
+            'Unexpected SEQUENCE statement', passed)
+        call expect_example_error('examples/f90/pdt_33.f90', &
+            'Unexpected derived type declaration', passed)
+        call expect_example_error('examples/f90/pr61669.f90', &
+            'data declaration statement at (1) cannot appear after '// &
+            'executable statements', passed)
+        call expect_example_error('examples/f90/pr68054.f90', &
+            'PROTECTED attribute', passed)
+        call expect_example_error('examples/f90/pr68319.f90', &
+            'cannot appear within an INTERFACE body', passed)
+        call expect_example_error('examples/f90/stfunc_5.f90', &
+            'Unexpected STATEMENT FUNCTION statement', passed)
+        call expect_example_error('examples/f90/unexpected_interface.f90', &
+            'Unexpected INTERFACE statement', passed)
+    end subroutine test_misplaced_fixtures_rejected
+
+    ! Negative control: the corrected neighbour of every rule keeps compiling.
+    subroutine test_corrected_neighbours_accepted(passed)
+        logical, intent(inout) :: passed
+
+        call expect_example_accepted('examples/f90/issue_1578_block_data.f90', &
+            passed)
+        call expect_example_accepted( &
+            'examples/f90/implicit_none_single.f90', passed)
+        call expect_example_accepted( &
+            'examples/f90/placement_sections_corrected.f90', passed)
+        call expect_example_accepted( &
+            'examples/f90/issue_1353_derived_type.f90', passed)
+        call expect_example_accepted( &
+            'examples/f90/issue_1821_protected_attribute.f90', passed)
+        call expect_example_accepted( &
+            'examples/f90/issue_2489_interface_in_procedure.f90', passed)
+        call expect_example_accepted( &
+            'examples/f90/issue_2280_statement_function.f90', passed)
+        call expect_example_accepted('examples/f90/interface_only_block.f90', &
+            passed)
+    end subroutine test_corrected_neighbours_accepted
+
+    subroutine expect_example_error(path, expected, passed)
+        character(len=*), intent(in) :: path
+        character(len=*), intent(in) :: expected
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        call read_example(path, source)
+        print *, 'Testing rejection of ', path
+        call expect_frontend_error(source, expected, passed)
+    end subroutine expect_example_error
+
+    subroutine expect_example_accepted(path, passed)
+        character(len=*), intent(in) :: path
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        call read_example(path, source)
+        print *, 'Testing acceptance of ', path
+        call expect_frontend_accepts(source, passed)
+    end subroutine expect_example_accepted
 
     subroutine test_protected_in_main_program_rejected(passed)
         logical, intent(inout) :: passed
@@ -158,5 +235,7 @@ contains
             print *, '  PASS'
         end if
     end subroutine expect_frontend_accepts
+
+    include '../common/read_example.inc'
 
 end program test_reject_placement_01_diagnostics

@@ -59,3 +59,12 @@ f90/pr123375.f90
 f90/pr77414.f90
 f90/pr96102.f90
 f90/used_types_25.f90
+f90/blockdata_8.f90
+f90/misplaced_implicit_character.f90
+f90/misplaced_statement.f90
+f90/pdt_33.f90
+f90/pr61669.f90
+f90/pr68054.f90
+f90/pr68319.f90
+f90/stfunc_5.f90
+f90/unexpected_interface.f90

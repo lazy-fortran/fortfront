@@ -12,6 +12,8 @@ module frontend_compiler_api
         annotate_resolved_expression_types
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
         analyze_program, has_semantic_errors
+    use parser_statement_placement_module, only: &
+        set_statement_placement_input_mode
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use semantic_operating_mode, only: OPERATING_MODE_INFER
     use standardizer, only: standardize_ast, standardize_multi_unit_children, &
@@ -78,6 +80,7 @@ contains
         call set_source_text(result%arena, source_code)
 
         parse_error = ''
+        call set_statement_placement_input_mode(opts%input_mode)
         call parse_tokens(local_tokens, result%arena, result%root_index, &
             parse_error, result%parser_errors)
         if (len_trim(parse_error) > 0) then
