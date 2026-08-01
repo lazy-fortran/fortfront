@@ -5,8 +5,11 @@ module semantic_pure_validation
     ! statement such as STOP or PAUSE. ELEMENTAL implies PURE, so the same
     ! body restrictions apply.
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
         read_statement_node
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node
+    use ast_nodes_misc, only: interface_block_node, module_procedure_node
     use ast_nodes_transfer, only: stop_node, pause_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_conditional, only: if_node
@@ -88,7 +91,7 @@ contains
 
         if (.not. allocated(body_indices)) return
 
-        call check_pure_body(arena, body_indices, errors)
+        call check_pure_body(arena, body_indices, errors, param_indices)
     end subroutine validate_pure_procedure
 
     ! F2008 8.1.6.5: the body of a DO CONCURRENT construct is a pure context,
@@ -250,25 +253,29 @@ contains
     end function procedure_defined_in_arena
 
     ! Recursively scan a list of body statements for prohibited statements.
-    recursive subroutine check_pure_body(arena, body_indices, errors)
+    recursive subroutine check_pure_body(arena, body_indices, errors, &
+            param_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         type(error_collection_t), intent(inout) :: errors
+        integer, allocatable, intent(in), optional :: param_indices(:)
         integer :: i, stmt_index
 
         do i = 1, size(body_indices)
             stmt_index = body_indices(i)
             if (.not. arena%has_node_at(stmt_index)) cycle
-            call check_pure_statement(arena, stmt_index, errors)
+            call check_pure_statement(arena, stmt_index, errors, param_indices)
         end do
     end subroutine check_pure_body
 
     ! Inspect a single statement: report it if prohibited, recurse into the
     ! bodies of nested control-flow constructs otherwise.
-    recursive subroutine check_pure_statement(arena, stmt_index, errors)
+    recursive subroutine check_pure_statement(arena, stmt_index, errors, &
+            param_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         type(error_collection_t), intent(inout) :: errors
+        integer, allocatable, intent(in), optional :: param_indices(:)
 
         select type (stmt => arena%entries(stmt_index)%node)
             type is (print_statement_node)
@@ -281,36 +288,159 @@ contains
             call report_impure_stmt(errors, 'STOP', stmt%line, stmt%column)
             type is (pause_node)
             call report_impure_stmt(errors, 'PAUSE', stmt%line, stmt%column)
+            type is (assignment_node)
+            if (defined_assignment_is_impure(arena) .and. &
+                targets_derived_dummy(arena, stmt, param_indices)) then
+                call report_impure_stmt(errors, 'defined assignment', &
+                    stmt%line, stmt%column)
+            end if
             type is (if_node)
-            call check_pure_if(arena, stmt, errors)
+            call check_pure_if(arena, stmt, errors, param_indices)
             type is (do_loop_node)
             if (allocated(stmt%body_indices)) &
-                call check_pure_body(arena, stmt%body_indices, errors)
+                call check_pure_body(arena, stmt%body_indices, errors, &
+                    param_indices)
             type is (do_while_node)
             if (allocated(stmt%body_indices)) &
-                call check_pure_body(arena, stmt%body_indices, errors)
+                call check_pure_body(arena, stmt%body_indices, errors, &
+                    param_indices)
         end select
     end subroutine check_pure_statement
 
     ! Recurse into all branches of an IF construct.
-    recursive subroutine check_pure_if(arena, node, errors)
+    recursive subroutine check_pure_if(arena, node, errors, param_indices)
         type(ast_arena_t), intent(in) :: arena
         type(if_node), intent(in) :: node
         type(error_collection_t), intent(inout) :: errors
+        integer, allocatable, intent(in), optional :: param_indices(:)
         integer :: i
 
         if (allocated(node%then_body_indices)) &
-            call check_pure_body(arena, node%then_body_indices, errors)
+            call check_pure_body(arena, node%then_body_indices, errors, &
+                param_indices)
         if (allocated(node%elseif_blocks)) then
             do i = 1, size(node%elseif_blocks)
                 if (allocated(node%elseif_blocks(i)%body_indices)) &
                     call check_pure_body(arena, &
-                    node%elseif_blocks(i)%body_indices, errors)
+                    node%elseif_blocks(i)%body_indices, errors, param_indices)
             end do
         end if
         if (allocated(node%else_body_indices)) &
-            call check_pure_body(arena, node%else_body_indices, errors)
+            call check_pure_body(arena, node%else_body_indices, errors, &
+                param_indices)
     end subroutine check_pure_if
+
+    ! A defined assignment is impure unless its resolved procedure is PURE.
+    ! Limit this check to a derived-type dummy target so intrinsic assignment
+    ! remains valid in a PURE procedure when an unrelated overload exists.
+    logical function targets_derived_dummy(arena, assignment, param_indices) &
+        result(matches)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: assignment
+        integer, allocatable, intent(in), optional :: param_indices(:)
+        character(len=:), allocatable :: name, lowered
+        integer :: i
+
+        matches = .false.
+        if (.not. present(param_indices)) return
+        if (.not. allocated(param_indices)) return
+        if (.not. arena%has_node_at(assignment%target_index)) return
+
+        select type (target => arena%entries(assignment%target_index)%node)
+            type is (identifier_node)
+            if (.not. allocated(target%name)) return
+            name = to_lower(trim(target%name))
+            do i = 1, size(param_indices)
+                if (.not. arena%has_node_at(param_indices(i))) cycle
+                select type (param => arena%entries(param_indices(i))%node)
+                    type is (declaration_node)
+                    if (.not. allocated(param%var_name)) cycle
+                    if (to_lower(trim(param%var_name)) /= name) cycle
+                    if (.not. allocated(param%type_name)) return
+                    lowered = to_lower(trim(param%type_name))
+                    matches = index(lowered, 'type(') == 1 .or. &
+                        index(lowered, 'class(') == 1
+                    return
+                    type is (parameter_declaration_node)
+                    if (.not. allocated(param%name)) cycle
+                    if (to_lower(trim(param%name)) /= name) cycle
+                    if (.not. allocated(param%type_name)) return
+                    lowered = to_lower(trim(param%type_name))
+                    matches = index(lowered, 'type(') == 1 .or. &
+                        index(lowered, 'class(') == 1
+                    return
+                end select
+            end do
+        end select
+    end function targets_derived_dummy
+
+    logical function defined_assignment_is_impure(arena) result(is_impure)
+        type(ast_arena_t), intent(in) :: arena
+        integer :: i, j, k
+        character(len=:), allocatable :: kind
+
+        is_impure = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (iface => arena%entries(i)%node)
+                type is (interface_block_node)
+                if (.not. allocated(iface%kind)) cycle
+                kind = to_lower(trim(iface%kind))
+                if (kind /= 'assignment') cycle
+                if (.not. allocated(iface%procedure_indices)) cycle
+                do j = 1, size(iface%procedure_indices)
+                    if (.not. arena%has_node_at(iface%procedure_indices(j))) cycle
+                    select type (proc => &
+                            arena%entries(iface%procedure_indices(j))%node)
+                        type is (module_procedure_node)
+                        if (.not. allocated(proc%procedure_names)) cycle
+                        do k = 1, size(proc%procedure_names)
+                            if (procedure_name_is_impure(arena, &
+                                proc%procedure_names(k)%s)) then
+                                is_impure = .true.
+                                return
+                            end if
+                        end do
+                        type is (function_def_node)
+                        if (.not. is_pure_prefix(proc%prefix_keywords)) then
+                            is_impure = .true.
+                            return
+                        end if
+                        type is (subroutine_def_node)
+                        if (.not. is_pure_prefix(proc%prefix_keywords)) then
+                            is_impure = .true.
+                            return
+                        end if
+                    end select
+                end do
+            end select
+        end do
+    end function defined_assignment_is_impure
+
+    logical function procedure_name_is_impure(arena, name) result(is_impure)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i
+        character(len=:), allocatable :: lowered
+
+        is_impure = .false.
+        lowered = to_lower(trim(name))
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (proc => arena%entries(i)%node)
+                type is (function_def_node)
+                if (.not. allocated(proc%name)) cycle
+                if (to_lower(trim(proc%name)) /= lowered) cycle
+                is_impure = .not. is_pure_prefix(proc%prefix_keywords)
+                return
+                type is (subroutine_def_node)
+                if (.not. allocated(proc%name)) cycle
+                if (to_lower(trim(proc%name)) /= lowered) cycle
+                is_impure = .not. is_pure_prefix(proc%prefix_keywords)
+                return
+            end select
+        end do
+    end function procedure_name_is_impure
 
     subroutine report_impure_stmt(errors, kind, line, column)
         type(error_collection_t), intent(inout) :: errors

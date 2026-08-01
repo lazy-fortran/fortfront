@@ -28,6 +28,9 @@ program test_reject_purity_01_diagnostics
     call check_rejected('examples/f90/impure_assignment_2.f90', &
         'definition of a PURE function dummy', 'variable definition context', &
         all_passed)
+    call check_rejected('examples/f90/impure_assignment_1.f90', &
+        'impure defined assignment in PURE procedure', &
+        'defined assignment statement', all_passed)
     call check_rejected('examples/f90/pure_formal_proc_3.f90', &
         'impure dummy procedure of PURE procedure', 'must also be PURE', &
         all_passed)
