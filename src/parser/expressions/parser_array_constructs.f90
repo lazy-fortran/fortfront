@@ -14,7 +14,8 @@ module parser_array_constructs_module
         skip_whitespace_and_semicolons
     use parser_basic_statement_module, only: parse_statement_body
     use parser_if_constructs_module, only: parse_if, parse_if_condition
-    use parser_select_constructs_module, only: parse_select_case
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
+        parse_select_rank
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_where, push_associate, push_block_construct
     implicit none
@@ -34,6 +35,8 @@ contains
         callbacks%parse_associate => parse_associate
         callbacks%parse_block => parse_block_construct
         callbacks%parse_select_case => parse_select_case
+        callbacks%parse_select_type => parse_select_type
+        callbacks%parse_select_rank => parse_select_rank
     end function build_where_callbacks
 
     function build_associate_callbacks() result(callbacks)
