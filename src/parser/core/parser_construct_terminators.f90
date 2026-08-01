@@ -313,8 +313,9 @@ contains
         is_construct = .false.
         if (tokens(j)%kind /= TK_KEYWORD) return
         k = next_significant(tokens, j + 1)
-        ! A labelled DO is terminated by its label, not by END DO.
-        if (k > 0) then
+        ! A labelled DO is terminated by its label, not by END DO. The label
+        ! belongs to the DO statement itself, so it must be on the same line.
+        if (continues_statement(tokens, j, k)) then
             if (tokens(k)%kind == TK_NUMBER) return
         end if
         is_construct = .true.
@@ -382,6 +383,15 @@ contains
         integer :: colon, after
 
         j = i
+        ! A numeric statement label may precede any statement, including a
+        ! construct terminator used as a branch target.
+        if (tokens(i)%kind == TK_NUMBER) then
+            after = next_significant(tokens, i + 1)
+            if (after == 0) return
+            if (.not. continues_statement(tokens, i, after)) return
+            j = after
+            return
+        end if
         if (tokens(i)%kind /= TK_IDENTIFIER) return
         colon = next_significant(tokens, i + 1)
         if (colon == 0) return
