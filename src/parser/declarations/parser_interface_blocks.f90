@@ -110,6 +110,14 @@ contains
 
         call reject_module_procedure_in_abstract(parser, lowered_text, is_abstract)
 
+        ! MODULE PROCEDURE is a module-procedure-stmt, not a MODULE prefix on a
+        ! procedure definition. Leaving it to the statement parser is what
+        ! records has_module_prefix, which distinguishes it from a plain
+        ! PROCEDURE statement (issue #2883).
+        if (trim(lowered_text) == "module") then
+            if (is_module_procedure_declaration(parser)) return
+        end if
+
         if (is_procedure_prefix(lowered_text)) then
             call append_interface_prefix(prefix_buffer, lowered_text)
             consumed_prefix = parser%consume()
@@ -236,7 +244,15 @@ contains
 
         if (token%kind == TK_IDENTIFIER) then
             lowered_text = to_lower(token%text)
-            if (is_procedure_prefix(lowered_text)) then
+            ! MODULE PROCEDURE is a module-procedure-stmt, not a MODULE prefix on a
+        ! procedure definition. Leaving it to the statement parser is what
+        ! records has_module_prefix, which distinguishes it from a plain
+        ! PROCEDURE statement (issue #2883).
+        if (trim(lowered_text) == "module") then
+            if (is_module_procedure_declaration(parser)) return
+        end if
+
+        if (is_procedure_prefix(lowered_text)) then
                 call append_interface_prefix(prefix_buffer, lowered_text)
                 consumed_token = parser%consume()
                 handled = .true.
