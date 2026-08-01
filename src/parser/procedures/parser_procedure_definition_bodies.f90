@@ -9,7 +9,8 @@ module parser_procedure_definition_bodies_module
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
         parse_select_rank
     use parser_array_constructs_module, only: parse_associate, parse_block_construct
-    use parser_block_statement_utils_module, only: is_if_statement_start, &
+    use parser_block_statement_utils_module, only: block_construct_start, &
+        is_block_construct_keyword, &
         locate_block_statement_end, &
         locate_single_line_end
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
@@ -486,13 +487,18 @@ contains
         integer, intent(out) :: stmt_end
 
         integer :: stmt_start
+        integer :: construct_pos
 
         ! Performance: work directly with parser%tokens instead of copying
         ! the entire token array for every statement
         stmt_start = parser%current_token
-        if (is_if_statement_start(first_token)) then
-            stmt_end = locate_block_statement_end(parser%tokens, stmt_start, &
-                first_token%text)
+        ! A construct name ("check: if (...) then") precedes the construct
+        ! keyword; the span still has to be located from the terminator of the
+        ! construct, not from the end of the first line (issue #2967).
+        construct_pos = block_construct_start(parser%tokens, stmt_start)
+        if (construct_pos > 0) then
+            stmt_end = locate_block_statement_end(parser%tokens, construct_pos, &
+                parser%tokens(construct_pos)%text)
         else
             stmt_end = locate_single_line_end(parser%tokens, stmt_start, &
                 first_token%line)
@@ -562,6 +568,7 @@ contains
         integer :: first_token
         integer :: keyword_token
         character(len=:), allocatable :: token_lower, stmt_label
+        type(token_t), allocatable, target :: construct_tokens(:)
         type(parser_state_t) :: block_parser
         type(token_t) :: token
 
@@ -596,28 +603,38 @@ contains
         if (keyword_token <= stmt_size) then
             if (stmt_tokens(keyword_token)%kind == TK_KEYWORD) then
                 token_lower = to_lower(stmt_tokens(keyword_token)%text)
+                ! The DO parser consumes a leading construct name itself; the
+                ! other construct parsers are handed the slice that starts at
+                ! the construct keyword (issue #2967).
+                if (trim(token_lower) == "do") then
+                    allocate (construct_tokens, source=stmt_tokens)
+                else
+                    allocate (construct_tokens, &
+                        source=stmt_tokens(keyword_token:size(stmt_tokens)))
+                end if
                 if (trim(token_lower) == "if") then
                     if (associated(parent_parser%diagnostic_sink)) then
-                        stmt_index = parse_if_statement_tokens(stmt_tokens, arena, &
-                            parent_parser%diagnostic_sink)
+                        stmt_index = parse_if_statement_tokens(construct_tokens, &
+                            arena, parent_parser%diagnostic_sink)
                     else
-                        stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                        stmt_index = parse_if_statement_tokens(construct_tokens, &
+                            arena)
                     end if
                 else if (trim(token_lower) == "do") then
-                    stmt_index = parse_do_statement_tokens(stmt_tokens, arena, &
+                    stmt_index = parse_do_statement_tokens(construct_tokens, arena, &
                         parent_parser)
                 else if (trim(token_lower) == "select") then
-                    stmt_index = parse_select_statement_tokens(stmt_tokens, arena, &
-                        parent_parser)
+                    stmt_index = parse_select_statement_tokens(construct_tokens, &
+                        arena, parent_parser)
                 else if (trim(token_lower) == "associate") then
-                    block_parser = create_parser_state(stmt_tokens)
+                    block_parser = create_parser_state(construct_tokens)
                     if (associated(parent_parser%diagnostic_sink)) then
                         block_parser%diagnostic_sink => &
                             parent_parser%diagnostic_sink
                     end if
                     stmt_index = parse_associate(block_parser, arena)
                 else if (trim(token_lower) == "block") then
-                    block_parser = create_parser_state(stmt_tokens)
+                    block_parser = create_parser_state(construct_tokens)
                     if (associated(parent_parser%diagnostic_sink)) then
                         block_parser%diagnostic_sink => &
                             parent_parser%diagnostic_sink
@@ -672,8 +689,7 @@ contains
         if (trim(stmt_tokens(colon_token)%text) /= ":") return
         candidate = next_significant_token(stmt_tokens, stmt_size, colon_token + 1)
         if (candidate > stmt_size) return
-        if (stmt_tokens(candidate)%kind /= TK_KEYWORD) return
-        if (to_lower(trim(stmt_tokens(candidate)%text)) /= "do") return
+        if (.not. is_block_construct_keyword(stmt_tokens(candidate))) return
         keyword_token = candidate
     end function construct_keyword_position
 

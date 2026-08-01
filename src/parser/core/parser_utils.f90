@@ -1,6 +1,6 @@
 module parser_utils
     use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, &
-        TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
+        TK_COMMENT, TK_NEWLINE, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -148,16 +148,23 @@ contains
     ! Check if keyword is an attribute or type modifier (not statement-ending)
     logical function is_attribute_keyword(keyword)
         character(len=*), intent(in) :: keyword
-        is_attribute_keyword = (keyword == "parameter" .or. &
-            keyword == "intent" .or. &
-            keyword == "optional" .or. &
-            keyword == "allocatable" .or. &
-            keyword == "pointer" .or. &
-            keyword == "target" .or. &
-            keyword == "save" .or. &
-            keyword == "public" .or. &
-            keyword == "private" .or. &
-            keyword == "precision") ! For double precision
+        character(len=:), allocatable :: lowered
+
+        ! Fortran keywords are case-insensitive: comparing the raw source
+        ! spelling here truncated the entity list of any declaration written
+        ! in upper case (issue #2974).
+        lowered = to_lower(trim(keyword))
+        is_attribute_keyword = (lowered == "parameter" .or. &
+            lowered == "intent" .or. &
+            lowered == "optional" .or. &
+            lowered == "allocatable" .or. &
+            lowered == "pointer" .or. &
+            lowered == "target" .or. &
+            lowered == "save" .or. &
+            lowered == "public" .or. &
+            lowered == "private" .or. &
+            lowered == "complex" .or. &
+            lowered == "precision") ! For double precision
     end function is_attribute_keyword
 
     logical function is_line_continued(tokens, newline_idx)

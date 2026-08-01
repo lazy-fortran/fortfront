@@ -37,6 +37,8 @@ module parser_statement_utilities_module
     use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_common_statement_module, only: parse_common_statement
+    use parser_external_statements_module, only: parse_external_statement
+    use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use uid_generator, only: generate_uid
     implicit none
     private
@@ -189,6 +191,10 @@ contains
                     parser, arena)
             case ("common")
                 stmt_index = parse_common_statement(parser, arena)
+            case ("external")
+                stmt_index = parse_external_statement(parser, arena)
+            case ("intrinsic")
+                stmt_index = parse_intrinsic_statement(parser, arena)
             case default
                 ! Check if this might be an assignment with a keyword as target
                 ! (e.g., "double = 5" where "double" is both a keyword and a variable)
