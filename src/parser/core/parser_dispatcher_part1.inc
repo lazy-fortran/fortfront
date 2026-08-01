@@ -299,6 +299,8 @@
             call handle_common_keyword(parser, arena, first_token, stmt_index)
         case ("dimension")
             call handle_dimension_keyword(parser, arena, first_token, stmt_index)
+        case ("value")
+            stmt_index = parse_value_statement(parser, arena)
         case ("enum")
             stmt_index = parse_enum_construct(parser, arena)
         case ("enumerator")

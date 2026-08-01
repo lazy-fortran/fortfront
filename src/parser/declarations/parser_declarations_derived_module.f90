@@ -190,6 +190,16 @@ contains
         if (token%text /= "(") return
         token = parser%consume()
 
+        call skip_inline_trivia(parser)
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ")") then
+            call parser%error_at_token( &
+                "A type parameter list must contain at least one parameter", &
+                token)
+            token = parser%consume()
+            return
+        end if
+
         do while (.not. parser%is_at_end())
             call skip_inline_trivia(parser)
             token = parser%peek()

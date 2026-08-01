@@ -745,6 +745,8 @@
                         success = parse_allocatable_statement(parser_ref, arena_ref)
                     end block
                     stmt_index = 0
+                case ("value")
+                    stmt_index = parse_value_statement(parser_ref, arena_ref)
                 case ("namelist")
                     stmt_index = parse_namelist_statement(parser_ref, arena_ref)
                 case ("equivalence")
