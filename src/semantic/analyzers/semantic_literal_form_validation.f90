@@ -39,6 +39,7 @@ contains
         type(string_t), allocatable :: procedures(:)
         integer, allocatable :: kind_literals(:)
         integer, allocatable :: output_items(:)
+        integer, allocatable :: output_owners(:)
         integer, allocatable :: imports(:)
         integer :: available_count, procedure_count
         integer :: kind_count, output_count, import_count
@@ -46,8 +47,8 @@ contains
 
         call scan_arena(arena, available, available_count, procedures, &
                         procedure_count, kind_literals, kind_count, &
-                        output_items, output_count, imports, import_count, &
-                        unrestricted_use)
+                        output_items, output_owners, output_count, imports, &
+                        import_count, unrestricted_use)
 
         ! Lazy Fortran supplies kind names such as `dp` implicitly, so a named
         ! kind parameter is only required to be declared in standard input.
@@ -56,16 +57,16 @@ contains
                                        available, available_count, errors)
         end if
         call check_intrinsic_module_imports(arena, imports, import_count, errors)
-        call check_output_list_items(arena, output_items, output_count, &
-                                     available, available_count, procedures, &
-                                     procedure_count, errors)
+        call check_output_list_items(arena, output_items, output_owners, &
+                                     output_count, available, available_count, &
+                                     procedures, procedure_count, errors)
     end subroutine validate_literal_forms
 
     ! Single arena traversal feeding every rule below.
     subroutine scan_arena(arena, available, available_count, procedures, &
                           procedure_count, kind_literals, kind_count, &
-                          output_items, output_count, imports, import_count, &
-                          unrestricted_use)
+                          output_items, output_owners, output_count, imports, &
+                          import_count, unrestricted_use)
         type(ast_arena_t), intent(in) :: arena
         type(string_t), allocatable, intent(out) :: available(:)
         integer, intent(out) :: available_count
@@ -74,17 +75,19 @@ contains
         integer, allocatable, intent(out) :: kind_literals(:)
         integer, intent(out) :: kind_count
         integer, allocatable, intent(out) :: output_items(:)
+        integer, allocatable, intent(out) :: output_owners(:)
         integer, intent(out) :: output_count
         integer, allocatable, intent(out) :: imports(:)
         integer, intent(out) :: import_count
         logical, intent(out) :: unrestricted_use
         character(len=:), allocatable :: suffix
-        integer :: i, j
+        integer :: i, j, owner_count
 
         allocate (available(0))
         allocate (procedures(0))
         allocate (kind_literals(0))
         allocate (output_items(0))
+        allocate (output_owners(0))
         allocate (imports(0))
         available_count = 0
         procedure_count = 0
@@ -106,6 +109,8 @@ contains
                 type is (print_statement_node)
                 if (.not. allocated(node%expression_indices)) cycle
                 do j = 1, size(node%expression_indices)
+                    owner_count = output_count
+                    call append_index(output_owners, owner_count, i)
                     call append_index(output_items, output_count, &
                                       node%expression_indices(j))
                 end do
@@ -205,11 +210,13 @@ contains
 
     ! A bare procedure name is neither a constant nor a variable, so it cannot
     ! appear as an output list item.
-    subroutine check_output_list_items(arena, output_items, output_count, &
-                                       available, available_count, procedures, &
+    subroutine check_output_list_items(arena, output_items, output_owners, &
+                                       output_count, available, &
+                                       available_count, procedures, &
                                        procedure_count, errors)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: output_items(:)
+        integer, intent(in) :: output_owners(:)
         integer, intent(in) :: output_count
         type(string_t), intent(in) :: available(:)
         integer, intent(in) :: available_count
@@ -230,6 +237,10 @@ contains
                 if (name_present(available, available_count, item%name)) cycle
                 if (.not. name_present(procedures, procedure_count, &
                                        item%name)) cycle
+                ! Inside its own body the function name is the result
+                ! variable, so it is a valid output item there.
+                if (in_own_function_body(arena, output_owners(i), &
+                                         item%name)) cycle
                 call report(errors, 'Invalid constant in output list: '// &
                             item%name//' is a procedure name, not a floating '// &
                             'constant or variable', item%line, item%column, &
@@ -238,6 +249,41 @@ contains
             end select
         end do
     end subroutine check_output_list_items
+
+    ! True when one of the enclosing function definitions of node_index names
+    ! its result with this name, either implicitly or through RESULT.
+    function in_own_function_body(arena, node_index, name) result(is_result)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: name
+        logical :: is_result
+        character(len=:), allocatable :: lowered
+        integer :: current
+
+        is_result = .false.
+        lowered = to_lower(trim(name))
+        current = node_index
+        do while (current > 0)
+            if (current > arena%size) exit
+            if (.not. arena%has_node_at(current)) exit
+            select type (scope => arena%entries(current)%node)
+                type is (function_def_node)
+                if (allocated(scope%result_variable)) then
+                    if (to_lower(trim(scope%result_variable)) == lowered) then
+                        is_result = .true.
+                        return
+                    end if
+                end if
+                if (allocated(scope%name)) then
+                    if (to_lower(trim(scope%name)) == lowered) then
+                        is_result = .true.
+                        return
+                    end if
+                end if
+            end select
+            current = arena%entries(current)%parent_index
+        end do
+    end function in_own_function_body
 
     ! Append an arena index with geometric growth.
     subroutine append_index(indices, count, value)
@@ -379,7 +425,8 @@ contains
         names(count)%s = trim(name)
     end subroutine append
 
-    ! Public entities of the intrinsic module ISO_FORTRAN_ENV (F2018 16.10.2).
+    ! Public entities of the intrinsic module ISO_FORTRAN_ENV (F2023 16.10.2,
+    ! which added the LOGICAL8 ... LOGICAL64 kind constants).
     function is_iso_fortran_env_entity(name) result(is_entity)
         character(len=*), intent(in) :: name
         logical :: is_entity
@@ -392,7 +439,8 @@ contains
               'current_team', 'error_unit', 'event_type', 'file_storage_size', &
               'initial_team', 'input_unit', 'int8', 'int16', 'int32', 'int64', &
               'integer_kinds', 'iostat_end', 'iostat_eor', &
-              'iostat_inquire_internal_unit', 'lock_type', 'logical_kinds', &
+              'iostat_inquire_internal_unit', 'lock_type', 'logical8', &
+              'logical16', 'logical32', 'logical64', 'logical_kinds', &
               'notify_type', 'numeric_storage_size', 'output_unit', &
               'parent_team', 'real16', 'real32', 'real64', 'real128', &
               'real_kinds', 'stat_failed_image', 'stat_locked', &
