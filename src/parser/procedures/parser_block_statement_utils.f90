@@ -88,10 +88,22 @@ contains
     ! second token of a two-word terminator ("end do") is skipped so that it
     ! cannot be miscounted as a fresh opening (issue #2972).
     integer function locate_block_statement_end(all_tokens, stmt_start, &
-            stmt_type) result(stmt_end)
+            stmt_type, unaccounted) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
         character(len=*), intent(in) :: stmt_type
+        ! Token-accounting invariant. .true. when the scan consumed every
+        ! remaining token of the unit without matching the terminator, so the
+        ! span it returns covers source that does not belong to the construct.
+        !
+        ! This is a check on the SCANNER, not on the source: the pre-parse
+        ! construct-terminator validator has already established that the
+        ! source closes every construct it opens. So if this fires, the
+        ! bookkeeping here is wrong, and the caller is about to absorb
+        ! unrelated statements into this construct and drop them from the AST.
+        ! That is the mechanism of #2928, the bare-END procedure span, and
+        ! #2966/#2967/#2972/#2974/#2977 (issue #2983).
+        logical, intent(out), optional :: unaccounted
 
         integer :: pos
         integer :: depth
@@ -101,6 +113,7 @@ contains
 
         construct = trim(to_lower(stmt_type))
         stmt_end = stmt_start
+        if (present(unaccounted)) unaccounted = .false.
 
         if (construct == "if") then
             if (is_single_line_if_statement(all_tokens, stmt_start)) then
@@ -136,6 +149,9 @@ contains
             stmt_end = pos
             pos = pos + 1
         end do
+
+        ! Ran out of tokens with the construct still open.
+        if (present(unaccounted)) unaccounted = .true.
     end function locate_block_statement_end
 
     ! Index of the last token of the terminator of `construct` starting at pos,

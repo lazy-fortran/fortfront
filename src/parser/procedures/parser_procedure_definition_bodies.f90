@@ -488,6 +488,7 @@ contains
 
         integer :: stmt_start
         integer :: construct_pos
+        logical :: unaccounted
 
         ! Performance: work directly with parser%tokens instead of copying
         ! the entire token array for every statement
@@ -498,7 +499,18 @@ contains
         construct_pos = block_construct_start(parser%tokens, stmt_start)
         if (construct_pos > 0) then
             stmt_end = locate_block_statement_end(parser%tokens, construct_pos, &
-                parser%tokens(construct_pos)%text)
+                parser%tokens(construct_pos)%text, unaccounted)
+            ! The span scanner could not account for the tokens of this unit.
+            ! The source is already known to close every construct it opens, so
+            ! the span returned here is wrong and would swallow the statements
+            ! that follow. Report it instead of emitting a shorter AST (#2983).
+            if (unaccounted) then
+                call parser%error_at_token( &
+                    "internal: could not locate the end of this "// &
+                    trim(to_lower(parser%tokens(construct_pos)%text))// &
+                    " construct; refusing to drop the statements that follow", &
+                    parser%tokens(construct_pos))
+            end if
         else
             stmt_end = locate_single_line_end(parser%tokens, stmt_start, &
                 first_token%line)
