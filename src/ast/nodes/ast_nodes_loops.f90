@@ -1,7 +1,7 @@
 module ast_nodes_loops
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, &
-        ast_node_wrapper, ast_visitor_base_t
+        ast_node_wrapper, ast_visitor_base_t, copy_ast_node_base
     implicit none
     private
 
@@ -89,15 +89,7 @@ contains
         class(do_loop_node), intent(inout) :: lhs
         class(do_loop_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%var_name = rhs%var_name
         if (allocated(lhs%label)) deallocate (lhs%label)
@@ -126,15 +118,7 @@ contains
         class(do_while_node), intent(inout) :: lhs
         class(do_while_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         if (allocated(lhs%label)) deallocate (lhs%label)
         if (allocated(rhs%label)) lhs%label = rhs%label
@@ -157,15 +141,7 @@ contains
         class(forall_node), intent(inout) :: lhs
         class(forall_node), intent(in) :: rhs
         ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        lhs%uid = rhs%uid
-        lhs%inferred_type = rhs%inferred_type
-        lhs%is_constant = rhs%is_constant
-        lhs%constant_logical = rhs%constant_logical
-        lhs%constant_integer = rhs%constant_integer
-        lhs%constant_real = rhs%constant_real
-        lhs%constant_type = rhs%constant_type
+        call copy_ast_node_base(lhs, rhs)
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
         if (allocated(rhs%index_names)) then
