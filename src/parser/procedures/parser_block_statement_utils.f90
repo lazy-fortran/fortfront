@@ -137,6 +137,13 @@ contains
                     pos = closer_end + 1
                     cycle
                 else if (token_lower == construct) then
+                    if (construct == "if" .and. &
+                        is_single_line_if_statement(all_tokens, pos)) then
+                        stmt_end = locate_single_line_end(all_tokens, pos, &
+                            all_tokens(pos)%line)
+                        pos = stmt_end + 1
+                        cycle
+                    end if
                     if (.not. opens_nested_construct(all_tokens, pos, construct)) &
                         then
                         stmt_end = pos

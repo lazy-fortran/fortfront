@@ -9,6 +9,7 @@ program inline_if_fixture
         print*, "x =", x
         if (x > 0.3) print*, "x larger than 0.3"
         if (x > 0.2) then
+            if (x > 0.1) print*, "nested inline if"
             print*, "x larger than 0.2"
         end if
         do j = 1, 2
