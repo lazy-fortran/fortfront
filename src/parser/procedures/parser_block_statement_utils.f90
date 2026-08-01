@@ -1,182 +1,92 @@
 module parser_block_statement_utils_module
     use string_utils_mod, only: to_lower
-    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-        TK_WHITESPACE, TK_COMMENT
+    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, &
+        TK_NEWLINE, TK_WHITESPACE, TK_COMMENT
     implicit none
     private
 
     public :: is_if_statement_start
+    public :: is_block_construct_keyword
+    public :: block_construct_start
     public :: locate_block_statement_end
     public :: locate_single_line_end
 
 contains
 
-    logical function is_if_statement_start(first_token) result(is_if_start)
-        type(token_t), intent(in) :: first_token
+    ! True when the token opens a multi-line construct whose token span has to
+    ! be located by matching its terminator rather than by end of line.
+    logical function is_block_construct_keyword(tok) result(is_construct)
+        type(token_t), intent(in) :: tok
         character(len=:), allocatable :: token_lower
 
-        is_if_start = first_token%kind == TK_KEYWORD
-        if (is_if_start) then
-            token_lower = to_lower(first_token%text)
-            is_if_start = trim(token_lower) == "if" .or. &
-                trim(token_lower) == "do" .or. &
-                trim(token_lower) == "select" .or. &
-                trim(token_lower) == "associate" .or. &
-                trim(token_lower) == "block"
-        end if
+        is_construct = tok%kind == TK_KEYWORD
+        if (.not. is_construct) return
+        token_lower = trim(to_lower(tok%text))
+        select case (token_lower)
+        case ("if", "do", "select", "associate", "block")
+            is_construct = .true.
+        case default
+            is_construct = .false.
+        end select
+    end function is_block_construct_keyword
+
+    ! Retained name for the historical caller: a statement starts a block
+    ! construct when its first token is one of the construct keywords.
+    logical function is_if_statement_start(first_token) result(is_if_start)
+        type(token_t), intent(in) :: first_token
+
+        is_if_start = is_block_construct_keyword(first_token)
     end function is_if_statement_start
 
-    logical function handle_if_block_keyword(all_tokens, pos, depth, stmt_end) &
-            result(completed)
+    ! Index of the token that opens the construct of the statement beginning at
+    ! stmt_start, skipping a leading construct name ("check: if (...) then").
+    ! Returns 0 when the statement does not open a block construct.
+    integer function block_construct_start(all_tokens, stmt_start) result(kw_pos)
         type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: pos
-        integer, intent(inout) :: depth
-        integer, intent(inout) :: stmt_end
+        integer, intent(in) :: stmt_start
+        integer :: colon_pos, candidate
 
-        logical :: preceded_by_end
-        logical :: preceded_by_else
+        kw_pos = 0
+        if (stmt_start < 1 .or. stmt_start > size(all_tokens)) return
 
-        completed = .false.
-        select case (all_tokens(pos)%text)
-        case ("if")
-            preceded_by_end = .false.
-            preceded_by_else = .false.
-            if (pos > 1) then
-                if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                    preceded_by_end = all_tokens(pos - 1)%text == "end"
-                    preceded_by_else = all_tokens(pos - 1)%text == "else"
-                end if
-            end if
-            if (.not. preceded_by_end .and. .not. preceded_by_else) then
-                depth = depth + 1
-            end if
-        case ("end")
-            if (pos < size(all_tokens)) then
-                if (all_tokens(pos + 1)%kind == TK_KEYWORD) then
-                    if (all_tokens(pos + 1)%text == "if") then
-                        depth = depth - 1
-                        if (depth <= 0) then
-                            stmt_end = min(size(all_tokens), pos + 1)
-                            completed = .true.
-                        end if
-                    end if
-                end if
-            end if
-        end select
-    end function handle_if_block_keyword
+        if (is_block_construct_keyword(all_tokens(stmt_start))) then
+            kw_pos = stmt_start
+            return
+        end if
 
-    logical function handle_do_block_keyword(all_tokens, pos, depth, stmt_end) &
-            result(completed)
+        if (all_tokens(stmt_start)%kind /= TK_IDENTIFIER) return
+        colon_pos = next_significant(all_tokens, stmt_start + 1)
+        if (colon_pos > size(all_tokens)) return
+        if (all_tokens(colon_pos)%kind /= TK_OPERATOR) return
+        if (trim(all_tokens(colon_pos)%text) /= ":") return
+        candidate = next_significant(all_tokens, colon_pos + 1)
+        if (candidate > size(all_tokens)) return
+        if (.not. is_block_construct_keyword(all_tokens(candidate))) return
+        kw_pos = candidate
+    end function block_construct_start
+
+    integer function next_significant(all_tokens, start_pos) result(pos)
         type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: pos
-        integer, intent(inout) :: depth
-        integer, intent(inout) :: stmt_end
+        integer, intent(in) :: start_pos
 
-        completed = .false.
-        select case (all_tokens(pos)%text)
-        case ("do")
-            depth = depth + 1
-        case ("enddo", "end do")
-            depth = depth - 1
-            if (depth <= 0) then
-                stmt_end = min(size(all_tokens), pos)
-                completed = .true.
-            end if
-        case ("end")
-            if (pos + 1 <= size(all_tokens)) then
-                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                    all_tokens(pos + 1)%text == "do") then
-                    depth = depth - 1
-                    if (depth <= 0) then
-                        stmt_end = min(size(all_tokens), pos + 1)
-                        completed = .true.
-                    end if
-                end if
-            end if
-        end select
-    end function handle_do_block_keyword
+        pos = start_pos
+        do while (pos <= size(all_tokens))
+            select case (all_tokens(pos)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                pos = pos + 1
+            case default
+                return
+            end select
+        end do
+    end function next_significant
 
-    logical function handle_select_block_keyword(all_tokens, pos, depth, stmt_end) &
-            result(completed)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: pos
-        integer, intent(inout) :: depth
-        integer, intent(inout) :: stmt_end
-
-        completed = .false.
-        select case (to_lower(all_tokens(pos)%text))
-        case ("select")
-            depth = depth + 1
-        case ("end")
-            if (pos + 1 <= size(all_tokens)) then
-                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                    to_lower(all_tokens(pos + 1)%text) == "select") then
-                    depth = depth - 1
-                    if (depth <= 0) then
-                        stmt_end = min(size(all_tokens), pos + 1)
-                        completed = .true.
-                    end if
-                end if
-            end if
-        end select
-    end function handle_select_block_keyword
-
-    logical function handle_associate_block_keyword(all_tokens, pos, depth, &
-            stmt_end) result(completed)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: pos
-        integer, intent(inout) :: depth
-        integer, intent(inout) :: stmt_end
-
-        completed = .false.
-        select case (to_lower(all_tokens(pos)%text))
-        case ("associate")
-            depth = depth + 1
-        case ("end")
-            if (pos + 1 <= size(all_tokens)) then
-                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                    to_lower(all_tokens(pos + 1)%text) == "associate") then
-                    depth = depth - 1
-                    if (depth <= 0) then
-                        stmt_end = min(size(all_tokens), pos + 1)
-                        completed = .true.
-                    end if
-                end if
-            end if
-        end select
-    end function handle_associate_block_keyword
-
-    logical function handle_block_construct_keyword(all_tokens, pos, depth, &
-            stmt_end) result(completed)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: pos
-        integer, intent(inout) :: depth
-        integer, intent(inout) :: stmt_end
-
-        completed = .false.
-        select case (to_lower(all_tokens(pos)%text))
-        case ("block")
-            depth = depth + 1
-        case ("endblock")
-            depth = depth - 1
-            if (depth <= 0) then
-                stmt_end = min(size(all_tokens), pos)
-                completed = .true.
-            end if
-        case ("end")
-            if (pos + 1 <= size(all_tokens)) then
-                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                    to_lower(all_tokens(pos + 1)%text) == "block") then
-                    depth = depth - 1
-                    if (depth <= 0) then
-                        stmt_end = min(size(all_tokens), pos + 1)
-                        completed = .true.
-                    end if
-                end if
-            end if
-        end select
-    end function handle_block_construct_keyword
-
+    ! Index of the last token of the construct opened at stmt_start.
+    !
+    ! One scan serves every construct: the terminator of the construct named by
+    ! stmt_type closes a nesting level, any other occurrence of the construct
+    ! keyword opens one. Keyword text is compared case-insensitively, and the
+    ! second token of a two-word terminator ("end do") is skipped so that it
+    ! cannot be miscounted as a fresh opening (issue #2972).
     integer function locate_block_statement_end(all_tokens, stmt_start, &
             stmt_type) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
@@ -185,11 +95,14 @@ contains
 
         integer :: pos
         integer :: depth
+        integer :: closer_end
+        character(len=:), allocatable :: construct
+        character(len=:), allocatable :: token_lower
 
+        construct = trim(to_lower(stmt_type))
         stmt_end = stmt_start
-        pos = stmt_start
 
-        if (stmt_type == "if") then
+        if (construct == "if") then
             if (is_single_line_if_statement(all_tokens, stmt_start)) then
                 stmt_end = locate_single_line_end(all_tokens, stmt_start, &
                     all_tokens(stmt_start)%line)
@@ -197,40 +110,73 @@ contains
             end if
         end if
 
-        if (stmt_type == "do" .or. to_lower(stmt_type) == "select" .or. &
-            to_lower(stmt_type) == "associate" .or. &
-            to_lower(stmt_type) == "block") then
-            depth = 1
-            pos = stmt_start + 1
-        else
-            depth = 0
-            pos = stmt_start
-        end if
+        depth = 1
+        pos = stmt_start + 1
 
         do while (pos <= size(all_tokens))
             if (all_tokens(pos)%kind == TK_KEYWORD) then
-                select case (to_lower(stmt_type))
-                case ("if")
-                    if (handle_if_block_keyword(all_tokens, pos, depth, stmt_end)) &
-                        return
-                case ("do")
-                    if (handle_do_block_keyword(all_tokens, pos, depth, stmt_end)) &
-                        return
-                case ("select")
-                    if (handle_select_block_keyword(all_tokens, pos, depth, &
-                        stmt_end)) return
-                case ("associate")
-                    if (handle_associate_block_keyword(all_tokens, pos, depth, &
-                        stmt_end)) return
-                case ("block")
-                    if (handle_block_construct_keyword(all_tokens, pos, depth, &
-                        stmt_end)) return
-                end select
+                token_lower = trim(to_lower(all_tokens(pos)%text))
+                closer_end = construct_terminator_end(all_tokens, pos, construct)
+                if (closer_end > 0) then
+                    depth = depth - 1
+                    stmt_end = closer_end
+                    if (depth <= 0) return
+                    pos = closer_end + 1
+                    cycle
+                else if (token_lower == construct) then
+                    if (.not. opens_nested_construct(all_tokens, pos, construct)) &
+                        then
+                        stmt_end = pos
+                        pos = pos + 1
+                        cycle
+                    end if
+                    depth = depth + 1
+                end if
             end if
             stmt_end = pos
             pos = pos + 1
         end do
     end function locate_block_statement_end
+
+    ! Index of the last token of the terminator of `construct` starting at pos,
+    ! or 0 when the token at pos does not start one. Handles both the one-word
+    ! ("enddo") and two-word ("end do") spellings, case-insensitively.
+    integer function construct_terminator_end(all_tokens, pos, construct) &
+            result(closer_end)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: pos
+        character(len=*), intent(in) :: construct
+        character(len=:), allocatable :: token_lower
+
+        closer_end = 0
+        token_lower = trim(to_lower(all_tokens(pos)%text))
+
+        if (token_lower == "end"//construct) then
+            closer_end = pos
+            return
+        end if
+
+        if (token_lower /= "end") return
+        if (pos + 1 > size(all_tokens)) return
+        if (all_tokens(pos + 1)%kind /= TK_KEYWORD) return
+        if (trim(to_lower(all_tokens(pos + 1)%text)) /= construct) return
+        closer_end = pos + 1
+    end function construct_terminator_end
+
+    ! An occurrence of the construct keyword that does not actually open a
+    ! nested construct: "else if" continues the current IF construct.
+    logical function opens_nested_construct(all_tokens, pos, construct) &
+            result(opens)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: pos
+        character(len=*), intent(in) :: construct
+
+        opens = .true.
+        if (construct /= "if") return
+        if (pos <= 1) return
+        if (all_tokens(pos - 1)%kind /= TK_KEYWORD) return
+        if (trim(to_lower(all_tokens(pos - 1)%text)) == "else") opens = .false.
+    end function opens_nested_construct
 
     logical function is_single_line_if_statement(all_tokens, stmt_start) &
             result(is_single_line)
@@ -263,14 +209,10 @@ contains
                 end if
             case (TK_KEYWORD)
                 if (paren_depth == 0) then
-                    token_text = all_tokens(pos)%text
-                    select case (token_text)
-                    case ("then")
+                    if (trim(to_lower(all_tokens(pos)%text)) == "then") then
                         is_single_line = .false.
                         return
-                    case ("if")
-                    case default
-                    end select
+                    end if
                 end if
             case (TK_NEWLINE, TK_COMMENT)
                 if (paren_depth == 0 .and. .not. pending_continuation) then

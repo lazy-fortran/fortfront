@@ -44,7 +44,7 @@ contains
         idx = start_index
         do while (idx <= size(tokens) .and. depth > 0)
             if (tokens(idx)%kind == TK_OPERATOR) then
-                select case (tokens(idx)%text)
+                select case (trim(to_lower(tokens(idx)%text)))
                 case ("(")
                     depth = depth + 1
                 case (")")
@@ -143,7 +143,7 @@ contains
         idx = idx + 1
         do while (idx <= size(tokens) .and. depth > 0)
             if (tokens(idx)%kind == TK_OPERATOR) then
-                select case (tokens(idx)%text)
+                select case (trim(to_lower(tokens(idx)%text)))
                 case ("(")
                     depth = depth + 1
                 case (")")
@@ -223,12 +223,12 @@ contains
         if (stmt_start < 1 .or. stmt_start > size(tokens)) return
         if (tokens(stmt_start)%kind /= TK_KEYWORD) return
 
-        select case (tokens(stmt_start)%text)
+        select case (trim(to_lower(tokens(stmt_start)%text)))
         case ("if")
             max_idx = min(stmt_start + 20, size(tokens))
             do i = stmt_start + 1, max_idx
                 if (tokens(i)%kind == TK_KEYWORD) then
-                    if (tokens(i)%text == "then") then
+                    if (trim(to_lower(tokens(i)%text)) == "then") then
                         is_multiline = .true.
                         nesting_level = 1
                         return
@@ -254,8 +254,8 @@ contains
                         nesting_level = 1
                         return
                     else if (tokens(i)%kind == TK_KEYWORD) then
-                        if (tokens(i)%text == "end" .or. &
-                            tokens(i)%text == "elsewhere") then
+                        if (trim(to_lower(tokens(i)%text)) == "end" .or. &
+                            trim(to_lower(tokens(i)%text)) == "elsewhere") then
                             is_multiline = .true.
                             nesting_level = 1
                             return
@@ -322,7 +322,7 @@ contains
         logical, intent(out) :: found_end
 
         found_end = .false.
-        select case (tokens(idx)%text)
+        select case (trim(to_lower(tokens(idx)%text)))
         case ("if")
             call maybe_increment_if_nesting(tokens, stmt_start, idx, &
                 nesting_level)
@@ -335,12 +335,13 @@ contains
                 end if
             end if
         case ("submodule")
-            if (tokens(stmt_start)%text == "submodule" .and. idx > stmt_start) &
-                then
+            if (trim(to_lower(tokens(stmt_start)%text)) == "submodule" .and. &
+                idx > stmt_start) then
                 nesting_level = nesting_level + 1
             end if
         case ("type")
-            if (tokens(stmt_start)%text == "type" .and. idx > stmt_start) then
+            if (trim(to_lower(tokens(stmt_start)%text)) == "type" .and. &
+                idx > stmt_start) then
                 ! Component declarations such as "type(a_t) :: y" reuse the
                 ! keyword but do not open a nested definition.
                 if (is_type_start(tokens, idx)) then
@@ -389,7 +390,7 @@ contains
         prev_kw = idx - 1
         do while (prev_kw >= stmt_start)
             if (tokens(prev_kw)%kind == TK_KEYWORD) then
-                if (tokens(prev_kw)%text == "else") then
+                if (trim(to_lower(tokens(prev_kw)%text)) == "else") then
                     is_elseif = .true.
                 end if
                 exit
@@ -408,7 +409,7 @@ contains
         limit = min(idx + 20, size(tokens))
         do j = idx + 1, limit
             if (tokens(j)%kind == TK_KEYWORD) then
-                if (tokens(j)%text == "then") then
+                if (trim(to_lower(tokens(j)%text)) == "then") then
                     nesting_level = nesting_level + 1
                     return
                 end if
@@ -429,7 +430,7 @@ contains
         found_end = .false.
         if (idx + 1 <= size(tokens)) then
             if (tokens(idx + 1)%kind == TK_KEYWORD) then
-                if (tokens(idx + 1)%text == "if") then
+                if (trim(to_lower(tokens(idx + 1)%text)) == "if") then
                     call try_close_construct(tokens, stmt_start, "if", idx + 1, &
                         nesting_level, stmt_end, found_end, &
                         .false.)
@@ -462,7 +463,7 @@ contains
         end do
         if (kw_pos <= size(tokens)) then
             if (tokens(kw_pos)%kind == TK_KEYWORD) then
-                select case (tokens(kw_pos)%text)
+                select case (trim(to_lower(tokens(kw_pos)%text)))
                 case ("do")
                     call try_close_construct(tokens, stmt_start, "do", kw_pos, &
                         nesting_level, stmt_end, &
@@ -479,7 +480,7 @@ contains
 
         if (idx + 1 <= size(tokens)) then
             if (tokens(idx + 1)%kind == TK_KEYWORD) then
-                select case (tokens(idx + 1)%text)
+                select case (trim(to_lower(tokens(idx + 1)%text)))
                 case ("do")
                     call try_close_construct(tokens, stmt_start, "do", idx + 1, &
                         nesting_level, stmt_end, &
@@ -577,7 +578,7 @@ contains
                 stmt_end = i - 1
                 exit
             case (TK_OPERATOR)
-                select case (tokens(i)%text)
+                select case (trim(to_lower(tokens(i)%text)))
                 case ("[")
                     bracket_depth = bracket_depth + 1
                 case ("]")
