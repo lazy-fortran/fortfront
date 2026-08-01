@@ -5,7 +5,8 @@ module frontend_compiler_resolution
     use ast_nodes_core, only: call_or_subscript_node, identifier_node, &
                               program_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
-                              module_node, parameter_declaration_node, submodule_node
+                              mixed_construct_container_node, module_node, &
+                              parameter_declaration_node, submodule_node
     use ast_nodes_misc, only: interface_block_node, statement_function_node, &
                               use_statement_node, visibility_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
@@ -52,6 +53,10 @@ module frontend_compiler_resolution
     public :: resolve_name_at_node
     public :: resolve_identifier_binding
     public :: find_module_index
+    ! Association-aware lookups used by the scope collision validator (#2888).
+    public :: find_enclosing_scope
+    public :: find_host_scope
+    public :: resolve_use_binding
 
 contains
 
@@ -316,6 +321,9 @@ contains
         type is (block_construct_node)
             call collect_from_indices(arena, node%body_indices, scope_node_index, &
                                       association, bindings, count)
+        type is (mixed_construct_container_node)
+            call collect_from_indices(arena, node%implicit_declaration_indices, &
+                                      scope_node_index, association, bindings, count)
         end select
     end subroutine collect_scope_bindings
 
@@ -554,6 +562,8 @@ contains
             call copy_indices(node%body_indices, indices)
         type is (block_construct_node)
             call copy_indices(node%body_indices, indices)
+        type is (mixed_construct_container_node)
+            call copy_indices(node%implicit_declaration_indices, indices)
         end select
     end subroutine get_scope_statement_indices
 
@@ -774,6 +784,10 @@ contains
         type is (associate_node)
             is_scope = .true.
         type is (block_construct_node)
+            is_scope = .true.
+        type is (mixed_construct_container_node)
+            ! A main program without a PROGRAM statement is still a scoping
+            ! unit; its statements hang off the container (issue #2888).
             is_scope = .true.
         end select
     end function is_scope_node

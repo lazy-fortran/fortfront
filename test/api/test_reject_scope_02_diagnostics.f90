@@ -19,6 +19,34 @@ program test_reject_scope_02_diagnostics
     all_passed = .true.
     if (.not. test_type_and_variable_collision_rejected()) all_passed = .false.
     if (.not. test_corrected_neighbour_accepted()) all_passed = .false.
+    if (.not. test_rejected('examples/f90/common_29.f90', &
+        'incompatible object', "'t'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/host_assoc_types_1.f90', &
+        'incompatible object', "'vertex'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/pr104351.f90', &
+        'already defined', "'f'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/pr77414.f90', &
+        'already defined', "'pr77414_outer'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/pr96102.f90', &
+        'internal procedure of the same name', "'n'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/used_types_25.f90', &
+        'use association', "'t'")) all_passed = .false.
+    if (.not. test_rejected('examples/f90/pr123375.f90', &
+        'already accessible in the local scope', "'aa'")) all_passed = .false.
+    if (.not. test_accepted('examples/f90/common_29_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/host_assoc_types_1_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/pr104351_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/pr77414_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/pr96102_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/used_types_25_corrected.f90')) &
+        all_passed = .false.
+    if (.not. test_accepted('examples/f90/pr123375_corrected.f90')) &
+        all_passed = .false.
 
     if (all_passed) then
         print *, 'All reject-scope-02 diagnostics tests passed.'
@@ -77,6 +105,58 @@ contains
         end if
         print *, '  PASS: corrected neighbour still accepted'
     end function test_corrected_neighbour_accepted
+
+    ! An invalid fixture must be rejected with a diagnostic of this rule family
+    ! that names the offending symbol.
+    logical function test_rejected(path, rule_text, symbol_text) result(ok)
+        character(len=*), intent(in) :: path
+        character(len=*), intent(in) :: rule_text
+        character(len=*), intent(in) :: symbol_text
+        type(compiler_frontend_result_t) :: result
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: text
+
+        ok = .true.
+        call read_example(path, source)
+        call compile_standard(source, result)
+        if (result%success()) then
+            print *, '  FAIL: accepted invalid fixture ', path
+            ok = .false.
+            return
+        end if
+        text = lowered(diagnostic_of(result))
+        if (index(text, rule_text) == 0) then
+            print *, '  FAIL: wrong rule for ', path, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        if (index(text, symbol_text) == 0) then
+            print *, '  FAIL: symbol not named for ', path, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        print *, '  PASS: rejected ', path
+    end function test_rejected
+
+    ! A corrected neighbour must keep compiling.
+    logical function test_accepted(path) result(ok)
+        character(len=*), intent(in) :: path
+        type(compiler_frontend_result_t) :: result
+        character(len=:), allocatable :: source
+
+        ok = .true.
+        call read_example(path, source)
+        call compile_standard(source, result)
+        if (.not. result%success()) then
+            print *, '  FAIL: rejected valid fixture ', path, ' -> ', &
+                trim(diagnostic_of(result))
+            ok = .false.
+            return
+        end if
+        print *, '  PASS: accepted ', path
+    end function test_accepted
 
     subroutine compile_standard(source, result)
         character(len=*), intent(in) :: source
