@@ -11,6 +11,9 @@ module fortfront_compiler
         is_identifier, get_identifier_name, &
         get_declaration_initializer, &
         get_derived_type_components, &
+        get_derived_type_parameters, &
+        get_declaration_type_parameters, &
+        type_parameter_t, PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN, &
         get_array_literal_elements, &
         get_import_list, get_interface_block_body, &
         has_bind_c_attribute, get_bind_c_name, &

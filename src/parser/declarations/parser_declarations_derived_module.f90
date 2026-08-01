@@ -10,6 +10,10 @@ module parser_declarations_derived_module
     use parser_declarations_core_module, only: parse_declaration
     use parser_submodule_placement_module, only: reject_misplaced_submodule
     use string_utils_mod, only: to_lower
+    use string_types, only: string_t
+    use ast_nodes_data, only: derived_type_node, PARAM_KIND, PARAM_LEN, &
+        PARAM_UNKNOWN
+    use parser_expressions_module, only: parse_comparison
     implicit none
     private
 
@@ -33,11 +37,15 @@ contains
         integer :: component_count
         integer, allocatable :: binding_indices(:)
         integer :: binding_count
+        type(string_t), allocatable :: param_names(:)
+        type(string_t), allocatable :: tp_names(:)
+        integer, allocatable :: tp_classes(:)
+        integer, allocatable :: tp_defaults(:)
 
         type_index = 0
 
         call parse_type_definition_header(parser, type_name, header_attributes, &
-            has_header_attrs, invalid_type_spec)
+            has_header_attrs, invalid_type_spec, param_names)
         if (invalid_type_spec) then
             return
         end if
@@ -61,22 +69,78 @@ contains
 
         call collect_derived_type_components(parser, arena, component_indices, &
             component_count, binding_indices, &
-            binding_count)
+            binding_count, tp_names, tp_classes, tp_defaults)
         type_index = finalize_derived_type(arena, type_name, header_attributes, &
             has_header_attrs, component_indices, &
             component_count, binding_indices, &
             binding_count, extends_parent)
+        call attach_type_parameters(arena, type_index, param_names, tp_names, &
+            tp_classes, tp_defaults)
     end function parse_derived_type_def
+
+    ! Record the derived-type parameter formals on the pushed node: the header
+    ! fixes the order, the body supplies the KIND/LEN class and the default.
+    subroutine attach_type_parameters(arena, type_index, param_names, tp_names, &
+            tp_classes, tp_defaults)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: type_index
+        type(string_t), allocatable, intent(in) :: param_names(:)
+        type(string_t), allocatable, intent(in) :: tp_names(:)
+        integer, allocatable, intent(in) :: tp_classes(:)
+        integer, allocatable, intent(in) :: tp_defaults(:)
+        type(string_t), allocatable :: ordered_names(:)
+        integer, allocatable :: classes(:)
+        integer, allocatable :: defaults(:)
+        integer :: i, j
+
+        if (type_index <= 0) return
+        if (.not. arena%has_node_at(type_index)) return
+        if (.not. allocated(param_names)) return
+        if (.not. allocated(tp_names)) return
+
+        if (size(param_names) > 0) then
+            ordered_names = param_names
+        else if (size(tp_names) > 0) then
+            ordered_names = tp_names
+        else
+            return
+        end if
+
+        allocate (classes(size(ordered_names)))
+        allocate (defaults(size(ordered_names)))
+        classes = PARAM_UNKNOWN
+        defaults = 0
+
+        do i = 1, size(ordered_names)
+            do j = 1, size(tp_names)
+                if (to_lower(ordered_names(i)%s) /= to_lower(tp_names(j)%s)) cycle
+                classes(i) = tp_classes(j)
+                defaults(i) = tp_defaults(j)
+                exit
+            end do
+        end do
+
+        select type (node => arena%entries(type_index)%node)
+            type is (derived_type_node)
+            node%has_parameters = .true.
+            node%param_names = ordered_names
+            node%param_classes = classes
+            node%param_defaults = defaults
+        end select
+    end subroutine attach_type_parameters
 
     subroutine parse_type_definition_header(parser, type_name, &
             header_attributes, &
-            has_header_attrs, invalid_type_spec)
+            has_header_attrs, invalid_type_spec, param_names)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(out) :: type_name
         character(len=:), allocatable, intent(out) :: header_attributes
         logical, intent(out) :: has_header_attrs
         logical, intent(out) :: invalid_type_spec
+        type(string_t), allocatable, intent(out) :: param_names(:)
         type(token_t) :: token
+
+        allocate (param_names(0))
 
         type_name = ""
         has_header_attrs = .false.
@@ -109,8 +173,90 @@ contains
         token = parser%consume()
         type_name = trim(token%text)
 
+        call parse_type_parameter_names(parser, param_names)
         call skip_type_header_trivia(parser)
     end subroutine parse_type_definition_header
+
+    ! F2018 R728: parse the type-param-name-list of a parameterized derived
+    ! type header, e.g. `type :: box_t(n, k)`.
+    subroutine parse_type_parameter_names(parser, param_names)
+        type(parser_state_t), intent(inout) :: parser
+        type(string_t), allocatable, intent(inout) :: param_names(:)
+        type(token_t) :: token
+
+        call skip_inline_trivia(parser)
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR) return
+        if (token%text /= "(") return
+        token = parser%consume()
+
+        do while (.not. parser%is_at_end())
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                token = parser%consume()
+                call append_name(param_names, trim(token%text))
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            else
+                exit
+            end if
+
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            else
+                exit
+            end if
+        end do
+    end subroutine parse_type_parameter_names
+
+    subroutine skip_inline_trivia(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+    end subroutine skip_inline_trivia
+
+    subroutine append_name(names, name)
+        type(string_t), allocatable, intent(inout) :: names(:)
+        character(len=*), intent(in) :: name
+        type(string_t), allocatable :: grown(:)
+        integer :: n
+
+        if (.not. allocated(names)) allocate (names(0))
+        n = size(names)
+        allocate (grown(n + 1))
+        if (n > 0) grown(1:n) = names
+        grown(n + 1)%s = name
+        call move_alloc(grown, names)
+    end subroutine append_name
+
+    subroutine append_int_value(values, value)
+        integer, allocatable, intent(inout) :: values(:)
+        integer, intent(in) :: value
+        integer, allocatable :: grown(:)
+        integer :: n
+
+        if (.not. allocated(values)) allocate (values(0))
+        n = size(values)
+        allocate (grown(n + 1))
+        if (n > 0) grown(1:n) = values
+        grown(n + 1) = value
+        call move_alloc(grown, values)
+    end subroutine append_int_value
 
     subroutine skip_type_header_trivia(parser)
         type(parser_state_t), intent(inout) :: parser
@@ -131,13 +277,16 @@ contains
 
     subroutine collect_derived_type_components(parser, arena, component_indices, &
             component_count, binding_indices, &
-            binding_count)
+            binding_count, tp_names, tp_classes, tp_defaults)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: component_indices(:)
         integer, intent(out) :: component_count
         integer, allocatable, intent(out) :: binding_indices(:)
         integer, intent(out) :: binding_count
+        type(string_t), allocatable, intent(out) :: tp_names(:)
+        integer, allocatable, intent(out) :: tp_classes(:)
+        integer, allocatable, intent(out) :: tp_defaults(:)
         integer, allocatable :: indices(:)
         integer, allocatable :: bind_indices(:)
         integer :: capacity
@@ -153,6 +302,9 @@ contains
         allocate (bind_indices(bind_capacity))
         binding_count = 0
         in_contains = .false.
+        allocate (tp_names(0))
+        allocate (tp_classes(0))
+        allocate (tp_defaults(0))
 
         do while (.not. parser%is_at_end())
             if (end_type_ahead(parser)) then
@@ -172,6 +324,15 @@ contains
                 in_contains = .true.
                 call skip_component_trivia(parser)
                 cycle
+            end if
+
+            if (.not. in_contains) then
+                if (type_parameter_decl_ahead(parser)) then
+                    call parse_type_parameter_declaration(parser, arena, &
+                        tp_names, tp_classes, tp_defaults)
+                    call skip_component_trivia(parser)
+                    cycle
+                end if
             end if
 
             if (in_contains) then
@@ -206,6 +367,129 @@ contains
         call finalize_binding_storage(bind_indices, binding_count, &
             binding_indices)
     end subroutine collect_derived_type_components
+
+    ! F2018 R731: a type-param-def-stmt is an INTEGER declaration carrying the
+    ! KIND or LEN attribute. Detect it before the generic component parser,
+    ! which has no representation for those attributes.
+    logical function type_parameter_decl_ahead(parser) result(is_param_decl)
+        type(parser_state_t), intent(inout) :: parser
+        integer :: i
+        integer :: depth
+        character(len=:), allocatable :: lowered
+
+        is_param_decl = .false.
+        depth = 0
+
+        i = parser%current_token
+        do while (i <= size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_WHITESPACE) then
+                i = i + 1
+                cycle
+            end if
+            exit
+        end do
+        if (i > size(parser%tokens)) return
+        lowered = to_lower(trim(parser%tokens(i)%text))
+        if (lowered /= "integer") return
+
+        i = i + 1
+        do while (i <= size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_NEWLINE) exit
+            lowered = to_lower(trim(parser%tokens(i)%text))
+            if (lowered == "(") then
+                depth = depth + 1
+            else if (lowered == ")") then
+                depth = depth - 1
+            else if (lowered == "::") then
+                exit
+            else if (depth == 0) then
+                if (lowered == "kind" .or. lowered == "len") then
+                    is_param_decl = .true.
+                    exit
+                end if
+            end if
+            i = i + 1
+        end do
+    end function type_parameter_decl_ahead
+
+    ! Parse `integer, kind :: k = 4` / `integer, len :: n` inside a derived
+    ! type body, recording the KIND/LEN classification and default value.
+    subroutine parse_type_parameter_declaration(parser, arena, tp_names, &
+            tp_classes, tp_defaults)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(string_t), allocatable, intent(inout) :: tp_names(:)
+        integer, allocatable, intent(inout) :: tp_classes(:)
+        integer, allocatable, intent(inout) :: tp_defaults(:)
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+        integer :: classification
+        integer :: default_index
+
+        classification = PARAM_UNKNOWN
+
+        call skip_inline_trivia(parser)
+        token = parser%consume() ! consume 'integer'
+
+        do while (.not. parser%is_at_end())
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            if (.not. (token%kind == TK_OPERATOR .and. token%text == ",")) exit
+            token = parser%consume()
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            lowered = to_lower(trim(token%text))
+            if (lowered == "kind") then
+                classification = PARAM_KIND
+                token = parser%consume()
+            else if (lowered == "len") then
+                classification = PARAM_LEN
+                token = parser%consume()
+            else
+                token = parser%consume()
+            end if
+        end do
+
+        call skip_inline_trivia(parser)
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
+        end if
+
+        do while (.not. parser%is_at_end())
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) exit
+            token = parser%consume()
+            default_index = 0
+
+            call skip_inline_trivia(parser)
+            if (.not. parser%is_at_end()) then
+                block
+                    type(token_t) :: next_token
+                    next_token = parser%peek()
+                    if (next_token%kind == TK_OPERATOR) then
+                        if (next_token%text == "=") then
+                            next_token = parser%consume()
+                            default_index = parse_comparison(parser, arena)
+                        end if
+                    end if
+                end block
+            end if
+
+            call append_name(tp_names, trim(token%text))
+            call append_int_value(tp_classes, classification)
+            call append_int_value(tp_defaults, max(default_index, 0))
+
+            call skip_inline_trivia(parser)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+    end subroutine parse_type_parameter_declaration
 
     logical function end_type_ahead(parser) result(is_end)
         type(parser_state_t), intent(inout) :: parser

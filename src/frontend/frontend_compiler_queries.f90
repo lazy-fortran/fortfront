@@ -12,7 +12,8 @@ module frontend_compiler_queries
         alt_return_spec_node
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node, module_node, block_data_node, &
-        submodule_node, multi_unit_container_node, type_binding_node
+        submodule_node, multi_unit_container_node, type_binding_node, &
+        PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN
     use ast_nodes_misc, only: interface_block_node, import_statement_node, &
         use_statement_node, visibility_statement_node, &
         namelist_statement_node, data_statement_node, &
@@ -35,6 +36,10 @@ module frontend_compiler_queries
     public :: get_identifier_name
     public :: get_declaration_initializer
     public :: get_derived_type_components
+    public :: get_derived_type_parameters
+    public :: get_declaration_type_parameters
+    public :: type_parameter_t
+    public :: PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN
     public :: get_array_literal_elements
     public :: get_import_list
     public :: get_interface_block_body
@@ -77,6 +82,13 @@ module frontend_compiler_queries
     public :: query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
+
+    ! Derived-type parameter formal (issue #2952)
+    type :: type_parameter_t
+        character(len=:), allocatable :: name
+        integer :: classification = PARAM_UNKNOWN ! PARAM_KIND / PARAM_LEN
+        integer :: default_index = 0 ! Arena index of default value, or 0
+    end type type_parameter_t
 
     type :: array_slice_query_t
         logical :: found = .false.
@@ -638,6 +650,68 @@ contains
             end if
         end select
     end function get_declaration_initializer
+
+    ! Compiler-facing query: return the derived-type parameter formals of a
+    ! type definition, in declaration order, with their KIND/LEN
+    ! classification and the arena index of their default value.
+    subroutine get_derived_type_parameters(arena, type_index, params)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        type(type_parameter_t), allocatable, intent(out) :: params(:)
+        integer :: i, n
+
+        if (.not. arena%has_node_at(type_index)) then
+            allocate (params(0))
+            return
+        end if
+        select type (node => arena%entries(type_index)%node)
+            type is (derived_type_node)
+            if (.not. allocated(node%param_names)) then
+                allocate (params(0))
+                return
+            end if
+            n = size(node%param_names)
+            allocate (params(n))
+            do i = 1, n
+                params(i)%name = node%param_names(i)%s
+                if (allocated(node%param_classes)) then
+                    if (size(node%param_classes) >= i) then
+                        params(i)%classification = node%param_classes(i)
+                    end if
+                end if
+                if (allocated(node%param_defaults)) then
+                    if (size(node%param_defaults) >= i) then
+                        params(i)%default_index = node%param_defaults(i)
+                    end if
+                end if
+            end do
+        class default
+            allocate (params(0))
+        end select
+    end subroutine get_derived_type_parameters
+
+    ! Compiler-facing query: return the arena indices of the derived-type
+    ! parameter actuals on an entity declaration, e.g. type(box_t(3, 8)).
+    subroutine get_declaration_type_parameters(arena, decl_index, params)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        integer, allocatable, intent(out) :: params(:)
+
+        if (.not. arena%has_node_at(decl_index)) then
+            allocate (params(0))
+            return
+        end if
+        select type (node => arena%entries(decl_index)%node)
+            type is (declaration_node)
+            if (allocated(node%type_param_indices)) then
+                params = node%type_param_indices
+            else
+                allocate (params(0))
+            end if
+        class default
+            allocate (params(0))
+        end select
+    end subroutine get_declaration_type_parameters
 
     ! Compiler-facing query: copy the component_indices of a derived
     ! type definition into an allocatable result.

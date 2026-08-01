@@ -6,6 +6,12 @@ module ast_nodes_data
     implicit none
     private
 
+    ! Derived-type parameter classification (issue #2952)
+    public :: PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN
+    integer, parameter :: PARAM_UNKNOWN = 0
+    integer, parameter :: PARAM_KIND = 1
+    integer, parameter :: PARAM_LEN = 2
+
     ! Public constants for parameter intent
     public :: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     integer, parameter :: INTENT_NONE = 0
@@ -85,6 +91,8 @@ module ast_nodes_data
         logical :: disable_grouping = .false. ! Skip declaration grouping
         character(len=:), allocatable :: accessibility ! 'public'/'private'
         character(len=:), allocatable :: bind_name ! bind(c, name="...") value
+        ! Derived-type parameter actuals, e.g. type(box_t(3, 8)) (issue #2952)
+        integer, allocatable :: type_param_indices(:) ! Arena indices of actuals
     contains
         procedure :: accept => declaration_accept
         procedure :: assign => declaration_assign
@@ -188,6 +196,10 @@ module ast_nodes_data
         integer, allocatable :: component_indices(:) ! Component indices (stack-based)
         logical :: has_parameters = .false. ! Whether it has parameters
         integer, allocatable :: param_indices(:) ! Parameter indices (stack-based)
+        ! Derived-type parameter formals (issue #2952)
+        type(string_t), allocatable :: param_names(:) ! Formal names, in order
+        integer, allocatable :: param_classes(:) ! PARAM_* classification
+        integer, allocatable :: param_defaults(:) ! Arena index of default, or 0
         logical :: has_contains = .false. ! Whether type has CONTAINS section
         integer, allocatable :: binding_indices(:) ! Type-bound procedure indices
     contains
@@ -306,6 +318,11 @@ contains
             lhs%bind_name = rhs%bind_name
         else if (allocated(lhs%bind_name)) then
             deallocate (lhs%bind_name)
+        end if
+        if (allocated(rhs%type_param_indices)) then
+            lhs%type_param_indices = rhs%type_param_indices
+        else if (allocated(lhs%type_param_indices)) then
+            deallocate (lhs%type_param_indices)
         end if
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
@@ -569,6 +586,23 @@ contains
         ! Handle param_indices array
         if (allocated(rhs%param_indices)) then
             lhs%param_indices = rhs%param_indices
+        end if
+
+        ! Handle derived-type parameter formals
+        if (allocated(rhs%param_names)) then
+            lhs%param_names = rhs%param_names
+        else if (allocated(lhs%param_names)) then
+            deallocate (lhs%param_names)
+        end if
+        if (allocated(rhs%param_classes)) then
+            lhs%param_classes = rhs%param_classes
+        else if (allocated(lhs%param_classes)) then
+            deallocate (lhs%param_classes)
+        end if
+        if (allocated(rhs%param_defaults)) then
+            lhs%param_defaults = rhs%param_defaults
+        else if (allocated(lhs%param_defaults)) then
+            deallocate (lhs%param_defaults)
         end if
 
         lhs%has_contains = rhs%has_contains

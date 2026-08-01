@@ -16,6 +16,7 @@ module parser_declarations_core_module
     use declaration_attribute_utils, only: declaration_attribute_info_t
     use parser_utilities, only: peek_next_nontrivial_token
     use parser_keyword_disambiguation_module, only: looks_like_implicit_statement
+    use ast_nodes_data, only: declaration_node
     implicit none
     private
 
@@ -68,6 +69,7 @@ contains
                     end if
                 end if
             end if
+            call attach_declaration_type_parameters(arena, decl_index, type_spec)
             return
         end if
 
@@ -96,7 +98,26 @@ contains
                 end if
             end if
         end if
+        call attach_declaration_type_parameters(arena, decl_index, type_spec)
     end function parse_declaration
+
+    ! Issue #2952: keep the derived-type parameter actuals of an entity
+    ! declaration, e.g. `type(box_t(3, 8)) :: a`, on the declaration node.
+    subroutine attach_declaration_type_parameters(arena, decl_index, type_spec)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        type(type_specifier_t), intent(in) :: type_spec
+
+        if (decl_index <= 0) return
+        if (.not. allocated(type_spec%derived_parameter_nodes)) return
+        if (size(type_spec%derived_parameter_nodes) == 0) return
+        if (.not. arena%has_node_at(decl_index)) return
+
+        select type (node => arena%entries(decl_index)%node)
+            type is (declaration_node)
+            node%type_param_indices = type_spec%derived_parameter_nodes
+        end select
+    end subroutine attach_declaration_type_parameters
 
     ! Attribute rules that the attr-spec list alone cannot decide because they
     ! also depend on the entity's array spec or its initializer.
