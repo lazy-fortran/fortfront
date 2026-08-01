@@ -23,6 +23,7 @@ module codegen_function_declarations
         filter_implicit_statements, &
         append_parameter_declaration, &
         is_parameter_name, ensure_local_var_capacity, &
+        parameter_declared_by_interface, &
         is_local_var_collected
     use codegen_type_utils, only: get_type_standardization
     use codegen_grouped_body, only: generate_grouped_body

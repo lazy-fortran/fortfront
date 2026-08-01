@@ -284,6 +284,23 @@
                     call try_add_internal_function(state, trim(decl%name))
                     call collect_entry_points_from_function(arena, decl, state)
                 end if
+            type is (subroutine_def_node)
+                ! A contained subroutine name is a procedure, not a variable
+                ! (Issue #2950): passing it as an actual argument must not
+                ! fabricate a declaration for it.
+                if (contains_seen .and. allocated(decl%name)) then
+                    call try_add_internal_function(state, trim(decl%name))
+                end if
+            type is (intrinsic_statement_node)
+                ! INTRINSIC declares the name as a procedure (Issue #2950).
+                if (contains_seen) cycle
+                if (allocated(decl%procedure_names)) then
+                    do j = 1, size(decl%procedure_names)
+                        if (.not. allocated(decl%procedure_names(j)%s)) cycle
+                        call try_add_internal_function(state, &
+                                                  trim(decl%procedure_names(j)%s))
+                    end do
+                end if
             type is (call_or_subscript_node)
                 if (contains_seen) cycle
                 if (allocated(decl%name)) then
