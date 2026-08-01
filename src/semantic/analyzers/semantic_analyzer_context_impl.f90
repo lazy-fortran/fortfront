@@ -29,6 +29,7 @@ use semantic_strict_argument_type_checker_validation, only: &
     validate_value_dummy_attributes_in_arena
 use semantic_placement_validation, only: &
     validate_declaration_placement_in_arena
+use semantic_call_signature_checker, only: validate_call_signatures_in_arena
 use call_graph_signatures_mod, only: create_signatures_map
 use semantic_validation_utils, only: int_to_str
 use ast_nodes_data, only: declaration_node
@@ -128,6 +129,12 @@ contains
         ! (F2018 C863). The sweep is arena-wide so every procedure definition
         ! is covered, not only those the inference dispatch visits.
         call validate_value_dummy_attributes_in_arena(arena, ctx%errors)
+
+        ! Reject procedure-call signature mismatches (F2018 15.5.1 and
+        ! 15.5.2.9). The sweep resolves scopes structurally, so it reaches
+        ! calls the per-node dispatch cannot classify.
+        call validate_call_signatures_in_arena(arena, ctx%errors, &
+            ctx%operating_mode == OPERATING_MODE_STRICT)
 
         ! Reject procedure references that IMPLICIT NONE (EXTERNAL) requires
         ! to be explicitly declared (F2018 8.7).

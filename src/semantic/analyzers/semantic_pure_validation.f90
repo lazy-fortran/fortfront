@@ -10,6 +10,7 @@ module semantic_pure_validation
     use ast_nodes_transfer, only: stop_node, pause_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_conditional, only: if_node
+    use ast_nodes_associate, only: block_construct_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
         subroutine_def_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
@@ -113,20 +114,9 @@ contains
 
         select type (stmt => arena%entries(stmt_index)%node)
             type is (subroutine_call_node)
-            if (.not. allocated(stmt%name)) return
-            if (.not. is_impure_intrinsic_subroutine(stmt%name)) return
-            if (procedure_defined_in_arena(arena, stmt%name)) return
-            call errors%add_error( &
-                message='impure intrinsic subroutine "'//trim(stmt%name)// &
-                '" is not allowed in a DO CONCURRENT construct', &
-                code=ERROR_SEMANTIC, &
-                component='semantic_pure_validation', &
-                context='line '//int_to_string(stmt%line)//', column '// &
-                int_to_string(stmt%column), &
-                suggestion='move the impure call outside the DO CONCURRENT '// &
-                'construct, or use an ordinary DO loop', &
-                line=stmt%line, column=stmt%column, end_line=stmt%line, &
-                end_column=stmt%column + 1)
+            call check_concurrent_call(arena, stmt, errors)
+            type is (block_construct_node)
+            call validate_do_concurrent_purity(arena, stmt%body_indices, errors)
             type is (do_loop_node)
             call validate_do_concurrent_purity(arena, stmt%body_indices, errors)
             type is (do_while_node)
@@ -144,6 +134,74 @@ contains
                 errors)
         end select
     end subroutine check_concurrent_statement
+
+    ! F2018 C1141: a reference to an impure procedure shall not appear in a
+    ! DO CONCURRENT construct.
+    subroutine check_concurrent_call(arena, stmt, errors)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_call_node), intent(in) :: stmt
+        type(error_collection_t), intent(inout) :: errors
+        integer :: def_index
+
+        if (.not. allocated(stmt%name)) return
+
+        if (is_impure_intrinsic_subroutine(stmt%name)) then
+            if (.not. procedure_defined_in_arena(arena, stmt%name)) then
+                call report_concurrent_call(errors, 'impure intrinsic '// &
+                    'subroutine "'//trim(stmt%name)//'"', stmt%line, stmt%column)
+                return
+            end if
+        end if
+
+        def_index = find_subroutine_definition(arena, stmt%name)
+        if (def_index <= 0) return
+        select type (def => arena%entries(def_index)%node)
+            type is (subroutine_def_node)
+            if (is_pure_prefix(def%prefix_keywords)) return
+            call report_concurrent_call(errors, 'Subroutine call to impure "'// &
+                trim(stmt%name)//'"', stmt%line, stmt%column)
+        end select
+    end subroutine check_concurrent_call
+
+    subroutine report_concurrent_call(errors, subject, line, column)
+        type(error_collection_t), intent(inout) :: errors
+        character(len=*), intent(in) :: subject
+        integer, intent(in) :: line, column
+
+        call errors%add_error( &
+            message=subject//' is not allowed in a DO CONCURRENT construct', &
+            code=ERROR_SEMANTIC, &
+            component='semantic_pure_validation', &
+            context='line '//int_to_string(line)//', column '// &
+            int_to_string(column), &
+            suggestion='move the impure call outside the DO CONCURRENT '// &
+            'construct, declare the procedure PURE, or use an ordinary DO loop', &
+            line=line, column=column, end_line=line, end_column=column + 1)
+    end subroutine report_concurrent_call
+
+    ! Arena index of a subroutine definition with this name, or 0.
+    function find_subroutine_definition(arena, name) result(def_index)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        integer :: def_index
+        character(len=:), allocatable :: lowered
+        integer :: i
+
+        def_index = 0
+        lowered = to_lower(trim(name))
+        if (len_trim(lowered) == 0) return
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (subroutine_def_node)
+                if (.not. allocated(node%name)) cycle
+                if (to_lower(trim(node%name)) == lowered) then
+                    def_index = i
+                    return
+                end if
+            end select
+        end do
+    end function find_subroutine_definition
 
     function is_impure_intrinsic_subroutine(name) result(is_impure)
         character(len=*), intent(in) :: name
