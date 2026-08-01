@@ -3,7 +3,7 @@ module codegen_procedure_shared
     use ast_nodes_core, only: identifier_node, literal_node, program_node
     use ast_nodes_data, only: declaration_node, module_node, &
         parameter_declaration_node, intent_type_to_string
-    use ast_nodes_misc, only: implicit_statement_node
+    use ast_nodes_misc, only: implicit_statement_node, interface_block_node
     use codegen_declarations_core, only: build_parameter_dimensions, &
         fix_character_len_placeholder
     use codegen_parameter_info, only: parameter_info_t
@@ -27,12 +27,60 @@ module codegen_procedure_shared
     public :: get_param_type_from_param_decl
     public :: get_param_type_fallback
     public :: is_parameter_name
+    public :: parameter_declared_by_interface
     public :: is_local_var_collected
     public :: ensure_local_var_capacity
     public :: add_declared_vars
     public :: add_single_declared_var
 
 contains
+
+    ! True when an interface body in the specification part declares NAME.
+    ! Such a dummy argument has an explicit interface (Fortran 2018 15.4.3.2)
+    ! and is already declared, so no implicit type declaration may be
+    ! synthesized for it (Issue #2950).
+    logical function parameter_declared_by_interface(arena, body_indices, name) &
+        result(declared)
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: name
+        integer :: i, j, proc_index
+
+        declared = .false.
+        if (len_trim(name) == 0) return
+
+        do i = 1, size(body_indices)
+            if (body_indices(i) <= 0) cycle
+            if (body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
+            select type (block => arena%entries(body_indices(i))%node)
+            type is (interface_block_node)
+                if (.not. allocated(block%procedure_indices)) cycle
+                do j = 1, size(block%procedure_indices)
+                    proc_index = block%procedure_indices(j)
+                    if (proc_index <= 0) cycle
+                    if (proc_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(proc_index)%node)) cycle
+                    select type (proc => arena%entries(proc_index)%node)
+                    type is (function_def_node)
+                        if (.not. allocated(proc%name)) cycle
+                        if (to_lower(trim(proc%name)) == to_lower(trim(name))) then
+                            declared = .true.
+                            return
+                        end if
+                    type is (subroutine_def_node)
+                        if (.not. allocated(proc%name)) cycle
+                        if (to_lower(trim(proc%name)) == to_lower(trim(name))) then
+                            declared = .true.
+                            return
+                        end if
+                    end select
+                end do
+            end select
+        end do
+    end function parameter_declared_by_interface
+
 
     function build_parameter_clause(arena, param_indices) result(clause)
         type(ast_arena_t), intent(in) :: arena
