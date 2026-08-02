@@ -396,7 +396,7 @@ contains
             if (trim(next_lower) == "precision") return
         case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
-        case ("stop", "call", "cycle", "exit", "return", "continue", "goto", &
+        case ("stop", "call", "cycle", "exit", "return", "error", "continue", "goto", &
                 "go", "entry", "select", "contains", "else", "dimension", &
                 "common", "program", "module", "if", "format", &
                 "read", "write", "print", "open", "close", "inquire", &
