@@ -5,7 +5,7 @@ module parser_io_statements_module
         TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
-    use parser_expressions_module, only: parse_comparison
+    use parser_expressions_module, only: parse_range, parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: &
         io_specifier_t, inquire_statement_node, backspace_statement_node, &
