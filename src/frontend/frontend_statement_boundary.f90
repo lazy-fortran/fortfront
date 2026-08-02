@@ -595,6 +595,10 @@ contains
                 end select
             case (TK_NEWLINE)
                 if (bracket_depth == 0 .and. paren_depth == 0) then
+                    if (line_has_continuation(tokens, i)) then
+                        stmt_end = i
+                        cycle
+                    end if
                     stmt_end = i - 1
                     exit
                 end if
@@ -609,6 +613,40 @@ contains
             end select
         end do
     end subroutine locate_single_line_end
+
+    pure logical function line_has_continuation(tokens, newline_index) result(continued)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: newline_index
+        integer :: i
+
+        continued = .false.
+        i = newline_index - 1
+        do while (i >= 1)
+            if (tokens(i)%kind == TK_WHITESPACE .or. &
+                tokens(i)%kind == TK_COMMENT) then
+                i = i - 1
+                cycle
+            end if
+            if (tokens(i)%kind == TK_OPERATOR) then
+                if (trim(tokens(i)%text) == '&') continued = .true.
+            end if
+            exit
+        end do
+        if (continued) return
+
+        i = newline_index + 1
+        do while (i <= size(tokens))
+            if (tokens(i)%kind == TK_WHITESPACE .or. &
+                tokens(i)%kind == TK_COMMENT) then
+                i = i + 1
+                cycle
+            end if
+            if (tokens(i)%kind == TK_OPERATOR) then
+                if (trim(tokens(i)%text) == '&') continued = .true.
+            end if
+            exit
+        end do
+    end function line_has_continuation
 
     pure logical function starts_format_statement(tokens, stmt_start) &
             result(is_format_stmt)

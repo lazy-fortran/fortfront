@@ -221,8 +221,16 @@ contains
             if (parser%is_at_end()) then
                 exit
             end if
-
             token = parser%consume()
+
+            ! A trailing free-form continuation marker can survive the
+            ! frontend's token normalization when a declaration is split
+            ! immediately after a comma.  It is syntax, not an entity name;
+            ! skip it before consuming the next declarator.
+            do while (trim(token%text) == '&')
+                if (parser%is_at_end()) exit
+                token = parser%consume()
+            end do
             if (token%kind /= TK_IDENTIFIER) then
                 if (.not. try_promote_keyword_identifier(parser, token)) then
                     exit

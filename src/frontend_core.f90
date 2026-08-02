@@ -492,9 +492,12 @@ contains
     subroutine normalize_line_continuations(tokens)
         type(token_t), allocatable, intent(inout) :: tokens(:)
         type(token_t), allocatable :: normalized(:)
+        type(token_t) :: token_to_append
         integer :: i, count
         logical :: suppress_newline
         logical :: skip_leading_ampersand
+        logical :: continuation_active
+        integer :: continuation_line
 
         if (.not. allocated(tokens)) return
         if (size(tokens) == 0) return
@@ -502,14 +505,30 @@ contains
         allocate (normalized(size(tokens)))
         suppress_newline = .false.
         skip_leading_ampersand = .false.
+        continuation_active = .false.
+        continuation_line = 0
         count = 0
 
         do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_OPERATOR) then
+                if (allocated(tokens(i)%text)) then
+                    if (is_line_continuation_token(tokens(i)%text)) then
+                        continuation_active = .true.
+                        if (count > 0) continuation_line = normalized(count)%line
+                    end if
+                end if
+            end if
             if (should_skip_token(tokens, i, tokens(i), suppress_newline, &
                 skip_leading_ampersand)) then
                 cycle
             end if
-            call append_token(normalized, count, tokens(i))
+            token_to_append = tokens(i)
+            if (continuation_active .and. token_to_append%kind /= TK_NEWLINE) then
+                token_to_append%line = continuation_line
+            else if (token_to_append%kind == TK_NEWLINE) then
+                continuation_active = .false.
+            end if
+            call append_token(normalized, count, token_to_append)
         end do
 
         call finalize_normalized_tokens(tokens, normalized, count)
