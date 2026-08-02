@@ -431,8 +431,27 @@ contains
             end if
         end do
 
-        ! Get the token text
+        ! A logical literal may carry a kind selector immediately after its
+        ! closing dot, for example .true._1 or .false._logical_kind. Keep the
+        ! selector in the same token so semantic metadata can resolve it.
         token_text = source(start_pos:pos - 1)
+        if (is_logical_constant(token_text)) then
+            if (pos <= len(source)) then
+                if (source(pos:pos) == '_') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                    do while (pos <= len(source))
+                        c = source(pos:pos)
+                        if (.not. ((c >= 'a' .and. c <= 'z') .or. &
+                                   (c >= 'A' .and. c <= 'Z') .or. &
+                                   (c >= '0' .and. c <= '9') .or. c == '_')) exit
+                        pos = pos + 1
+                        col_num = col_num + 1
+                    end do
+                    token_text = source(start_pos:pos - 1)
+                end if
+            end if
+        end if
 
         ! Create token - check if its a logical constant or logical operator
         if (token_count < size(tokens)) then
@@ -777,7 +796,8 @@ contains
         case ('.true.', '.false.')
             is_constant = .true.
         case default
-            is_constant = .false.
+            is_constant = (index(trim(lower_text), '.true._') == 1 .or. &
+                           index(trim(lower_text), '.false._') == 1)
         end select
     end function is_logical_constant
 
