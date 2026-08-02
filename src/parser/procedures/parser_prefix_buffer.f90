@@ -3,13 +3,16 @@ module parser_prefix_buffer_module
     private
 
     character(len=16), allocatable, save :: global_prefixes(:)
+    character(len=:), allocatable, save :: global_return_type
 
     type, public :: parser_prefix_buffer_t
     contains
         procedure :: clear => prefix_buffer_clear
         procedure :: set => prefix_buffer_set
+        procedure :: set_return_type => prefix_buffer_set_return_type
         procedure :: append_all => prefix_buffer_append_all
         procedure :: consume => prefix_buffer_consume
+        procedure :: consume_return_type => prefix_buffer_consume_return_type
         procedure :: has_pending => prefix_buffer_has
         procedure :: get_all => prefix_buffer_get
     end type parser_prefix_buffer_t
@@ -28,6 +31,7 @@ contains
         class(parser_prefix_buffer_t), intent(inout) :: this
 
         call ensure_initialized()
+        if (allocated(global_return_type)) deallocate (global_return_type)
         block
             character(len=16), allocatable :: empty(:)
             allocate (character(len=16) :: empty(0))
@@ -52,6 +56,14 @@ contains
             end if
         end if
     end subroutine prefix_buffer_set
+
+    subroutine prefix_buffer_set_return_type(this, return_type)
+        class(parser_prefix_buffer_t), intent(inout) :: this
+        character(len=*), intent(in) :: return_type
+
+        if (allocated(global_return_type)) deallocate (global_return_type)
+        if (len_trim(return_type) > 0) global_return_type = trim(return_type)
+    end subroutine prefix_buffer_set_return_type
 
     subroutine prefix_buffer_append_all(this, prefixes)
         class(parser_prefix_buffer_t), intent(inout) :: this
@@ -87,6 +99,17 @@ contains
         call this%get_all(prefixes)
         call this%clear()
     end subroutine prefix_buffer_consume
+
+    subroutine prefix_buffer_consume_return_type(this, return_type)
+        class(parser_prefix_buffer_t), intent(inout) :: this
+        character(len=:), allocatable, intent(out) :: return_type
+
+        return_type = ''
+        if (allocated(global_return_type)) then
+            return_type = global_return_type
+            deallocate (global_return_type)
+        end if
+    end subroutine prefix_buffer_consume_return_type
 
     logical function prefix_buffer_has(this)
         class(parser_prefix_buffer_t), intent(in) :: this

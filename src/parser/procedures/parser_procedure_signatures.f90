@@ -40,6 +40,15 @@ contains
         allocate (character(len=16) :: prefix_keywords(0))
         if (present(return_type_from_prefix)) return_type_from_prefix = ""
 
+        if (present(return_type_from_prefix)) then
+            block
+                character(len=:), allocatable :: buffered_return_type
+                call prefix_buffer%consume_return_type(buffered_return_type)
+                if (len_trim(buffered_return_type) > 0) then
+                    return_type_from_prefix = buffered_return_type
+                end if
+            end block
+        end if
         call initialise_function_prefix_sources(prefix_buffer, prefix_list, &
             pending_prefixes)
         call append_pending_prefixes(pending_prefixes, prefix_keywords, &
@@ -76,13 +85,15 @@ contains
         character(len=16), intent(in) :: pending_prefixes(:)
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
         logical, intent(inout) :: has_recursive_keyword
-        character(len=:), allocatable, intent(out), optional :: return_type_from_prefix
+        character(len=:), allocatable, intent(inout), optional :: return_type_from_prefix
         integer :: i, n
         character(len=:), allocatable :: lowered, next_lower
         logical :: return_type_set
         n = size(pending_prefixes)
         return_type_set = .false.
-        if (present(return_type_from_prefix)) return_type_from_prefix = ""
+        if (present(return_type_from_prefix)) then
+            return_type_set = len_trim(return_type_from_prefix) > 0
+        end if
         i = 1
         do while (i <= n)
             lowered = to_lower(trim(pending_prefixes(i)))

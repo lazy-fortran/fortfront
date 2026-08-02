@@ -61,7 +61,6 @@ contains
         type(token_t) :: type_token, lookahead_token
         character(len=:), allocatable :: type_with_kind
         character(len=:), allocatable :: lookahead_lower
-        character(len=16), allocatable :: prefix_array(:)
 
         if (trim(lowered_text) == "double") then
             lookahead_token = parser%get_token_at_index(parser%current_token + 1)
@@ -73,9 +72,7 @@ contains
                 type_with_kind = trim(type_token%text) // " " // &
                     trim(lookahead_token%text)
                 call consume_optional_kind_spec(parser, type_with_kind)
-                allocate (character(len=16) :: prefix_array(1))
-                prefix_array(1) = trim(type_with_kind)
-                call prefix_buffer%append_all(prefix_array)
+                call prefix_buffer%set_return_type(type_with_kind)
                 return
             end if
         end if
@@ -83,9 +80,7 @@ contains
         type_token = parser%consume()
         type_with_kind = trim(type_token%text)
         call consume_optional_kind_spec(parser, type_with_kind)
-        allocate (character(len=16) :: prefix_array(1))
-        prefix_array(1) = trim(type_with_kind)
-        call prefix_buffer%append_all(prefix_array)
+        call prefix_buffer%set_return_type(type_with_kind)
     end subroutine collect_interface_return_type
 
     subroutine append_interface_prefix(prefix_buffer, keyword_text)
