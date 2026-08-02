@@ -202,7 +202,9 @@ contains
         case (TK_KEYWORD)
             token = view_consume_token(view, parser)
             lowered = to_lower(token%text)
-            if (lowered == ".true." .or. lowered == ".false.") then
+            if (lowered == ".true." .or. lowered == ".false." .or. &
+                index(lowered, ".true._") == 1 .or. &
+                index(lowered, ".false._") == 1) then
                 expr_index = parse_boolean_literal(token, arena)
             else
                 expr_index = push_identifier(arena, token%text, token%line, &

@@ -29,8 +29,9 @@ contains
 
         lowered = to_lower(token%text)
         token_is_boolean_literal = (lowered == ".true." .or. lowered == &
-            ".false." .or. &
-            lowered == "true" .or. lowered == "false")
+            ".false." .or. lowered == "true" .or. lowered == "false" .or. &
+            index(lowered, ".true._") == 1 .or. &
+            index(lowered, ".false._") == 1)
     end function token_is_boolean_literal
 
     logical function is_prefix_operator_token(token)
