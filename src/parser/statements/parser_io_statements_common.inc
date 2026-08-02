@@ -256,7 +256,7 @@
         ! Parse first argument
         current_arg_index = parse_io_implied_do(parser, arena)
         if (current_arg_index == 0) current_arg_index = &
-            parse_comparison(parser, arena)
+            parse_range(parser, arena)
         if (current_arg_index > 0) then
             arg_indices = [current_arg_index]
 
@@ -269,7 +269,7 @@
                 token = parser%consume()  ! consume comma
                 current_arg_index = parse_io_implied_do(parser, arena)
                 if (current_arg_index == 0) current_arg_index = &
-                    parse_comparison(parser, arena)
+                    parse_range(parser, arena)
                 if (current_arg_index > 0) then
                     arg_indices = [arg_indices, current_arg_index]
                 else
