@@ -45,7 +45,7 @@ contains
         character(len=*), intent(in) :: keyword
 
         select case (keyword)
-        case ("call", "stop", "cycle", "exit", "return", &
+        case ("call", "stop", "cycle", "exit", "return", "error", &
                 "continue", "goto", "go", "entry", "select", &
                 "contains", "else", "dimension", "common", &
                 "program", "module", "submodule", "if", "data", &
