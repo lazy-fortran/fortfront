@@ -835,7 +835,7 @@ contains
         expr_index = 0
     end function try_parse_implied_do_loop
 
-    function parse_array_indexing_postfix(parser, arena, base_expr, helpers) &
+    recursive function parse_array_indexing_postfix(parser, arena, base_expr, helpers) &
             result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -855,7 +855,7 @@ contains
         expr_index = apply_index_postfix(parser, arena, base_expr, helpers, "]")
     end function parse_square_indexing_postfix
 
-    function apply_index_postfix(parser, arena, base_expr, helpers, closing_char) &
+    recursive function apply_index_postfix(parser, arena, base_expr, helpers, closing_char) &
             result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -894,7 +894,7 @@ contains
             close_token%column, base_expr_index=base_expr_for_call)
     end function apply_index_postfix
 
-    subroutine collect_index_arguments(parser, arena, helpers, closing_char, &
+    recursive subroutine collect_index_arguments(parser, arena, helpers, closing_char, &
             arg_indices, close_token)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
