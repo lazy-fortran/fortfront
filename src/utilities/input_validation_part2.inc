@@ -250,13 +250,21 @@
 
     logical function is_valid_operand_token(token)
         type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
 
         is_valid_operand_token = .false.
         select case (token%kind)
         case (TK_IDENTIFIER, TK_NUMBER, TK_STRING)
             is_valid_operand_token = .true.
         case (TK_KEYWORD)
-            is_valid_operand_token = .true.
+            ! Statement keywords cannot continue an expression.  Keep logical
+            ! literals as the keyword-shaped operands they are.
+            if (.not. allocated(token%text)) return
+            lowered = to_lower(trim(token%text))
+            is_valid_operand_token = lowered == '.true.' .or. &
+                                     lowered == '.false.' .or. &
+                                     index(lowered, '.true._') == 1 .or. &
+                                     index(lowered, '.false._') == 1
         case (TK_OPERATOR)
             if (.not. allocated(token%text)) return
             select case (trim(token%text))
