@@ -7,7 +7,7 @@ private arena layout or adding an ffc text-name workaround.
 
 ## Current handoff (2026-08-03)
 
-- `main` is `5ff071849c2e6c8bffaa9b19088a1592c870a418`.
+- `main` is `a7ec2052` (implementation baseline `5ff07184`).
 - The parser and semantic changes used by the current ffc tranche are on
   `main`; focused builds pass at the recorded baseline, while the full
   downstream ffc suite still has unrelated known failures.
