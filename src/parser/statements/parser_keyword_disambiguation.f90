@@ -55,7 +55,12 @@ contains
                 ! names. The statement forms are `parameter (n = 5)` and
                 ! `rank (n)`, which have a parenthesis where these have an
                 ! assignment operator, so the two cannot be confused.
-                "parameter", "rank")
+                "parameter", "rank", &
+                ! `block = x` assigns to a variable; the construct form is a
+                ! bare `block` with nothing after it. Mistaking one for the
+                ! other sends the parser looking for an `end block` that is
+                ! not there.
+                "block")
             is_supported = .true.
         case default
             is_supported = .false.
