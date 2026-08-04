@@ -437,11 +437,18 @@
         integer, intent(in) :: pos
         integer :: idx
 
+        ! `else if` is one statement on one line. An `else` on the line
+        ! before an `if` opens a nested construct instead, and counting that
+        ! as an else-if left its `end if` unmatched - which is why a do body
+        ! containing this shape failed while the same shape inside an `if`
+        ! parsed. So a newline ends the search rather than being skipped.
         is_else_if_context = .false.
         idx = pos - 1
         do while (idx >= 1)
             select case (tokens(idx)%kind)
-            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+            case (TK_NEWLINE)
+                return
+            case (TK_WHITESPACE, TK_COMMENT)
                 idx = idx - 1
                 cycle
             case (TK_KEYWORD)
