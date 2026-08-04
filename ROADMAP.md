@@ -116,33 +116,31 @@ bisect will happily converge on nonsense.
 
 
 
-## Two fortfem sources do not parse
+## One fortfem source does not parse
 
-Down from sixteen at the start. Every one of the fourteen closed was a
-case of Fortran reserving no words, and every one was invisible until
-the segfault in the statement callbacks was fixed - the garbage pointer
-made `associated` answer true, so the parser reached a real parser by
-accident and no error was ever reported.
+563 of 564. Sixteen at the start of this work, and every one of the
+fifteen closed was a case of Fortran reserving no words - all of them
+invisible until the segfault in the statement callbacks was fixed,
+because the garbage pointer made `associated` answer true and the
+parser reached a real parser by accident.
 
-What closed: a keyword as a declared entity name; `parameter` and
-`rank` as assignment targets; a procedure named with a keyword
-(`function function(space) result(f)`); a bare `do` inside a `do while`
-body, which needed both an infinite-loop path in `parse_do_loop` and a
-bounds guard that stopped rejecting it.
+Closed: a keyword as a declared entity name; `parameter` and `rank` as
+assignment targets; a procedure named with a keyword; a bare `do`
+inside a `do while`; and `block` as a variable.
 
-What is left.
+The `block` case is worth remembering. Four guards were added in four
+plausible places - the span locator, the disambiguation list, the
+dispatcher's own case, and component references - and none of them
+moved the error, because none was on the path. The site that actually
+consumed the token was the procedure-body parser, which routes a
+leading `block` into `parse_block_construct` without asking whether it
+is being assigned to. Finding it took reading the dispatch order rather
+than adding a fifth guard.
 
-**`src/operators/equation_objective_registry.f90:151`** - `block =
-registry%blocks(block_index)`. Three separate places now decline to
-treat an assigned-to `block` as a construct: the span locator, the
-keyword disambiguation list, and the dispatcher's own case. The token
-is still consumed somewhere before any of them, leaving `= regis...`
-as the statement. A fourth site holds it; find it by tracing which
-routine consumes the token rather than by adding another guard, which
-is what the last three attempts did.
-
-**`src/triangle_compat/tc_locate.f90:66`** - a deeply nested
-`else`/`if` chain. Not yet diagnosed.
-
-Reproduce one file at a time over `compile_frontend_from_string`,
-checking `res%parse_ok` rather than the exit status.
+**`src/triangle_compat/tc_locate.f90:66`** is what is left. The
+reported column is past the end of that line, so the failure is at a
+statement boundary rather than in the statement itself. The block
+around it nests four `if`s and contains a four-line continued call.
+Neither reproduces on its own. Reducing it needs care: cutting the
+block out by line range leaves unbalanced `end if`s and produces a
+different error that looks like progress and is not.
