@@ -1,13 +1,14 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
-        TK_COMMENT, TK_WHITESPACE
+        TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, &
         null_statement_callbacks, &
-        find_statement_end
+        find_statement_end, &
+        extend_if_statement_end, extend_do_statement_end
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -107,6 +108,23 @@ contains
 
                 stmt_start = parser%current_token
                 stmt_end = find_statement_end(parser%tokens, stmt_start)
+                ! Hand a whole construct over, not just its header. This body
+                ! parser serves case arms and other block bodies, and an `if`
+                ! or `do` inside one was sliced at its first line, leaving the
+                ! body and the closing `end if` to be parsed as loose
+                ! statements. The parser then desynchronised and eventually
+                ! transferred to a bogus address - a segfault under gfortran
+                ! 13.3, silent corruption elsewhere.
+                if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                    select case (to_lower(trim(parser%tokens(stmt_start)%text)))
+                    case ("if")
+                        stmt_end = extend_if_statement_end(parser%tokens, &
+                            stmt_start, stmt_end)
+                    case ("do")
+                        stmt_end = extend_do_statement_end(parser%tokens, &
+                            stmt_start, stmt_end)
+                    end select
+                end if
                 if (stmt_end < stmt_start) stmt_end = stmt_start
 
                 has_meaningful = has_meaningful_tokens(parser%tokens, stmt_start, &
