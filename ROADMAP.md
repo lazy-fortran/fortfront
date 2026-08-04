@@ -114,3 +114,44 @@ reporting rc=139 for a crash. Install gfortran in any container that
 runs the harness - without libgfortran the binary exits 127 and a
 bisect will happily converge on nonsense.
 
+
+
+## Sixteen fortfem sources do not parse
+
+548 of fortfem's 564 sources parse; these sixteen do not, and they are
+what keeps fortfem's build red under a current fo. None of it is new -
+the segfault in the statement callbacks used to mask all of it, because
+a garbage pointer made  answer true and the parser reached
+a real parser by accident. Fixing the crash turned silent wrong
+behaviour into honest errors, and these are the honest errors.
+
+Three shapes, in order of how many files they account for.
+
+**A keyword as a name in a declaration list.** Fortran reserves no
+words, so these are legal:
+
+    real(dp) :: distance, parameter, source(2)
+    integer :: patch, interface, trace, offset
+
+The entity-list parser stops at , leaves the rest of the
+line unconsumed, and  reports "unexpected
+token after statement" from a position well past the real problem.
+Fixing it means accepting a keyword as an entity name there. Note that
+two earlier attempts aimed at  had
+no effect at all: that function is not on this path.
+
+** unrecognised.** Nine occurrences. The fallback now covers both
+counted and while forms, which did not move these, so they arrive
+through a third path that has not been found.
+
+**One block construct whose end is not located**, in
+equation_objective_registry.f90 at line 151.
+
+The failing files and their first error:
+
+
+
+Reproduce one file at a time with a small harness over
+, checking  rather than the
+exit status - a file can fail to parse without crashing, and counting
+crashes alone reports these as fine.
