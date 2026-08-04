@@ -4,7 +4,7 @@
             call register_parse_do_loop(parse_do_loop)
             ! Also as the fallback for a caller that populated no do
             ! callback, which is how a loop inside a case arm is reached.
-            call register_fallback_do_parser(parse_do_loop)
+            call register_fallback_do_parser(parse_any_do)
             ! parse_if is in scope here through parser_if_constructs, which
             ! this module already uses, so registering it costs no new
             ! dependency and closes no cycle.
@@ -12,6 +12,31 @@
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks
+
+    function parse_any_do(parser, arena) result(loop_index)
+        !! Either shape of DO, chosen by what follows the keyword.
+        !!
+        !! The fallback has to cover `do while` as well as a counted loop:
+        !! `select case` populates no do callback at all, so both forms reach
+        !! this and registering only the counted parser left the while form
+        !! reported as an unrecognised statement.
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: loop_index
+        type(token_t) :: next_token
+
+        ! peek() is the current token, so look one past it directly.
+        next_token%kind = 0
+        if (parser%current_token + 1 <= size(parser%tokens)) &
+            next_token = parser%tokens(parser%current_token + 1)
+        if (next_token%kind == TK_KEYWORD) then
+            if (to_lower(trim(next_token%text)) == "while") then
+                loop_index = parse_do_while(parser, arena)
+                return
+            end if
+        end if
+        loop_index = parse_do_loop(parser, arena)
+    end function parse_any_do
 
     subroutine ensure_if_do_registration()
         call initialize_if_hooks()
