@@ -28,6 +28,7 @@ module parser_statement_utilities_module
         parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
+    use parser_if_constructs_module, only: parse_do_loop_callback
     use parser_statement_data_module, only: parse_data_statement
     use parser_import_resolution_module, only: parse_use_statement
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
@@ -48,7 +49,7 @@ module parser_statement_utilities_module
 
     public :: parse_statement_in_if_block, parse_comment_or_directive
     public :: get_stmt_util_additional_indices, clear_stmt_util_additional_indices
-    public :: parse_if_from_definition
+    public :: parse_if_from_definition, parse_do_from_definition
     public :: parse_associate_from_definition
 
 contains
@@ -303,6 +304,19 @@ contains
 
     ! Simple if statement parser for function/subroutine bodies
     ! This avoids circular dependency with parser_control_flow_module
+    integer function parse_do_from_definition(parser, arena) result(loop_index)
+        !! The DO parser, reached through the callback it registers.
+        !!
+        !! The mirror of parse_if_from_definition: a caller that did not
+        !! populate a do callback still gets a loop parsed rather than an
+        !! unrecognised statement. `select case` builds its callbacks with only
+        !! its own entry set, so a loop inside a case arm had no parser at all.
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        loop_index = parse_do_loop_callback(parser, arena)
+    end function parse_do_from_definition
+
     function parse_if_from_definition(parser, arena) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
