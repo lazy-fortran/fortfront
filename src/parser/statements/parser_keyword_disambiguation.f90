@@ -50,7 +50,12 @@ contains
                 "contains", "else", "dimension", "common", &
                 "program", "module", "submodule", "if", "data", &
                 "read", "write", "print", "open", "close", &
-                "inquire", "backspace", "rewind", "endfile", "format")
+                "inquire", "backspace", "rewind", "endfile", "format", &
+                ! `parameter = x` and `rank = n` assign to variables of those
+                ! names. The statement forms are `parameter (n = 5)` and
+                ! `rank (n)`, which have a parenthesis where these have an
+                ! assignment operator, so the two cannot be confused.
+                "parameter", "rank")
             is_supported = .true.
         case default
             is_supported = .false.
