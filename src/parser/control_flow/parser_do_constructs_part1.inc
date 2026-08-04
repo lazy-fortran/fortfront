@@ -604,6 +604,7 @@
 
         type(token_t) :: do_token, var_token, comma_token, label_token
         character(len=:), allocatable :: var_name, loop_label, type_spec
+        logical :: is_bare_do
         type(do_loop_control_t), allocatable :: controls(:)
         type(do_loop_control_t) :: control
         integer :: start_index, end_index, step_index
@@ -616,6 +617,7 @@
 
         step_index = 0  ! Initialize to 0 (no step)
         loop_index = 0  ! Initialize to 0 (failure) in case of early return
+        is_bare_do = .false.
         is_concurrent = .false.
         type_spec = ""
 
@@ -692,6 +694,7 @@
                 return
             end if
         else if (do_has_no_control(parser)) then
+            is_bare_do = .true.
             ! `do` with nothing after it is an infinite loop, ended by `exit`.
             ! A bare do at statement level is routed elsewhere, so this only
             ! matters where parse_do_loop is reached directly - a bare do
@@ -722,7 +725,9 @@
         step_index = control%step_index
         if (allocated(control%type_spec)) type_spec = control%type_spec
 
-        if (start_index <= 0 .or. end_index <= 0) then
+        ! A bare do has no bounds by definition, so the guard against a
+        ! malformed control must not reject it.
+        if (.not. is_bare_do .and. (start_index <= 0 .or. end_index <= 0)) then
             loop_index = 0
             return
         end if
