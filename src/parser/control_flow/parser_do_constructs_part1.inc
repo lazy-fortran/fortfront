@@ -2,6 +2,9 @@
     subroutine initialize_if_hooks()
         if (.not. if_hooks_initialized) then
             call register_parse_do_loop(parse_do_loop)
+            ! Also as the fallback for a caller that populated no do
+            ! callback, which is how a loop inside a case arm is reached.
+            call register_fallback_do_parser(parse_do_loop)
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks
