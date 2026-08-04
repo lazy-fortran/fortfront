@@ -121,7 +121,7 @@ bisect will happily converge on nonsense.
 548 of fortfem's 564 sources parse; these sixteen do not, and they are
 what keeps fortfem's build red under a current fo. None of it is new -
 the segfault in the statement callbacks used to mask all of it, because
-a garbage pointer made  answer true and the parser reached
+a garbage pointer made `associated` answer true and the parser reached
 a real parser by accident. Fixing the crash turned silent wrong
 behaviour into honest errors, and these are the honest errors.
 
@@ -133,25 +133,43 @@ words, so these are legal:
     real(dp) :: distance, parameter, source(2)
     integer :: patch, interface, trace, offset
 
-The entity-list parser stops at , leaves the rest of the
-line unconsumed, and  reports "unexpected
+The entity-list parser stops at `parameter`, leaves the rest of the
+line unconsumed, and `reject_unconsumed_tokens` reports "unexpected
 token after statement" from a position well past the real problem.
-Fixing it means accepting a keyword as an entity name there. Note that
-two earlier attempts aimed at  had
-no effect at all: that function is not on this path.
+Fixing it means accepting a keyword as an entity name there. Two
+earlier attempts aimed at `keyword_should_parse_as_identifier` had no
+effect at all: that function is not on this path.
 
-** unrecognised.** Nine occurrences. The fallback now covers both
-counted and while forms, which did not move these, so they arrive
-through a third path that has not been found.
+**`do` unrecognised.** Nine occurrences. The fallback now covers both
+the counted and the while form, which did not move these, so they
+arrive through a third path that has not been found.
 
 **One block construct whose end is not located**, in
 equation_objective_registry.f90 at line 151.
 
 The failing files and their first error:
 
-
+```
+src/bem/helmholtz_boundary_operators_2d.f90 :: ERROR at line 468, column 23: Unrecognized statement: parameter = nodes
+src/bem/helmholtz_exterior_2d.f90 :: ERROR at line 317, column 57: Syntax error: unexpected token after statement
+src/elements/bspline_multipatch.f90 :: ERROR at line 167, column 36: Syntax error: unexpected token after statement
+src/fortfem_api_spaces.f90 :: 
+src/geometry/fci_terminal_segment_2d.f90 :: ERROR at line 33, column 53: Syntax error: unexpected token after statement
+src/geometry/fci_terminal_triangle_3d.f90 :: ERROR at line 84, column 23: Unrecognized statement: parameter = numerator
+src/mesh/triangle_io.f90 :: ERROR at line 110, column 17: Unrecognized statement: do 
+src/operators/equation_objective_registry.f90 :: ERROR at line 151, column 9: internal: could not locate the end of this block construct; refusing to drop the statements that follow
+src/operators/fci_boundary_patch_mortar.f90 :: ERROR at line 364, column 13: Unrecognized statement: rank = rank
+src/solvers/pseudo_arclength_residual.f90 :: ERROR at line 24, column 65: Syntax error: unexpected token after statement
+src/topology/cell_complex.f90 :: ERROR at line 527, column 13: Unrecognized statement: rank = rank
+src/topology/distributed_trace_ownership.f90 :: ERROR at line 100, column 53: Syntax error: unexpected token after statement
+src/topology/mpi_trace_exchange.f90 :: ERROR at line 79, column 58: Syntax error: unexpected token after statement
+src/triangle_compat/tc_enforce.f90 :: ERROR at line 123, column 29: Unrecognized statement: do 
+src/triangle_compat/tc_locate.f90 :: ERROR at line 153, column 17: Unrecognized statement: do 
+src/triangle_compat/tc_sort.f90 :: ERROR at line 36, column 17: Unrecognized statement: do
+```
 
 Reproduce one file at a time with a small harness over
-, checking  rather than the
-exit status - a file can fail to parse without crashing, and counting
-crashes alone reports these as fine.
+`compile_frontend_from_string`, checking `res%parse_ok` rather than the
+exit status. A file can fail to parse without crashing, and counting
+crashes alone reports these as fine - which is exactly how they stayed
+hidden.
