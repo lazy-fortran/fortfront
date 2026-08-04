@@ -67,8 +67,12 @@
         character(len=:), allocatable :: url_spec
         ! Optional URL specification for Go-style imports
         type(string_t), allocatable :: only_list(:)  ! Optional only clause items
-        type(string_t), allocatable :: rename_list(:)  ! Optional rename
-        ! mappings (new_name => old_name)
+        ! Optional rename mappings, stored flat: each mapping occupies two
+        ! consecutive entries, the local name then the remote one, so
+        ! `use m, only: dp => real64` gives ["dp", "real64"]. See
+        ! `append_rename_pair` in parser_import_resolution. A consumer
+        ! reconstructing source text walks this two at a time.
+        type(string_t), allocatable :: rename_list(:)
         logical :: has_only = .false.  ! Whether the only
         ! clause is present
         logical :: has_double_colon = .false.
