@@ -46,6 +46,7 @@ module parser_statement_callbacks_module
     public :: null_statement_callbacks
     public :: register_fallback_do_parser, fallback_do_parser_is_set, &
               call_fallback_do_parser
+    public :: register_fallback_if_parser, call_fallback_if_parser
 
     !! The DO parser, registered rather than imported.
     !!
@@ -56,6 +57,10 @@ module parser_statement_callbacks_module
     !! the same indirection, done once here where the callback type already
     !! lives.
     procedure(parse_without_parent_interface), pointer :: do_parser => null()
+    !! The full IF parser, for the same reason. The definition-level fallback
+    !! reached otherwise handles a single if, not one containing another, and
+    !! a nested if inside a case arm is exactly that.
+    procedure(parse_with_parent_interface), pointer :: if_parser => null()
     public :: parse_with_parent_interface
     public :: parse_without_parent_interface
 
@@ -79,6 +84,28 @@ contains
         node_index = 0
         if (associated(do_parser)) node_index = do_parser(parser, arena)
     end function call_fallback_do_parser
+
+    subroutine register_fallback_if_parser(proc)
+        !! Called once by the if parser's own initialisation.
+        procedure(parse_with_parent_interface) :: proc
+
+        if_parser => proc
+    end subroutine register_fallback_if_parser
+
+    integer function call_fallback_if_parser(parser, arena, parent_index) &
+        result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+
+        node_index = 0
+        if (.not. associated(if_parser)) return
+        if (present(parent_index)) then
+            node_index = if_parser(parser, arena, parent_index)
+        else
+            node_index = if_parser(parser, arena)
+        end if
+    end function call_fallback_if_parser
 
     pure function null_statement_callbacks() result(callbacks)
         !! Every component explicitly nullified, rather than left to the
