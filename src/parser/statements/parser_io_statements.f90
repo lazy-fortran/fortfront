@@ -3,7 +3,7 @@ module parser_io_statements_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
         TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
-        TK_WHITESPACE, to_lower
+        TK_WHITESPACE, TK_EOF, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range, parse_comparison
     use ast_arena_modern, only: ast_arena_t
