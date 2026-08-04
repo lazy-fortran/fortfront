@@ -34,6 +34,7 @@ module parser_statement_core_module
         extend_if_statement_end, extend_do_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_statement_utilities_module, only: parse_if_from_definition, &
+        parse_do_from_definition, &
         parse_associate_from_definition
     use parser_trailing_comment_module, only: capture_trailing_comment_from_tokens
     implicit none
@@ -296,6 +297,11 @@ contains
         case ("do")
             if (associated(callbacks%parse_do_loop)) then
                 stmt_index = callbacks%parse_do_loop(parser, arena)
+            else
+                ! Same fallback `if` already had: a caller that populated no
+                ! do callback still gets a loop parsed. `select case` sets only
+                ! its own entry, so a loop inside a case arm had no parser.
+                stmt_index = parse_do_from_definition(parser, arena)
             end if
         case ("select", "selectcase")
             stmt_index = handle_select_keyword(parser, arena, callbacks)
