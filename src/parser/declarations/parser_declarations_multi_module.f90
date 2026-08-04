@@ -1,5 +1,5 @@
 module parser_declarations_multi_module
-    use lexer_core, only: token_t, TK_IDENTIFIER
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_core_module, only: skip_declaration_separator
@@ -109,7 +109,12 @@ contains
 
         do while (.not. parser%is_at_end())
             token = parser%consume()
-            if (token%kind /= TK_IDENTIFIER) then
+            ! Fortran reserves no words, so a declared entity may be spelled
+            ! with one: `real(dp) :: distance, parameter, source(2)` is legal
+            ! and appears in fortfem. Requiring an identifier here stopped the
+            ! list at that name and left the rest of the line unconsumed, which
+            ! surfaced much later as an unexpected trailing token.
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
                 exit
             end if
 
