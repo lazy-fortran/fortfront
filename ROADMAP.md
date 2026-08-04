@@ -39,41 +39,78 @@ the focused tests, the rejection gate when diagnostics change, and the full
 repository `fo` pipeline. Update this file when a linked issue or public query
 changes state.
 
-## Segfault under gfortran 13.3 parsing a select case inside a function
+## Segfault under gfortran 13.3: an if block inside a case arm
 
-Reproduces reliably in a container and is what fails two of fortnum's CI
-jobs - the two that invoke `fo`, which bundles fortfront. It does not
-reproduce on a newer gfortran, which is why it looked like a CI-only
-fault for a long time.
+Sixteen lines reproduce it, and this is the whole thing:
 
-    docker run --rm -v <scratchpad>:/w -w /w ubuntu:24.04 bash /w/ci3.sh
+```fortran
+module m
+    implicit none
+    integer, parameter :: dp = kind(1.0d0)
+contains
+    function apply(head, x) result(v)
+        character(len=*), intent(in) :: head
+        real(dp), intent(in) :: x
+        real(dp) :: v
+        v = 0.0_dp
+        select case (head)
+        case ("sqrt")
+            if (x < 0.0_dp) then
+                v = 0.0_dp
+            else
+                v = sqrt(x)
+            end if
+        case default
+            v = -1.0_dp
+        end select
+    end function apply
+end module m
+```
 
-That builds `fo` with `--profile debug` and runs
-`fo exec gen_enzyme_scalar_wrappers` under gdb. The backtrace:
+Parsing that segfaults under gfortran 13.3, which is what Ubuntu 24.04
+and so every GitHub runner has. Under a newer gfortran it parses, so
+this is invisible on a developer machine.
 
-    #0  0x0000000000000005 in ?? ()
-    #1  parser_statement_core_module::handle_control_keyword
-    #2  parse_keyword_statement
-    #3  parse_basic_statement_core
-    ...
-    #7  parser_select_constructs_module::parse_case_arm
-    #8  parse_select_case
-    ...
-    #13 parse_function_definition
+Take the `if` out and it parses. `case ("abs"); v = abs(x)` on one line
+parses. The number of case arms does not matter - forty-eight plain
+arms are fine. It needs a block `if` inside a `case` arm.
 
-So: a control keyword inside a `case` arm of a `select case` inside a
-function definition, and `handle_control_keyword` transfers to address
-5 rather than to a procedure.
+Why it matters beyond fortfront: `fo` bundles fortfront, fortnum's
+codegen tool depends on fortsym, and eight of fortsym's sources contain
+this shape. That is why two of fortnum's CI jobs fail, and they fail on
+main as well - nothing to do with what is being built.
 
-What has been ruled out. Every branch of `handle_control_keyword`
-guards its callback with `associated()`, and every one of the nine
-pointer components of `statement_callbacks_t` is default-initialised to
-`null()`, so neither an unguarded call nor an uninitialised component
-explains it on its own. Address 5 is not random - it reads like a small
-integer used as an address, which points at a `statement_callbacks_t`
-whose storage has been overwritten or reinterpreted somewhere along the
-chain from `parse_case_arm` down, rather than at a pointer that was
-simply never set.
+### What has been ruled out
 
-Next: build that translation unit with `-fsanitize=address` inside the
-same container, which should name the write.
+Each of these was tested, not argued:
+
+- The `fortsym.lock` revision, and fortsym itself: cloned at the locked
+  revision and run clean.
+- `fo`'s own revision: rebuilt exactly as CI does, clean.
+- Stack exhaustion: `ulimit -s unlimited` still crashes.
+- Array bounds: `-fcheck=all` reports no violation.
+- An out-of-bounds read in `extract_statement_tokens`: real, fixed, and
+  not this - patching it into the pinned source still crashed.
+- Slicing a construct at its header in `parse_statement_body`: real,
+  fixed, and not this either - the fix is present in the built
+  dependency and the sixteen lines still crash.
+
+Three tools disagree about where it dies. gdb says
+`handle_control_keyword` transfers to address 5, AddressSanitizer says
+a bad eight-byte load in `fo`'s `build_dag_from_units`, and
+`-fcheck=all` says nothing is out of range. Disagreement of that kind
+means memory is corrupted earlier and the crash surfaces wherever the
+damage is next touched, so the reported site is not the bug. What is
+needed is the write, not the read.
+
+### Reproducing
+
+`scripts` for this live in the session scratchpad; the shape is:
+
+    docker run --rm -v <dir>:/w -w /w ubuntu:24.04 bash /w/verify2.sh
+
+which builds a small fortfront harness and parses one file per run,
+reporting rc=139 for a crash. Install gfortran in any container that
+runs the harness - without libgfortran the binary exits 127 and a
+bisect will happily converge on nonsense.
+
