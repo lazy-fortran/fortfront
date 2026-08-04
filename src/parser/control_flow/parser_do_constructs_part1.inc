@@ -54,6 +54,26 @@
         end if
     end subroutine append_control
 
+    logical function do_has_no_control(parser) result(bare)
+        !! Whether the DO keyword is followed by nothing on its line.
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx
+
+        bare = .true.
+        idx = parser%current_token
+        do while (idx <= size(parser%tokens))
+            select case (parser%tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+            case (TK_NEWLINE, TK_EOF)
+                return
+            case default
+                bare = .false.
+                return
+            end select
+        end do
+    end function do_has_no_control
+
     logical function next_tokens_form_control(parser, start_pos) result(is_control)
         type(parser_state_t), intent(in) :: parser
         integer, intent(in) :: start_pos
@@ -671,6 +691,16 @@
                 loop_index = 0
                 return
             end if
+        else if (do_has_no_control(parser)) then
+            ! `do` with nothing after it is an infinite loop, ended by `exit`.
+            ! A bare do at statement level is routed elsewhere, so this only
+            ! matters where parse_do_loop is reached directly - a bare do
+            ! inside a do while body, which fortfem has.
+            control%var_name = ""
+            control%start_index = 0
+            control%end_index = 0
+            control%step_index = 0
+            call append_control(controls, control)
         else
             if (.not. parse_standard_control(parser, arena, control)) then
                 loop_index = 0
