@@ -254,15 +254,22 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
-        integer :: token_count
+        integer :: token_count, first, last
 
-        token_count = stmt_end - stmt_start + 1
+        ! Clamp to what the token array actually holds. A statement that runs
+        ! to the end of input can leave `stmt_end` past the last token, and
+        ! reading `tokens(stmt_end)` then walks off the array - which is a
+        ! silent corruption on some builds and a segfault on others rather
+        ! than an error anywhere near the cause.
+        first = max(1, min(stmt_start, size(tokens)))
+        last = max(first, min(stmt_end, size(tokens)))
+        token_count = last - first + 1
         allocate (stmt_tokens(token_count + 1))
-        stmt_tokens(1:token_count) = tokens(stmt_start:stmt_end)
+        stmt_tokens(1:token_count) = tokens(first:last)
         stmt_tokens(token_count + 1)%kind = TK_EOF
         stmt_tokens(token_count + 1)%text = ""
-        stmt_tokens(token_count + 1)%line = tokens(stmt_end)%line
-        stmt_tokens(token_count + 1)%column = tokens(stmt_end)%column + 1
+        stmt_tokens(token_count + 1)%line = tokens(last)%line
+        stmt_tokens(token_count + 1)%column = tokens(last)%column + 1
     end subroutine extract_statement_tokens
 
     subroutine parse_and_add_statement(stmt_tokens, arena, parent_index, &
