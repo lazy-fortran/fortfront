@@ -54,10 +54,13 @@ contains
             ! names a variable, and treating it as a construct sends the
             ! parser looking for an `end block` that is not there. A construct
             ! keyword never has an assignment operator next.
+            ! A component reference counts too: `block%kind = 0` is an
+            ! assignment to a variable named `block`.
             candidate = next_significant(all_tokens, stmt_start + 1)
             if (candidate <= size(all_tokens)) then
                 if (all_tokens(candidate)%kind == TK_OPERATOR) then
-                    if (trim(all_tokens(candidate)%text) == "=") return
+                    if (trim(all_tokens(candidate)%text) == "=" .or. &
+                        trim(all_tokens(candidate)%text) == "%") return
                 end if
             end if
             kw_pos = stmt_start
