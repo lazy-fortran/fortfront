@@ -11,7 +11,7 @@ module parser_if_body_module
     use parser_state_module, only: parser_state_t
     use parser_statement_core_module, only: statement_callbacks_t, &
         find_statement_end, &
-        extend_if_statement_end, &
+        extend_if_statement_end, extend_do_statement_end, &
         allocate_stmt_tokens_with_eof, &
         skip_whitespace_and_semicolons, &
         parse_basic_statement_core
@@ -118,6 +118,13 @@ contains
         if (first_stmt_token%kind == TK_KEYWORD) then
             if (first_stmt_token%text == "if") then
                 stmt_end = extend_if_statement_end(parser%tokens, &
+                    parser%current_token, &
+                    stmt_end)
+            else if (to_lower(trim(first_stmt_token%text)) == "do") then
+                ! A loop is handed over whole, the way a block `if` already
+                ! is. Taking only its header left the body and `end do` to be
+                ! parsed as loose statements, which desynchronised on nesting.
+                stmt_end = extend_do_statement_end(parser%tokens, &
                     parser%current_token, &
                     stmt_end)
             end if

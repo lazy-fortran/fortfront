@@ -18,7 +18,7 @@ module parser_statement_detection_module
 
     public :: is_block_if, at_top_level, next_significant_index
     public :: inline_where_parenthetical, inline_where_colon, is_inline_where
-    public :: find_statement_end, extend_if_statement_end
+    public :: find_statement_end, extend_if_statement_end, extend_do_statement_end
 
 contains
 
@@ -520,6 +520,61 @@ contains
             end select
         end do
     end function is_select_construct
+
+    integer function extend_do_statement_end(tokens, start_index, initial_end) &
+            result(end_index)
+        !! Extend a statement slice over a whole DO construct.
+        !!
+        !! An if body is parsed one statement at a time, and a block `if` is
+        !! already extended to cover its `end if` so the construct is handed
+        !! over whole. A `do` had no such extension: only its header was taken,
+        !! and its body and `end do` were parsed as loose statements. A single
+        !! loop happened to resynchronise; two nested ones did not, and the
+        !! `end if` that followed was reported as an unrecognised statement.
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer, intent(in) :: initial_end
+        integer :: idx, depth
+        type(token_t) :: token
+
+        end_index = initial_end
+        if (start_index < 1 .or. start_index > size(tokens)) return
+        if (initial_end < start_index) return
+        if (tokens(start_index)%kind /= TK_KEYWORD) return
+        if (to_lower(trim(tokens(start_index)%text)) /= "do") return
+
+        depth = 0
+        idx = start_index
+        do while (idx <= size(tokens))
+            token = tokens(idx)
+            if (token%kind == TK_KEYWORD) then
+                select case (to_lower(trim(token%text)))
+                case ("do")
+                    depth = depth + 1
+                case ("enddo")
+                    depth = depth - 1
+                    if (depth <= 0) then
+                        end_index = idx
+                        return
+                    end if
+                case ("end")
+                    if (idx + 1 <= size(tokens)) then
+                        if (tokens(idx + 1)%kind == TK_KEYWORD) then
+                            if (to_lower(trim(tokens(idx + 1)%text)) == "do") then
+                                depth = depth - 1
+                                if (depth <= 0) then
+                                    end_index = idx + 1
+                                    return
+                                end if
+                                idx = idx + 1
+                            end if
+                        end if
+                    end if
+                end select
+            end if
+            idx = idx + 1
+        end do
+    end function extend_do_statement_end
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
             result(end_index)
