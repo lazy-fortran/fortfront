@@ -148,8 +148,12 @@
         success = .false.
         control%step_index = 0
 
+        ! Fortran reserves no words, so the iterator may be spelled with one:
+        ! `do parameter = 1, n` is legal. What follows settles it - only an
+        ! iterator has `=` here, where `do while (` and `do concurrent (` have
+        ! an opening parenthesis and fall through to their own parsers.
         tok = parser%consume()
-        if (tok%kind /= TK_IDENTIFIER) return
+        if (tok%kind /= TK_IDENTIFIER .and. tok%kind /= TK_KEYWORD) return
         control%var_name = tok%text
 
         tok = parser%consume()
@@ -252,8 +256,9 @@
         end if
 
         ! Parse variable name
+        ! A keyword is a legal iterator name; see the note above.
         tok = parser%consume()
-        if (tok%kind /= TK_IDENTIFIER) then
+        if (tok%kind /= TK_IDENTIFIER .and. tok%kind /= TK_KEYWORD) then
             if (len_trim(type_spec_str) > 0) then
                 parser%current_token = saved_pos
             end if
