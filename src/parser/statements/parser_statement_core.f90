@@ -24,7 +24,7 @@ module parser_statement_core_module
     use ast_factory, only: push_assignment, push_pointer_assignment, push_identifier
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
         null_statement_callbacks, &
-        call_fallback_do_parser
+        call_fallback_do_parser, call_fallback_if_parser
     use parser_statement_data_module, only: parse_data_statement, &
         parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -290,6 +290,14 @@ contains
                         stmt_index = callbacks%parse_if(parser, arena)
                     end if
                 else
+                    ! The registered full parser first: it handles an if that
+                    ! contains another, where the definition-level fallback
+                    ! below handles only a single one. Reached when the caller
+                    ! populated no callback - `select case` sets only its own
+                    ! entry, so a nested if in a case arm lands here.
+                    stmt_index = call_fallback_if_parser(parser, arena, &
+                                                        parent_index)
+                    if (stmt_index /= 0) return
                     ! Fallback to simple IF parser if callback not set
                     stmt_index = parse_if_from_definition(parser, arena)
                 end if

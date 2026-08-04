@@ -5,6 +5,10 @@
             ! Also as the fallback for a caller that populated no do
             ! callback, which is how a loop inside a case arm is reached.
             call register_fallback_do_parser(parse_do_loop)
+            ! parse_if is in scope here through parser_if_constructs, which
+            ! this module already uses, so registering it costs no new
+            ! dependency and closes no cycle.
+            call register_fallback_if_parser(parse_if)
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks
