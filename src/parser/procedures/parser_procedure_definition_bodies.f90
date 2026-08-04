@@ -280,6 +280,30 @@ contains
         end if
     end function get_nested_internal_procedure_message
 
+    logical function keyword_is_assigned_to(tokens) result(assigned)
+        !! Whether the leading keyword is the target of an assignment.
+        !!
+        !! `block = registry%blocks(i)` and `block%kind = 0` both name a
+        !! variable. Routing either into the construct parser sends it looking
+        !! for an `end block` that is not there.
+        type(token_t), intent(in) :: tokens(:)
+        integer :: idx
+
+        assigned = .false.
+        do idx = 2, size(tokens)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                cycle
+            case default
+                if (tokens(idx)%kind == TK_OPERATOR) then
+                    assigned = trim(tokens(idx)%text) == "=" .or. &
+                               trim(tokens(idx)%text) == "%"
+                end if
+                return
+            end select
+        end do
+    end function keyword_is_assigned_to
+
     subroutine record_nested_internal_procedure_error(token, procedure_name)
         type(token_t), intent(in) :: token
         character(len=*), intent(in) :: procedure_name
@@ -652,7 +676,8 @@ contains
                             parent_parser%diagnostic_sink
                     end if
                     stmt_index = parse_associate(block_parser, arena)
-                else if (trim(token_lower) == "block") then
+                else if (trim(token_lower) == "block" .and. &
+                         .not. keyword_is_assigned_to(construct_tokens)) then
                     block_parser = create_parser_state(construct_tokens)
                     if (associated(parent_parser%diagnostic_sink)) then
                         block_parser%diagnostic_sink => &
