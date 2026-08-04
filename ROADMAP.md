@@ -116,47 +116,33 @@ bisect will happily converge on nonsense.
 
 
 
-## Six fortfem sources do not parse
+## Two fortfem sources do not parse
 
-Down from sixteen. Two fixes closed ten of them: accepting a keyword as
-a declared entity name, and letting `parameter` and `rank` name a
-variable in an assignment. Both are cases of Fortran reserving no
-words, and both were masked until the segfault in the statement
-callbacks was fixed.
+Down from sixteen at the start. Every one of the fourteen closed was a
+case of Fortran reserving no words, and every one was invisible until
+the segfault in the statement callbacks was fixed - the garbage pointer
+made `associated` answer true, so the parser reached a real parser by
+accident and no error was ever reported.
 
-Worth recording about the second: it was tried once, measured as having
-no effect, and reverted. That measurement was right at the time - the
-declaration on an earlier line failed first, so the file never reached
-the assignment. It only worked once the declaration fix landed. Order
-mattered, not the edit.
+What closed: a keyword as a declared entity name; `parameter` and
+`rank` as assignment targets; a procedure named with a keyword
+(`function function(space) result(f)`); a bare `do` inside a `do while`
+body, which needed both an infinite-loop path in `parse_do_loop` and a
+bounds guard that stopped rejecting it.
 
 What is left.
 
-**A bare `do` inside a `do while` body**, four files. A bare `do` on its
-own parses; nested in a `do while` it does not. The body slicing is
-fine - `find_matching_end_do` takes the whole construct - and the
-sliced statement reaches `handle_control_keyword`, which has no do
-callback there and falls back to `parse_do_loop`. That routine handles
-`while` and `concurrent` and then calls `parse_standard_control`, which
-fails when there is no control at all. So `parse_do_loop` has no
-infinite-loop path, and the bare `do` that parses at statement level
-gets there another way. Either give `parse_do_loop` that path or point
-the fallback at whatever the statement-level dispatcher uses.
+**`src/operators/equation_objective_registry.f90:151`** - `block =
+registry%blocks(block_index)`. Three separate places now decline to
+treat an assigned-to `block` as a construct: the span locator, the
+keyword disambiguation list, and the dispatcher's own case. The token
+is still consumed somewhere before any of them, leaving `= regis...`
+as the statement. A fourth site holds it; find it by tracing which
+routine consumes the token rather than by adding another guard, which
+is what the last three attempts did.
 
-Minimal reproduction:
-
-    do while (i < n)
-        do
-            i = i + 1
-            if (i > n) exit
-        end do
-    end do
-
-**One block construct whose end is not located**, in
-equation_objective_registry.f90 at line 151, and **one file that fails
-without surfacing an error**, fortfem_api_spaces.f90.
+**`src/triangle_compat/tc_locate.f90:66`** - a deeply nested
+`else`/`if` chain. Not yet diagnosed.
 
 Reproduce one file at a time over `compile_frontend_from_string`,
-checking `res%parse_ok` rather than the exit status. A file can fail to
-parse without crashing, and counting crashes alone reports these as
-fine - which is how they stayed hidden.
+checking `res%parse_ok` rather than the exit status.
