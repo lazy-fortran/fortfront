@@ -23,7 +23,8 @@ module parser_statement_core_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, push_identifier
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
-        null_statement_callbacks
+        null_statement_callbacks, &
+        call_fallback_do_parser
     use parser_statement_data_module, only: parse_data_statement, &
         parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -296,6 +297,12 @@ contains
         case ("do")
             if (associated(callbacks%parse_do_loop)) then
                 stmt_index = callbacks%parse_do_loop(parser, arena)
+            else
+                ! The same indirection `if` uses for its fallback. `select
+                ! case` populates only its own callback entry, so a loop
+                ! inside a case arm had no parser and came out as an
+                ! unrecognised statement.
+                stmt_index = call_fallback_do_parser(parser, arena)
             end if
         case ("select", "selectcase")
             stmt_index = handle_select_keyword(parser, arena, callbacks)

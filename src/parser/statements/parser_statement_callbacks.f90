@@ -44,10 +44,41 @@ module parser_statement_callbacks_module
     end type statement_callbacks_t
 
     public :: null_statement_callbacks
+    public :: register_fallback_do_parser, fallback_do_parser_is_set, &
+              call_fallback_do_parser
+
+    !! The DO parser, registered rather than imported.
+    !!
+    !! handle_control_keyword needs a parser for `do` when its caller supplied
+    !! no callback - `select case` populates only its own entry, so a loop
+    !! inside a case arm had none. Importing the do parser closes a module
+    !! cycle, which is why `if` reaches its own through a forwarder. This is
+    !! the same indirection, done once here where the callback type already
+    !! lives.
+    procedure(parse_without_parent_interface), pointer :: do_parser => null()
     public :: parse_with_parent_interface
     public :: parse_without_parent_interface
 
 contains
+
+    subroutine register_fallback_do_parser(proc)
+        !! Called once by the do parser's own initialisation.
+        procedure(parse_without_parent_interface) :: proc
+
+        do_parser => proc
+    end subroutine register_fallback_do_parser
+
+    logical function fallback_do_parser_is_set() result(yes)
+        yes = associated(do_parser)
+    end function fallback_do_parser_is_set
+
+    integer function call_fallback_do_parser(parser, arena) result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = 0
+        if (associated(do_parser)) node_index = do_parser(parser, arena)
+    end function call_fallback_do_parser
 
     pure function null_statement_callbacks() result(callbacks)
         !! Every component explicitly nullified, rather than left to the
