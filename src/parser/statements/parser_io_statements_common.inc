@@ -165,12 +165,57 @@
             unit_spec = token%text
             token = parser%consume()
         else if (token%kind == TK_IDENTIFIER) then
+            ! A whole designator, not just a name. An internal read takes its
+            ! unit from a character variable, and that variable is often a
+            ! component or a substring - `read (p%text, *, iostat=ios) x` or
+            ! `read (name(11:), *, iostat=ios) n`. Stopping at the name left
+            ! the rest of the designator unconsumed, and the format clause
+            ! then failed with a complaint about a missing parenthesis.
             unit_spec = token%text
             token = parser%consume()
+            do
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "%") then
+                    token = parser%consume()
+                    unit_spec = unit_spec//"%"
+                    token = parser%peek()
+                    if (token%kind /= TK_IDENTIFIER .and. &
+                        token%kind /= TK_KEYWORD) exit
+                    unit_spec = unit_spec//token%text
+                    token = parser%consume()
+                else if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    unit_spec = unit_spec//consume_balanced_parens(parser)
+                else
+                    exit
+                end if
+            end do
         else
             unit_spec = ""
         end if
     end function parse_unit_specifier
+
+    function consume_balanced_parens(parser) result(text)
+        !! Consume a parenthesised group, nesting and all, returning its text.
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable :: text
+        type(token_t) :: token
+        integer :: depth
+
+        text = ""
+        depth = 0
+        do
+            token = parser%peek()
+            if (token%kind == TK_EOF) exit
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                depth = depth + 1
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                depth = depth - 1
+            end if
+            text = text//token%text
+            token = parser%consume()
+            if (depth == 0) exit
+        end do
+    end function consume_balanced_parens
 
     ! Collect trailing specification for backspace/rewind/endfile statements
     function collect_position_spec(parser) result(spec_text)
