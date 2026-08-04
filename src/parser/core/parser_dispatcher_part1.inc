@@ -152,7 +152,13 @@
                 stmt_index = route_control_flow(parser, arena)
             end if
         case ("block")
-            call handle_block_keyword(parser, arena, stmt_index)
+            ! Same disambiguation the other construct keywords get: a
+            ! variable named `block` is assigned to, a construct is not.
+            if (keyword_should_parse_as_identifier(first_token, parser)) then
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            else
+                call handle_block_keyword(parser, arena, stmt_index)
+            end if
         case default
             handled = .false.
         end select
