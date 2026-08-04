@@ -118,7 +118,14 @@ contains
                 can_use = .true.
             end if
         case default
-            can_use = .false.
+            ! Fortran reserves no words, so a procedure may be named with one:
+            ! `function function(space) result(f)` is legal and fortfem has
+            ! it. In this position a keyword followed by an argument list can
+            ! only be the name - the alternative would be two procedure
+            ! headers in a row, which is not a thing.
+            next_index = parser%current_token + 1
+            lookahead = parser%get_token_at_index(next_index)
+            can_use = trim(lookahead%text) == "("
         end select
     end function keyword_can_be_function_name
 
