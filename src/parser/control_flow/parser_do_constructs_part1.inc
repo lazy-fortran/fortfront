@@ -12,6 +12,11 @@
             ! And the BLOCK construct, reached the same way: a `block` with
             ! its own declarations sitting inside a loop or a case arm.
             call register_fallback_block_parser(parse_block_construct)
+            ! And the SELECT constructs. A `select type` in a body whose
+            ! caller filled in no select callback was by far the most common
+            ! parse failure across a large source tree.
+            call register_fallback_select_parsers(parse_select_case, &
+                parse_select_type)
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks
