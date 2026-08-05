@@ -12,6 +12,7 @@ module parser_if_body_module
     use parser_statement_core_module, only: statement_callbacks_t, &
         find_statement_end, &
         extend_if_statement_end, extend_do_statement_end, &
+        extend_block_statement_end, &
         allocate_stmt_tokens_with_eof, &
         skip_whitespace_and_semicolons, &
         parse_basic_statement_core
@@ -125,6 +126,11 @@ contains
                 ! is. Taking only its header left the body and `end do` to be
                 ! parsed as loose statements, which desynchronised on nesting.
                 stmt_end = extend_do_statement_end(parser%tokens, &
+                    parser%current_token, &
+                    stmt_end)
+            else if (to_lower(trim(first_stmt_token%text)) == "block") then
+                ! And a BLOCK construct, for the same reason.
+                stmt_end = extend_block_statement_end(parser%tokens, &
                     parser%current_token, &
                     stmt_end)
             end if
