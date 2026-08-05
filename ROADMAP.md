@@ -39,6 +39,138 @@ the focused tests, the rejection gate when diagnostics change, and the full
 repository `fo` pipeline. Update this file when a linked issue or public query
 changes state.
 
+## Outstanding work (2026-08-05)
+
+### Nested-construct dispatch: what was fixed and why it mattered
+
+Four gaps shared one shape. A construct nested inside a loop body, an if
+body, or a case arm reaches a statement dispatcher whose caller populated
+no callback for that construct, and the dispatcher answered "unrecognized
+statement" rather than reaching a parser. One unrecognized statement fails
+the whole file, so a single missing callback took out a source entirely.
+
+Fixed on `main`:
+
+- `select type` and `select case` had no fallback. This was by far the
+  largest single cause: across fortfront's own tree it accounted for about
+  eighty files.
+- The `block` construct was not handled by the nested dispatcher at all,
+  and its statement slice stopped at the header, so its declarations and
+  its `end block` were parsed as loose statements. Three separate body
+  parsers keep their own slicing loops (`parse_statement_body`, the do
+  parser, the if parser) and each needed the extension. `block data` is
+  excluded: it is a program unit, not a construct.
+- A `use` statement inside a `block` construct was unhandled.
+- `stop 1, quiet=.true.` ended the statement at the comma, because
+  `statement_contains_assignment` counted the `=` of the F2018 `quiet=`
+  specifier as an assignment operator and concluded `stop` was a variable
+  being assigned to. An assignment's `=` always precedes any top-level
+  comma, so the scan now stops there.
+
+Result: fortfront sources that fail to parse dropped from about 100 to 19.
+`fpm test` stayed at 25 failures with an identical failing set before and
+after, verified by diffing the sorted lists rather than comparing counts.
+
+### The 19 sources that still do not parse
+
+These block `fo` from cold-building fortfront: a source `fo` cannot scan is
+dropped from the module DAG and never compiled, so the failure surfaces
+later as an undefined reference at link time rather than as a parse error.
+See the fo roadmap for that mechanism.
+
+Bare `end` or `end block` reported as unrecognized, which means a construct
+slice still ends before its terminator on some path:
+
+- `src/parser/expressions/parser_array_constructs.f90` line 426
+- `src/parser/procedures/parser_result_types.f90` line 253
+- `src/parser/statements/parser_statement_data_module.f90` line 605
+- `src/parser/statements/parser_statement_utilities.f90` line 564
+- `src/semantic/analyzers/semantic_binary_operations.f90` line 145
+- `src/semantic/analyzers/semantic_procedure_signature.f90` line 164
+- `src/semantic/type_hierarchy.f90` line 205
+- `src/standardizers/standardizer_declarations_inference.f90` line 180
+- `src/standardizers/standardizer_parameter.f90` line 128
+- `src/utilities/fortfront_utils.f90` line 454
+
+Other shapes, one each:
+
+- `app/fortfront.f90` line 377: `flush (output_unit)` is not recognized.
+- `src/frontend/frontend_compiler_queries.f90` line 565 and
+  `src/frontend/frontend_compiler_type_queries.f90` line 1008: a statement
+  beginning `operator` is not recognized.
+- `src/semantic/analyzers/semantic_external_declaration_names.f90` line 138:
+  an identifier beginning `block_` is mistaken for the `block` keyword.
+- `src/utilities/path_validation.f90` line 296: reported as an IF construct
+  missing its `then`.
+
+Important caveat for whoever picks this up. Minimal reproductions of the
+obvious shapes all pass: a `block` holding a `do` inside a `do`, and an
+`if` inside a `select type` arm both parse. So these are not one shared
+cause and cannot be closed by another fallback registration. Each needs
+per-file bisection down to the construct that actually fails.
+
+### Lexer: a comment inside a continuation line
+
+A full-line comment between the continuation lines of one statement is
+legal Fortran and gfortran accepts it. fortfront reports "Unexpected token
+newline in expression". Hit in fortfront's own
+`parser_keyword_disambiguation.f90`, where an interleaved comment inside a
+continued `select case` list made the file unparseable; worked around by
+moving the comments above the statement. The lexer gap itself is unfixed.
+
+### Lexer: a character literal continued across lines
+
+A format string split across a continuation is mis-lexed as code:
+
+```fortran
+write (unit, "(a,',',i0,',',es24.16e3,',', &
+    es24.16e3)") "ring", a, x, y
+```
+
+The continued part comes back as the tokens `es24 . 16e3`, and the write
+parser then reports "Expected ')' after write unit and format". Confirmed
+present on `dfc442d4`, so it predates the nested-construct work above.
+Reproduces on fortfem's `example/iga_polar_feec/iga_polar_feec.f90`
+lines 328 and 344.
+
+### 25 failing tests on `main`
+
+Pre-existing and unrelated to the parser work above; the set is identical
+before and after it. Grouped by theme:
+
+- DATA statements: `test_issue_1405_data_statement`,
+  `test_issue_1746_data_repeat_counts`,
+  `test_issue_1899_data_multi_objects`, `test_issue_1899_data_scalars`,
+  `test_issue_2251_data_implied_do`,
+  `test_issue_2252_data_value_implied_do`,
+  `test_issue_2349_data_boz_literals`,
+  `test_issue_2349_data_trailing_commas`,
+  `test_issue_2596_data_statement_scalar_too_many_values`
+- BLOCK DATA program units: `test_issue_1578_block_data`,
+  `test_issue_1900_block_data_after_program`,
+  `test_issue_1900_block_data_labels`
+- Derived types and type-bound procedures: `test_derived_type_extends`,
+  `test_derived_type_extends_codegen`, `test_derived_type_parsing`,
+  `test_extends_with_attributes`, `test_type_bound_procedures_codegen`,
+  `test_type_contains_bindings`
+- Remaining: `test_all_examples`, `test_issue_1610_recursive_pointers`,
+  `test_issue_2281_header_only_declarations`,
+  `test_issue_517_multi_unit_parsing`,
+  `test_lfortran_traits_requirements_implements_parsing`,
+  `test_reject_bind_02_diagnostics`,
+  `test_variable_usage_block_construct`
+
+`test_variable_usage_block_construct` is worth checking first now that the
+BLOCK construct reaches a parser from nested bodies.
+
+### Consumers to re-verify after any parser change
+
+fo pins fortfront `main`, so a fortfront regression reaches fo, and through
+fo reaches every downstream build. Any change here must be checked against
+fo's own sources and fortfem's, not only fortfront's tree. Note that fpm
+caches the dependency clone: `rm -rf build/dependencies build/cache.toml`
+before reinstalling fo, or the old fortfront is silently reused.
+
 ## Segfault under gfortran 13.3: an if block inside a case arm
 
 Sixteen lines reproduce it, and this is the whole thing:
