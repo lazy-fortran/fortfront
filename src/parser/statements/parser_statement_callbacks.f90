@@ -48,6 +48,8 @@ module parser_statement_callbacks_module
               call_fallback_do_parser
     public :: register_fallback_if_parser, call_fallback_if_parser
     public :: register_fallback_block_parser, call_fallback_block_parser
+    public :: register_fallback_select_parsers
+    public :: call_fallback_select_case_parser, call_fallback_select_type_parser
 
     !! The DO parser, registered rather than imported.
     !!
@@ -67,6 +69,11 @@ module parser_statement_callbacks_module
     !! in no callback, and without this it was reported as an unrecognized
     !! statement - which failed the whole enclosing file.
     procedure(parse_without_parent_interface), pointer :: block_parser => null()
+    !! The SELECT CASE and SELECT TYPE parsers, for the same reason. A
+    !! `select type` inside any body whose caller populated no select
+    !! callback was the single most common parse failure in a large tree.
+    procedure(parse_without_parent_interface), pointer :: select_case_parser => null()
+    procedure(parse_without_parent_interface), pointer :: select_type_parser => null()
     public :: parse_with_parent_interface
     public :: parse_without_parent_interface
 
@@ -127,6 +134,37 @@ contains
         node_index = 0
         if (associated(block_parser)) node_index = block_parser(parser, arena)
     end function call_fallback_block_parser
+
+    subroutine register_fallback_select_parsers(case_proc, type_proc)
+        !! Called once by the select parser's own initialisation.
+        procedure(parse_without_parent_interface) :: case_proc
+        procedure(parse_without_parent_interface) :: type_proc
+
+        select_case_parser => case_proc
+        select_type_parser => type_proc
+    end subroutine register_fallback_select_parsers
+
+    integer function call_fallback_select_case_parser(parser, arena) &
+        result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = 0
+        if (associated(select_case_parser)) then
+            node_index = select_case_parser(parser, arena)
+        end if
+    end function call_fallback_select_case_parser
+
+    integer function call_fallback_select_type_parser(parser, arena) &
+        result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = 0
+        if (associated(select_type_parser)) then
+            node_index = select_type_parser(parser, arena)
+        end if
+    end function call_fallback_select_type_parser
 
     pure function null_statement_callbacks() result(callbacks)
         !! Every component explicitly nullified, rather than left to the

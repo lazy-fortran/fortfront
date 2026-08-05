@@ -26,7 +26,8 @@ module parser_statement_core_module
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
         null_statement_callbacks, &
         call_fallback_do_parser, call_fallback_if_parser, &
-        call_fallback_block_parser
+        call_fallback_block_parser, &
+        call_fallback_select_case_parser, call_fallback_select_type_parser
     use parser_statement_data_module, only: parse_data_statement, &
         parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -366,6 +367,8 @@ contains
             if (parser%tokens(parser%current_token + 1)%text == "type") then
                 if (associated(callbacks%parse_select_type)) then
                     stmt_index = callbacks%parse_select_type(parser, arena)
+                else
+                    stmt_index = call_fallback_select_type_parser(parser, arena)
                 end if
                 return
             end if
@@ -373,6 +376,8 @@ contains
 
         if (associated(callbacks%parse_select_case)) then
             stmt_index = callbacks%parse_select_case(parser, arena)
+        else
+            stmt_index = call_fallback_select_case_parser(parser, arena)
         end if
     end function handle_select_keyword
 
