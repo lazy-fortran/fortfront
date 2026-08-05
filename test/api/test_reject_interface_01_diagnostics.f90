@@ -42,6 +42,8 @@ program test_reject_interface_01_diagnostics
 
 contains
 
+    include '../common/read_example.inc'
+
     subroutine test_module_procedure_in_abstract_interface_rejected(passed)
         logical, intent(inout) :: passed
         character(len=:), allocatable :: source
@@ -332,24 +334,8 @@ contains
         character(len=:), allocatable :: source
 
         print *, 'Testing call with a USE-associated interface (accepted)...'
-        source = 'module provider'//new_line('a')// &
-            'interface'//new_line('a')// &
-            'subroutine foo(a)'//new_line('a')// &
-            'real :: a(:)'//new_line('a')// &
-            'end subroutine foo'//new_line('a')// &
-            'end interface'//new_line('a')// &
-            'end module provider'//new_line('a')// &
-            'module caller'//new_line('a')// &
-            'use provider'//new_line('a')// &
-            'contains'//new_line('a')// &
-            'subroutine invoke(a)'//new_line('a')// &
-            'real :: a(:)'//new_line('a')// &
-            'call foo(a)'//new_line('a')// &
-            'end subroutine invoke'//new_line('a')// &
-            'end module caller'//new_line('a')// &
-            'subroutine foo(a)'//new_line('a')// &
-            'real :: a(:)'//new_line('a')// &
-            'end subroutine foo'
+        call read_example( &
+            'examples/f90/reject_interface_use_associated.f90', source)
         call expect_frontend_accepts(source, passed)
     end subroutine test_call_with_use_associated_interface_accepted
 

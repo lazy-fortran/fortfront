@@ -17,6 +17,7 @@ contains
         integer :: i, var_index, rank, j
         type(mono_type_t) :: var_type, element_type
         type(mono_type_t), allocatable :: args(:)
+        type(type_var_t), allocatable :: forall_vars(:)
         type(poly_type_t) :: var_scheme
         type(poly_type_t), allocatable :: existing_scheme
         character(len=:), allocatable :: var_name
@@ -25,6 +26,7 @@ contains
         typ = create_mono_type(TVAR, var=create_type_var(0, "mem"))
 
         if (.not. allocated(alloc_stmt%var_indices)) return
+        allocate (forall_vars(0))
 
         do i = 1, size(alloc_stmt%var_indices)
             var_index = alloc_stmt%var_indices(i)
@@ -97,7 +99,7 @@ contains
 
                     call update_identifier_type_in_arena(arena, var_name, var_type)
 
-                    var_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                    var_scheme = create_poly_type(forall_vars=forall_vars, &
                         mono=var_type)
                     call ctx%scopes%define(var_name, var_scheme)
 
