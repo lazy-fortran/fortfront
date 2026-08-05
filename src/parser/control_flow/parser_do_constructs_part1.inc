@@ -906,6 +906,17 @@
                                 stmt_end = block_end
                                 handled_block = .true.
                             end if
+                        case ("block")
+                            ! A BLOCK construct in a loop body, handed over
+                            ! whole like `if` and `do` above. Sliced at the
+                            ! header its declarations and `end block` became
+                            ! loose statements and failed the file.
+                            block_end = extend_block_statement_end( &
+                                        parser%tokens, do_pos, do_pos)
+                            if (block_end > do_pos) then
+                                stmt_end = block_end
+                                handled_block = .true.
+                            end if
                         case ("select")
                             lookahead = stmt_start + 1
                             do while (lookahead <= size(parser%tokens))

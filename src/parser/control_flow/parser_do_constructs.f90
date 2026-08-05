@@ -19,7 +19,7 @@ module parser_do_constructs_module
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, &
         null_statement_callbacks, &
-        find_statement_end
+        find_statement_end, extend_block_statement_end
     use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private

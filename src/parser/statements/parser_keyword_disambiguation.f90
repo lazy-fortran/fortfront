@@ -188,6 +188,13 @@ contains
                         has_assignment = .true.
                         return
                     end if
+                case (",")
+                    ! An assignment's `=` always comes before any top-level
+                    ! comma: `x = [1, 2]` has it first. An `=` after one is a
+                    ! specifier keyword, as in `stop 1, quiet=.true.`, and
+                    ! reading that as an assignment turned the statement into
+                    ! an assignment to a variable named `stop`.
+                    if (depth == 0) return
                 case (";")
                     return
                 end select
