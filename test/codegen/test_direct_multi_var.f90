@@ -8,7 +8,7 @@ program test_direct_multi_var
     type(ast_arena_t) :: arena
     type(declaration_node) :: decl
     character(len=:), allocatable :: code
-    integer :: decl_index
+    integer :: decl_index, copied_index
 
     ! Create a multi-variable declaration node manually
     decl%type_name = "integer"
@@ -41,5 +41,28 @@ program test_direct_multi_var
         print *, 'Expected: integer :: x, y, z'
         print *, 'Got: ', code
     end if
+
+    ! The parser/factory path uses a deferred-length character array.  Keep
+    ! this separate from the fixed-length hand-built node above: it catches
+    ! loss of later names when the polymorphic arena stores the node.
+    copied_index = push_declaration(arena, "integer", &
+        [character(len=1) :: "a", "b", "c"])
+    if (copied_index <= 0) error stop "multi declaration factory failed"
+    select type (copied => arena%entries(copied_index)%node)
+    type is (declaration_node)
+        if (.not. allocated(copied%var_names)) then
+            error stop "multi declaration names were not stored"
+        end if
+        if (size(copied%var_names) /= 3) then
+            error stop "multi declaration name count changed"
+        end if
+        if (trim(copied%var_names(1)) /= "a" .or. &
+            trim(copied%var_names(2)) /= "b" .or. &
+            trim(copied%var_names(3)) /= "c") then
+            error stop "multi declaration names were corrupted"
+        end if
+    class default
+        error stop "multi declaration node type changed"
+    end select
 
 end program test_direct_multi_var
