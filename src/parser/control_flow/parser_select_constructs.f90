@@ -27,6 +27,19 @@ module parser_select_constructs_module
 
     public :: parse_select_case, parse_select_type, parse_select_rank
 
+    interface
+        subroutine ensure_if_do_registration_bridge()
+        end subroutine ensure_if_do_registration_bridge
+
+        recursive function parse_block_construct_bridge(parser, arena) &
+                result(block_index)
+            import :: parser_state_t, ast_arena_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            integer :: block_index
+        end function parse_block_construct_bridge
+    end interface
+
 contains
 
     include 'parser_select_constructs_helpers.inc'

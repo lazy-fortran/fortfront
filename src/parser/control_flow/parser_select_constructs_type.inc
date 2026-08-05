@@ -201,6 +201,8 @@
         type(statement_callbacks_t) :: callbacks
         logical :: arm_ok, header_ok
 
+        call ensure_if_do_registration_bridge()
+
         ! Header selector may include associate_name => selector syntax
         call parse_select_header(parser, arena, "type", .true., line, column, &
                                  selector_index, header_ok)
@@ -226,6 +228,7 @@
         callbacks%parse_select_case => parse_select_case
         callbacks%parse_select_type => parse_select_type
         callbacks%parse_select_rank => parse_select_rank
+        callbacks%parse_block => parse_block_construct_bridge
 
         do while (parser%current_token <= size(parser%tokens))
             guard_token = parser%peek()
