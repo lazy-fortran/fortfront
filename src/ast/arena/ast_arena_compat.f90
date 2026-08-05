@@ -3,6 +3,7 @@ module ast_arena_compat
     ! Provides backward compatibility while using modern arena internally
 
     use ast_base, only: ast_node
+    use ast_nodes_data, only: declaration_node
     use ast_arena_core, only: ast_arena_core_t, &
         ast_arena_stats_t, create_ast_arena_core
     use fortfront_constants, only: AST_ARENA_GROWTH_MINIMUM
@@ -54,6 +55,26 @@ module ast_arena_compat
     end type ast_entry_t
 
 contains
+
+    ! gfortran 12 loses elements of allocatable deferred-length character
+    ! arrays when an AST node is copied through a polymorphic SOURCE
+    ! allocation.  Declarations use such an array for multi-name entities;
+    ! copy those nodes through their defined assignment instead.
+    subroutine copy_ast_node_compat(destination, source)
+        class(ast_node), allocatable, intent(out) :: destination
+        class(ast_node), intent(in) :: source
+
+        select type (source)
+        type is (declaration_node)
+            allocate (declaration_node :: destination)
+            select type (destination)
+            type is (declaration_node)
+                destination = source
+            end select
+        class default
+            allocate (destination, source=source)
+        end select
+    end subroutine copy_ast_node_compat
 
     ! Create arena with compatibility layer
     function create_ast_arena_compat(initial_capacity) result(arena)
@@ -107,7 +128,8 @@ contains
             parent_index = this%entries(index)%parent_index
             if (parent_index > 0 .and. parent_index <= this%compat_size) then
                 if (allocated(this%entries(parent_index)%node)) then
-                    allocate (parent_node, source=this%entries(parent_index)%node)
+                    call copy_ast_node_compat(parent_node, &
+                        this%entries(parent_index)%node)
                 end if
             end if
         end if
@@ -293,7 +315,7 @@ contains
         if (allocated(this%entries(this%compat_size)%node)) then
             deallocate (this%entries(this%compat_size)%node)
         end if
-        allocate (this%entries(this%compat_size)%node, source=node)
+        call copy_ast_node_compat(this%entries(this%compat_size)%node, node)
 
         ! Set metadata
         if (present(node_type)) then
@@ -441,7 +463,7 @@ contains
         end if
 
         if (allocated(this%node)) then
-            allocate (copy%node, source=this%node)
+            call copy_ast_node_compat(copy%node, this%node)
         end if
     end function ast_entry_deep_copy
 
@@ -470,7 +492,7 @@ contains
         ! MEMORY SAFETY: Clean up polymorphic node safely
         if (allocated(lhs%node)) deallocate (lhs%node)
         if (allocated(rhs%node)) then
-            allocate (lhs%node, source=rhs%node)
+            call copy_ast_node_compat(lhs%node, rhs%node)
         end if
     end subroutine ast_entry_assign
 
