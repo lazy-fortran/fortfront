@@ -53,6 +53,7 @@ contains
         type(semantic_context_t), intent(out) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
+        type(type_var_t), allocatable :: forall_vars(:)
 
         ctx%context_id = 1
         ctx%context_name = "semantic_context"
@@ -85,7 +86,8 @@ contains
         real_type = create_mono_type(TREAL)
         real_to_real = create_fun_type(real_type, real_type)
 
-        builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+        allocate (forall_vars(0))
+        builtin_scheme = create_poly_type(forall_vars=forall_vars, &
             mono=real_to_real)
 
         call ctx%scopes%define("exp", builtin_scheme)

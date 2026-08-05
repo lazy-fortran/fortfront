@@ -25,57 +25,31 @@ program test_reject_scope_and_procedure_01_diagnostics
 
 contains
 
+    include '../common/read_example.inc'
+
     function procedure_source(actual_name) result(source)
         character(len=*), intent(in) :: actual_name
         character(len=:), allocatable :: source
 
-        source = 'program recursive_interface'//new_line('a')// &
-            '  call c('//trim(actual_name)//')'//new_line('a')// &
-            'contains'//new_line('a')// &
-            '  subroutine a1(x)'//new_line('a')// &
-            '    real :: x'//new_line('a')// &
-            '  end subroutine a1'//new_line('a')// &
-            '  subroutine a2(i)'//new_line('a')// &
-            '    integer :: i'//new_line('a')// &
-            '  end subroutine a2'//new_line('a')// &
-            '  subroutine b1(f1)'//new_line('a')// &
-            '    procedure(a1) :: f1'//new_line('a')// &
-            '  end subroutine b1'//new_line('a')// &
-            '  subroutine b2(f2)'//new_line('a')// &
-            '    procedure(a2) :: f2'//new_line('a')// &
-            '  end subroutine b2'//new_line('a')// &
-            '  subroutine c(g)'//new_line('a')// &
-            '    procedure(b1) :: g'//new_line('a')// &
-            '  end subroutine c'//new_line('a')// &
-            'end program recursive_interface'//new_line('a')
+        if (actual_name == 'b1') then
+            call read_example( &
+                'examples/f90/reject_scope_procedure_b1.f90', source)
+        else
+            call read_example( &
+                'examples/f90/reject_scope_procedure_b2.f90', source)
+        end if
     end function procedure_source
 
     function type_visibility_source(direct_use) result(source)
         logical, intent(in) :: direct_use
         character(len=:), allocatable :: source
-        character(len=:), allocatable :: use_line
-
         if (direct_use) then
-            use_line = '  use class_vector'
+            call read_example( &
+                'examples/f90/reject_scope_type_visibility_direct.f90', source)
         else
-            use_line = '  use tools_math'
+            call read_example( &
+                'examples/f90/reject_scope_type_visibility_nested.f90', source)
         end if
-        source = 'module class_vector'//new_line('a')// &
-            '  type vector'//new_line('a')// &
-            '  end type vector'//new_line('a')// &
-            'end module class_vector'//new_line('a')// &
-            'module tools_math'//new_line('a')// &
-            '  interface lin_interp'//new_line('a')// &
-            '    function lin_interp_v()'//new_line('a')// &
-            '      use class_vector'//new_line('a')// &
-            '      type(vector) :: lin_interp_v'//new_line('a')// &
-            '    end function lin_interp_v'//new_line('a')// &
-            '  end interface'//new_line('a')// &
-            'end module tools_math'//new_line('a')// &
-            'module smooth_mesh'//new_line('a')// &
-            trim(use_line)//new_line('a')// &
-            '  type(vector) :: new_pos'//new_line('a')// &
-            'end module smooth_mesh'//new_line('a')
     end function type_visibility_source
 
     subroutine expect_rejected(source, expected, label)
