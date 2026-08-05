@@ -135,34 +135,35 @@ contains
                 type is (subroutine_def_node)
                 call add_declared(declared, declared_count, proc%name, usable)
                 type is (module_procedure_node)
-                block_names: block
-                integer :: k
-                if (.not. allocated(proc%procedure_names)) exit block_names
-                do k = 1, size(proc%procedure_names)
-                    if (.not. allocated(proc%procedure_names(k)%s)) cycle
-                    call add_declared(declared, declared_count, &
-                        proc%procedure_names(k)%s, usable)
-                end do
-            end block block_names
-        end select
-        if (.not. usable) return
-    end do
-end subroutine add_interface_names
+                block
+                    integer :: k
+                    if (allocated(proc%procedure_names)) then
+                        do k = 1, size(proc%procedure_names)
+                            if (.not. allocated(proc%procedure_names(k)%s)) cycle
+                            call add_declared(declared, declared_count, &
+                                proc%procedure_names(k)%s, usable)
+                        end do
+                    end if
+                end block
+            end select
+            if (.not. usable) return
+        end do
+    end subroutine add_interface_names
 
-subroutine add_declared(declared, declared_count, name, usable)
-    character(len=64), intent(inout) :: declared(:)
-    integer, intent(inout) :: declared_count
-    character(len=*), intent(in) :: name
-    logical, intent(inout) :: usable
+    subroutine add_declared(declared, declared_count, name, usable)
+        character(len=64), intent(inout) :: declared(:)
+        integer, intent(inout) :: declared_count
+        character(len=*), intent(in) :: name
+        logical, intent(inout) :: usable
 
-    if (len_trim(name) == 0) return
-    if (len_trim(name) > len(declared)) return
-    if (declared_count >= size(declared)) then
-        usable = .false.
-        return
-    end if
-    declared_count = declared_count + 1
-    declared(declared_count) = to_lower(trim(name))
-end subroutine add_declared
+        if (len_trim(name) == 0) return
+        if (len_trim(name) > len(declared)) return
+        if (declared_count >= size(declared)) then
+            usable = .false.
+            return
+        end if
+        declared_count = declared_count + 1
+        declared(declared_count) = to_lower(trim(name))
+    end subroutine add_declared
 
 end module semantic_external_declaration_names

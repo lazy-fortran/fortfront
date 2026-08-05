@@ -94,6 +94,16 @@
                 ! body as siblings of that node.
                 handled_block = .false.
                 do_pos = stmt_start
+                if (parser%tokens(do_pos)%kind == TK_IDENTIFIER) then
+                    block_end = block_construct_start(parser%tokens, do_pos)
+                    if (block_end > 0) then
+                        if (to_lower(trim(parser%tokens(block_end)%text)) == &
+                            "block") then
+                            stmt_start = block_end
+                            do_pos = block_end
+                        end if
+                    end if
+                end if
                 if (parser%tokens(do_pos)%kind == TK_KEYWORD) then
                     select case (to_lower(parser%tokens(do_pos)%text))
                     case ("if")
@@ -104,6 +114,13 @@
                         end if
                     case ("do")
                         block_end = find_matching_end_do(parser%tokens, do_pos)
+                        if (block_end > do_pos) then
+                            stmt_end = block_end
+                            handled_block = .true.
+                        end if
+                    case ("block")
+                        block_end = extend_block_statement_end( &
+                            parser%tokens, do_pos, do_pos)
                         if (block_end > do_pos) then
                             stmt_end = block_end
                             handled_block = .true.
