@@ -537,10 +537,20 @@ contains
     pure subroutine extend_with_identifier(tokens, stmt_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(inout) :: stmt_end
+        integer :: next_idx
 
-        if (stmt_end + 1 <= size(tokens)) then
-            if (tokens(stmt_end + 1)%kind == TK_IDENTIFIER) then
-                stmt_end = stmt_end + 1
+        next_idx = stmt_end + 1
+        do while (next_idx <= size(tokens))
+            if (tokens(next_idx)%kind == TK_WHITESPACE .or. &
+                tokens(next_idx)%kind == TK_COMMENT) then
+                next_idx = next_idx + 1
+            else
+                exit
+            end if
+        end do
+        if (next_idx <= size(tokens)) then
+            if (tokens(next_idx)%kind == TK_IDENTIFIER) then
+                stmt_end = next_idx
             end if
         end if
     end subroutine extend_with_identifier

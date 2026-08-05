@@ -7,6 +7,7 @@
         integer :: block_keyword_pos
         logical :: is_interface_unit
         integer :: effective_start
+        integer :: boundary_start
 
         unit_start = start_pos
         unit_end = start_pos
@@ -33,6 +34,8 @@
             call handle_program_unit(tokens, unit_start, unit_end)
         else if (unit_type == "blockdata") then
             call handle_block_data_unit(tokens, block_keyword_pos, unit_end)
+        else if (unit_type == "type" .and. is_type_start(tokens, unit_start)) then
+            call find_statement_boundary(tokens, unit_start, boundary_start, unit_end)
         else
             call handle_generic_unit(tokens, unit_start, unit_end)
         end if
@@ -629,7 +632,8 @@
                         preceded_by_end = .true.
                     end if
                 end if
-                if (i > unit_start .and. is_program_unit_start(tokens, i) .and. &
+                if (i > unit_start .and. token_is_first_on_line(tokens, i) .and. &
+                    is_program_unit_start(tokens, i) .and. &
                     .not. preceded_by_end) then
                     unit_end = i - 1
                     exit
