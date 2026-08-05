@@ -221,7 +221,8 @@ contains
         is_multiline = .false.
         nesting_level = 0
         if (stmt_start < 1 .or. stmt_start > size(tokens)) return
-        if (tokens(stmt_start)%kind /= TK_KEYWORD) return
+        if (tokens(stmt_start)%kind /= TK_KEYWORD .and. &
+            tokens(stmt_start)%kind /= TK_IDENTIFIER) return
 
         select case (trim(to_lower(tokens(stmt_start)%text)))
         case ("if")

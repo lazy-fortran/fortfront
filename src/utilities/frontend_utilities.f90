@@ -3,8 +3,8 @@ module frontend_utilities
     ! Contains helper functions and utilities
 
     use string_utils_mod, only: int_to_string
-    use lexer_core, only: token_t, TK_COMMENT, TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, &
-        TK_WHITESPACE, to_lower
+    use lexer_core, only: token_t, TK_COMMENT, TK_KEYWORD, TK_IDENTIFIER, &
+        TK_NEWLINE, TK_OPERATOR, TK_WHITESPACE, to_lower
     implicit none
     private
 
@@ -73,7 +73,8 @@ contains
 
         is_start = .false.
         if (pos < 1 .or. pos > size(tokens)) return
-        if (tokens(pos)%kind /= TK_KEYWORD) return
+        if (tokens(pos)%kind /= TK_KEYWORD .and. &
+            tokens(pos)%kind /= TK_IDENTIFIER) return
         lowered = to_lower(trim(tokens(pos)%text))
         if (lowered /= "type") return
         prev_idx = pos - 1

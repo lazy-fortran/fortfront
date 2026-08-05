@@ -8,6 +8,7 @@ module frontend_program_unit_scanner
     use frontend_program_units, only: parse_program_unit
     use mixed_construct_detector, only: function_follows_type_spec
     use error_reporting, only: error_collection_t
+    use frontend_utilities, only: is_type_start
 
     implicit none
     private

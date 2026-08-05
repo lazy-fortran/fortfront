@@ -2,7 +2,7 @@ module frontend_parsing
     ! fortfront - Parsing functions module (refactored for SRP compliance)
     ! Now serves as a compatibility layer over split modules
 
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, &
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
         TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
         TK_UNKNOWN, &
         TK_WHITESPACE, to_lower
@@ -224,6 +224,22 @@ contains
         if (mixed_result%num_explicit_ranges /= 0) return
         if (has_executable_statements(tokens)) return
 
+        ! A derived-type definition is a multi-statement program unit, not an
+        ! implicit declaration range.  Keep type-only/specification sources on
+        ! the normal program-unit path so the complete definition reaches the
+        ! type parser.
+        do token_idx = 1, size(tokens)
+            select case (tokens(token_idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE)
+                cycle
+            case (TK_COMMENT)
+                cycle
+            case default
+                if (is_type_start(tokens, token_idx)) return
+                exit
+            end select
+        end do
+
         do token_idx = 1, size(tokens)
             if (is_top_level_declaration(tokens, token_idx)) then
                 require_mixed = .true.
@@ -295,11 +311,31 @@ contains
             end if
 
             if (unit_index > 0) then
-                unit_indices = [unit_indices, unit_index]
+                call append_unit_index(unit_indices, unit_index)
             end if
             i = unit_end + 1
         end do
     end subroutine collect_program_units
+
+    subroutine append_unit_index(unit_indices, unit_index)
+        integer, allocatable, intent(inout) :: unit_indices(:)
+        integer, intent(in) :: unit_index
+        integer, allocatable :: expanded(:)
+        integer :: old_size
+
+        if (unit_index <= 0) return
+        if (.not. allocated(unit_indices)) then
+            allocate (unit_indices(1))
+            unit_indices(1) = unit_index
+            return
+        end if
+
+        old_size = size(unit_indices)
+        allocate (expanded(old_size + 1))
+        if (old_size > 0) expanded(1:old_size) = unit_indices
+        expanded(old_size + 1) = unit_index
+        call move_alloc(expanded, unit_indices)
+    end subroutine append_unit_index
 
     subroutine export_parser_errors(diagnostics, parser_errors)
         type(error_collection_t), intent(in) :: diagnostics
@@ -343,7 +379,11 @@ contains
 
         unit_count = size(unit_indices)
         if (unit_count == 0) then
-            prog_index = push_program(arena, "main", [integer ::], 1, 1)
+            block
+                integer, allocatable :: empty_indices(:)
+                allocate (empty_indices(0))
+                prog_index = push_program(arena, "main", empty_indices, 1, 1)
+            end block
             return
         end if
 
@@ -361,7 +401,11 @@ contains
         integer, intent(out) :: prog_index
 
         if (.not. allocated(arena%entries(unit_index)%node)) then
-            prog_index = push_program(arena, "main", [integer ::], 1, 1)
+            block
+                integer, allocatable :: empty_indices(:)
+                allocate (empty_indices(0))
+                prog_index = push_program(arena, "main", empty_indices, 1, 1)
+            end block
             return
         end if
 
@@ -378,18 +422,38 @@ contains
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
-                prog_index = push_program(arena, "main", [unit_index], 1, 1)
+                block
+                    integer, allocatable :: wrapper_indices(:)
+                    allocate (wrapper_indices(1))
+                    wrapper_indices(1) = unit_index
+                    prog_index = push_program(arena, "main", wrapper_indices, 1, 1)
+                end block
             end if
             type is (subroutine_def_node)
             if (procedure_has_entry(arena, unit_index)) then
                 prog_index = unit_index
             else
-                prog_index = push_program(arena, "main", [unit_index], 1, 1)
+                block
+                    integer, allocatable :: wrapper_indices(:)
+                    allocate (wrapper_indices(1))
+                    wrapper_indices(1) = unit_index
+                    prog_index = push_program(arena, "main", wrapper_indices, 1, 1)
+                end block
             end if
             type is (interface_block_node)
-            prog_index = push_multi_unit_container(arena, [unit_index], 1, 1)
+            block
+                integer, allocatable :: wrapper_indices(:)
+                allocate (wrapper_indices(1))
+                wrapper_indices(1) = unit_index
+                prog_index = push_multi_unit_container(arena, wrapper_indices, 1, 1)
+            end block
         class default
-            prog_index = push_program(arena, "main", [unit_index], 1, 1)
+            block
+                integer, allocatable :: wrapper_indices(:)
+                allocate (wrapper_indices(1))
+                wrapper_indices(1) = unit_index
+                prog_index = push_program(arena, "main", wrapper_indices, 1, 1)
+            end block
         end select
     end subroutine finalize_single_unit
 

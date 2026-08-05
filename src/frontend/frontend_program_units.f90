@@ -102,6 +102,13 @@ contains
             else if (is_interface_start(trimmed_tokens, 1)) then
                 unit_index = parse_interface_unit(trimmed_tokens, arena, &
                     parse_error, diagnostic_sink)
+            else if (is_type_start(trimmed_tokens, 1)) then
+                ! A standalone derived-type definition is a valid source unit
+                ! (and is used by the LF parser tests).  Route it through the
+                ! dispatcher instead of treating its component declarations as
+                ! an implicit main-program body.
+                unit_index = parse_type_unit(trimmed_tokens, arena, parse_error, &
+                    diagnostic_sink)
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
@@ -299,7 +306,11 @@ contains
             end if
         else
             ! No meaningful content - create empty program
-            prog_index = push_program(arena, "main", [integer ::], 1, 1)
+            block
+                integer, allocatable :: empty_indices(:)
+                allocate (empty_indices(0))
+                prog_index = push_program(arena, "main", empty_indices, 1, 1)
+            end block
         end if
 
         ! Extract parser errors if requested (implicit main can have parse errors too)
