@@ -8,7 +8,8 @@ module parser_basic_statement_module
         statement_callbacks_t, &
         null_statement_callbacks, &
         find_statement_end, &
-        extend_if_statement_end, extend_do_statement_end
+        extend_if_statement_end, extend_do_statement_end, &
+        extend_block_statement_end
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -122,6 +123,9 @@ contains
                             stmt_start, stmt_end)
                     case ("do")
                         stmt_end = extend_do_statement_end(parser%tokens, &
+                            stmt_start, stmt_end)
+                    case ("block")
+                        stmt_end = extend_block_statement_end(parser%tokens, &
                             stmt_start, stmt_end)
                     end select
                 end if
