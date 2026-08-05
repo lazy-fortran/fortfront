@@ -19,12 +19,14 @@ module parser_statement_core_module
         parse_deallocate_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
+    use parser_import_resolution_module, only: parse_use_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, push_identifier
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
         null_statement_callbacks, &
-        call_fallback_do_parser, call_fallback_if_parser
+        call_fallback_do_parser, call_fallback_if_parser, &
+        call_fallback_block_parser
     use parser_statement_data_module, only: parse_data_statement, &
         parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -32,7 +34,8 @@ module parser_statement_core_module
     use parser_allocatable_statements_module, only: parse_allocatable_statement
     use parser_value_statements_module, only: parse_value_statement
     use parser_statement_detection_module, only: find_statement_end, &
-        extend_if_statement_end, extend_do_statement_end
+        extend_if_statement_end, extend_do_statement_end, &
+        extend_block_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_statement_utilities_module, only: parse_if_from_definition, &
         parse_associate_from_definition
@@ -42,6 +45,7 @@ module parser_statement_core_module
 
     public :: statement_callbacks_t, null_statement_callbacks
     public :: parse_basic_statement_core, find_statement_end, extend_if_statement_end, extend_do_statement_end
+    public :: extend_block_statement_end
     public :: parse_data_statement
     public :: allocate_stmt_tokens_with_eof
     public :: skip_whitespace_and_semicolons
@@ -216,6 +220,14 @@ contains
                 callbacks)
             if (stmt_index /= 0) return
 
+            ! A BLOCK construct may open with its own USE statements, and this
+            ! is the dispatcher a block body goes through. Without this branch
+            ! the whole construct failed to parse, which took the enclosing
+            ! file with it.
+            if (lowered == "use") then
+                stmt_index = parse_use_statement(parser, arena)
+            end if
+
             if (lowered == "dimension") then
                 stmt_index = parse_dimension_statement(parser, arena)
             end if
@@ -311,6 +323,16 @@ contains
                 ! inside a case arm had no parser and came out as an
                 ! unrecognised statement.
                 stmt_index = call_fallback_do_parser(parser, arena)
+            end if
+        case ("block")
+            ! A BLOCK construct with its own declarations shows up inside
+            ! loops and case arms, whose callers populate only their own
+            ! callback entry. Without a fallback it was reported as an
+            ! unrecognized statement and failed the enclosing file.
+            if (associated(callbacks%parse_block)) then
+                stmt_index = callbacks%parse_block(parser, arena)
+            else
+                stmt_index = call_fallback_block_parser(parser, arena)
             end if
         case ("select", "selectcase")
             stmt_index = handle_select_keyword(parser, arena, callbacks)

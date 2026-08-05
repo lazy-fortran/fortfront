@@ -1,5 +1,5 @@
 module parser_statement_detection_module
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, &
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_IDENTIFIER, &
         TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     implicit none
     private
@@ -19,6 +19,7 @@ module parser_statement_detection_module
     public :: is_block_if, at_top_level, next_significant_index
     public :: inline_where_parenthetical, inline_where_colon, is_inline_where
     public :: find_statement_end, extend_if_statement_end, extend_do_statement_end
+    public :: extend_block_statement_end
 
 contains
 
@@ -575,6 +576,82 @@ contains
             idx = idx + 1
         end do
     end function extend_do_statement_end
+
+    integer function extend_block_statement_end(tokens, start_index, initial_end) &
+            result(end_index)
+        !! Extend a statement slice over a whole BLOCK construct.
+        !!
+        !! Same reason as the DO extension above. Only the bare `block` header
+        !! was taken, so the construct's declarations and its `end block` were
+        !! parsed as loose statements and reported as unrecognized.
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer, intent(in) :: initial_end
+        integer :: idx, depth
+        type(token_t) :: token
+
+        end_index = initial_end
+        if (start_index < 1 .or. start_index > size(tokens)) return
+        if (initial_end < start_index) return
+        if (tokens(start_index)%kind /= TK_KEYWORD) return
+        if (to_lower(trim(tokens(start_index)%text)) /= "block") return
+        ! `block data` is a program unit, not an executable construct.
+        if (next_keyword_is(tokens, start_index, "data")) return
+
+        depth = 0
+        idx = start_index
+        do while (idx <= size(tokens))
+            token = tokens(idx)
+            if (token%kind == TK_KEYWORD) then
+                select case (to_lower(trim(token%text)))
+                case ("block")
+                    if (.not. next_keyword_is(tokens, idx, "data")) then
+                        depth = depth + 1
+                    end if
+                case ("endblock")
+                    depth = depth - 1
+                    if (depth <= 0) then
+                        end_index = idx
+                        return
+                    end if
+                case ("end")
+                    if (next_keyword_is(tokens, idx, "block")) then
+                        depth = depth - 1
+                        if (depth <= 0) then
+                            end_index = idx + 1
+                            return
+                        end if
+                        idx = idx + 1
+                    end if
+                end select
+            end if
+            idx = idx + 1
+        end do
+    end function extend_block_statement_end
+
+    logical function next_keyword_is(tokens, idx, word) result(matches)
+        !! Whether the next token, skipping trivia, is the given keyword.
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        character(len=*), intent(in) :: word
+
+        integer :: j
+
+        matches = .false.
+        j = idx + 1
+        do while (j <= size(tokens))
+            select case (tokens(j)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                j = j + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                matches = to_lower(trim(tokens(j)%text)) == word
+                return
+            case default
+                return
+            end select
+        end do
+    end function next_keyword_is
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
             result(end_index)

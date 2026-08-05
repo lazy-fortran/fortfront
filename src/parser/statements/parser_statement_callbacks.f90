@@ -47,6 +47,7 @@ module parser_statement_callbacks_module
     public :: register_fallback_do_parser, fallback_do_parser_is_set, &
               call_fallback_do_parser
     public :: register_fallback_if_parser, call_fallback_if_parser
+    public :: register_fallback_block_parser, call_fallback_block_parser
 
     !! The DO parser, registered rather than imported.
     !!
@@ -61,6 +62,11 @@ module parser_statement_callbacks_module
     !! reached otherwise handles a single if, not one containing another, and
     !! a nested if inside a case arm is exactly that.
     procedure(parse_with_parent_interface), pointer :: if_parser => null()
+    !! The BLOCK construct parser, for the same reason. A `block` holding its
+    !! own declarations appears inside loops and case arms whose callers filled
+    !! in no callback, and without this it was reported as an unrecognized
+    !! statement - which failed the whole enclosing file.
+    procedure(parse_without_parent_interface), pointer :: block_parser => null()
     public :: parse_with_parent_interface
     public :: parse_without_parent_interface
 
@@ -106,6 +112,21 @@ contains
             node_index = if_parser(parser, arena)
         end if
     end function call_fallback_if_parser
+
+    subroutine register_fallback_block_parser(proc)
+        !! Called once by the block parser's own initialisation.
+        procedure(parse_without_parent_interface) :: proc
+
+        block_parser => proc
+    end subroutine register_fallback_block_parser
+
+    integer function call_fallback_block_parser(parser, arena) result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = 0
+        if (associated(block_parser)) node_index = block_parser(parser, arena)
+    end function call_fallback_block_parser
 
     pure function null_statement_callbacks() result(callbacks)
         !! Every component explicitly nullified, rather than left to the

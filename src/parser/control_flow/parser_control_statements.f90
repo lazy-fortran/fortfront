@@ -51,6 +51,11 @@ contains
             stop_code_index = parse_comparison(parser, arena)
         end if
 
+        ! F2018 allows a QUIET= specifier after the stop code, as in
+        ! `stop 1, quiet=.true.`. Consume it so the trailing comma does not
+        ! leave the statement unrecognized.
+        call skip_stop_specifiers(parser, arena)
+
         ! Create STOP node
         if (len_trim(stop_message) > 0) then
             stop_index = push_stop(arena, stop_message=stop_message, &
@@ -60,6 +65,36 @@ contains
                 line=line, column=column)
         end if
     end function parse_stop_statement
+
+    subroutine skip_stop_specifiers(parser, arena)
+        !! Consume `, quiet= <scalar-logical-expr>` after a STOP or ERROR STOP
+        !! stop-code. The specifier does not change control flow, so it carries
+        !! no AST node; parsing it exists so the statement is recognized at all.
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        type(token_t) :: token
+        integer :: discarded
+
+        do
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR) return
+            if (token%text /= ',') return
+            token = parser%consume()
+
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+            if (to_lower(token%text) /= 'quiet') return
+            token = parser%consume()
+
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR) return
+            if (token%text /= '=') return
+            token = parser%consume()
+
+            discarded = parse_comparison(parser, arena)
+        end do
+    end subroutine skip_stop_specifiers
 
     function parse_return_statement(parser, arena, parent_index) result(return_index)
         type(parser_state_t), intent(inout) :: parser
@@ -414,6 +449,8 @@ contains
                 error_code_index = 0
             end if
         end if
+
+        call skip_stop_specifiers(parser, arena)
 
         ! Create ERROR STOP node
         error_stop_index = push_error_stop(arena, error_code_index, error_message, &

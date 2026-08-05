@@ -9,9 +9,10 @@ module parser_do_constructs_module
     use ast_factory, only: push_do_loop, push_do_while
     use parser_if_constructs_module, only: parse_if, register_parse_do_loop
     use parser_statement_callbacks_module, only: register_fallback_do_parser, &
-        register_fallback_if_parser
+        register_fallback_if_parser, register_fallback_block_parser
     use parser_select_constructs_module, only: parse_select_case
-    use parser_array_constructs_module, only: parse_where_construct, parse_associate
+    use parser_array_constructs_module, only: parse_where_construct, parse_associate, &
+        parse_block_construct
     use parser_forall_module, only: parse_forall
     use parser_do_concurrent_locality_module, only: &
         parse_do_concurrent_locality_specs
