@@ -293,7 +293,7 @@ contains
                     exit
                 end if
                 ! Stop at directory separators
-                if (path(i:i) == '/' .or. path(i:i) == '\') exit
+                if (path(i:i) == '/' .or. path(i:i) == achar(92)) exit
             end do
         end block
 

@@ -146,7 +146,13 @@ contains
                 if (closer_end > 0) then
                     depth = depth - 1
                     stmt_end = closer_end
-                    if (depth <= 0) return
+                    if (depth <= 0) then
+                        if (construct == "block") then
+                            stmt_end = include_block_construct_name(all_tokens, &
+                                stmt_end)
+                        end if
+                        return
+                    end if
                     pos = closer_end + 1
                     cycle
                 else if (token_lower == construct) then
@@ -173,6 +179,30 @@ contains
         ! Ran out of tokens with the construct still open.
         if (present(unaccounted)) unaccounted = .true.
     end function locate_block_statement_end
+
+    integer function include_block_construct_name(all_tokens, end_index) &
+            result(extended_end)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: end_index
+        integer :: name_index
+
+        extended_end = end_index
+        name_index = end_index + 1
+        do while (name_index <= size(all_tokens))
+            select case (all_tokens(name_index)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                name_index = name_index + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (name_index <= size(all_tokens)) then
+            if (all_tokens(name_index)%kind == TK_IDENTIFIER) then
+                extended_end = name_index
+            end if
+        end if
+    end function include_block_construct_name
 
     ! Index of the last token of the terminator of `construct` starting at pos,
     ! or 0 when the token at pos does not start one. Handles both the one-word

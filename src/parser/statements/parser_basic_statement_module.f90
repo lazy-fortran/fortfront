@@ -1,6 +1,6 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, TK_NEWLINE, &
         TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
@@ -10,12 +10,23 @@ module parser_basic_statement_module
         find_statement_end, &
         extend_if_statement_end, extend_do_statement_end, &
         extend_block_statement_end
+    use parser_block_statement_utils_module, only: block_construct_start
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
 
     public :: parse_basic_statement_multi, parse_statement_body
     public :: parse_expression_length
+
+    interface
+        recursive function parse_block_construct_bridge(parser, arena) &
+                result(block_index)
+            import :: parser_state_t, ast_arena_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            integer :: block_index
+        end function parse_block_construct_bridge
+    end interface
 
 contains
 
@@ -77,6 +88,8 @@ contains
         type(statement_callbacks_t) :: local_callbacks
         logical :: has_meaningful
         integer :: nested_block_index
+        integer :: construct_start
+        integer :: direct_block_index
         integer :: stmt_count
 
         allocate (body_indices(0))
@@ -108,6 +121,24 @@ contains
                 end if
 
                 stmt_start = parser%current_token
+                if (parser%tokens(stmt_start)%kind == TK_IDENTIFIER) then
+                    construct_start = block_construct_start(parser%tokens, &
+                        stmt_start)
+                    if (construct_start > 0) then
+                        if (to_lower(trim(parser%tokens(construct_start)%text)) == &
+                            "block") then
+                            parser%current_token = construct_start
+                            direct_block_index = parse_block_construct_bridge( &
+                                parser, arena)
+                            if (direct_block_index > 0) then
+                                body_indices = [body_indices, direct_block_index]
+                                stmt_count = stmt_count + 1
+                                cycle
+                            end if
+                            stmt_start = construct_start
+                        end if
+                    end if
+                end if
                 stmt_end = find_statement_end(parser%tokens, stmt_start)
                 ! Hand a whole construct over, not just its header. This body
                 ! parser serves case arms and other block bodies, and an `if`

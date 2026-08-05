@@ -59,7 +59,7 @@ contains
                 "program", "module", "submodule", "if", "data", &
                 "read", "write", "print", "open", "close", &
                 "inquire", "backspace", "rewind", "endfile", "format", &
-                "parameter", "rank", "block")
+                "parameter", "rank", "block", "operator")
             is_supported = .true.
         case default
             is_supported = .false.

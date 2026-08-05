@@ -634,6 +634,12 @@ contains
             token = parser%peek()
             if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "block") then
                 token = parser%consume()
+                token = parser%peek()
+                do while (token%kind == TK_WHITESPACE .or. &
+                        token%kind == TK_COMMENT)
+                    token = parser%consume()
+                end do
+                if (token%kind == TK_IDENTIFIER) token = parser%consume()
             end if
         end if
 

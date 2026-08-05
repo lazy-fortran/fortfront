@@ -443,8 +443,8 @@ contains
                     do while (pos <= len(source))
                         c = source(pos:pos)
                         if (.not. ((c >= 'a' .and. c <= 'z') .or. &
-                                   (c >= 'A' .and. c <= 'Z') .or. &
-                                   (c >= '0' .and. c <= '9') .or. c == '_')) exit
+                            (c >= 'A' .and. c <= 'Z') .or. &
+                            (c >= '0' .and. c <= '9') .or. c == '_')) exit
                         pos = pos + 1
                         col_num = col_num + 1
                     end do
@@ -761,7 +761,7 @@ contains
                 'procedure', 'interface', 'import', 'include', 'generic', &
                 'operator', &
                 'assignment', 'print', 'read', 'write', 'open', 'close', &
-                'inquire', &
+                'inquire', 'flush', &
                 'backspace', 'rewind', &
                 'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
                 'default', &
@@ -797,7 +797,7 @@ contains
             is_constant = .true.
         case default
             is_constant = (index(trim(lower_text), '.true._') == 1 .or. &
-                           index(trim(lower_text), '.false._') == 1)
+                index(trim(lower_text), '.false._') == 1)
         end select
     end function is_logical_constant
 

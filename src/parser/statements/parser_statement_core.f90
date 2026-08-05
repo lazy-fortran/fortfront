@@ -87,7 +87,7 @@ contains
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
             if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0 .and. &
-                    .not. parser%has_errors()) then
+                .not. parser%has_errors()) then
                 call reject_unconsumed_tokens(parser)
             end if
             if (present(consumed_count)) consumed_count = parser%current_token - 1
@@ -202,11 +202,24 @@ contains
         stmt_index = 0
         block
             character(len=:), allocatable :: lowered
+            type(token_t) :: ignored_token
             lowered = to_lower(first_token%text)
 
             stmt_index = handle_control_keyword(lowered, parser, arena, &
                 parent_index, callbacks)
             if (stmt_index /= 0) return
+
+            ! FLUSH has no AST node yet, but it is a valid executable
+            ! statement. Consume the complete statement so it does not become
+            ! an unparsed-statement diagnostic while preserving the rest of
+            ! the procedure body.
+            if (lowered == "flush") then
+                do while (.not. parser%is_at_end())
+                    ignored_token = parser%consume()
+                end do
+                stmt_index = STATEMENT_NO_NODE
+                return
+            end if
 
             stmt_index = handle_io_keyword(lowered, parser, arena)
             if (stmt_index /= 0) return
@@ -309,7 +322,7 @@ contains
                     ! populated no callback - `select case` sets only its own
                     ! entry, so a nested if in a case arm lands here.
                     stmt_index = call_fallback_if_parser(parser, arena, &
-                                                        parent_index)
+                        parent_index)
                     if (stmt_index /= 0) return
                     ! Fallback to simple IF parser if callback not set
                     stmt_index = parse_if_from_definition(parser, arena)

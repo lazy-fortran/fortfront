@@ -27,8 +27,10 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer :: i
+        logical :: continuation_pending
 
         is_block = .false.
+        continuation_pending = .false.
         do i = start_index + 1, size(tokens)
             select case (tokens(i)%kind)
             case (TK_KEYWORD)
@@ -36,15 +38,22 @@ contains
                     is_block = .true.
                     return
                 else
-                    return
+                    continuation_pending = .false.
+                    cycle
                 end if
             case (TK_OPERATOR)
                 if (tokens(i)%text == ";") return
+                continuation_pending = trim(tokens(i)%text) == "&"
             case (TK_NEWLINE, TK_EOF)
+                if (tokens(i)%kind == TK_NEWLINE .and. continuation_pending) then
+                    continuation_pending = .false.
+                    cycle
+                end if
                 return
             case (TK_COMMENT, TK_WHITESPACE)
                 cycle
             case default
+                continuation_pending = .false.
                 cycle
             end select
         end do
@@ -611,14 +620,14 @@ contains
                 case ("endblock")
                     depth = depth - 1
                     if (depth <= 0) then
-                        end_index = idx
+                        end_index = include_block_construct_name(tokens, idx)
                         return
                     end if
                 case ("end")
                     if (next_keyword_is(tokens, idx, "block")) then
                         depth = depth - 1
                         if (depth <= 0) then
-                            end_index = idx + 1
+                            end_index = include_block_construct_name(tokens, idx + 1)
                             return
                         end if
                         idx = idx + 1
@@ -628,6 +637,30 @@ contains
             idx = idx + 1
         end do
     end function extend_block_statement_end
+
+    integer function include_block_construct_name(tokens, end_index) &
+            result(extended_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: end_index
+        integer :: name_index
+
+        extended_end = end_index
+        name_index = end_index + 1
+        do while (name_index <= size(tokens))
+            select case (tokens(name_index)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                name_index = name_index + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (name_index <= size(tokens)) then
+            if (tokens(name_index)%kind == TK_IDENTIFIER) then
+                extended_end = name_index
+            end if
+        end if
+    end function include_block_construct_name
 
     logical function next_keyword_is(tokens, idx, word) result(matches)
         !! Whether the next token, skipping trivia, is the given keyword.
