@@ -192,6 +192,16 @@
                                state%defined_func_types, state%defined_func_count)
             func_return_type = canonicalize_type(func_return_type)
 
+            ! Structure constructors and assignments copied from an already
+            ! inferred derived binding do not carry a useful intrinsic type on
+            ! the target identifier.  Resolve those RHS forms from the local
+            ! declaration state (Issues #2827 and #2941).
+            block
+                character(len=:), allocatable :: derived_type
+                derived_type = infer_derived_assignment_type(arena, stmt, state)
+                if (len_trim(derived_type) > 0) type_buf = derived_type
+            end block
+
             if (len_trim(func_return_type) > 0) then
                 block
                     character(len=:), allocatable :: curr_lower
@@ -233,6 +243,44 @@
             call try_add_variable(state, name_buf, trim(type_buf))
         end select
     end subroutine process_assignment_target
+
+    function infer_derived_assignment_type(arena, stmt, state) result(type_name)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: stmt
+        type(program_decl_state_t), intent(in) :: state
+        character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: rhs_name
+        character(len=:), allocatable :: normalized_rhs
+        character(len=:), allocatable :: normalized_type
+        integer :: value_idx, i
+
+        type_name = ""
+        value_idx = stmt%value_index
+        if (.not. arena%has_node_at(value_idx)) return
+
+        select type (rhs => arena%entries(value_idx)%node)
+        type is (call_or_subscript_node)
+            if (.not. allocated(rhs%name)) return
+            rhs_name = trim(rhs%name)
+            if (len_trim(rhs_name) == 0) return
+            if (exists_in_list(state%derived_type_names, &
+                               state%derived_type_count, rhs_name)) then
+                type_name = "type("//rhs_name//")"
+            end if
+        type is (identifier_node)
+            if (.not. allocated(rhs%name)) return
+            normalized_rhs = to_lower(trim(rhs%name))
+            if (len_trim(normalized_rhs) == 0) return
+            do i = 1, state%var_count
+                if (to_lower(trim(state%var_names(i))) /= normalized_rhs) cycle
+                normalized_type = to_lower(trim(state%var_types(i)))
+                if (index(normalized_type, "type(") == 1) then
+                    type_name = trim(state%var_types(i))
+                end if
+                return
+            end do
+        end select
+    end function infer_derived_assignment_type
 
     subroutine process_assignment_value(arena, stmt, state)
         type(ast_arena_t), intent(in) :: arena

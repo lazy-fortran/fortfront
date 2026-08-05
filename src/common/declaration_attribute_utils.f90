@@ -282,9 +282,9 @@ contains
         do i = 1, seen_count
             if (attributes_conflict(seen(i), name)) then
                 validation%valid = .false.
-                validation%message = to_upper(added) // &
+                validation%message = to_upper(attribute_display_name(name)) // &
                     " attribute conflicts with " // &
-                    to_upper(attribute_base_name(seen(i))) // " attribute"
+                    to_upper(attribute_display_name(seen(i))) // " attribute"
                 return
             end if
         end do
@@ -352,6 +352,24 @@ contains
         paren = index(base, "(")
         if (paren > 1) base = base(1:paren - 1)
     end function attribute_base_name
+
+    function attribute_display_name(name) result(display)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: display
+        character(len=:), allocatable :: direction
+
+        if (attribute_base_name(name) /= "intent") then
+            display = attribute_base_name(name)
+            return
+        end if
+
+        direction = intent_direction(name)
+        if (len_trim(direction) > 0) then
+            display = "intent(" // trim(direction) // ")"
+        else
+            display = "intent"
+        end if
+    end function attribute_display_name
 
     logical function attributes_conflict(existing, added) result(conflict)
         character(len=*), intent(in) :: existing

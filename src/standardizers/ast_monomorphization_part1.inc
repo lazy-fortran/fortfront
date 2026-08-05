@@ -623,6 +623,33 @@
         end do
     end subroutine process_implicit_declarations
 
+    logical function has_executable_implicit_content(arena, indices, count) &
+            result(has_executable)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: indices(:)
+        integer, intent(in) :: count
+        integer :: i, child_idx
+        character(len=:), allocatable :: node_type
+
+        has_executable = .false.
+        do i = 1, count
+            child_idx = indices(i)
+            if (child_idx < 1 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            if (.not. allocated(arena%entries(child_idx)%node_type)) cycle
+
+            node_type = trim(arena%entries(child_idx)%node_type)
+            select case (node_type)
+            case ("derived_type", "declaration", "parameter_declaration", &
+                  "use_statement", "implicit_statement", "comment_statement")
+                cycle
+            case default
+                has_executable = .true.
+                return
+            end select
+        end do
+    end function has_executable_implicit_content
+
     subroutine add_to_implicit_preserved(implicit_preserved, &
                                          implicit_preserved_count, child_idx)
         integer, allocatable, intent(inout) :: implicit_preserved(:)
@@ -926,6 +953,26 @@
                                                implicit_preserved_count, &
                                                module_indices, module_count, &
                                                module_names)
+        end if
+
+        if (module_count == 0 .and. &
+            has_executable_implicit_content(arena, implicit_preserved, &
+                                            implicit_preserved_count)) then
+            call create_main_program_from_preserved(arena, root_index, &
+                                                    module_indices, module_count, &
+                                                    module_names, &
+                                                    implicit_preserved, &
+                                                    implicit_preserved_count, &
+                                                    preserved_indices, &
+                                                    preserved_count, &
+                                                    program_indices, program_count)
+            call promote_double_literals_for_programs(arena, program_indices, &
+                                                      program_count)
+            call finalize_container_indices(arena, root_index, module_indices, &
+                                            module_count, preserved_indices, &
+                                            preserved_count, module_names, &
+                                            program_indices, program_count)
+            return
         end if
 
         call process_explicit_programs(arena, signatures, explicit_indices, &

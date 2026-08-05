@@ -441,6 +441,13 @@ contains
         end if
 
         next_idx = parser%current_token + 1
+        do while (next_idx <= size(all_tokens))
+            if (all_tokens(next_idx)%kind == TK_WHITESPACE) then
+                next_idx = next_idx + 1
+            else
+                exit
+            end if
+        end do
         if (next_idx > size(all_tokens)) then
             token_local = parser%consume()
             is_end = .true.

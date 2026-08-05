@@ -217,6 +217,39 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(mixed_construct_result_t), intent(in) :: mixed_result
         integer :: token_idx
+        logical :: first_is_type
+
+        first_is_type = .false.
+        do token_idx = 1, size(tokens)
+            select case (tokens(token_idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                first_is_type = is_type_start(tokens, token_idx)
+                exit
+            end select
+        end do
+
+        if (has_lfortran_generic_blocks(tokens)) then
+            require_mixed = .false.
+            return
+        end if
+
+        ! A standalone TYPE unit followed by an explicit PROGRAM is a normal
+        ! multi-unit source.  The mixed-construct detector sees the two units
+        ! as overlapping declaration ranges, so route this shape through the
+        ! program-unit scanner instead.
+        if (first_is_type .and. has_explicit_unit_after_type(tokens)) then
+            require_mixed = .false.
+            return
+        end if
+
+        if (first_is_type) then
+            if (has_executable_statements(tokens)) then
+                require_mixed = .false.
+                return
+            end if
+        end if
 
         require_mixed = mixed_result%has_mixed_constructs
         if (require_mixed) return
@@ -247,6 +280,54 @@ contains
             end if
         end do
     end function should_use_mixed_constructs
+
+    logical function has_explicit_unit_after_type(tokens) result(has_unit)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: token_idx
+        logical :: found_type
+        character(len=:), allocatable :: lowered
+
+        has_unit = .false.
+        found_type = .false.
+        do token_idx = 1, size(tokens)
+            select case (tokens(token_idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                if (.not. found_type) then
+                    found_type = is_type_start(tokens, token_idx)
+                    cycle
+                end if
+            end select
+
+            lowered = to_lower(trim(tokens(token_idx)%text))
+            if (lowered == "contains") return
+            select case (lowered)
+            case ("program", "module", "submodule", "interface", &
+                  "function", "subroutine", "template")
+                has_unit = .true.
+                return
+            end select
+        end do
+    end function has_explicit_unit_after_type
+
+    logical function has_lfortran_generic_blocks(tokens) result(has_blocks)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: token_idx
+        character(len=:), allocatable :: lowered
+
+        has_blocks = .false.
+        do token_idx = 1, size(tokens)
+            if (tokens(token_idx)%kind /= TK_KEYWORD .and. &
+                tokens(token_idx)%kind /= TK_IDENTIFIER) cycle
+            lowered = to_lower(trim(tokens(token_idx)%text))
+            select case (lowered)
+            case ("trait", "requirement")
+                has_blocks = .true.
+                return
+            end select
+        end do
+    end function has_lfortran_generic_blocks
 
     subroutine parse_mixed_construct_file(tokens, arena, mixed_result, prog_index, &
             error_msg, diagnostics)

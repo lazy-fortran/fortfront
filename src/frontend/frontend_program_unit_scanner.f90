@@ -6,6 +6,7 @@ module frontend_program_unit_scanner
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use frontend_program_units, only: parse_program_unit
+    use frontend_statement_boundary, only: find_statement_boundary
     use mixed_construct_detector, only: function_follows_type_spec
     use error_reporting, only: error_collection_t
     use frontend_utilities, only: is_type_start
