@@ -316,6 +316,14 @@
                  tokens(i)%text == "*" .or. tokens(i)%text == "/" .or. &
                  tokens(i)%text == "=")) then
 
+                ! A slash terminating a DATA value list is a delimiter, not
+                ! a division operator.  Its next meaningful token is usually
+                ! on the following statement, which otherwise makes this
+                ! lightweight validator report a false incomplete expression
+                ! before the DATA parser gets a chance to handle it.
+                if (tokens(i)%text == "/" .and. &
+                    is_data_statement(tokens, i)) cycle
+
                 ! Look ahead to see if this operator is followed by meaningful content
                 j = i + 1
                 do while (j <= size(tokens) .and. &
@@ -337,6 +345,35 @@
             end if
         end do
     end subroutine check_incomplete_statements
+
+    logical function is_data_statement(tokens, position) result(is_data)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: position
+        integer :: first, idx
+
+        is_data = .false.
+        first = position - 1
+        do while (first >= 1)
+            if (tokens(first)%kind == TK_NEWLINE) exit
+            if (tokens(first)%kind == TK_OPERATOR .and. &
+                trim(tokens(first)%text) == ";") exit
+            first = first - 1
+        end do
+
+        first = first + 1
+        do idx = first, position - 1
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                cycle
+            case default
+                ! DATA is lexed as an identifier in some contexts, so use
+                ! its normalized spelling rather than its token class here.
+                is_data = to_lower(trim(tokens(idx)%text)) == "data"
+                if (.not. is_data) return
+            end select
+            if (is_data) return
+        end do
+    end function is_data_statement
 
     ! Check if input contains any recognizable Fortran content
     subroutine check_for_fortran_content(tokens, error_msg)
@@ -603,7 +640,12 @@
             if (n == 1) then
                 deallocate (construct_stack)
             else
-                construct_stack = construct_stack(:n - 1)
+                block
+                    integer, allocatable :: shortened_stack(:)
+                    allocate (shortened_stack(n - 1))
+                    shortened_stack = construct_stack(:n - 1)
+                    call move_alloc(shortened_stack, construct_stack)
+                end block
             end if
 
             if (present(expected_unit)) then

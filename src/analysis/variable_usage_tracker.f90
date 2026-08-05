@@ -72,6 +72,14 @@ contains
         integer, intent(in) :: root_index
         type(scoped_variable_usage_t), allocatable :: usages(:)
 
+        call collect_scoped_variable_usages(arena, root_index, usages)
+    end function get_scoped_variable_usages
+
+    subroutine collect_scoped_variable_usages(arena, root_index, usages)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        type(scoped_variable_usage_t), allocatable, intent(out) :: usages(:)
+
         integer :: count
         integer :: capacity
         integer :: next_scope_id
@@ -87,7 +95,7 @@ contains
         end if
 
         call resize_scoped_usages(usages, count)
-    end function get_scoped_variable_usages
+    end subroutine collect_scoped_variable_usages
 
     ! Visit all expression nodes with a visitor function
     subroutine visit_expression_nodes(arena, root_index, visitor, user_data)
@@ -222,9 +230,69 @@ contains
         integer :: count
 
         type(variable_usage_info_t) :: info
-        integer :: i
+        type(scoped_variable_usage_t), allocatable :: scoped_usages(:)
+        integer :: i, j, k
+        integer :: declaration_scope
+        integer :: current_scope, nearest_scope, parent_scope
 
         count = 0
+
+        ! When the queried subtree contains shadowed declarations, count only
+        ! references belonging to the first binding of this name.  Merging
+        ! same-spelled locals from sibling scopes makes a name-based query
+        ! report the sum of distinct variables rather than one variable's use.
+        call collect_scoped_variable_usages(arena, expr_index, scoped_usages)
+        declaration_scope = 0
+        do i = 1, size(scoped_usages)
+            if (.not. scoped_usages(i)%is_declaration) cycle
+            if (.not. allocated(scoped_usages(i)%name)) cycle
+            if (trim(scoped_usages(i)%name) /= trim(var_name)) cycle
+            declaration_scope = scoped_usages(i)%scope_id
+            exit
+        end do
+
+        if (declaration_scope > 0) then
+            do j = 1, size(scoped_usages)
+                if (scoped_usages(j)%is_declaration) cycle
+                if (.not. allocated(scoped_usages(j)%name)) cycle
+                if (trim(scoped_usages(j)%name) /= trim(var_name)) cycle
+
+                ! Resolve the reference through its enclosing scopes.  A
+                ! procedure-scope declaration remains visible in child blocks,
+                ! while a declaration in a child scope shadows it.
+                current_scope = scoped_usages(j)%scope_id
+                nearest_scope = 0
+                do while (current_scope > 0)
+                    do k = 1, size(scoped_usages)
+                        if (.not. scoped_usages(k)%is_declaration) cycle
+                        if (.not. allocated(scoped_usages(k)%name)) cycle
+                        if (trim(scoped_usages(k)%name) /= trim(var_name)) cycle
+                        if (scoped_usages(k)%scope_id == current_scope) then
+                            nearest_scope = current_scope
+                            exit
+                        end if
+                    end do
+                    if (nearest_scope > 0) exit
+
+                    parent_scope = 0
+                    do k = 1, size(scoped_usages)
+                        if (scoped_usages(k)%scope_id == current_scope) then
+                            parent_scope = scoped_usages(k)%parent_scope_id
+                            exit
+                        end if
+                    end do
+                    current_scope = parent_scope
+                end do
+
+                if (nearest_scope == declaration_scope) then
+                    count = count + 1
+                end if
+            end do
+            return
+        end if
+
+        ! Expression subtrees normally have no declaration nodes; preserve the
+        ! established identifier-counting behavior for those callers.
         info = get_variables_in_expression(arena, expr_index)
 
         if (allocated(info%variable_names)) then

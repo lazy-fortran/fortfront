@@ -116,6 +116,8 @@
         select case (to_lower(trim(tokens(keyword_idx)%text)))
         case ("program", "module", "function", "subroutine", "interface", "template")
             is_start = .true.
+        case ("type")
+            is_start = is_type_start(tokens, keyword_idx)
         case ("abstract")
             lookahead = keyword_idx + 1
             do while (lookahead <= size(tokens))
