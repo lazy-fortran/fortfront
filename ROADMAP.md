@@ -67,11 +67,11 @@ Fixed on `main`:
   being assigned to. An assignment's `=` always precedes any top-level
   comma, so the scan now stops there.
 
-Result: fortfront sources that fail to parse dropped from about 100 to 19.
+Result: fortfront sources that fail to parse dropped from about 100 to 15.
 `fpm test` stayed at 25 failures with an identical failing set before and
 after, verified by diffing the sorted lists rather than comparing counts.
 
-### The 19 sources that still do not parse
+### The 15 sources that still do not parse
 
 These block `fo` from cold-building fortfront: a source `fo` cannot scan is
 dropped from the module DAG and never compiled, so the failure surfaces
