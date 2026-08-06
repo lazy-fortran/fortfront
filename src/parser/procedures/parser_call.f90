@@ -115,7 +115,12 @@ contains
         column = token%column
 
         token = parser%peek()
-        if (token%kind /= TK_IDENTIFIER) then
+        ! Fortran keywords are not reserved words, so the object a call is made
+        ! on may be named `operator`, `data`, `file` or anything else the lexer
+        ! classifies as a keyword. Rejecting those left the rest of the
+        ! statement unconsumed, and the next construct swallowed the remainder
+        ! of the program unit. The component branch below already accepts them.
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
             stmt_index = push_literal(arena, &
                 "! Error: expected subroutine name after "// &
                 "call", &

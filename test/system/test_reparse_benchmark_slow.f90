@@ -1,4 +1,4 @@
-program test_reparse_benchmark
+program test_reparse_benchmark_slow
     use, intrinsic :: iso_fortran_env, only: dp => real64, int64
     use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
         ast_arena_t
@@ -153,4 +153,4 @@ contains
         run_benchmark = .true.
     end function run_benchmark
 
-end program test_reparse_benchmark
+end program test_reparse_benchmark_slow
