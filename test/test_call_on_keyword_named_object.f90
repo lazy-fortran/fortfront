@@ -97,7 +97,29 @@ contains
         call require(index(code, 'pure') > 0, 'pure is assignable')
         call assign_inside_loop('external', result, code)
         call require(index(code, 'external') > 0, 'external is assignable')
+        call assign_element(result, code)
+        call require(index(code, 'precision') > 0, &
+            'an element of a keyword-named array is assignable')
     end subroutine check_assignment_to_keyword_named_variable
+
+    subroutine assign_element(result, code)
+        !! The designator may be indexed: `precision(i, j) = x`.
+        type(compiler_frontend_result_t), intent(out) :: result
+        character(:), allocatable, intent(out) :: code
+        character(:), allocatable :: source
+
+        source = 'program p'//new_line('a')// &
+            '    real :: precision(2, 2)'//new_line('a')// &
+            '    integer :: i, j'//new_line('a')// &
+            '    do i = 1, 2'//new_line('a')// &
+            '        do j = 1, 2'//new_line('a')// &
+            '            precision(i, j) = 1.0'//new_line('a')// &
+            '        end do'//new_line('a')// &
+            '    end do'//new_line('a')// &
+            'end program p'
+        call compile_ok(source, result, 'indexed keyword-named assignment')
+        call emit_fortran(result%arena, result%root_index, code)
+    end subroutine assign_element
 
     subroutine assign_inside_loop(name, result, code)
         character(len=*), intent(in) :: name

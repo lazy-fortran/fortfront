@@ -28,14 +28,15 @@ contains
         case ("implicit")
             as_identifier = .not. looks_like_implicit_statement(parser)
         case ("if")
-            as_identifier = should_parse_if_as_identifier(parser)
+            as_identifier = assignment_designator_follows(parser)
         case default
-            ! A keyword followed immediately by `=` or `=>` is a variable of
-            ! that name, whatever the keyword is: `file = path`, `pure = 1`
-            ! and `external = flag` are assignments, because Fortran reserves
-            ! no words. This test needs no per-keyword permission, and
-            ! restricting it to a fixed list rejected every other keyword name.
-            if (assignment_operator_immediately_follows(parser)) then
+            ! A keyword that heads the designator of an assignment is a
+            ! variable of that name, whatever the keyword is: `file = path`,
+            ! `pure = 1` and `precision(i, j) = x` are assignments, because
+            ! Fortran reserves no words. This test needs no per-keyword
+            ! permission, and restricting it to a fixed list rejected every
+            ! other keyword name.
+            if (assignment_designator_follows(parser)) then
                 as_identifier = .true.
             else if (keyword_supports_assignment_disambiguation(lowered)) then
                 ! The looser test - an `=` anywhere in the statement - stays
@@ -72,9 +73,12 @@ contains
         end select
     end function keyword_supports_assignment_disambiguation
 
-    ! Decide if leading IF token is an identifier rather than a control keyword.
-    ! Returns true only when no opening parenthesis appears before assignment syntax.
-    logical function should_parse_if_as_identifier(parser) result(as_identifier)
+    ! Decide whether the statement is an assignment to a designator that
+    ! starts with the leading keyword token: `file = path`, `precision(i, j) =
+    ! x`, `data%field => target`. A construct such as `if (c) then` or
+    ! `where (m) a = 1` reaches a bare name at depth zero instead and is
+    ! reported as not an assignment.
+    logical function assignment_designator_follows(parser) result(as_identifier)
         type(parser_state_t), intent(in) :: parser
         integer :: idx, token_count, depth
         type(token_t) :: tok
@@ -149,7 +153,7 @@ contains
         end do
 
         as_identifier = .false.
-    end function should_parse_if_as_identifier
+    end function assignment_designator_follows
 
     logical function statement_contains_assignment(parser) result(has_assignment)
         type(parser_state_t), intent(in) :: parser
@@ -212,37 +216,6 @@ contains
         end do
     end function statement_contains_assignment
 
-    logical function assignment_operator_immediately_follows(parser) &
-            result(has_assignment)
-        type(parser_state_t), intent(in) :: parser
-        integer :: idx, token_count
-        type(token_t) :: tok
-
-        has_assignment = .false.
-        if (.not. associated(parser%tokens)) return
-
-        token_count = size(parser%tokens)
-        if (token_count < parser%current_token) return
-
-        idx = parser%current_token + 1
-        do while (idx <= token_count)
-            tok = parser%tokens(idx)
-            select case (tok%kind)
-            case (TK_WHITESPACE, TK_COMMENT)
-                idx = idx + 1
-                cycle
-            case (TK_NEWLINE)
-                return
-            case default
-                if (tok%kind == TK_OPERATOR) then
-                    if (trim(tok%text) == "=" .or. trim(tok%text) == "=>") then
-                        has_assignment = .true.
-                    end if
-                end if
-                return
-            end select
-        end do
-    end function assignment_operator_immediately_follows
 
     logical function looks_like_format_statement(parser) result(is_format)
         type(parser_state_t), intent(in) :: parser
