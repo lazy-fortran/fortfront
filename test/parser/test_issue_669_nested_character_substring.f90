@@ -10,7 +10,7 @@ program test_issue_669_nested_character_substring
     type(compiler_frontend_options_t) :: options
     type(compiler_frontend_result_t) :: result
     character(len=:), allocatable :: source
-    integer :: index, slice_count
+    integer :: index, slice_count, bad_element_base_count
     logical :: all_passed
 
     call read_example('examples/f90/issue_669_nested_character_substring.f90', &
@@ -28,6 +28,7 @@ program test_issue_669_nested_character_substring
     end if
 
     slice_count = 0
+    bad_element_base_count = 0
     do index = 1, result%arena%size
         if (.not. allocated(result%arena%entries(index)%node)) cycle
         select type (slice => result%arena%entries(index)%node)
@@ -47,11 +48,24 @@ program test_issue_669_nested_character_substring
                     end select
                 end if
             end select
+        type is (call_or_subscript_node)
+            ! A plain c(i) must stay an ordinary array element.  The parser
+            ! uses base_expr_index only for a compound designator such as a
+            ! derived component or the base carried by a nested slice.
+            if (allocated(slice%name) .and. trim(slice%name) == 'c' .and. &
+                allocated(slice%arg_indices) .and. size(slice%arg_indices) == 1 &
+                .and. slice%base_expr_index > 0) then
+                bad_element_base_count = bad_element_base_count + 1
+            end if
         end select
     end do
 
     if (slice_count /= 4) then
         print *, 'FAIL: expected four c(2) substring slices, found', slice_count
+        error stop 1
+    end if
+    if (bad_element_base_count /= 0) then
+        print *, 'FAIL: ordinary c(i) element carries a derived base expression'
         error stop 1
     end if
     print *, 'PASS: nested character-array substrings retain their designator base'
