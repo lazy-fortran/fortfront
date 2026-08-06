@@ -133,6 +133,11 @@
             end do
         else if (unit_type == "interface") then
             is_interface_unit = .true.
+        else if (is_procedure_attribute_keyword(unit_type)) then
+            next_pos = find_procedure_keyword_after_prefix(tokens, unit_start)
+            if (next_pos > 0) then
+                unit_type = to_lower(trim(tokens(next_pos)%text))
+            end if
         else if (is_type_prefix_keyword(unit_type)) then
             if (function_follows_type_spec(tokens, unit_start)) unit_type = "function"
         end if

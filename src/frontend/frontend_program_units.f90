@@ -376,30 +376,69 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
         logical :: is_start
+        integer :: procedure_pos
 
         is_start = .false.
         if (pos > size(tokens)) return
-        if (tokens(pos)%kind /= TK_KEYWORD) return
-        if (to_lower(tokens(pos)%text) == "function") then
+        if ((tokens(pos)%kind == TK_KEYWORD .or. &
+             tokens(pos)%kind == TK_IDENTIFIER) .and. &
+            to_lower(tokens(pos)%text) == "function") then
             is_start = .true.
             return
         end if
         is_start = function_follows_type_spec(tokens, pos)
+        if (is_start) return
+
+        procedure_pos = find_prefixed_procedure(tokens, pos)
+        if (procedure_pos > 0) then
+            is_start = to_lower(trim(tokens(procedure_pos)%text)) == "function"
+        end if
     end function is_function_start
 
     function is_subroutine_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
         logical :: is_start
+        integer :: procedure_pos
 
         is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                to_lower(tokens(pos)%text) == "subroutine") then
-                is_start = .true.
-            end if
+        if (pos > size(tokens)) return
+        procedure_pos = find_prefixed_procedure(tokens, pos)
+        if (procedure_pos > 0) then
+            is_start = to_lower(trim(tokens(procedure_pos)%text)) == "subroutine"
         end if
     end function is_subroutine_start
+
+    integer function find_prefixed_procedure(tokens, pos) result(procedure_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: i
+        character(len=:), allocatable :: lowered
+
+        procedure_pos = 0
+        i = pos
+        do while (i <= size(tokens))
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE)
+                i = i + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                lowered = to_lower(trim(tokens(i)%text))
+                if (lowered == "function" .or. lowered == "subroutine") then
+                    procedure_pos = i
+                    return
+                end if
+                if (lowered == "pure" .or. lowered == "elemental" .or. &
+                    lowered == "impure" .or. lowered == "recursive" .or. &
+                    lowered == "nonrecursive" .or. lowered == "non_recursive" .or. &
+                    lowered == "module") then
+                    i = i + 1
+                    cycle
+                end if
+            end select
+            return
+        end do
+    end function find_prefixed_procedure
 
     function is_module_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)

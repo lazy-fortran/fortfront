@@ -1101,6 +1101,11 @@
                 parser%current_token = start_position
                 stmt_index = parse_function_definition(parser, arena, prefix_buffer, &
                                                        combined_prefixes)
+            else if (token_after_prefix%kind == TK_KEYWORD .and. &
+                     trim(to_lower(token_after_prefix%text)) == "subroutine") then
+                parser%current_token = start_position
+                stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer, &
+                                                         combined_prefixes)
             else
                 parser%current_token = start_position
                 call prefix_buffer%set(combined_prefixes)
