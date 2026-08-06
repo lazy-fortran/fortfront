@@ -543,6 +543,9 @@ contains
                     " construct; refusing to drop the statements that follow", &
                     parser%tokens(construct_pos))
             end if
+        else if (is_derived_type_definition_start(parser%tokens, stmt_start)) then
+            stmt_end = locate_derived_type_statement_end(parser%tokens, stmt_start, &
+                unaccounted)
         else
             stmt_end = locate_single_line_end(parser%tokens, stmt_start, &
                 first_token%line)
@@ -557,6 +560,99 @@ contains
         call copy_statement_slice(parser%tokens, stmt_start, stmt_end, first_token, &
             stmt_tokens)
     end subroutine collect_statement_tokens
+
+    logical function is_derived_type_definition_start(tokens, start_pos) result(is_def)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: pos
+        integer :: depth
+        type(token_t) :: token
+
+        is_def = .false.
+        pos = next_significant_type_token(tokens, start_pos)
+        if (pos > size(tokens)) return
+        if (to_lower(trim(tokens(pos)%text)) /= "type") return
+
+        pos = next_significant_type_token(tokens, pos + 1)
+        depth = 0
+        do while (pos <= size(tokens))
+            token = tokens(pos)
+            if (token%kind == TK_OPERATOR) then
+                select case (trim(token%text))
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth > 0) depth = depth - 1
+                case ("::")
+                    if (depth == 0) is_def = .true.
+                    return
+                end select
+            else if (token%kind == TK_NEWLINE .and. depth == 0) then
+                return
+            end if
+            pos = pos + 1
+        end do
+    end function is_derived_type_definition_start
+
+    integer function locate_derived_type_statement_end(tokens, start_pos, &
+            unaccounted) result(stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        logical, intent(out) :: unaccounted
+        integer :: pos
+        integer :: next_pos
+        character(len=:), allocatable :: lowered
+
+        stmt_end = start_pos
+        unaccounted = .true.
+        pos = start_pos + 1
+        do while (pos <= size(tokens))
+            if (tokens(pos)%kind == TK_KEYWORD .or. &
+                    tokens(pos)%kind == TK_IDENTIFIER) then
+                lowered = to_lower(trim(tokens(pos)%text))
+                if (lowered == "endtype") then
+                    stmt_end = include_derived_type_name(tokens, pos)
+                    unaccounted = .false.
+                    return
+                end if
+                if (lowered == "end") then
+                    next_pos = next_significant_type_token(tokens, pos + 1)
+                    if (next_pos <= size(tokens) .and. &
+                            to_lower(trim(tokens(next_pos)%text)) == "type") then
+                        stmt_end = include_derived_type_name(tokens, next_pos)
+                        unaccounted = .false.
+                        return
+                    end if
+                end if
+            end if
+            pos = pos + 1
+        end do
+        stmt_end = size(tokens)
+    end function locate_derived_type_statement_end
+
+    integer function include_derived_type_name(tokens, end_pos) result(last_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: end_pos
+        integer :: pos
+
+        last_pos = end_pos
+        pos = next_significant_type_token(tokens, end_pos + 1)
+        if (pos <= size(tokens) .and. tokens(pos)%kind == TK_IDENTIFIER) then
+            last_pos = pos
+        end if
+    end function include_derived_type_name
+
+    integer function next_significant_type_token(tokens, start_pos) result(pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+
+        pos = max(1, start_pos)
+        do while (pos <= size(tokens))
+            if (tokens(pos)%kind /= TK_WHITESPACE .and. &
+                    tokens(pos)%kind /= TK_COMMENT) return
+            pos = pos + 1
+        end do
+    end function next_significant_type_token
 
     subroutine copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
             stmt_tokens)

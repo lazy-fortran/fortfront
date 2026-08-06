@@ -64,6 +64,9 @@ f90/blockdata_8.f90
 f90/misplaced_implicit_character.f90
 f90/misplaced_statement.f90
 f90/pdt_33.f90
+f90/reject_scope_procedure_b2.f90
+f90/reject_call_function_dummy_type.f90
+f90/reject_scope_type_visibility_nested.f90
 f90/pr61669.f90
 f90/pr68054.f90
 f90/pr68319.f90
