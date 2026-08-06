@@ -30,6 +30,15 @@ contains
         end select
     end function is_block_construct_keyword
 
+    logical function keyword_never_takes_parenthesis(tok) result(never)
+        !! `block` and `do` are the construct keywords whose own syntax never
+        !! has a parenthesis next, so one there means a subscripted variable.
+        type(token_t), intent(in) :: tok
+
+        never = trim(to_lower(tok%text)) == "block" .or. &
+            trim(to_lower(tok%text)) == "do"
+    end function keyword_never_takes_parenthesis
+
     ! Retained name for the historical caller: a statement starts a block
     ! construct when its first token is one of the construct keywords.
     logical function is_if_statement_start(first_token) result(is_if_start)
@@ -56,11 +65,19 @@ contains
             ! keyword never has an assignment operator next.
             ! A component reference counts too: `block%kind = 0` is an
             ! assignment to a variable named `block`.
+            ! A subscript counts as well for the two keywords that never take
+            ! a parenthesis of their own: `block(:, 1) = x` assigns to an array
+            ! named `block`, while `if (...)` and `select (...)` legitimately
+            ! open with one.
             candidate = next_significant(all_tokens, stmt_start + 1)
             if (candidate <= size(all_tokens)) then
                 if (all_tokens(candidate)%kind == TK_OPERATOR) then
                     if (trim(all_tokens(candidate)%text) == "=" .or. &
+                        trim(all_tokens(candidate)%text) == "=>" .or. &
                         trim(all_tokens(candidate)%text) == "%") return
+                    if (trim(all_tokens(candidate)%text) == "(" .and. &
+                        keyword_never_takes_parenthesis( &
+                        all_tokens(stmt_start))) return
                 end if
             end if
             kw_pos = stmt_start

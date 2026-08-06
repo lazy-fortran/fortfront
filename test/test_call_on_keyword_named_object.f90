@@ -97,10 +97,34 @@ contains
         call require(index(code, 'pure') > 0, 'pure is assignable')
         call assign_inside_loop('external', result, code)
         call require(index(code, 'external') > 0, 'external is assignable')
+        call assign_construct_array(result, code)
+        call require(index(code, 'block') > 0, &
+            'a subscripted construct-keyword array is assignable')
         call assign_element(result, code)
         call require(index(code, 'precision') > 0, &
             'an element of a keyword-named array is assignable')
     end subroutine check_assignment_to_keyword_named_variable
+
+    subroutine assign_construct_array(result, code)
+        !! `block(:, 1) = column` inside a procedure body. The statement-span
+        !! scanner used to take this for a BLOCK construct and hunt for an
+        !! `end block` that is not there, swallowing the rest of the procedure.
+        type(compiler_frontend_result_t), intent(out) :: result
+        character(:), allocatable, intent(out) :: code
+        character(:), allocatable :: source
+
+        source = 'program p'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '    subroutine s()'//new_line('a')// &
+            '        real :: block(4, 2), column(4)'//new_line('a')// &
+            '        column = 1.0'//new_line('a')// &
+            '        block(:, 1) = column'//new_line('a')// &
+            '        block(1, 2) = 2.0'//new_line('a')// &
+            '    end subroutine s'//new_line('a')// &
+            'end program p'
+        call compile_ok(source, result, 'subscripted block assignment')
+        call emit_fortran(result%arena, result%root_index, code)
+    end subroutine assign_construct_array
 
     subroutine assign_element(result, code)
         !! The designator may be indexed: `precision(i, j) = x`.

@@ -283,23 +283,39 @@ contains
     logical function keyword_is_assigned_to(tokens) result(assigned)
         !! Whether the leading keyword is the target of an assignment.
         !!
-        !! `block = registry%blocks(i)` and `block%kind = 0` both name a
-        !! variable. Routing either into the construct parser sends it looking
-        !! for an `end block` that is not there.
+        !! `block = registry%blocks(i)`, `block%kind = 0` and
+        !! `block(:, 1) = column` all name a variable. Routing any of them into
+        !! the construct parser sends it looking for an `end block` that is not
+        !! there. A subscript is skipped as a balanced group before the
+        !! assignment operator is looked for.
         type(token_t), intent(in) :: tokens(:)
-        integer :: idx
+        integer :: idx, depth
 
         assigned = .false.
+        depth = 0
         do idx = 2, size(tokens)
             select case (tokens(idx)%kind)
             case (TK_WHITESPACE, TK_COMMENT)
                 cycle
             case default
-                if (tokens(idx)%kind == TK_OPERATOR) then
-                    assigned = trim(tokens(idx)%text) == "=" .or. &
-                               trim(tokens(idx)%text) == "%"
+                if (tokens(idx)%kind /= TK_OPERATOR) then
+                    if (depth == 0) return
+                    cycle
                 end if
-                return
+                select case (trim(tokens(idx)%text))
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth == 0) return
+                    depth = depth - 1
+                case ("=", "=>", "%")
+                    if (depth == 0) then
+                        assigned = .true.
+                        return
+                    end if
+                case default
+                    if (depth == 0) return
+                end select
             end select
         end do
     end function keyword_is_assigned_to
