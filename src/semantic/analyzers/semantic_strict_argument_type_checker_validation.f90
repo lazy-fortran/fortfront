@@ -183,7 +183,7 @@ contains
     logical function declaration_is_in_procedure_body(arena, decl_index) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: decl_index
-        integer :: i, j
+        integer :: i, j, current, steps
 
         found = .false.
         do i = 1, arena%size
@@ -205,6 +205,27 @@ contains
                         return
                     end if
                 end do
+            class default
+                cycle
+            end select
+        end do
+
+        ! Body-index lists are reconstructed by several parser paths.  The
+        ! parent links are the authoritative ownership relation and remain
+        ! available when a procedure body was copied or reassembled.
+        current = decl_index
+        do steps = 1, arena%size
+            if (current <= 0 .or. current > arena%size) return
+            current = arena%entries(current)%parent_index
+            if (current <= 0 .or. current > arena%size) return
+            if (.not. arena%has_node_at(current)) return
+            select type (parent => arena%entries(current)%node)
+                type is (function_def_node)
+                found = .true.
+                return
+                type is (subroutine_def_node)
+                found = .true.
+                return
             class default
                 cycle
             end select
