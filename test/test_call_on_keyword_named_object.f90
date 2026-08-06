@@ -20,6 +20,7 @@ program test_call_on_keyword_named_object
     call check_call_then_loop('data')
     call check_call_then_loop('file')
     call check_contained_procedure_survives()
+    call check_backslash_literal()
     call check_keyword_named_entity_in_declaration()
     call check_assignment_to_keyword_named_variable()
 
@@ -66,6 +67,35 @@ contains
         call require(index(code, 'direct_value') > 0, &
             'the contained procedure survives the call')
     end subroutine check_contained_procedure_survives
+
+    subroutine check_backslash_literal()
+        !! A backslash is an ordinary character in a Fortran literal. Treating
+        !! it as an escape swallowed the closing quote of '\\' and ran the
+        !! literal on into the next one, which desynchronized the whole
+        !! enclosing construct.
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: source, code
+
+        source = 'module m'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '    subroutine w(u, text)'//new_line('a')// &
+            '        integer :: u, i'//new_line('a')// &
+            '        character(len=*) :: text'//new_line('a')// &
+            '        do i = 1, 2'//new_line('a')// &
+            '            select case (text(i:i))'//new_line('a')// &
+            '            case ('''//achar(92)//''')'//new_line('a')// &
+            '                write (u, ''(a)'') ''backslash'''//new_line('a')// &
+            '            case default'//new_line('a')// &
+            '                write (u, ''(a)'') ''other'''//new_line('a')// &
+            '            end select'//new_line('a')// &
+            '        end do'//new_line('a')// &
+            '    end subroutine w'//new_line('a')// &
+            'end module m'
+        call compile_ok(source, result, 'backslash character literal')
+        call emit_fortran(result%arena, result%root_index, code)
+        call require(index(code, 'other') > 0, &
+            'the case arms after a backslash literal survive')
+    end subroutine check_backslash_literal
 
     subroutine check_keyword_named_entity_in_declaration()
         !! `real :: error, work(n)` declares two entities. Treating the
