@@ -551,7 +551,7 @@ contains
 
         basename = trim(filename)
         slash_pos = max(index(basename, '/', back=.true.), &
-            index(basename, '\', back=.true.))
+            index(basename, achar(92), back=.true.))
         if (slash_pos > 0) basename = basename(slash_pos + 1:)
 
         dot_pos = index(basename, '.', back=.true.)

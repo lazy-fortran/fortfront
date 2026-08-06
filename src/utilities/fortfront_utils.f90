@@ -529,7 +529,7 @@ contains
                 pos = pos + 1
                 buffer(pos:pos) = '"'
                 pos = pos + 1
-            case ('\\')
+            case (achar(92))
                 buffer(pos:pos) = backslash
                 pos = pos + 1
                 buffer(pos:pos) = backslash

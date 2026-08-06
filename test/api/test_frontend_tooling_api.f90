@@ -41,6 +41,7 @@ contains
             '  implicit none' // new_line('a') // &
             '  integer :: x' // new_line('a') // &
             '  x = 3' // new_line('a') // &
+            '  print *, "a'//achar(92)//'b"' // new_line('a') // &
             'end program sample'
 
         test_parse_string = .true.
@@ -82,6 +83,11 @@ contains
         print *, '  INFO: arena nodes     =', arena%size
         call ast_to_json(arena, root_index, json_output)
         print *, '  INFO: JSON snapshot   =', trim(json_output)
+        if (index(json_output, 'a'//achar(92)//achar(92)//'b') == 0) then
+            print *, '  FAIL: JSON did not escape the backslash'
+            test_parse_string = .false.
+            return
+        end if
 
         if (clock_rate > 0) then
             elapsed_seconds = real(end_clock - start_clock, dp) / &

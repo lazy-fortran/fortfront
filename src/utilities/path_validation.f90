@@ -18,6 +18,7 @@ module path_validation
     integer, parameter :: PATH_INVALID_ABSOLUTE = 2
     integer, parameter :: PATH_INVALID_CHARACTERS = 3
     integer, parameter :: PATH_INVALID_EXTENSION = 4
+    character(len=1), parameter :: WINDOWS_SEPARATOR = achar(92)
 
     ! Path validation result type
     type :: path_validation_result_t
@@ -48,7 +49,8 @@ contains
         ! Check for directory traversal sequences
         if (contains_traversal_sequences(filepath)) then
             result%code = PATH_INVALID_TRAVERSAL
-            result%message = "Path contains directory traversal sequences (../ or ..\)"
+            result%message = "Path contains directory traversal sequences (../ or .."// &
+                WINDOWS_SEPARATOR//")"
             return
         end if
 
@@ -137,7 +139,7 @@ contains
         end if
 
         ! Check for ..\ (Windows-style)
-        if (index(path, '..\') > 0) then
+        if (index(path, '..'//WINDOWS_SEPARATOR) > 0) then
             has_traversal = .true.
             return
         end if
@@ -180,7 +182,8 @@ contains
 
         ! Windows absolute path (C:\ or similar)
         if (len(path) >= 3) then
-            if (path(2:2) == ':' .and. (path(3:3) == '\' .or. path(3:3) == '/')) then
+            if (path(2:2) == ':' .and. &
+                (path(3:3) == WINDOWS_SEPARATOR .or. path(3:3) == '/')) then
                 ! Check if first character is a letter
                 if ((path(1:1) >= 'A' .and. path(1:1) <= 'Z') .or. &
                     (path(1:1) >= 'a' .and. path(1:1) <= 'z')) then
@@ -192,7 +195,8 @@ contains
 
         ! Windows UNC path (\\server\share)
         if (len(path) >= 2) then
-            if (path(1:2) == '\\' .or. path(1:2) == '//') then
+            if (path(1:2) == WINDOWS_SEPARATOR//WINDOWS_SEPARATOR .or. &
+                path(1:2) == '//') then
                 is_absolute = .true.
                 return
             end if
@@ -253,13 +257,15 @@ contains
         is_win = .false.
         n = len(path)
         if (n >= 2) then
-            if (path(1:2) == '\\' .or. path(1:2) == '//') then
+            if (path(1:2) == WINDOWS_SEPARATOR//WINDOWS_SEPARATOR .or. &
+                path(1:2) == '//') then
                 is_win = .true.
                 return
             end if
         end if
         if (n >= 3) then
-            if (path(2:2) == ':' .and. (path(3:3) == '\\' .or. path(3:3) == '/')) then
+            if (path(2:2) == ':' .and. &
+                (path(3:3) == WINDOWS_SEPARATOR .or. path(3:3) == '/')) then
                 if ((path(1:1) >= 'A' .and. path(1:1) <= 'Z') .or. &
                     (path(1:1) >= 'a' .and. path(1:1) <= 'z')) then
                     is_win = .true.
@@ -268,7 +274,7 @@ contains
             end if
         end if
         ! If the path contains backslashes anywhere, treat it as Windows-like
-        if (index(path, '\\') > 0) then
+        if (index(path, WINDOWS_SEPARATOR) > 0) then
             is_win = .true.
             return
         end if
@@ -337,10 +343,14 @@ contains
         end if
 
         ! Check for Windows system directories
-        if (starts_with(normalized_path, 'c:\windows\') .or. &
-            starts_with(normalized_path, 'c:\program files\') .or. &
-            starts_with(normalized_path, 'c:\program files (x86)\') .or. &
-            starts_with(normalized_path, 'c:\system32\')) then
+        if (starts_with(normalized_path, &
+            'c:'//WINDOWS_SEPARATOR//'windows'//WINDOWS_SEPARATOR) .or. &
+            starts_with(normalized_path, &
+            'c:'//WINDOWS_SEPARATOR//'program files'//WINDOWS_SEPARATOR) .or. &
+            starts_with(normalized_path, &
+            'c:'//WINDOWS_SEPARATOR//'program files (x86)'//WINDOWS_SEPARATOR) .or. &
+            starts_with(normalized_path, &
+            'c:'//WINDOWS_SEPARATOR//'system32'//WINDOWS_SEPARATOR)) then
             is_system = .true.
             return
         end if
