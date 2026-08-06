@@ -5,6 +5,7 @@ module parser_expression_arrays_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
         identifier_node
+    use ast_nodes_bounds, only: range_expression_node
     use ast_factory, only: push_array_literal, push_do_loop, &
         push_call_or_subscript_with_slice_detection
     implicit none
@@ -868,6 +869,8 @@ contains
         integer, allocatable :: arg_indices(:)
         character(len=:), allocatable :: call_name
         integer :: base_expr_for_call
+        integer :: i
+        logical :: has_range
 
         expr_index = base_expr
         if (.not. associated(helpers%parse_range)) return
@@ -887,11 +890,22 @@ contains
         ! element.  Component access was the original special case, but a
         ! call/subscript (or any future scalar designator) is equally valid
         ! as a substring base.
-        base_expr_for_call = 0
-        if (base_expr > 0 .and. base_expr <= arena%size) then
-            if (allocated(arena%entries(base_expr)%node)) then
-                base_expr_for_call = base_expr
+        has_range = .false.
+        do i = 1, size(arg_indices)
+            if (arg_indices(i) > 0 .and. arg_indices(i) <= arena%size) then
+                if (allocated(arena%entries(arg_indices(i))%node)) then
+                    select type (node => arena%entries(arg_indices(i))%node)
+                        type is (range_expression_node)
+                        has_range = .true.
+                        exit
+                    end select
+                end if
             end if
+        end do
+
+        base_expr_for_call = 0
+        if (has_range .and. base_expr > 0 .and. base_expr <= arena%size) then
+            if (allocated(arena%entries(base_expr)%node)) base_expr_for_call = base_expr
         end if
 
         expr_index = push_call_or_subscript_with_slice_detection( &
