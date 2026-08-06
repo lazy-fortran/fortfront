@@ -5,10 +5,10 @@ diagnostics for the ffc pipeline. It must remain backend-neutral: when ffc
 needs a missing fact, fix or specify the public query here rather than exposing
 private arena layout or adding an ffc text-name workaround.
 
-## Current handoff (2026-08-03)
+## Current handoff (2026-08-06)
 
-- The implementation baseline is `5ff07184`; the roadmap commits are pushed
-  on current `main`.
+- The implementation baseline is the current tip of `main`; the older
+  `5ff07184` snapshot recorded here has been superseded.
 - The parser and semantic changes used by the current ffc tranche are on
   `main`; focused builds pass at the recorded baseline, while the full
   downstream ffc suite still has unrelated known failures.
@@ -53,7 +53,7 @@ oracles pass with GNU. The `nvfortran` cold executable/link gate remains open:
 module-procedure symbols from the semantic analyzer are unresolved at link
 time, and the downstream FortAD gate still ICEs in `fortad_lower.f90`.
 
-## Outstanding work (2026-08-05)
+## Outstanding work (2026-08-06)
 
 ### Nested-construct dispatch: what was fixed and why it mattered
 
@@ -81,47 +81,18 @@ Fixed on `main`:
   being assigned to. An assignment's `=` always precedes any top-level
   comma, so the scan now stops there.
 
-Result: fortfront sources that fail to parse dropped from about 100 to 15.
-`fpm test` stayed at 25 failures with an identical failing set before and
-after, verified by diffing the sorted lists rather than comparing counts.
+Result at the time: fortfront sources that failed to parse dropped from about
+100 to 15. A 2026-08-06 re-audit found that all 15 now parse and resolve on
+current `main`; none remains a cold-build blocker.
 
-### The 15 sources that still do not parse
+### Former own-source parse blockers: cleared
 
-These block `fo` from cold-building fortfront: a source `fo` cannot scan is
-dropped from the module DAG and never compiled, so the failure surfaces
-later as an undefined reference at link time rather than as a parse error.
-See the fo roadmap for that mechanism.
-
-Bare `end` or `end block` reported as unrecognized, which means a construct
-slice still ends before its terminator on some path:
-
-- `src/parser/expressions/parser_array_constructs.f90` line 426
-- `src/parser/procedures/parser_result_types.f90` line 253
-- `src/parser/statements/parser_statement_data_module.f90` line 605
-- `src/parser/statements/parser_statement_utilities.f90` line 564
-- `src/semantic/analyzers/semantic_binary_operations.f90` line 145
-- `src/semantic/analyzers/semantic_procedure_signature.f90` line 164
-- `src/semantic/type_hierarchy.f90` line 205
-- `src/standardizers/standardizer_declarations_inference.f90` line 180
-- `src/standardizers/standardizer_parameter.f90` line 128
-- `src/utilities/fortfront_utils.f90` line 454
-
-Other shapes, one each:
-
-- `app/fortfront.f90` line 377: `flush (output_unit)` is not recognized.
-- `src/frontend/frontend_compiler_queries.f90` line 565 and
-  `src/frontend/frontend_compiler_type_queries.f90` line 1008: a statement
-  beginning `operator` is not recognized.
-- `src/semantic/analyzers/semantic_external_declaration_names.f90` line 138:
-  an identifier beginning `block_` is mistaken for the `block` keyword.
-- `src/utilities/path_validation.f90` line 296: reported as an IF construct
-  missing its `then`.
-
-Important caveat for whoever picks this up. Minimal reproductions of the
-obvious shapes all pass: a `block` holding a `do` inside a `do`, and an
-`if` inside a `select type` arm both parse. So these are not one shared
-cause and cannot be closed by another fallback registration. Each needs
-per-file bisection down to the construct that actually fails.
+The 15 files listed in the previous roadmap snapshot were each checked with
+the compiler-facing frontend probe. Every file returned `parse_ok` and
+`semantic_ok`, including `src/utilities/path_validation.f90` and both
+compiler-query modules. `fo` now discovers and builds all 381 targets on the
+GNU lane. Keep a cold source-discovery run in the delivery gate so a future
+silent drop cannot regress into a late undefined reference.
 
 ### Lexer: a comment inside a continuation line
 
@@ -132,7 +103,7 @@ newline in expression". Hit in fortfront's own
 continued `select case` list made the file unparseable; worked around by
 moving the comments above the statement. The lexer gap itself is unfixed.
 
-### Lexer: a character literal continued across lines
+### Lexer: a character literal continued across lines: fixed
 
 A format string split across a continuation is mis-lexed as code:
 
@@ -141,41 +112,36 @@ write (unit, "(a,',',i0,',',es24.16e3,',', &
     es24.16e3)") "ring", a, x, y
 ```
 
-The continued part comes back as the tokens `es24 . 16e3`, and the write
-parser then reports "Expected ')' after write unit and format". Confirmed
-present on `dfc442d4`, so it predates the nested-construct work above.
-Reproduces on fortfem's `example/iga_polar_feec/iga_polar_feec.f90`
-lines 328 and 344.
+The lexer now keeps the character context across the newline, removes the
+continuation syntax without removing value blanks, and accepts the common
+GNU extension that omits the leading ampersand. A lexer oracle checks the
+resulting character token, the issue-2254 example checks parse/emission, and
+fortfem's `example/iga_polar_feec/iga_polar_feec.f90` now returns `parse_ok`
+and `semantic_ok` at the former failures on lines 328 and 344.
 
-### 25 failing tests on `main`
+### Test status on current `main`
 
-Pre-existing and unrelated to the parser work above; the set is identical
-before and after it. Grouped by theme:
+The former 25-test GNU failure list is cleared. The local GNU gate builds all
+381 targets and all 378 test programs; the suite contains 483 tests.
+`test_module_distribution` is still parallel-fragile because it invokes the
+repository Makefile and cleans shared artifacts; it passes alone, but can fail
+when scheduled beside the full suite. The final bare gate passed, but the test
+should be isolated or made artifact-private.
 
-- DATA statements: `test_issue_1405_data_statement`,
-  `test_issue_1746_data_repeat_counts`,
-  `test_issue_1899_data_multi_objects`, `test_issue_1899_data_scalars`,
-  `test_issue_2251_data_implied_do`,
-  `test_issue_2252_data_value_implied_do`,
-  `test_issue_2349_data_boz_literals`,
-  `test_issue_2349_data_trailing_commas`,
-  `test_issue_2596_data_statement_scalar_too_many_values`
-- BLOCK DATA program units: `test_issue_1578_block_data`,
-  `test_issue_1900_block_data_after_program`,
-  `test_issue_1900_block_data_labels`
-- Derived types and type-bound procedures: `test_derived_type_extends`,
-  `test_derived_type_extends_codegen`, `test_derived_type_parsing`,
-  `test_extends_with_attributes`, `test_type_bound_procedures_codegen`,
-  `test_type_contains_bindings`
-- Remaining: `test_all_examples`, `test_issue_1610_recursive_pointers`,
-  `test_issue_2281_header_only_declarations`,
-  `test_issue_517_multi_unit_parsing`,
-  `test_lfortran_traits_requirements_implements_parsing`,
-  `test_reject_bind_02_diagnostics`,
-  `test_variable_usage_block_construct`
+The Windows Actions lane still has six red tests:
 
-`test_variable_usage_block_construct` is worth checking first now that the
-BLOCK construct reaches a parser from nested bodies.
+- `test_compiler_facing_queries`
+- `test_reject_bind_02_diagnostics`
+- `test_reject_placement_01_diagnostics`
+- `test_reject_value_scope_01_diagnostics`
+- `test_all_examples_slow`
+- `test_elemental_validation`
+
+The recurring Windows-only symptom is a false diagnostic that a `VALUE`
+entity is not a dummy argument. The placement rejection also reports an
+impossible leading byte (`0xE0`), consistent with compiler-sensitive arena
+copy or lifetime corruption. These need a Windows runtime oracle; do not hide
+them with platform-specific expected output.
 
 ### Consumers to re-verify after any parser change
 

@@ -11,6 +11,7 @@ program test_frontend_lexer_edge_cases
     all_passed = .true.
 
     if (.not. test_continuation_and_positions()) all_passed = .false.
+    if (.not. test_continued_character_literals()) all_passed = .false.
     if (.not. test_kind_parameter_literals()) all_passed = .false.
     if (.not. test_complex_and_hollerith_literals()) all_passed = .false.
     if (.not. test_trivia_preservation()) all_passed = .false.
@@ -46,6 +47,25 @@ contains
             test_continuation_and_positions = .false.
         end if
     end function test_continuation_and_positions
+
+    logical function test_continued_character_literals()
+        type(token_t), allocatable :: tokens(:)
+
+        test_continued_character_literals = .true.
+
+        call tokenize_core("'abc   &"//new_line('a')//"    &def'", tokens)
+        if (.not. expect_token(tokens, 1, TK_STRING, "'abc   def'")) then
+            test_continued_character_literals = .false.
+        end if
+
+        ! GNU Fortran accepts the widely used omitted leading ampersand as an
+        ! extension. FortFront accepts it too so valid downstream corpora are
+        ! not dropped from builds.
+        call tokenize_core("'abc &"//new_line('a')//"    def'", tokens)
+        if (.not. expect_token(tokens, 1, TK_STRING, "'abc def'")) then
+            test_continued_character_literals = .false.
+        end if
+    end function test_continued_character_literals
 
     logical function test_kind_parameter_literals()
         type(token_t), allocatable :: tokens(:)
