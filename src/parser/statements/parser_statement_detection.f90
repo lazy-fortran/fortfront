@@ -606,6 +606,10 @@ contains
         if (to_lower(trim(tokens(start_index)%text)) /= "block") return
         ! `block data` is a program unit, not an executable construct.
         if (next_keyword_is(tokens, start_index, "data")) return
+        ! `block(:, 1) = x` and `block = x` assign to a variable of that name.
+        ! Extending the slice to a matching `end block` that does not exist
+        ! swallowed the rest of the procedure.
+        if (next_token_starts_designator(tokens, start_index)) return
 
         depth = 0
         idx = start_index
@@ -661,6 +665,34 @@ contains
             end if
         end if
     end function include_block_construct_name
+
+    logical function next_token_starts_designator(tokens, idx) result(designator)
+        !! Whether the next token, skipping trivia, opens a subscript list or
+        !! is an assignment operator - the two ways a keyword-named variable
+        !! continues a statement.
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+
+        integer :: j
+        character(len=:), allocatable :: text
+
+        designator = .false.
+        j = idx + 1
+        do while (j <= size(tokens))
+            select case (tokens(j)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                j = j + 1
+                cycle
+            case (TK_OPERATOR)
+                text = trim(tokens(j)%text)
+                designator = text == "(" .or. text == "=" .or. text == "=>" &
+                    .or. text == "%"
+                return
+            case default
+                return
+            end select
+        end do
+    end function next_token_starts_designator
 
     logical function next_keyword_is(tokens, idx, word) result(matches)
         !! Whether the next token, skipping trivia, is the given keyword.
