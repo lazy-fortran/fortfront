@@ -30,12 +30,18 @@ contains
         case ("if")
             as_identifier = should_parse_if_as_identifier(parser)
         case default
-            if (keyword_supports_assignment_disambiguation(lowered)) then
-                if (assignment_operator_immediately_follows(parser)) then
-                    as_identifier = .true.
-                else
-                    as_identifier = statement_contains_assignment(parser)
-                end if
+            ! A keyword followed immediately by `=` or `=>` is a variable of
+            ! that name, whatever the keyword is: `file = path`, `pure = 1`
+            ! and `external = flag` are assignments, because Fortran reserves
+            ! no words. This test needs no per-keyword permission, and
+            ! restricting it to a fixed list rejected every other keyword name.
+            if (assignment_operator_immediately_follows(parser)) then
+                as_identifier = .true.
+            else if (keyword_supports_assignment_disambiguation(lowered)) then
+                ! The looser test - an `=` anywhere in the statement - stays
+                ! opt-in: `where (a > 0) b = 1` contains one and is still a
+                ! WHERE statement.
+                as_identifier = statement_contains_assignment(parser)
             end if
         end select
     end function keyword_should_parse_as_identifier

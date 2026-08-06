@@ -20,6 +20,8 @@ program test_call_on_keyword_named_object
     call check_call_then_loop('data')
     call check_call_then_loop('file')
     call check_contained_procedure_survives()
+    call check_keyword_named_entity_in_declaration()
+    call check_assignment_to_keyword_named_variable()
 
     print *, 'PASS: calls on keyword-named objects keep the program unit'
 
@@ -64,6 +66,54 @@ contains
         call require(index(code, 'direct_value') > 0, &
             'the contained procedure survives the call')
     end subroutine check_contained_procedure_survives
+
+    subroutine check_keyword_named_entity_in_declaration()
+        !! `real :: error, work(n)` declares two entities. Treating the
+        !! keyword-named first one as the end of the statement left the rest of
+        !! the entity list unconsumed.
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: source, code
+
+        source = 'subroutine s(n)'//new_line('a')// &
+            '    integer, intent(in) :: n'//new_line('a')// &
+            '    real :: error, work(n)'//new_line('a')// &
+            '    error = 0.0'//new_line('a')// &
+            '    work = 1.0'//new_line('a')// &
+            'end subroutine s'
+        call compile_ok(source, result, 'keyword-named declaration entity')
+        call emit_fortran(result%arena, result%root_index, code)
+        call require(index(code, 'work') > 0, &
+            'the entity after a keyword-named one survives')
+    end subroutine check_keyword_named_entity_in_declaration
+
+    subroutine check_assignment_to_keyword_named_variable()
+        !! Any keyword followed by `=` is a variable of that name.
+        type(compiler_frontend_result_t) :: result
+        character(:), allocatable :: source, code
+
+        call assign_inside_loop('file', result, code)
+        call require(index(code, 'file') > 0, 'file is assignable')
+        call assign_inside_loop('pure', result, code)
+        call require(index(code, 'pure') > 0, 'pure is assignable')
+        call assign_inside_loop('external', result, code)
+        call require(index(code, 'external') > 0, 'external is assignable')
+    end subroutine check_assignment_to_keyword_named_variable
+
+    subroutine assign_inside_loop(name, result, code)
+        character(len=*), intent(in) :: name
+        type(compiler_frontend_result_t), intent(out) :: result
+        character(:), allocatable, intent(out) :: code
+        character(:), allocatable :: source
+
+        source = 'program p'//new_line('a')// &
+            '    integer :: i, '//name//new_line('a')// &
+            '    do i = 1, 2'//new_line('a')// &
+            '        '//name//' = i'//new_line('a')// &
+            '    end do'//new_line('a')// &
+            'end program p'
+        call compile_ok(source, result, 'assignment to '//name)
+        call emit_fortran(result%arena, result%root_index, code)
+    end subroutine assign_inside_loop
 
     subroutine compile_ok(source, result, label)
         character(len=*), intent(in) :: source, label
