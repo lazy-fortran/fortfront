@@ -334,7 +334,7 @@ ACCEPTED	examples/f90/issue_2445_implicit_main_with_type_contains.f90
 ACCEPTED	examples/f90/issue_2447_io_format.f90
 ACCEPTED	examples/f90/issue_2449_openacc_clauses.f90
 ACCEPTED	examples/f90/issue_2449_openacc_directives.f90
-ACCEPTED	examples/f90/issue_2449_openacc_fixed.f
+REJECTED	examples/f90/issue_2449_openacc_fixed.f
 ACCEPTED	examples/f90/issue_2450_procedure_interfaces.f90
 ACCEPTED	examples/f90/issue_2452_roundtrip_timeout.f90
 ACCEPTED	examples/f90/issue_2453_character_array_constructor.f90
@@ -366,11 +366,11 @@ ACCEPTED	examples/f90/issue_2520_doubled_quotes_format_string.f90
 ACCEPTED	examples/f90/issue_2559_select_type_case_variations.f90
 REJECTED	examples/f90/issue_2562_where_invalid_if.f90
 ACCEPTED	examples/f90/issue_256_assignment_in_condition.f90
-ACCEPTED	examples/f90/issue_256_fix_suggestion.f90
-ACCEPTED	examples/f90/issue_256_garbage_input.f90
+REJECTED	examples/f90/issue_256_fix_suggestion.f90
+REJECTED	examples/f90/issue_256_garbage_input.f90
 REJECTED	examples/f90/issue_256_incomplete_expression.f90
-ACCEPTED	examples/f90/issue_256_invalid_syntax.f90
-ACCEPTED	examples/f90/issue_256_invalid_syntax_missing_then.f90
+REJECTED	examples/f90/issue_256_invalid_syntax.f90
+REJECTED	examples/f90/issue_256_invalid_syntax_missing_then.f90
 ACCEPTED	examples/f90/issue_256_unsupported_parameter.f90
 ACCEPTED	examples/f90/issue_2591_unsigned_declarations.f90
 REJECTED	examples/f90/issue_2591_unsigned_mixing_error.f90
@@ -438,7 +438,7 @@ ACCEPTED	examples/f90/library_usage_ast_node_position.f90
 ACCEPTED	examples/f90/memory_corruption.f90
 ACCEPTED	examples/f90/module_implicit_none_insertion.f90
 ACCEPTED	examples/f90/module_interface_block.f90
-ACCEPTED	examples/f90/module_interface_block_invalid.f90
+REJECTED	examples/f90/module_interface_block_invalid.f90
 ACCEPTED	examples/f90/module_parsing_basic.f90
 ACCEPTED	examples/f90/nested_array_literal_rectangular.f90
 ACCEPTED	examples/f90/nested_array_literal_square.f90
@@ -569,7 +569,7 @@ ACCEPTED	examples/lf/docs_variable_length_strings.lf
 ACCEPTED	examples/lf/do_loop.lf
 ACCEPTED	examples/lf/dp_predefined_symbol.lf
 REJECTED	examples/lf/error_complete_garbage.lf
-ACCEPTED	examples/lf/error_missing_then.lf
+REJECTED	examples/lf/error_missing_then.lf
 ACCEPTED	examples/lf/explicit_program_array_inference.lf
 ACCEPTED	examples/lf/explicit_program_mixed_inference.lf
 ACCEPTED	examples/lf/explicit_program_scalar_inference.lf
