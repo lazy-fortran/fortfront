@@ -50,6 +50,16 @@ contains
             write (error_unit, '(A)') 'Output missing print statement'
             error stop 1
         end if
+
+        if (index(output, 'write(*,') == 0 .and. &
+            index(output, 'write (*,') == 0) then
+            write (error_unit, '(A)') 'Output missing continued format statement'
+            error stop 1
+        end if
+        if (index(output, 'es12.4') == 0) then
+            write (error_unit, '(A)') 'Output missing continued format payload'
+            error stop 1
+        end if
     end subroutine exercise_free_form_continuation
 
 end program test_issue_2254_free_form_continuation

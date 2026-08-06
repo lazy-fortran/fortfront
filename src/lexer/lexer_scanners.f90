@@ -191,14 +191,18 @@ contains
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
-        integer :: start_pos, start_col
+        integer :: start_pos, start_col, continuation_pos, segment_start
         character :: quote_char, c
-        logical :: found_closing_quote
+        character(len=:), allocatable :: token_text
+        logical :: found_closing_quote, had_continuation
 
         start_pos = pos
         start_col = col_num
         quote_char = source(pos:pos)
         found_closing_quote = .false.
+        had_continuation = .false.
+        segment_start = start_pos
+        token_text = ''
 
         ! Skip opening quote
         pos = pos + 1
@@ -210,8 +214,21 @@ contains
         do while (pos <= len(source))
             c = source(pos:pos)
 
-            ! Stop at newlines to prevent multiline string literals
+            ! A character context may cross a free-form continuation. The
+            ! indentation and optional leading ampersand on the next line are
+            ! not part of the value.
             if (c == char(10) .or. c == char(13)) then
+                continuation_pos = string_continuation_ampersand(source, pos)
+                if (continuation_pos > 0) then
+                    had_continuation = .true.
+                    if (continuation_pos > segment_start) then
+                        token_text = token_text// &
+                            source(segment_start:continuation_pos - 1)
+                    end if
+                    call consume_string_continuation(source, pos, line_num, col_num)
+                    segment_start = pos
+                    cycle
+                end if
                 exit
             end if
 
@@ -249,18 +266,80 @@ contains
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_STRING
+            if (had_continuation) then
+                if (segment_start <= pos - 1) then
+                    token_text = token_text//source(segment_start:pos - 1)
+                end if
+            else
+                token_text = source(start_pos:pos - 1)
+            end if
             if (found_closing_quote) then
                 ! Complete string token
-                tokens(token_count)%text = source(start_pos:pos - 1)
+                tokens(token_count)%text = token_text
             else
                 ! Unclosed string - add a closing quote to keep output valid
                 ! Extract content until current position and append the terminator
-                tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
+                tokens(token_count)%text = token_text//quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
     end subroutine scan_string
+
+    ! A newline inside a character context continues the token only when the
+    ! preceding line ends in an ampersand after optional trailing blanks.
+    integer function string_continuation_ampersand(source, newline_pos) &
+            result(amp_pos)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: newline_pos
+        integer :: i
+
+        amp_pos = 0
+        i = newline_pos - 1
+        do while (i >= 1)
+            if (source(i:i) /= ' ' .and. source(i:i) /= char(9)) exit
+            i = i - 1
+        end do
+        if (i >= 1) then
+            if (source(i:i) == '&') amp_pos = i
+        end if
+    end function string_continuation_ampersand
+
+    ! Advance over the newline and over continuation-line indentation. A
+    ! leading ampersand is required by the standard but optional in common
+    ! compiler practice, so both forms resume the character context.
+    subroutine consume_string_continuation(source, pos, line_num, col_num)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num
+
+        if (source(pos:pos) == char(13)) then
+            if (pos < len(source)) then
+                if (source(pos + 1:pos + 1) == char(10)) then
+                    pos = pos + 2
+                else
+                    pos = pos + 1
+                end if
+            else
+                pos = pos + 1
+            end if
+        else
+            pos = pos + 1
+        end if
+        line_num = line_num + 1
+        col_num = 1
+
+        do while (pos <= len(source))
+            if (source(pos:pos) /= ' ' .and. source(pos:pos) /= char(9)) exit
+            pos = pos + 1
+            col_num = col_num + 1
+        end do
+        if (pos <= len(source)) then
+            if (source(pos:pos) == '&') then
+                pos = pos + 1
+                col_num = col_num + 1
+            end if
+        end if
+    end subroutine consume_string_continuation
 
     ! Safe string scanning with error handling
     subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, &
