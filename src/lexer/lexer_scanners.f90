@@ -193,12 +193,11 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: quote_char, c
-        logical :: escaped, found_closing_quote
+        logical :: found_closing_quote
 
         start_pos = pos
         start_col = col_num
         quote_char = source(pos:pos)
-        escaped = .false.
         found_closing_quote = .false.
 
         ! Skip opening quote
@@ -216,11 +215,11 @@ contains
                 exit
             end if
 
-            if (escaped) then
-                escaped = .false.
-            else if (c == '\') then
-                escaped = .true.
-            else if (c == quote_char) then
+            ! A backslash is an ordinary character in a Fortran literal: the
+            ! standard has no escape sequences, only the doubled quote below.
+            ! Treating it as an escape swallowed the closing quote of '\' and
+            ! ran the literal on to the next one.
+            if (c == quote_char) then
                 ! Check if this is a doubled quote (Fortran escape sequence)
                 if (pos + 1 <= len(source)) then
                     if (source(pos + 1:pos + 1) == quote_char) then
