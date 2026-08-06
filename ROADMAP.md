@@ -34,6 +34,13 @@ The canonical downstream plan and current corpus counts live in the
 [ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/ROADMAP.md).
 FortFront does not duplicate its parity dashboard.
 
+The nested character-array substring parser contract is now covered locally:
+`c(2)(1:3)` retains the complete `c(2)` designator as the `array_slice_node`
+base, including when the slice appears on the left-hand side, right-hand side,
+or in an actual argument. This is a downstream ffc requirement (ffc #669), not
+a source-spelling workaround: the parser must never orphan the range node or
+flatten the designator back to `c`.
+
 ## Required public architecture
 
 ffc consumes one immutable typed program snapshot through public FortFront
@@ -78,7 +85,9 @@ query in the same set of linked commits. Do not leave a permanent fallback.
 7. Fix the full-line-comment-inside-continuation lexer defect in
    [#2996](https://github.com/lazy-fortran/fortfront/issues/2996) with its
    parser reproduction and gfortran accepted neighbor.
-8. Run downstream ffc binding, rejection, module-consumer, and Lazy ABI gates
+8. Keep the nested character-array substring AST contract green for downstream
+   ffc #669 and run its read/write/overlap/actual-argument differential oracle.
+9. Run downstream ffc binding, rejection, module-consumer, and Lazy ABI gates
    against the exact FortFront revision before release.
 
 Parser, semantic, query, and portability work may proceed in isolated

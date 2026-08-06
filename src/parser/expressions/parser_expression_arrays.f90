@@ -3,7 +3,8 @@ module parser_expression_arrays_module
         TK_NEWLINE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: component_access_node, identifier_node
+    use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
+        identifier_node
     use ast_factory, only: push_array_literal, push_do_loop, &
         push_call_or_subscript_with_slice_detection
     implicit none
@@ -879,13 +880,17 @@ contains
         call extract_target_name(arena, expr_index, call_name)
         if (.not. allocated(call_name)) return
 
+        ! Preserve every existing designator when this postfix contains a
+        ! range.  In particular, `c(2)(1:3)` must keep `c(2)` as the slice
+        ! base instead of flattening back to the spelling `c`; otherwise the
+        ! range is orphaned and the frontend silently lowers the whole array
+        ! element.  Component access was the original special case, but a
+        ! call/subscript (or any future scalar designator) is equally valid
+        ! as a substring base.
         base_expr_for_call = 0
         if (base_expr > 0 .and. base_expr <= arena%size) then
             if (allocated(arena%entries(base_expr)%node)) then
-                select type (node => arena%entries(base_expr)%node)
-                    type is (component_access_node)
-                    base_expr_for_call = base_expr
-                end select
+                base_expr_for_call = base_expr
             end if
         end if
 
@@ -955,6 +960,10 @@ contains
         if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
+            type is (call_or_subscript_node)
+            if (allocated(node%name)) then
+                call_name = node%name
+            end if
             type is (component_access_node)
             if (allocated(node%component_name)) then
                 call_name = node%component_name
