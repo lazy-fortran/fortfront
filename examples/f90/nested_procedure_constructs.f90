@@ -1,7 +1,7 @@
 module nested_procedure_constructs
 contains
     subroutine check(value)
-        integer, intent(in) :: value
+        integer, intent(inout) :: value
         integer :: i
         type :: holder
             class(*), allocatable :: node

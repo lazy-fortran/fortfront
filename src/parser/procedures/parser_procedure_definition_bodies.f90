@@ -574,6 +574,13 @@ contains
         if (to_lower(trim(tokens(pos)%text)) /= "type") return
 
         pos = next_significant_type_token(tokens, pos + 1)
+        ! `type(name) :: object` is a declaration whose type specifier is
+        ! parenthesized.  Only a bare `type` header can start a derived-type
+        ! definition; do not let the declaration's later `::` extend its
+        ! statement span through a following `end type`.
+        if (pos <= size(tokens) .and. tokens(pos)%kind == TK_OPERATOR .and. &
+                trim(tokens(pos)%text) == "(") return
+
         depth = 0
         do while (pos <= size(tokens))
             token = tokens(pos)
