@@ -6,8 +6,9 @@ backend-neutral.
 
 ## Current truth
 
-The current `main` tip is `ac02b4d0` (component-access query facade). It has
-no completed remote check suite yet. The last checked ancestor is `e84ac97b` in
+The implementation baseline is `ac02b4d0` (component-access query facade); the
+current roadmap tip is `39b5bb24`. The implementation baseline has no completed
+remote check suite yet. The last checked ancestor is `e84ac97b` in
 [run 31110432510](https://github.com/lazy-fortran/fortfront/actions/runs/31110432510):
 Ubuntu passed, while Windows and the aggregate gate failed. The intervening
 main commits `c40ce77e` (continued character literals), `11da10a4` (portable
