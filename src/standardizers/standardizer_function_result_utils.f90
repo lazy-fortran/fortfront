@@ -580,7 +580,6 @@ contains
                 decl%is_multi_declaration = .false.
                 decl%var_name = ""
                 deallocate (decl%var_names)
-                arena%entries(decl_index)%node = decl
                 return
             end if
 
@@ -600,7 +599,6 @@ contains
                 decl%var_name = decl%var_names(1)
                 deallocate (decl%var_names)
             end if
-            arena%entries(decl_index)%node = decl
         end select
     end subroutine remove_result_name_from_declaration
 
@@ -652,7 +650,6 @@ contains
             decl%intent = ""
             decl%has_intent = .false.
             decl%is_optional = .false.
-            arena%entries(decl_index)%node = decl
         end select
     end subroutine remove_intent_from_declaration
     logical function is_character_length_decl(type_name) result(is_match)
