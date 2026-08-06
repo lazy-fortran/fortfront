@@ -1,7 +1,7 @@
 module semantic_parameter_analysis
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
         create_mono_type, create_type_var, &
-        create_poly_type, TVAR, TREAL, TDOUBLE, &
+        create_poly_type, empty_type_vars, TVAR, TREAL, TDOUBLE, &
         TINT, TCHAR
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use semantic_type_operations, only: get_common_type
@@ -518,7 +518,7 @@ contains
 
         do i = 1, size(param_types)
             if (len_trim(param_names(i)) == 0) cycle
-            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
+            scheme = create_poly_type(forall_vars=empty_type_vars(), mono=param_types(i))
             call scopes%define(trim(param_names(i)), scheme)
             call update_identifier_type_in_arena(arena, trim(param_names(i)), &
                 param_types(i))

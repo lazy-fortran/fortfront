@@ -44,6 +44,15 @@ frontend helper implementation therefore keeps each module in its own file;
 this is a build-order contract, not a compiler-specific workaround. A split
 of the former two-module helper source was verified by a cold `fo build`.
 
+The compiler lanes are distinct: GNU Fortran, NVIDIA `nvfortran`, Intel LLVM
+`ifx`, and LLVM Flang are supported targets; legacy Intel `ifort` is not. The
+current portability tranche removes several GNU-tolerated constructs and
+compiler-sensitive internal representations. FortFront's source units now
+compile with GNU and `nvfortran` 26.5, and its focused expression/control-flow
+oracles pass with GNU. The `nvfortran` cold executable/link gate remains open:
+module-procedure symbols from the semantic analyzer are unresolved at link
+time, and the downstream FortAD gate still ICEs in `fortad_lower.f90`.
+
 ## Outstanding work (2026-08-05)
 
 ### Nested-construct dispatch: what was fixed and why it mattered

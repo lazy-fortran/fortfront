@@ -727,8 +727,6 @@
                     end block
                 case ("parameter")
                     block
-                        use parser_parameter_statements_module, only: &
-                            parse_parameter_statement
                         type(token_t) :: ignored_token
                         logical :: success
                         ignored_token = parser_ref%consume()
@@ -737,8 +735,6 @@
                     stmt_index = 0
                 case ("allocatable")
                     block
-                        use parser_allocatable_statements_module, only: &
-                            parse_allocatable_statement
                         type(token_t) :: ignored_token
                         logical :: success
                         ignored_token = parser_ref%consume()

@@ -2,7 +2,7 @@ module semantic_literal_identifier
     ! Literal and identifier type inference
     use type_system_unified, only: type_var_t, mono_type_t, &
         poly_type_t, create_mono_type, create_type_var, &
-        create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+        create_poly_type, empty_type_vars, TVAR, TINT, TREAL, TCHAR, &
         TLOGICAL
     use scope_manager, only: scope_stack_t
     use error_handling, only: error_collection_t, result_t, &
@@ -74,8 +74,8 @@ contains
 
                 block
                     type(poly_type_t) :: new_scheme
-                    new_scheme = create_poly_type(forall_vars=[type_var_t &
-                        ::], mono=typ)
+                    new_scheme = create_poly_type(forall_vars=empty_type_vars(), &
+                        mono=typ)
                     call scopes%define(ident%name, new_scheme)
                 end block
             else

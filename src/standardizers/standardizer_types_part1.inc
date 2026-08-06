@@ -614,13 +614,12 @@ contains
             end if
 
             do i = expr_idx - 1, 1, -1
-                if (.not. allocated(arena%entries(i)%node)) cycle
+                if (.not. arena%has_node_at(i)) cycle
                 select type (assign_node => arena%entries(i)%node)
                 type is (assignment_node)
                     if (assign_node%target_index <= 0 .or. assign_node%target_index > &
                         arena%size) cycle
-                    if (.not. &
-                        allocated(arena%entries(assign_node%target_index)%node)) cycle
+                    if (.not. arena%has_node_at(assign_node%target_index)) cycle
                     select type (target => arena%entries(assign_node%target_index)%node)
                     type is (identifier_node)
                         if (.not. allocated(target%name)) cycle

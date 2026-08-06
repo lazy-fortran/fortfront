@@ -1,7 +1,7 @@
 module semantic_subroutine_analysis
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
         create_mono_type, create_type_var, &
-        create_poly_type, TVAR
+        create_poly_type, empty_type_vars, TVAR
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, literal_node, call_or_subscript_node
     use ast_nodes_procedure, only: subroutine_def_node, subroutine_call_node
@@ -295,7 +295,7 @@ contains
 
         do i = 1, size(param_types)
             if (len_trim(stored_names(i)) == 0) cycle
-            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
+            scheme = create_poly_type(forall_vars=empty_type_vars(), mono=param_types(i))
             call scopes%define(trim(stored_names(i)), scheme)
             call update_identifier_type_in_arena( &
                 arena, trim(stored_names(i)), param_types(i))

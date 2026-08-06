@@ -129,6 +129,14 @@
         pt%mono_synced = .true.
     end function create_poly_type
 
+    function empty_type_vars() result(vars)
+        !! Return a typed zero-length array for compilers that reject an
+        !! empty derived-type constructor as an actual argument.
+        type(type_var_t), allocatable :: vars(:)
+
+        allocate (vars(0))
+    end function empty_type_vars
+
     ! Recover the quantified type variables stored in a poly type. Returns a
     ! zero-length array when the scheme quantifies no variables.
     function get_poly_forall_vars(pt) result(vars)

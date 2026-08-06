@@ -48,12 +48,14 @@
                 call parse_case_value_list(parser, arena, case_token, &
                                            value_indices, values_ok)
                 if (.not. values_ok) then
-                    value_indices = [integer ::]
+                    deallocate (value_indices)
+                    allocate (value_indices(0))
                     ok = .false.
                     return
                 end if
             else
-                value_indices = [integer ::]
+                deallocate (value_indices)
+                allocate (value_indices(0))
                 ok = .false.
                 return
             end if
@@ -77,16 +79,15 @@
         end if
     end subroutine parse_case_arm
 
-    recursive function parse_select_case(parser, arena) result(select_index)
+    recursive integer function parse_select_case(parser, arena) result(select_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        integer :: select_index
 
         type(token_t) :: case_token
         integer :: expr_index, default_index
         integer, allocatable :: case_indices(:)
         integer :: case_count, line, column
-        character(len=:), allocatable :: keyword
+        character(len=64) :: keyword
         character(len=20), dimension(2) :: end_keywords
         type(statement_callbacks_t) :: callbacks
         logical :: arm_ok, header_ok
@@ -108,10 +109,11 @@
         ! instead of consuming statements after the construct. The "end select"
         ! form matches only end + select, not nested "end if"/"end do", which
         ! are consumed inside their own recursive statement parse.
-        end_keywords = [character(len=20) :: "case", "end select"]
+        end_keywords(1) = "case"
+        end_keywords(2) = "end select"
 
         callbacks = null_statement_callbacks()
-        callbacks%parse_select_case => parse_select_case
+        callbacks%parse_select_case => parse_select_case_callback
 
         do while (parser%current_token <= size(parser%tokens))
             case_token = parser%peek()

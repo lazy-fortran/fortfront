@@ -152,7 +152,7 @@
             if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
                 if (node%body_indices(1) > 0 .and. &
                     node%body_indices(1) <= arena%size) then
-                    if (allocated(arena%entries(node%body_indices(1))%node)) then
+                    if (arena%has_node_at(node%body_indices(1))) then
                         select type (body_node => &
                                      arena%entries(node%body_indices(1))%node)
                         type is (do_loop_node)
@@ -229,7 +229,7 @@
             if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
                 if (node%body_indices(1) > 0 .and. &
                     node%body_indices(1) <= arena%size) then
-                    if (allocated(arena%entries(node%body_indices(1))%node)) then
+                    if (arena%has_node_at(node%body_indices(1))) then
                         select type (body_node => &
                                      arena%entries(node%body_indices(1))%node)
                         type is (do_loop_node)

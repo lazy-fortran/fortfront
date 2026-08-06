@@ -11,7 +11,8 @@ module parser_expression_stacks_module
         integer :: precedence = 0
         logical :: right_associative = .false.
         logical :: is_group = .false.
-        type(token_t) :: token
+        integer :: token_line = 1
+        integer :: token_column = 1
     end type operator_entry_t
 
     type :: operator_stack_t

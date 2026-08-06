@@ -2,7 +2,7 @@ module semantic_assignment_inference
     ! Assignment inference logic extracted from semantic_analyzer
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-        create_mono_type, create_poly_type, &
+        create_mono_type, create_poly_type, empty_type_vars, &
         TCHAR, TARRAY, TINT, TREAL, TLOGICAL, &
         TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
@@ -306,7 +306,7 @@ contains
         call update_identifier_type_in_arena(arena, identifier%name, final_type, &
             input_mode)
 
-        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=final_type)
+        scheme = create_poly_type(forall_vars=empty_type_vars(), mono=final_type)
         call scopes%define(identifier%name, scheme)
 
         ! Set assignment node fields for standardizer (Issue #1851)
@@ -374,7 +374,7 @@ contains
                 do j = 1, size(type_hints(i)%var_names)
                     if (trim(type_hints(i)%var_names(j)) == trim(name)) then
                         call type_from_annotation(type_hints(i), decl_type)
-                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                        scheme = create_poly_type(forall_vars=empty_type_vars(), &
                             mono=decl_type)
                         call scopes%define(name, scheme)
                         return
@@ -384,7 +384,7 @@ contains
         end if
 
         if (fetch_declaration_type(arena, name, decl_type)) then
-            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
+            scheme = create_poly_type(forall_vars=empty_type_vars(), mono=decl_type)
             call scopes%define(name, scheme)
             return
         end if
@@ -490,7 +490,7 @@ contains
 
         call update_identifier_type_in_arena(arena, base_name, array_type)
 
-        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=array_type)
+        scheme = create_poly_type(forall_vars=empty_type_vars(), mono=array_type)
         call scopes%define(base_name, scheme)
 
         decl_string = build_array_declaration_string(element_type, dim_sizes)

@@ -1,6 +1,6 @@
 module semantic_scope_creation
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-        create_poly_type, TCHAR, TARRAY
+        create_poly_type, empty_type_vars, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
@@ -86,7 +86,7 @@ contains
         type(mono_type_t), intent(in) :: return_type
         type(poly_type_t) :: scheme
 
-        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=return_type)
+        scheme = create_poly_type(forall_vars=empty_type_vars(), mono=return_type)
         call scopes%define(trim(result_name), scheme)
         if (trim(result_name) /= trim(func_name)) then
             call scopes%define(trim(func_name), scheme)

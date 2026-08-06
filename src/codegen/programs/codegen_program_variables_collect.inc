@@ -495,7 +495,7 @@
                 end do
             end if
             if (node%default_index > 0 .and. node%default_index <= arena%size) then
-                if (allocated(arena%entries(node%default_index)%node)) then
+                if (arena%has_node_at(node%default_index)) then
                     select type (def_node => arena%entries(node%default_index)%node)
                     type is (case_default_node)
                         if (allocated(def_node%body_indices)) then
@@ -558,7 +558,7 @@
                 end do
             end if
             if (node%default_index > 0 .and. node%default_index <= arena%size) then
-                if (allocated(arena%entries(node%default_index)%node)) then
+                if (arena%has_node_at(node%default_index)) then
                     select type (def_node => arena%entries(node%default_index)%node)
                     type is (type_guard_block_node)
                         if (allocated(def_node%body_indices)) then
@@ -589,7 +589,7 @@
                 end do
             end if
             if (node%default_index > 0 .and. node%default_index <= arena%size) then
-                if (allocated(arena%entries(node%default_index)%node)) then
+                if (arena%has_node_at(node%default_index)) then
                     select type (def_node => arena%entries(node%default_index)%node)
                     type is (rank_block_node)
                         if (allocated(def_node%body_indices)) then

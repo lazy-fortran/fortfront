@@ -555,10 +555,13 @@ contains
                 ! Create operator entry for .not. with PREC_NOT precedence
                 block
                     type(operator_entry_t) :: not_entry
+                    type(token_t) :: not_token
                     not_entry%symbol = token%text
                     not_entry%precedence = PREC_NOT
                     not_entry%right_associative = .true.
-                    not_entry%token = view_consume_token(view, parser)
+                    not_token = view_consume_token(view, parser)
+                    not_entry%token_line = not_token%line
+                    not_entry%token_column = not_token%column
                     call reduce_operators_for_incoming(operators, operands, arena, &
                         not_entry)
                     call operator_stack_push(operators, not_entry)
@@ -575,10 +578,13 @@ contains
                 call operand_stack_push(operands, 0)
                 block
                     type(operator_entry_t) :: defined_entry
+                    type(token_t) :: defined_token
                     defined_entry%symbol = token%text
                     defined_entry%precedence = PREC_UNARY
                     defined_entry%right_associative = .true.
-                    defined_entry%token = view_consume_token(view, parser)
+                    defined_token = view_consume_token(view, parser)
+                    defined_entry%token_line = defined_token%line
+                    defined_entry%token_column = defined_token%column
                     call reduce_operators_for_incoming(operators, operands, arena, &
                         defined_entry)
                     call operator_stack_push(operators, defined_entry)
