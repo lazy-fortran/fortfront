@@ -61,7 +61,7 @@ module fortfront
         get_used_modules, get_defined_module, &
         used_module_t, defined_module_t, &
         program_unit_query_t, declaration_query_t, &
-        derived_type_query_t, type_binding_query_t, &
+        derived_type_query_t, type_binding_query_t, component_access_query_t, &
         use_statement_query_t, interface_query_t, visibility_query_t, &
         namelist_query_t, data_statement_query_t, common_block_query_t, &
         enum_query_t, statement_function_query_t, block_data_query_t, &
@@ -70,16 +70,17 @@ module fortfront
         query_use_statement, query_use_statements, query_interface, &
         query_visibility, query_namelist, query_data_statement, &
         query_common_block, query_enum, query_statement_function, &
+        query_component_access, &
         query_block_data
     use frontend_compiler_resolution, only: declaration_binding_t, &
-                                            get_scope_bindings, resolve_name_in_scope, &
-                                     resolve_name_at_node, resolve_identifier_binding, &
-                            BINDING_NONE, BINDING_DECLARATION, BINDING_NAMED_CONSTANT, &
-                       BINDING_DUMMY_ARGUMENT, BINDING_DERIVED_TYPE, BINDING_FUNCTION, &
-                                          BINDING_SUBROUTINE, BINDING_FUNCTION_RESULT, &
-                                BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
-                         BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
-                                            ASSOCIATION_HOST, ASSOCIATION_USE
+        get_scope_bindings, resolve_name_in_scope, &
+        resolve_name_at_node, resolve_identifier_binding, &
+        BINDING_NONE, BINDING_DECLARATION, BINDING_NAMED_CONSTANT, &
+        BINDING_DUMMY_ARGUMENT, BINDING_DERIVED_TYPE, BINDING_FUNCTION, &
+        BINDING_SUBROUTINE, BINDING_FUNCTION_RESULT, &
+        BINDING_STATEMENT_FUNCTION, BINDING_GENERIC_INTERFACE, &
+        BINDING_ASSOCIATE_NAME, ASSOCIATION_NONE, ASSOCIATION_DIRECT, &
+        ASSOCIATION_HOST, ASSOCIATION_USE
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
 

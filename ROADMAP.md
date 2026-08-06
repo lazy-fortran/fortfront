@@ -12,6 +12,9 @@ private arena layout or adding an ffc text-name workaround.
 - The parser and semantic changes used by the current ffc tranche are on
   `main`; focused builds pass at the recorded baseline, while the full
   downstream ffc suite still has unrelated known failures.
+- The `fortfront` facade now exports `component_access_query_t` and
+  `query_component_access`; consumers no longer need the narrower compiler
+  module to inspect the base and component name of `obj%field`.
 - The maintained rejection workflow is mandatory. A rejection change must
   prove that intended invalid cases are rejected and that valid corpus files
   are not newly rejected.
