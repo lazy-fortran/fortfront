@@ -894,7 +894,7 @@ contains
                     type is (component_access_node)
                     base_expr_for_call = base_expr
                     type is (call_or_subscript_node)
-                base_expr_for_call = base_expr
+                    base_expr_for_call = base_expr
                 end select
             end if
         end if
