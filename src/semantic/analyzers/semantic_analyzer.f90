@@ -84,6 +84,9 @@ module semantic_analyzer
     public :: create_semantic_context
     public :: analyze_program
     public :: has_semantic_errors
+    ! nvfortran 26.5 lowers calls to these submodule procedures as external
+    ! references; the compatibility shim provides those two ABI entry points.
+    public :: infer_allocate_statement, set_node_inferred_type
 
     type, extends(semantic_context_base_t) :: semantic_context_t
         type(scope_stack_t) :: scopes
