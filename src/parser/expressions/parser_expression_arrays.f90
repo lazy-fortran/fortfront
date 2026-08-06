@@ -5,7 +5,6 @@ module parser_expression_arrays_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
         identifier_node
-    use ast_nodes_bounds, only: range_expression_node
     use ast_factory, only: push_array_literal, push_do_loop, &
         push_call_or_subscript_with_slice_detection
     implicit none
@@ -869,8 +868,6 @@ contains
         integer, allocatable :: arg_indices(:)
         character(len=:), allocatable :: call_name
         integer :: base_expr_for_call
-        integer :: i
-        logical :: has_range
 
         expr_index = base_expr
         if (.not. associated(helpers%parse_range)) return
@@ -883,36 +880,21 @@ contains
         call extract_target_name(arena, expr_index, call_name)
         if (.not. allocated(call_name)) return
 
-        ! Preserve every existing designator when this postfix contains a
-        ! range.  In particular, `c(2)(1:3)` must keep `c(2)` as the slice
-        ! base instead of flattening back to the spelling `c`; otherwise the
-        ! range is orphaned and the frontend silently lowers the whole array
-        ! element.  Component access was the original special case, but a
-        ! call/subscript (or any future scalar designator) is equally valid
-        ! as a substring base.
-        has_range = .false.
-        do i = 1, size(arg_indices)
-            if (arg_indices(i) > 0 .and. arg_indices(i) <= arena%size) then
-                if (allocated(arena%entries(arg_indices(i))%node)) then
-                    select type (node => arena%entries(arg_indices(i))%node)
-                        type is (range_expression_node)
-                        has_range = .true.
-                        exit
-                    end select
-                end if
-            end if
-        end do
-
+        ! Preserve a compound designator when this postfix contains a range.
+        ! In particular, c(2)(1:3) must keep c(2) as the slice base instead of
+        ! flattening back to the spelling c; otherwise the range is orphaned
+        ! and the frontend silently lowers the whole array element. A plain
+        ! identifier/literal remains a normal call/subscript: ffc uses
+        ! base_expr_index for derived-component access, so setting it on c(1)
+        ! would misclassify an ordinary character-array element.
         base_expr_for_call = 0
         if (base_expr > 0 .and. base_expr <= arena%size) then
             if (allocated(arena%entries(base_expr)%node)) then
-                select type (base => arena%entries(base_expr)%node)
+                select type (base_node => arena%entries(base_expr)%node)
                     type is (component_access_node)
-                    ! `object%binding(args)` needs the receiver designator even
-                    ! though its arguments contain no range.
                     base_expr_for_call = base_expr
-                class default
-                    if (has_range) base_expr_for_call = base_expr
+                    type is (call_or_subscript_node)
+                base_expr_for_call = base_expr
                 end select
             end if
         end if
