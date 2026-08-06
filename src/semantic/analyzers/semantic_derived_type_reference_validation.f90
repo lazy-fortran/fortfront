@@ -8,7 +8,8 @@ module semantic_derived_type_reference_validation
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
     use frontend_compiler_resolution, only: BINDING_DERIVED_TYPE, &
         declaration_binding_t, find_enclosing_scope, &
-        get_scope_statement_indices, is_scope_node, resolve_name_in_scope
+        find_host_scope, get_scope_statement_indices, is_scope_node, &
+        resolve_name_in_scope
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -43,6 +44,11 @@ contains
                     error_msg)
                 if (binding%found .and. binding_is_derived_type(binding)) cycle
                 if (.not. source_defines_type(arena, type_name)) cycle
+                ! A generic interface may legally share a name with a
+                ! derived type constructor.  Check the enclosing scopes for
+                ! the type itself instead of treating the interface binding as
+                ! a replacement for TYPE(...) and CLASS(...).
+                if (has_visible_derived_type(arena, scope_index, type_name)) cycle
 
                 call errors%add_error( &
                     "Derived type '"//trim(type_name)// &
@@ -100,6 +106,33 @@ contains
             end select
         end do
     end function source_defines_type
+
+    logical function has_visible_derived_type(arena, scope_index, wanted) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        character(len=*), intent(in) :: wanted
+        integer :: current_scope
+        integer :: i
+        integer, allocatable :: indices(:)
+
+        found = .false.
+        current_scope = scope_index
+        do while (current_scope > 0)
+            call get_scope_statement_indices(arena, current_scope, indices)
+            do i = 1, size(indices)
+                if (.not. arena%has_node_at(indices(i))) cycle
+                select type (candidate => arena%entries(indices(i))%node)
+                    type is (derived_type_node)
+                    if (.not. allocated(candidate%name)) cycle
+                    if (same_name(candidate%name, wanted)) then
+                        found = .true.
+                        return
+                    end if
+                end select
+            end do
+            current_scope = find_host_scope(arena, current_scope)
+        end do
+    end function has_visible_derived_type
 
     function derived_type_name(type_spec) result(name)
         character(len=:), allocatable, intent(in) :: type_spec

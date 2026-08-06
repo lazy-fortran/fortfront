@@ -17,7 +17,8 @@ module parser_statement_core_module
         parse_pause_statement, parse_nullify_statement, parse_continue_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
         parse_deallocate_statement
-    use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration, &
+        parse_derived_type_def, parser_is_at_type_definition
     use parser_call_module, only: parse_call_statement
     use parser_import_resolution_module, only: parse_use_statement
     use parser_utils, only: analyze_declaration_structure
@@ -168,6 +169,17 @@ contains
         handled = .false.
         if (first_token%kind /= TK_KEYWORD) return
         if (.not. is_declaration_keyword(first_token%text)) return
+
+        ! A local `type :: name` starts a derived-type definition, not a
+        ! variable declaration.  Keep it out of the generic declaration fast
+        ! path so its components are retained in a derived_type_node.
+        if (to_lower(trim(first_token%text)) == "type" .and. &
+                parser_is_at_type_definition(parser)) then
+            allocate (stmt_indices(1))
+            stmt_indices(1) = parse_derived_type_def(parser, arena)
+            handled = .true.
+            return
+        end if
 
         has_initializer = .false.
         has_comma = .false.

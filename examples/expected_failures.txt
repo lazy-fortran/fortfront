@@ -57,6 +57,5 @@ issue_2855_external_intrinsic_conflict.f90  # ERROR-TEST: entity both intrinsic 
 # Round-trip gaps uncovered while adding the issue #2891 rejection fixtures.
 # The sources are valid (gfortran -std=f2018 accepts them); fortfront parses
 # and accepts them too, but its emitter loses part of the construct.
-pr19936_3_ok.f90  # BUG: legacy (/ ... /) implied-do loses its (/ /) wrapper on emit
 pr96099_1_ok.f90  # BUG: IMPLICIT CLASS(t) (x) loses the letter-spec list on emit
 implicit_kind_selector_letter_specs.f90  # BUG: IMPLICIT with a kind/len selector loses the letter-spec list on emit

@@ -4,7 +4,8 @@ module parser_statement_utilities_module
         TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
-    use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration, &
+        parse_derived_type_def, parser_is_at_type_definition
     use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_value_statements_module, only: parse_value_statement
     use parser_utils, only: analyze_declaration_structure
@@ -119,6 +120,11 @@ contains
             case ("integer", "real", "logical", "character", "complex", &
                     "double", "type", "class", "procedure")
                 ! Check if this is actually an assignment like "double = 5"
+                if (trim(to_lower(token%text)) == "type" .and. &
+                        parser_is_at_type_definition(parser)) then
+                    stmt_index = parse_derived_type_def(parser, arena)
+                    return
+                end if
                 next_token = parser%get_token_at_index(parser%current_token + 1)
                 if (next_token%kind == TK_OPERATOR .and. &
                     (next_token%text == "=" .or. next_token%text == "=>")) then
