@@ -955,7 +955,7 @@
                                                module_names)
         end if
 
-        if (module_count == 0 .and. &
+        if (explicit_count == 0 .and. module_count == 0 .and. &
             has_executable_implicit_content(arena, implicit_preserved, &
                                             implicit_preserved_count)) then
             call create_main_program_from_preserved(arena, root_index, &
