@@ -111,7 +111,6 @@ contains
         type(param_metadata_t), intent(inout) :: metadata
         character(len=*), intent(in) :: default_intent
         logical, intent(in) :: standardize_types
-        type(declaration_node) :: stmt
         character(len=16) :: stmt_intent
 
         if (body_index <= 0) return
@@ -120,16 +119,14 @@ contains
 
         select type (node => arena%entries(body_index)%node)
             type is (declaration_node)
-            stmt = node
-            if (stmt%has_intent .and. allocated(stmt%intent)) then
-                stmt_intent = stmt%intent
+            if (node%has_intent .and. allocated(node%intent)) then
+                stmt_intent = node%intent
             else
                 stmt_intent = ""
             end if
-            call sync_handle_declaration(stmt, body_index, metadata, &
+            call sync_handle_declaration(node, body_index, metadata, &
                 default_intent, &
                 stmt_intent, standardize_types)
-            arena%entries(body_index)%node = stmt
         end select
     end subroutine sync_process_body_index
 
