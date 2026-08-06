@@ -6,8 +6,8 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `ac02b4d0` (component-access query facade); the
-current roadmap tip is `a8ebeed6`. Its latest check is
+The implementation baseline is `ac02b4d0` (component-access query facade). Its
+latest check is
 [run 31127135731](https://github.com/lazy-fortran/fortfront/actions/runs/31127135731):
 Windows and the aggregate gate failed, while the Ubuntu lane was cancelled.
 The previous checked ancestor `e84ac97b` in
