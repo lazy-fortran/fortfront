@@ -1,4 +1,4 @@
-program test_issue_2452_roundtrip_timeout
+program test_issue_2452_roundtrip_timeout_slow
     use transformation_api, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit, iostat_end, iostat_eor, input_unit
     implicit none
@@ -87,4 +87,4 @@ contains
 
 
 
-end program test_issue_2452_roundtrip_timeout
+end program test_issue_2452_roundtrip_timeout_slow
