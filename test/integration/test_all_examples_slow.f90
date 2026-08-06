@@ -1,4 +1,4 @@
-program test_all_examples
+program test_all_examples_slow
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use test_example_lists, only: assert_skip_path_handling, load_example_list
     use test_example_lists, only: load_skip_examples, is_analysis_only_example
@@ -952,4 +952,4 @@ contains
         end if
     end function build_timed_command
 
-end program test_all_examples
+end program test_all_examples_slow
