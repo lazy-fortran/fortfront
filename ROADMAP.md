@@ -39,6 +39,11 @@ the focused tests, the rejection gate when diagnostics change, and the full
 repository `fo` pipeline. Update this file when a linked issue or public query
 changes state.
 
+The `fo` source scanner currently schedules one module per source file. The
+frontend helper implementation therefore keeps each module in its own file;
+this is a build-order contract, not a compiler-specific workaround. A split
+of the former two-module helper source was verified by a cold `fo build`.
+
 ## Outstanding work (2026-08-05)
 
 ### Nested-construct dispatch: what was fixed and why it mattered
