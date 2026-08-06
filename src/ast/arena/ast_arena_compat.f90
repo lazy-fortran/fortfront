@@ -4,6 +4,7 @@ module ast_arena_compat
 
     use ast_base, only: ast_node
     use ast_nodes_data, only: declaration_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_arena_core, only: ast_arena_core_t, &
         ast_arena_stats_t, create_ast_arena_core
     use fortfront_constants, only: AST_ARENA_GROWTH_MINIMUM
@@ -69,6 +70,18 @@ contains
             allocate (declaration_node :: destination)
             select type (destination)
             type is (declaration_node)
+                destination = source
+            end select
+        type is (function_def_node)
+            allocate (function_def_node :: destination)
+            select type (destination)
+            type is (function_def_node)
+                destination = source
+            end select
+        type is (subroutine_def_node)
+            allocate (subroutine_def_node :: destination)
+            select type (destination)
+            type is (subroutine_def_node)
                 destination = source
             end select
         class default
