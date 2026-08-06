@@ -2,6 +2,7 @@ program test_ast_factory_direct
     use ast_factory
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
+    use ast_nodes_procedure, only: subroutine_call_node
     implicit none
 
     integer :: test_count, pass_count
@@ -112,16 +113,27 @@ contains
         call test_start("Subroutine call creation")
         block
             integer :: call_idx
+            integer :: i
             integer, allocatable :: args(:)
             allocate (args(2))
             args(1) = push_identifier(arena, "x")
             args(2) = push_identifier(arena, "y")
             call_idx = push_subroutine_call(arena, "process", args)
-            if (call_idx > 0) then
+            if (call_idx > 0 .and. subroutine_call_is_intact(arena, call_idx, &
+                    args)) then
                 call test_pass()
             else
                 call test_fail("Subroutine call not created")
             end if
+            ! Cross the initial arena capacity repeatedly.  The compatibility
+            ! copy must preserve both allocatable fields after each growth.
+            do i = 1, 64
+                call_idx = push_subroutine_call(arena, "process", args)
+                if (.not. subroutine_call_is_intact(arena, call_idx, args)) then
+                    call test_fail("Subroutine call copy lost its fields")
+                    exit
+                end if
+            end do
         end block
 
         call test_start("Stop statement creation")
@@ -146,6 +158,22 @@ contains
             end if
         end block
     end subroutine test_node_creation
+
+    logical function subroutine_call_is_intact(arena, index, args) result(ok)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        integer, intent(in) :: args(:)
+
+        ok = .false.
+        if (index <= 0 .or. index > arena%size) return
+        if (.not. allocated(arena%entries(index)%node)) return
+        select type (node => arena%entries(index)%node)
+        type is (subroutine_call_node)
+            ok = allocated(node%name) .and. trim(node%name) == "process" .and. &
+                allocated(node%arg_indices) .and. size(node%arg_indices) == &
+                size(args) .and. all(node%arg_indices == args)
+        end select
+    end function subroutine_call_is_intact
 
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
