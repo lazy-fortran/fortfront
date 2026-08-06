@@ -49,9 +49,11 @@ The compiler lanes are distinct: GNU Fortran, NVIDIA `nvfortran`, Intel LLVM
 current portability tranche removes several GNU-tolerated constructs and
 compiler-sensitive internal representations. FortFront's source units now
 compile with GNU and `nvfortran` 26.5, and its focused expression/control-flow
-oracles pass with GNU. The `nvfortran` cold executable/link gate remains open:
-module-procedure symbols from the semantic analyzer are unresolved at link
-time, and the downstream FortAD gate still ICEs in `fortad_lower.f90`.
+oracles pass with GNU. A cold `nvfortran` build now completes all 381 targets;
+the former raw-backslash failures in path validation and the CLI are fixed.
+The downstream FortAD `nvfortran` gate still needs a fresh run against this
+revision; its earlier ICE in `fortad_lower.f90` is not a FortFront build
+failure.
 
 ## Outstanding work (2026-08-06)
 
