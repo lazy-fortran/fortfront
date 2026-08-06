@@ -214,7 +214,8 @@
         end do
 
         if (.not. success .or. size(value_indices) == 0) then
-            value_indices = [integer ::]
+            deallocate (value_indices)
+            allocate (value_indices(0))
             success = .false.
         end if
 

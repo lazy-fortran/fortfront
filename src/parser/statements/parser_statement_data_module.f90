@@ -612,7 +612,7 @@ contains
                     call append_index(indices, value_index)
                     return
                 end if
-                if (.not. allocated(arena%entries(node%left_index)%node)) then
+                if (.not. arena%has_node_at(node%left_index)) then
                     call append_index(indices, value_index)
                     return
                 end if

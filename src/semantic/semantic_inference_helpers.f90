@@ -3,7 +3,7 @@ module semantic_inference_helpers
     ! This avoids circular dependencies with semantic_analyzer
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
         create_mono_type, create_type_var, &
-        create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+        create_poly_type, empty_type_vars, TVAR, TINT, TREAL, TCHAR, &
         TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -47,7 +47,7 @@ contains
         type(mono_type_t), intent(out) :: control_type
 
         ! Create integer type scheme for loop variable
-        int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+        int_scheme = create_poly_type(forall_vars=empty_type_vars(), &
             mono=create_mono_type(TINT))
 
         ! Do loops don't have a type
@@ -88,7 +88,7 @@ contains
         type(mono_type_t), intent(out) :: control_type
 
         ! Create integer type scheme for index variables
-        int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+        int_scheme = create_poly_type(forall_vars=empty_type_vars(), &
             mono=create_mono_type(TINT))
 
         ! Forall constructs don't have a type

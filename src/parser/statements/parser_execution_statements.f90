@@ -53,6 +53,8 @@ module parser_execution_statements_module
     use parser_type_specifications_module, only: parse_implicit_statement, &
         take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
+    use parser_parameter_statements_module, only: parse_parameter_statement
+    use parser_allocatable_statements_module, only: parse_allocatable_statement
     use parser_value_statements_module, only: parse_value_statement
     use parser_keyword_disambiguation_module, only: looks_like_format_statement, &
         looks_like_implicit_statement

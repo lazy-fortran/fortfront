@@ -49,7 +49,7 @@ contains
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     if (node%arg_indices(i) <= 0) cycle
-                    if (.not. allocated(arena%entries(node%arg_indices(i))%node)) cycle
+                    if (.not. arena%has_node_at(node%arg_indices(i))) cycle
                     select type (arg => arena%entries(node%arg_indices(i))%node)
                         type is (assignment_node)
                         call push_node(ctx, arg%value_index)

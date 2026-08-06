@@ -17,7 +17,7 @@ module semantic_undefined_variable_checker
     use string_utils_mod, only: to_lower
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use type_system_unified, only: poly_type_t, mono_type_t, &
-        create_poly_type, type_var_t
+        create_poly_type, empty_type_vars, type_var_t
     use semantic_declaration_utils, only: fetch_declaration_type
     use scope_manager, only: scope_stack_t
     use error_handling, only: create_error_result, ERROR_SEMANTIC, result_t, &
@@ -388,7 +388,7 @@ subroutine define_from_arena(scopes, arena, name)
     type(poly_type_t) :: scheme
 
     if (fetch_declaration_type(arena, name, decl_type)) then
-        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
+        scheme = create_poly_type(forall_vars=empty_type_vars(), mono=decl_type)
         call scopes%define(name, scheme)
     end if
 end subroutine define_from_arena

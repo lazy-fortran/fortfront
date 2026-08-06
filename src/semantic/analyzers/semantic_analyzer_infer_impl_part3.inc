@@ -130,8 +130,7 @@
                     arr_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
-                if (.not. &
-                    allocated(arena%entries(node%element_indices(i))%node)) &
+                if (.not. arena%has_node_at(node%element_indices(i))) &
                     return
                 elem_size = static_array_literal_element_size(arena, &
                                                               node%element_indices(i))
@@ -468,7 +467,7 @@
                             target_type = create_mono_type(TINT)
                         end if
 
-                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                        scheme = create_poly_type(forall_vars=empty_type_vars(), &
                                                   mono=target_type)
                         call ctx%scopes%define(ptr_node%name, scheme)
 
@@ -542,7 +541,7 @@
 
                     call update_identifier_type_in_arena(arena, node%name, var_type)
 
-                    var_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                    var_scheme = create_poly_type(forall_vars=empty_type_vars(), &
                                                   mono=var_type)
                     call ctx%scopes%define(node%name, var_scheme)
 

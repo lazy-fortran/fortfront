@@ -14,6 +14,20 @@ module ast_arena_compat
     public :: ast_arena_compat_t, ast_entry_t
     public :: create_ast_arena_compat
 
+    ! Compatibility type for bridging to old arena API
+    type :: ast_entry_t
+        class(ast_node), allocatable :: node ! The AST node itself
+        integer :: parent_index = 0 ! Index of parent node (0 for root)
+        integer :: depth = 0 ! Depth in tree (0 for root)
+        character(len=:), allocatable :: node_type ! Type name for debugging
+        integer, allocatable :: child_indices(:) ! Indices of child nodes
+        integer :: child_count = 0 ! Number of children
+    contains
+        procedure :: deep_copy => ast_entry_deep_copy
+        procedure :: assign => ast_entry_assign
+        generic :: assignment(=) => assign
+    end type ast_entry_t
+
     ! Extended arena with compatibility layer
     type, extends(ast_arena_core_t) :: ast_arena_compat_t
         ! Compatibility layer for old arena API (public for compatibility)
@@ -40,20 +54,6 @@ module ast_arena_compat
         procedure :: assign_compat => ast_arena_compat_assign
         generic :: assignment(=) => assign_compat
     end type ast_arena_compat_t
-
-    ! Compatibility type for bridging to old arena API
-    type :: ast_entry_t
-        class(ast_node), allocatable :: node ! The AST node itself
-        integer :: parent_index = 0 ! Index of parent node (0 for root)
-        integer :: depth = 0 ! Depth in tree (0 for root)
-        character(len=:), allocatable :: node_type ! Type name for debugging
-        integer, allocatable :: child_indices(:) ! Indices of child nodes
-        integer :: child_count = 0 ! Number of children
-    contains
-        procedure :: deep_copy => ast_entry_deep_copy
-        procedure :: assign => ast_entry_assign
-        generic :: assignment(=) => assign
-    end type ast_entry_t
 
 contains
 

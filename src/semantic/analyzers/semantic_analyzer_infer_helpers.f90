@@ -129,7 +129,7 @@ contains
         end select
     end subroutine ensure_string_literal_type
 
-    pure module integer function compute_string_literal_length(literal) &
+    pure integer function compute_string_literal_length(literal) &
             result(len_value)
         type(literal_node), intent(in) :: literal
         character(len=:), allocatable :: trimmed_value

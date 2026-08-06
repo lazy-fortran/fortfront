@@ -243,7 +243,7 @@
                 if (assoc_node%associations(assoc_index)%expr_index <= 0) return
                 assoc_type = &
                     & get_node_type(assoc_node%associations(assoc_index)%expr_index)
-                assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                assoc_scheme = create_poly_type(forall_vars=empty_type_vars(), &
                     & mono=assoc_type)
                 if (allocated(assoc_node%associations(assoc_index)%name)) then
                     call this%scopes%define(assoc_node%associations(assoc_index)%name, &

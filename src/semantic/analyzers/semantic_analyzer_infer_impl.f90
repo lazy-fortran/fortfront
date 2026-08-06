@@ -1,7 +1,7 @@
 submodule(semantic_analyzer) semantic_analyzer_infer_impl
 use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
     allocation_info_t, create_mono_type, &
-    create_fun_type, create_poly_type, &
+    create_fun_type, create_poly_type, empty_type_vars, &
     create_type_var, TREAL, TVAR, TCOMPLEX, &
     TFUN, TARRAY, TLOGICAL, TINT, TCHAR
 use error_handling, only: create_error_result, ERROR_SEMANTIC

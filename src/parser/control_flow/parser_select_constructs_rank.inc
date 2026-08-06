@@ -118,7 +118,7 @@
         end_keywords(2) = "end select"
 
         callbacks = null_statement_callbacks()
-        callbacks%parse_select_rank => parse_select_rank
+        callbacks%parse_select_rank => parse_select_rank_callback
 
         do while (parser%current_token <= size(parser%tokens))
             rank_block_token = parser%peek()

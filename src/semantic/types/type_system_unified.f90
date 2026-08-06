@@ -128,6 +128,7 @@ module type_system_unified
 
     ! Public API functions (compatibility with legacy system)
     public :: create_type_var, create_mono_type, create_poly_type, create_fun_type
+    public :: empty_type_vars
     public :: get_poly_forall_vars
     public :: compose_substitutions, occurs_check, free_type_vars
     public :: reset_type_system

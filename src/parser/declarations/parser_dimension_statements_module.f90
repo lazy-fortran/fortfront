@@ -150,6 +150,7 @@ module parser_dimension_statements_module
                 character(len=*), intent(in) :: name
                 integer, intent(in) :: dimension_indices(:)
                 type(declaration_node) :: decl
+                character(len=:), allocatable :: annotation_names(:)
 
                 decl%type_name = ""
                 decl%var_name = adjustl(trim(name))
@@ -164,7 +165,9 @@ module parser_dimension_statements_module
 
                 call arena%push(decl, "declaration", 0)
                 new_index = arena%size
-                call register_type_annotation(new_index, "", [adjustl(trim(name))])
+                allocate (character(len=len_trim(name)) :: annotation_names(1))
+                annotation_names(1) = adjustl(trim(name))
+                call register_type_annotation(new_index, "", annotation_names)
             end function create_dimension_declaration
 
             subroutine apply_dimension_single(arena, decl_index, decl, target, &

@@ -114,7 +114,8 @@ contains
             entry%precedence = PREC_LOGICAL_AND
         end select
 
-        entry%token = token
+        entry%token_line = token%line
+        entry%token_column = token%column
     end function get_infix_operator_entry
 
     logical function comparison_active(stack)
@@ -163,7 +164,8 @@ contains
         logical_token%text = ".and."
         logical_token%kind = TK_OPERATOR
         logical_entry = get_infix_operator_entry(logical_token)
-        logical_entry%token = logical_token
+        logical_entry%token_line = logical_token%line
+        logical_entry%token_column = logical_token%column
 
         call reduce_operators_for_incoming(operators, operands, arena, logical_entry)
         call operator_stack_push(operators, logical_entry)
@@ -234,11 +236,11 @@ contains
         ! Handle = operator specially - create assignment node instead of binary_op
         if (trim(op_entry%symbol) == "=") then
             result_index = push_assignment(arena, left_index, right_index, &
-                op_entry%token%line, op_entry%token%column)
+                op_entry%token_line, op_entry%token_column)
         else
             result_index = push_binary_op(arena, left_index, right_index, &
                 op_entry%symbol, &
-                op_entry%token%line, op_entry%token%column)
+                op_entry%token_line, op_entry%token_column)
         end if
 
         call operand_stack_push(operands, result_index)
@@ -292,7 +294,7 @@ contains
         type(operator_entry_t) :: entry
 
         entry = operator_entry_t(symbol="(", precedence=0, is_group=.true., &
-            token=token)
+            token_line=token%line, token_column=token%column)
         call operator_stack_push(operators, entry)
     end subroutine push_group_marker
 

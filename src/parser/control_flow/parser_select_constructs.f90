@@ -47,4 +47,25 @@ contains
     include 'parser_select_constructs_type.inc'
     include 'parser_select_constructs_rank.inc'
 
+    integer function parse_select_case_callback(parser, arena) result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = parse_select_case(parser, arena)
+    end function parse_select_case_callback
+
+    integer function parse_select_type_callback(parser, arena) result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = parse_select_type(parser, arena)
+    end function parse_select_type_callback
+
+    integer function parse_select_rank_callback(parser, arena) result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = parse_select_rank(parser, arena)
+    end function parse_select_rank_callback
+
 end module parser_select_constructs_module

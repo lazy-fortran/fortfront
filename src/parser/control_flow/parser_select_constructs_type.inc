@@ -225,9 +225,9 @@
         end_keywords(4) = "end select"
 
         callbacks = null_statement_callbacks()
-        callbacks%parse_select_case => parse_select_case
-        callbacks%parse_select_type => parse_select_type
-        callbacks%parse_select_rank => parse_select_rank
+        callbacks%parse_select_case => parse_select_case_callback
+        callbacks%parse_select_type => parse_select_type_callback
+        callbacks%parse_select_rank => parse_select_rank_callback
         callbacks%parse_block => parse_block_construct_bridge
 
         do while (parser%current_token <= size(parser%tokens))
