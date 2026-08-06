@@ -7,14 +7,16 @@ backend-neutral.
 ## Current truth
 
 The implementation baseline is `ac02b4d0` (component-access query facade); the
-current roadmap tip is `39b5bb24`. The implementation baseline has no completed
-remote check suite yet. The last checked ancestor is `e84ac97b` in
-[run 31110432510](https://github.com/lazy-fortran/fortfront/actions/runs/31110432510):
-Ubuntu passed, while Windows and the aggregate gate failed. The intervening
-main commits `c40ce77e` (continued character literals), `11da10a4` (portable
-backslashes), and `ac02b4d0` are evidence-backed locally but not remote-green.
+current roadmap tip is `a8ebeed6`. Its latest check is
+[run 31127135731](https://github.com/lazy-fortran/fortfront/actions/runs/31127135731):
+Windows and the aggregate gate failed, while the Ubuntu lane was cancelled.
+The previous checked ancestor `e84ac97b` in
+[run 31110432510](https://github.com/lazy-fortran/fortfront/actions/runs/31110432510)
+had the same Windows/aggregate defect. The intervening main commits
+`c40ce77e` (continued character literals), `11da10a4` (portable backslashes),
+and `ac02b4d0` remain locally evidence-backed but not remote-green.
 
-The current local GNU lane builds 381 targets and 378 test programs across 483
+The current local GNU lane builds 381 targets and 379 test programs across 484
 tests. `test_module_distribution` is parallel-fragile because it cleans shared
 Makefile artifacts; isolate its outputs before treating the full suite as a
 parallel gate. The last-known Windows failures are
