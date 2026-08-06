@@ -169,6 +169,8 @@ contains
     subroutine subroutine_call_assign(lhs, rhs)
         class(subroutine_call_node), intent(inout) :: lhs
         class(subroutine_call_node), intent(in) :: rhs
+        integer :: i
+
         call copy_ast_node_base(lhs, rhs)
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
@@ -176,7 +178,11 @@ contains
             deallocate (lhs%name)
         end if
         if (allocated(rhs%arg_indices)) then
-            lhs%arg_indices = rhs%arg_indices
+            if (allocated(lhs%arg_indices)) deallocate (lhs%arg_indices)
+            allocate (lhs%arg_indices(size(rhs%arg_indices)))
+            do i = 1, size(rhs%arg_indices)
+                lhs%arg_indices(i) = rhs%arg_indices(i)
+            end do
         else if (allocated(lhs%arg_indices)) then
             deallocate (lhs%arg_indices)
         end if
