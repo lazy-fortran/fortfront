@@ -107,7 +107,16 @@ contains
                 var_count = var_count + 1
             end if
         else if (token%kind == TK_KEYWORD) then
-            if (pos > 1 .and. .not. is_attribute_keyword(token%text)) then
+            ! Past the `::` every name is an entity name, and keywords are not
+            ! reserved, so `real :: error, work(n)` declares two variables.
+            ! Treating the first one as the end of the statement stopped the
+            ! scan before the comma, sent the declaration down the
+            ! single-entity path, and left `, work(n)` unconsumed.
+            if (seen_colon .and. .not. in_brackets) then
+                seen_entity = .true.
+                in_attr = .false.
+                var_count = var_count + 1
+            else if (pos > 1 .and. .not. is_attribute_keyword(token%text)) then
                 should_exit = .true.
             end if
         else if (token%kind == TK_EOF) then
