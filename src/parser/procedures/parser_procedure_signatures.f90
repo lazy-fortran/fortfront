@@ -35,9 +35,11 @@ contains
         character(len=:), allocatable, intent(out), optional :: return_type_from_prefix
 
         character(len=16), allocatable :: pending_prefixes(:)
+        character(len=:), allocatable :: local_return_type
 
         has_recursive_keyword = .false.
         allocate (character(len=16) :: prefix_keywords(0))
+        local_return_type = ""
         if (present(return_type_from_prefix)) return_type_from_prefix = ""
 
         if (present(return_type_from_prefix)) then
@@ -45,14 +47,17 @@ contains
                 character(len=:), allocatable :: buffered_return_type
                 call prefix_buffer%consume_return_type(buffered_return_type)
                 if (len_trim(buffered_return_type) > 0) then
-                    return_type_from_prefix = buffered_return_type
+                    local_return_type = buffered_return_type
                 end if
             end block
         end if
         call initialise_function_prefix_sources(prefix_buffer, prefix_list, &
             pending_prefixes)
         call append_pending_prefixes(pending_prefixes, prefix_keywords, &
-            has_recursive_keyword, return_type_from_prefix)
+            has_recursive_keyword, local_return_type)
+        if (present(return_type_from_prefix)) then
+            return_type_from_prefix = local_return_type
+        end if
         call consume_function_prefix_tokens(parser, prefix_keywords, &
             has_recursive_keyword)
     end subroutine parse_function_prefix_keywords
@@ -85,15 +90,13 @@ contains
         character(len=16), intent(in) :: pending_prefixes(:)
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
         logical, intent(inout) :: has_recursive_keyword
-        character(len=:), allocatable, intent(inout), optional :: return_type_from_prefix
+        character(len=:), allocatable, intent(inout) :: return_type_from_prefix
         integer :: i, n
         character(len=:), allocatable :: lowered, next_lower
         logical :: return_type_set
         n = size(pending_prefixes)
         return_type_set = .false.
-        if (present(return_type_from_prefix)) then
-            return_type_set = len_trim(return_type_from_prefix) > 0
-        end if
+        return_type_set = len_trim(return_type_from_prefix) > 0
         i = 1
         do while (i <= n)
             lowered = to_lower(trim(pending_prefixes(i)))
@@ -135,7 +138,6 @@ contains
     contains
         subroutine set_return_type_from_token(token_value)
             character(len=*), intent(in) :: token_value
-            if (.not. present(return_type_from_prefix)) return
             if (return_type_set) return
             return_type_from_prefix = trim(token_value)
             return_type_set = .true.
