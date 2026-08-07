@@ -186,6 +186,9 @@ module frontend_compiler_queries
         integer, allocatable :: object_indices(:)
         integer :: source_index = 0
         integer :: target_index = 0
+        ! ALLOCATE SOURCE=/MOLD= expression indices, when present.
+        integer :: source_expr_index = 0
+        integer :: mold_expr_index = 0
     end type ownership_event_query_t
 
     type :: component_path_query_t
@@ -2776,6 +2779,8 @@ contains
             type is (allocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_ALLOCATE
             call copy_integer_array(node%var_indices, event%object_indices)
+            event%source_expr_index = node%source_expr_index
+            event%mold_expr_index = node%mold_expr_index
             type is (deallocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_DEALLOCATE
             call copy_integer_array(node%var_indices, event%object_indices)
