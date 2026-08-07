@@ -67,8 +67,14 @@ contains
         allocate (ctx%subst%types(ctx%subst%capacity))
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1
+        ! Set mode policy explicitly.  Relying on derived-type default
+        ! initialization here is not portable across supported gfortran
+        ! versions when the context is an INTENT(OUT) dummy; GCC14 otherwise
+        ! leaves the strict IMPLICIT NONE gate disabled.
+        ctx%input_mode = INPUT_MODE_LAZY
         ctx%operating_mode = OPERATING_MODE_INFER
         ctx%respect_implicit_none = .true.
+        ctx%enforce_implicit_none_references = .true.
         ctx%type_hierarchy = create_type_hierarchy()
         ctx%signatures = create_signatures_map()
         ctx%explicit_interface_procedure_names%count = 0_int32
