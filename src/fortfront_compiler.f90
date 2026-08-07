@@ -57,7 +57,8 @@ module fortfront_compiler
         storage_query_t, ownership_event_query_t, component_path_query_t, &
         binding_resolution_query_t, global_reference_query_t, &
         query_storage, query_ownership_events, query_component_path, &
-        query_type_binding_resolution, query_active_global_references
+        query_type_binding_resolution, query_active_global_references, &
+        call_argument_query_t, call_arguments_query_t, query_call_arguments
     use frontend_compiler_diagnostics, only: compiler_diagnostic_t, &
         get_compiler_diagnostics, &
         DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &

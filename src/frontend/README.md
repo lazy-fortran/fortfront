@@ -156,6 +156,13 @@ end subroutine
   binary operations. `is_literal` and `get_literal_info` (value text,
   literal type) do the same for literals. `is_identifier` and
   `get_identifier_name` do the same for identifier references.
+- **Call argument mapping**: `query_call_arguments` resolves a same-arena
+  function or subroutine call into formal-parameter order. Each
+  `call_argument_query_t` preserves the original actual node and its value
+  expression, reports whether the actual was supplied positionally or by
+  keyword, and marks omitted optional dummies. Unresolved procedures,
+  ambiguous generic calls, array accesses, and invalid argument lists return
+  `found=.false.` rather than guessing.
 - **Resolved type query**: `query_resolved_type` returns the semantic intrinsic
   category, exact Fortran kind value, storage size in bits, rank, and
   derived-type identity for an analyzed expression. The compiler pipeline

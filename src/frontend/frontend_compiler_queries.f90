@@ -24,7 +24,8 @@ module frontend_compiler_queries
         case_default_node, case_range_node, &
         select_type_node, type_guard_block_node
     use frontend_compiler_resolution, only: declaration_binding_t, &
-        resolve_identifier_binding, find_enclosing_scope
+        resolve_identifier_binding, resolve_name_at_node, find_enclosing_scope, &
+        BINDING_FUNCTION, BINDING_SUBROUTINE
     implicit none
     private
 
@@ -86,6 +87,8 @@ module frontend_compiler_queries
     public :: query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
+    public :: call_argument_query_t, call_arguments_query_t
+    public :: query_call_arguments
     public :: STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER
     public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
@@ -158,6 +161,28 @@ module frontend_compiler_queries
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
     end type nullify_query_t
+
+    ! Resolved actual-to-formal call facts.  The result is ordered by the
+    ! callee's formal parameter list, so an omitted optional dummy is present
+    ! as a record with is_supplied=.false. rather than being erased.
+    type :: call_argument_query_t
+        integer :: actual_node_index = 0
+        integer :: actual_value_node_index = 0
+        integer :: formal_node_index = 0
+        character(len=:), allocatable :: formal_name
+        logical :: is_supplied = .false.
+        logical :: is_keyword = .false.
+        logical :: is_optional = .false.
+    end type call_argument_query_t
+
+    type :: call_arguments_query_t
+        logical :: found = .false.
+        integer :: call_node_index = 0
+        integer :: procedure_node_index = 0
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: procedure_kind
+        type(call_argument_query_t), allocatable :: arguments(:)
+    end type call_arguments_query_t
 
     ! Normalized storage facts for compiler consumers.  The existing
     ! declaration query mirrors source attributes; this record additionally
@@ -558,6 +583,194 @@ contains
             end if
         end select
     end function query_nullify
+
+    function query_call_arguments(arena, call_node_index) result(query)
+        !! Resolve a same-arena procedure call into formal-ordered bindings.
+        !!
+        !! `actual_node_index` preserves the original AST argument (including
+        !! a keyword assignment wrapper); `actual_value_node_index` points at
+        !! the expression passed to the dummy.  A zero actual index means the
+        !! formal was omitted.  The query deliberately returns no result for
+        !! array accesses, unresolved procedures, generic interfaces, or an
+        !! invalid/ambiguous argument list.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        type(call_arguments_query_t) :: query
+
+        type(declaration_binding_t) :: binding
+        type(program_unit_query_t) :: procedure
+        integer, allocatable :: actual_indices(:)
+        integer, allocatable :: formal_actual(:)
+        integer, allocatable :: formal_value(:)
+        logical, allocatable :: formal_keyword(:)
+        character(len=:), allocatable :: call_name
+        character(len=:), allocatable :: keyword
+        character(len=:), allocatable :: error_msg
+        logical :: is_call, is_keyword, saw_keyword
+        integer :: i, j, formal, next_formal, n_formal, actual_value
+        type(declaration_query_t) :: formal_query
+
+        call initialize_call_arguments_query(query)
+        call get_call_parts(arena, call_node_index, call_name, actual_indices, &
+            is_call)
+        if (.not. is_call) return
+        if (len_trim(call_name) == 0) return
+
+        call resolve_name_at_node(arena, call_node_index, call_name, binding, &
+            error_msg)
+        if (.not. binding%found) return
+        if (binding%binding_kind /= BINDING_FUNCTION .and. &
+            binding%binding_kind /= BINDING_SUBROUTINE) return
+        if (binding%node_index <= 0) return
+
+        procedure = query_program_unit(arena, binding%node_index)
+        if (.not. procedure%found) return
+        if (procedure%unit_kind /= 'function' .and. &
+            procedure%unit_kind /= 'subroutine') return
+        n_formal = size(procedure%parameter_indices)
+        if (size(actual_indices) > n_formal) return
+
+        allocate (formal_actual(n_formal))
+        allocate (formal_value(n_formal))
+        allocate (formal_keyword(n_formal))
+        formal_actual = 0
+        formal_value = 0
+        formal_keyword = .false.
+        next_formal = 1
+        saw_keyword = .false.
+        do j = 1, size(actual_indices)
+            call get_call_actual_info(arena, actual_indices(j), keyword, &
+                actual_value, is_keyword)
+            if (is_keyword) then
+                saw_keyword = .true.
+                formal = find_formal_name(arena, procedure%parameter_indices, &
+                    keyword)
+                if (formal <= 0) return
+            else
+                if (saw_keyword) return
+                do while (next_formal <= n_formal)
+                    if (formal_actual(next_formal) == 0) exit
+                    next_formal = next_formal + 1
+                end do
+                formal = next_formal
+            end if
+            if (formal <= 0 .or. formal > n_formal) return
+            if (formal_actual(formal) /= 0) return
+            formal_actual(formal) = actual_indices(j)
+            formal_value(formal) = actual_value
+            formal_keyword(formal) = is_keyword
+        end do
+
+        if (allocated(query%arguments)) deallocate (query%arguments)
+        allocate (query%arguments(n_formal))
+        do i = 1, n_formal
+            formal_query = query_declaration(arena, &
+                procedure%parameter_indices(i))
+            if (.not. formal_query%found) return
+            query%arguments(i)%formal_node_index = &
+                procedure%parameter_indices(i)
+            query%arguments(i)%formal_name = formal_query%name
+            query%arguments(i)%is_optional = formal_query%is_optional
+            query%arguments(i)%actual_node_index = formal_actual(i)
+            query%arguments(i)%is_supplied = formal_actual(i) > 0
+            query%arguments(i)%is_keyword = formal_keyword(i)
+            if (.not. query%arguments(i)%is_supplied .and. &
+                .not. query%arguments(i)%is_optional) return
+            if (query%arguments(i)%is_supplied) then
+                query%arguments(i)%actual_value_node_index = formal_value(i)
+            end if
+        end do
+
+        query%found = .true.
+        query%call_node_index = call_node_index
+        query%procedure_node_index = binding%node_index
+        query%procedure_name = procedure%name
+        query%procedure_kind = procedure%unit_kind
+    end function query_call_arguments
+
+    subroutine initialize_call_arguments_query(query)
+        type(call_arguments_query_t), intent(out) :: query
+
+        call set_empty(query%procedure_name)
+        call set_empty(query%procedure_kind)
+        allocate (query%arguments(0))
+    end subroutine initialize_call_arguments_query
+
+    subroutine get_call_parts(arena, call_node_index, name, actual_indices, &
+            is_call)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: actual_indices(:)
+        logical, intent(out) :: is_call
+
+        call set_empty(name)
+        allocate (actual_indices(0))
+        is_call = .false.
+        if (.not. arena%has_node_at(call_node_index)) return
+
+        select type (node => arena%entries(call_node_index)%node)
+            type is (subroutine_call_node)
+            is_call = .true.
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%arg_indices)) then
+                actual_indices = node%arg_indices
+            end if
+            type is (call_or_subscript_node)
+            if (node%is_array_access) return
+            is_call = .true.
+            if (allocated(node%name)) name = node%name
+            if (allocated(node%arg_indices)) then
+                actual_indices = node%arg_indices
+            end if
+        end select
+    end subroutine get_call_parts
+
+    subroutine get_call_actual_info(arena, actual_index, keyword, value_index, &
+            is_keyword)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: actual_index
+        character(len=:), allocatable, intent(out) :: keyword
+        integer, intent(out) :: value_index
+        logical, intent(out) :: is_keyword
+
+        call set_empty(keyword)
+        value_index = actual_index
+        is_keyword = .false.
+        if (.not. arena%has_node_at(actual_index)) return
+
+        select type (actual => arena%entries(actual_index)%node)
+            type is (assignment_node)
+            if (actual%target_index <= 0) return
+            if (.not. arena%has_node_at(actual%target_index)) return
+            if (actual%value_index <= 0) return
+            select type (target => arena%entries(actual%target_index)%node)
+                type is (identifier_node)
+                if (.not. allocated(target%name)) return
+                keyword = target%name
+                value_index = actual%value_index
+                is_keyword = .true.
+            end select
+        end select
+    end subroutine get_call_actual_info
+
+    integer function find_formal_name(arena, formal_indices, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: formal_indices(:)
+        character(len=*), intent(in) :: name
+        type(declaration_query_t) :: formal_query
+        integer :: i
+
+        index = 0
+        do i = 1, size(formal_indices)
+            formal_query = query_declaration(arena, formal_indices(i))
+            if (.not. formal_query%found) cycle
+            if (same_name(formal_query%name, name)) then
+                index = i
+                return
+            end if
+        end do
+    end function find_formal_name
 
     logical function is_identifier(arena, node_index) result(is_id)
         type(ast_arena_t), intent(in) :: arena
@@ -2481,7 +2694,7 @@ contains
         allocate (query%component_node_indices(0))
         if (.not. arena%has_node_at(node_index)) return
         call collect_component_path(arena, node_index, names, indices, &
-                                    query%base_node_index)
+            query%base_node_index)
         if (size(indices) == 0) return
         query%found = .true.
         query%node_index = node_index
@@ -2549,7 +2762,7 @@ contains
             call resolve_identifier_binding(arena, i, binding, error_msg)
             if (.not. binding%found) cycle
             if (.not. global_declaration(arena, binding%declaration_node_index, &
-                                         binding%name)) cycle
+                binding%name)) cycle
             count = count + 1
         end do
         if (count == 0) return
@@ -2563,7 +2776,7 @@ contains
             call resolve_identifier_binding(arena, i, binding, error_msg)
             if (.not. binding%found) cycle
             if (.not. global_declaration(arena, binding%declaration_node_index, &
-                                         binding%name)) cycle
+                binding%name)) cycle
             count = count + 1
             refs(count) = make_global_reference(arena, i, binding)
         end do
@@ -2596,7 +2809,7 @@ contains
         type_query = query_derived_type(arena, type_index)
         if (.not. type_query%found) return
         query%is_abstract_type = contains_word(type_query%attribute_clause, &
-                                               'abstract')
+            'abstract')
         do i = 1, size(type_query%binding_indices)
             binding = query_type_binding(arena, type_query%binding_indices(i))
             if (.not. binding%found) cycle
@@ -2623,7 +2836,7 @@ contains
         query = parent_query
         query%is_inherited = .true.
         query%is_abstract_type = contains_word(type_query%attribute_clause, &
-                                               'abstract')
+            'abstract')
     end subroutine resolve_binding_base
 
     subroutine append_dispatch_target(query, type_index, implementation)
@@ -2733,7 +2946,7 @@ contains
             return
         end if
         call collect_component_path(arena, component%base_node_index, &
-                                    prefix_names, prefix_indices, base)
+            prefix_names, prefix_indices, base)
         width = max(1, len_trim(component%component_name))
         if (size(prefix_names) > 0) width = max(width, len(prefix_names))
         allocate (character(len=width) :: names(size(prefix_names) + 1))
@@ -3006,7 +3219,7 @@ contains
         ref%reference_node_index = reference_index
         ref%declaration_node_index = binding%declaration_node_index
         ref%owner_scope_index = enclosing_module(arena, &
-                                                 binding%declaration_node_index)
+            binding%declaration_node_index)
         ref%name = binding%name
         storage = query_storage(arena, binding%declaration_node_index)
         ref%is_module_state = storage%is_module_state
