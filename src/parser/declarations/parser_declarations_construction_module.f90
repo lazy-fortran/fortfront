@@ -57,8 +57,19 @@ contains
             call register_declaration_annotation( &
                 decl_index, type_spec, attr_info, name_buffer)
         end if
+        call set_kind_selector_index(arena, decl_index, type_spec%kind_selector_index)
         call apply_bind_c_attribute(arena, decl_index, attr_info)
     end function add_single_declaration
+
+    subroutine set_kind_selector_index(arena, decl_index, selector_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index, selector_index
+        if (selector_index <= 0 .or. .not. arena%has_node_at(decl_index)) return
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            decl%kind_selector_index = selector_index
+        end select
+    end subroutine set_kind_selector_index
 
     subroutine apply_bind_c_attribute(arena, decl_index, attr_info)
         type(ast_arena_t), intent(inout) :: arena

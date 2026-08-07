@@ -16,7 +16,8 @@ module parser_declarations_type_spec_module
         & split_derived_type_name_and_params, &
         & set_derived_type_name_info, &
         & process_derived_type_parameters, &
-        & analyze_derived_type_tokens
+        & analyze_derived_type_tokens, &
+        & parse_single_parameter
     implicit none
     private
 
@@ -104,7 +105,7 @@ contains
         case ("character")
             call parse_parenthesized_character(parser, type_spec, token)
         case default
-            call capture_parenthesized_content(parser, type_spec)
+            call capture_parenthesized_content(parser, arena, type_spec)
         end select
     end subroutine parse_parenthesized_spec
 
@@ -464,8 +465,9 @@ contains
         end if
     end subroutine consume_comma_if_present
 
-    subroutine capture_parenthesized_content(parser, type_spec)
+    subroutine capture_parenthesized_content(parser, arena, type_spec)
         type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t) :: token
         type(token_t), allocatable :: collected_tokens(:)
@@ -498,6 +500,13 @@ contains
 
         if (allocated(collected_tokens)) then
             collected_text = tokens_to_text(collected_tokens)
+            call parse_single_parameter(collected_tokens, type_spec, arena, parser)
+            if (allocated(type_spec%derived_parameter_nodes)) then
+                type_spec%kind_selector_index = &
+                    type_spec%derived_parameter_nodes(size( &
+                    type_spec%derived_parameter_nodes))
+                deallocate (type_spec%derived_parameter_nodes)
+            end if
             type_spec%type_name = trim(type_spec%base_keyword)//"("// &
                 trim(adjustl(collected_text))//")"
             block

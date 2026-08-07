@@ -48,6 +48,7 @@ module ast_nodes_data
         integer :: kind_value = 0 ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
         logical :: has_kind = .false. ! Whether kind was specified
+        integer :: kind_selector_index = 0 ! Semantic kind-selector expression
         character(len=:), allocatable :: character_length_expr
         ! Character length expression
         logical :: has_character_length = .false.
@@ -278,6 +279,7 @@ contains
         lhs%is_multi_declaration = rhs%is_multi_declaration
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
+        lhs%kind_selector_index = rhs%kind_selector_index
         if (allocated(rhs%character_length_expr)) then
             lhs%character_length_expr = rhs%character_length_expr
         else if (allocated(lhs%character_length_expr)) then
