@@ -2,12 +2,13 @@ program test_compiler_expression_queries
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront_compiler, only: ast_arena_t, compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, array_slice_query_t, array_bounds_query_t, &
-        range_expression_query_t, component_access_query_t, &
+        INPUT_MODE_STANDARD, array_slice_query_t, component_access_query_t, &
         array_literal_query_t, pointer_assignment_query_t, nullify_query_t, &
-        query_array_slice, query_array_bounds, query_range_expression, &
+        query_array_slice, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify, get_identifier_name, get_literal_info
+    use fortfront, only: array_bounds_query_t, range_expression_query_t, &
+        query_array_bounds, query_range_expression
     implicit none
 
     character(len=:), allocatable :: source
