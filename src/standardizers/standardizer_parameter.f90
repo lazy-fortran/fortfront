@@ -337,7 +337,7 @@ contains
         integer :: kind_value_local
 
         if (.not. allocated(stmt%type_name)) return
-        if (trim(stmt%type_name) /= "type_variable") return
+        if (.not. is_type_variable_str(stmt%type_name)) return
 
         call infer_parameter_type(param_name, inferred_type, has_kind_local, &
             kind_value_local)
