@@ -6,12 +6,13 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `4bd83caf` (the #2993 `IMPLICIT NONE`
-undeclared-reference pass, full-line continuation comments, fixed-form comment
-normalization, and the #2255 follow-up). The #2993, #2996, and nested-binding
-focused oracles are green locally; the remaining remote aggregate/Windows
-failures listed below are independent of those fixes. Merge CI is [run
-31135930489](https://github.com/lazy-fortran/fortfront/actions/runs/31135930489)
+The implementation baseline is `193457a9` (implicit `DIMENSION` dummy
+preservation, the #2993 `IMPLICIT NONE` undeclared-reference pass, full-line
+continuation comments, fixed-form comment normalization, and the #2255
+follow-up). The #2993, #2996, nested-binding, and implicit-DIMENSION focused
+oracles are green locally; the remaining remote aggregate/Windows failures
+listed below are independent of those fixes. Merge CI is [run
+31136187566](https://github.com/lazy-fortran/fortfront/actions/runs/31136187566)
 and is still in progress; do not treat the local GNU lane as remote-green
 evidence.
 
@@ -94,25 +95,29 @@ query in the same set of linked commits. Do not leave a permanent fallback.
    Next close the accepted side of [#2897](https://github.com/lazy-fortran/fortfront/issues/2897) and
    the lost or malformed AST evidence in #2986/#2987 without over-rejecting
    valid code.
-4. Complete binding identity across nested ASSOCIATE in
+4. Preserve legacy declaration forms as typed AST facts. The implicit
+   `DIMENSION` dummy path is landed in `e5e8157b` with a compiled source-vs-
+   transformed behavior oracle; extend this pattern to the remaining fixed-
+   form and declaration-shape cases before reclassifying corpus rows.
+5. Complete binding identity across nested ASSOCIATE in
    [#2975](https://github.com/lazy-fortran/fortfront/issues/2975). The selector
    binding correction and exact declaration-identity oracle are now landed;
    this remains the frontend prerequisite for ffc #584 and removal of
    text-name lookup.
-5. Fix parser representation defects #2973 and the remaining explicit-
+6. Fix parser representation defects #2973 and the remaining explicit-
    interface representation work #2970. Then rebaseline stale umbrellas
    #2883/#2924/#2951 and close or split them by live signature.
-6. Establish Lazy result/specialization identity in #2980/#2994 before ffc
+7. Establish Lazy result/specialization identity in #2980/#2994 before ffc
    serializes or emits it.
-7. Fix the full-line-comment-inside-continuation lexer defect in
+8. Fix the full-line-comment-inside-continuation lexer defect in
    [#2996](https://github.com/lazy-fortran/fortfront/issues/2996) with its
    parser reproduction, token/position oracle, gfortran accepted neighbor, and
    a malformed-continuation rejection control. The implementation keeps the
    lexer continuation state alive across comment/blank trivia while preserving
    character-literal state separately; the focused tests pass locally.
-8. Keep the nested character-array substring AST contract green for downstream
+9. Keep the nested character-array substring AST contract green for downstream
    ffc #669 and run its read/write/overlap/actual-argument differential oracle.
-9. Run downstream ffc binding, rejection, module-consumer, and Lazy ABI gates
+10. Run downstream ffc binding, rejection, module-consumer, and Lazy ABI gates
    against the exact FortFront revision before release.
 
 Parser, semantic, query, and portability work may proceed in isolated
