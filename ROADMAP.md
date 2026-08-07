@@ -6,10 +6,10 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `f46a0059` (the #2980 result-inference
-standardizer fix on top of explicit semantic-context mode initialization for
-GCC14, separate module-procedure dummy resolution, implicit `DIMENSION` dummy
-preservation, and the #2993 `IMPLICIT NONE`
+The implementation baseline is `c0a32743` (the merged procedure-name semantic
+boundary fix on top of the #2980 result-inference standardizer, explicit
+semantic-context mode initialization for GCC14, separate module-procedure dummy
+resolution, implicit `DIMENSION` dummy preservation, and the #2993 `IMPLICIT NONE`
 undeclared-reference pass, full-line continuation comments, fixed-form
 comment normalization, and the #2255 follow-up). The #2993, #2996,
 nested-binding, implicit-DIMENSION, and separate-module-dummy focused oracles
@@ -17,9 +17,11 @@ are green locally. The current local GNU lane is green: 1,545 static modules,
 381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
 Windows lane and remote aggregate remain open.
 
-Merge CI is [run 31138513938](https://github.com/lazy-fortran/fortfront/actions/runs/31138513938)
-for this head and remains in progress; the local GNU gate is not remote-green
-evidence.
+The merge push for this head is [run 31144447791](https://github.com/lazy-fortran/fortfront/actions/runs/31144447791)
+and remains in progress. The latest procedure-name PR observation is [run
+31144062538](https://github.com/lazy-fortran/fortfront/actions/runs/31144062538):
+Ubuntu completed successfully while Windows remains in progress and retains the
+known portability failures. The local GNU gate is not remote-green evidence.
 
 The semantic context constructor now assigns its input-mode and strict
 `IMPLICIT NONE` policy explicitly. This is required for GCC14, where relying
@@ -40,7 +42,13 @@ parse/semantic drops. GNU and NVIDIA `nvfortran` 26.5 cold builds cover the
 381-target lane; the downstream FortAD nvfortran gate still needs a fresh run
 against this revision and is not evidence of a FortFront failure until then.
 
-### CI evidence and #2980 result-inference tranche (2026-08-07)
+### CI evidence and #2980/procedure-name tranches (2026-08-07)
+
+The procedure-name semantic boundary fix is merged as `c0a32743`. Its focused
+`test_interface_procedure_reference` oracle covers names declared in explicit
+interface bodies and names introduced by `ENTRY`; the downstream ffc
+`test_session_reject_result_01_compiler` rejection oracle passes against this
+revision. No expected-failure or XFAIL baseline changed.
 
 Run [31138641474](https://github.com/lazy-fortran/fortfront/actions/runs/31138641474)
 has a green Ubuntu job (`92743669803`), including build, tests, rejection
@@ -58,7 +66,7 @@ gates until reproduced and fixed on Windows:
 and `test_elemental_validation.exe`.  No expected-failure or XFAIL baseline
 was changed to mask this platform drift.
 
-Issue [#2980](https://github.com/lazy-fortran/fortfront/issues/2980) now has a
+Issue [#2980](https://github.com/lazy-fortran/fortfront/issues/2980) has a
 minimal differential oracle in `test/standardizer/test_issue_2980_result_inference.f90`.
 It standardizes an untyped `twice(x)` whose body assigns `2*x`, requires the
 public code generator to emit a `real` result (not the I–N implicit-name
