@@ -107,7 +107,7 @@ contains
             type is (complex_literal_node)
             call resolve_complex_literal(arena, node, visiting)
             type is (declaration_node)
-            call resolve_declaration(arena, node_index, node)
+            call resolve_declaration(arena, node_index, node, visiting)
             type is (parameter_declaration_node)
             call resolve_parameter_declaration(arena, node_index, node)
             type is (identifier_node)
@@ -192,11 +192,13 @@ contains
         call set_intrinsic_metadata(node, TCOMPLEX, max(real_kind, imag_kind), 0)
     end subroutine resolve_complex_literal
 
-    subroutine resolve_declaration(arena, node_index, node)
+    subroutine resolve_declaration(arena, node_index, node, visiting)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(declaration_node), intent(inout) :: node
+        logical, intent(inout) :: visiting(:)
         integer :: rank
+        integer :: selected_kind
 
         if (.not. allocated(node%type_name)) then
             call resolve_from_inferred_type(node)
@@ -208,6 +210,16 @@ contains
         end if
         call resolve_type_spec(arena, node_index, node%type_name, node%has_kind, &
             node%kind_value, rank, node)
+        if (.not. node%resolved_type_found .and. node%kind_selector_index > 0) then
+            selected_kind = 0
+            call evaluate_integer_constant(arena, node%kind_selector_index, &
+                selected_kind, visiting)
+            if (selected_kind > 0) then
+                call set_intrinsic_metadata(node, &
+                    type_kind_from_spec(compact_lower(node%type_name)), &
+                    selected_kind, rank)
+            end if
+        end if
     end subroutine resolve_declaration
 
     subroutine resolve_parameter_declaration(arena, node_index, node)

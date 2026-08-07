@@ -58,6 +58,8 @@ program test_compiler_resolved_type_query
     call require_renamed_kind_selector()
     call require_iso_c_binding_kinds()
     call require_indirect_kind_selectors()
+    call require_selected_kind_parameter_selectors()
+    call require_unavailable_selected_kind_is_rejected()
     call require_array_declaration_ranks()
     call require_unresolved_kind_remains_unknown()
     call require_unavailable_result()
@@ -334,6 +336,71 @@ contains
         call require_result_declaration(alias_result, 'value', TREAL, &
             expected_kind, 0)
     end subroutine require_indirect_kind_selectors
+
+    subroutine require_selected_kind_parameter_selectors()
+        character(len=*), parameter :: source = &
+            'module kind_parameters'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  integer, parameter :: precision_digits = 12'//new_line('a')// &
+            '  integer, parameter :: range_digits = 307'//new_line('a')// &
+            '  integer, parameter :: real_kind = selected_real_kind('// &
+                'precision_digits, range_digits)'//new_line('a')// &
+            '  integer, parameter :: int_kind = selected_int_kind(9)'// &
+                new_line('a')// &
+            '  real(real_kind) :: named_real'//new_line('a')// &
+            '  real(selected_real_kind(12, 307)) :: literal_real'// &
+                new_line('a')// &
+            '  integer(int_kind) :: selected_integer'//new_line('a')// &
+            'end module kind_parameters'
+        type(compiler_frontend_result_t) :: selected_result
+        integer, parameter :: expected_real = selected_real_kind(12, 307)
+        integer, parameter :: expected_int = selected_int_kind(9)
+
+        call compile_frontend_from_string(source, selected_result, options)
+        call require(selected_result%parse_ok, &
+            'selected-kind parameter source did not parse')
+        call require(selected_result%semantic_ok, &
+            'selected-kind parameter source did not analyze: '// &
+            selected_result%error_msg)
+        call require_result_declaration(selected_result, 'real_kind', TINT, 4, 0)
+        call require_result_declaration(selected_result, 'int_kind', TINT, 4, 0)
+        call require_result_declaration(selected_result, 'named_real', TREAL, &
+            expected_real, 0)
+        call require_result_declaration(selected_result, 'literal_real', TREAL, &
+            expected_real, 0)
+        call require_result_declaration(selected_result, 'selected_integer', TINT, &
+            expected_int, 0)
+    end subroutine require_selected_kind_parameter_selectors
+
+    subroutine require_unavailable_selected_kind_is_rejected()
+        character(len=*), parameter :: source = &
+            'program rejected_kind'//new_line('a')// &
+            '  real(selected_real_kind(100, 10000)) :: value'//new_line('a')// &
+            'end program rejected_kind'
+        type(compiler_frontend_result_t) :: rejected_result
+        character(len=:), allocatable :: name, error_msg
+        type(resolved_type_query_t) :: query
+        logical :: matched
+        integer :: i
+
+        call compile_frontend_from_string(source, rejected_result, options)
+        call require(rejected_result%parse_ok, &
+            'unavailable selected-kind source did not parse')
+        matched = .false.
+        do i = 1, rejected_result%arena%size
+            if (.not. is_declaration_node(rejected_result%arena, i)) cycle
+            call get_declaration_var_name(rejected_result%arena, i, name, error_msg)
+            if (len_trim(error_msg) > 0 .or. trim(name) /= 'value') cycle
+            query = query_resolved_type(rejected_result%arena, i)
+            call require(.not. query%found, &
+                'unavailable selected kind was accepted')
+            call require(len_trim(query%diagnostic) > 0, &
+                'unavailable selected kind lacked a diagnostic')
+            matched = .true.
+            exit
+        end do
+        call require(matched, 'rejected selected-kind declaration was not found')
+    end subroutine require_unavailable_selected_kind_is_rejected
 
     subroutine require_array_declaration_ranks()
         character(len=*), parameter :: source = &

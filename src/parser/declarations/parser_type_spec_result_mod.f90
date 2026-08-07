@@ -23,6 +23,7 @@ module parser_type_spec_result_mod
         logical :: has_derived_type_parameters = .false.
         logical :: has_kind = .false.
         integer :: kind_value = 0
+        integer :: kind_selector_index = 0
         integer :: line = 0
         integer :: column = 0
         logical :: has_character_length = .false.
@@ -36,6 +37,7 @@ module parser_type_spec_result_mod
     public :: set_derived_type_name_info
     public :: process_derived_type_parameters
     public :: analyze_derived_type_tokens
+    public :: parse_single_parameter
 
 contains
 
@@ -80,6 +82,7 @@ contains
         type_spec%has_derived_type_parameters = .false.
         type_spec%has_kind = .false.
         type_spec%kind_value = 0
+        type_spec%kind_selector_index = 0
         type_spec%line = token%line
         type_spec%column = token%column
         type_spec%has_character_length = .false.
@@ -237,7 +240,6 @@ contains
         type(token_t) :: eof_token
         type(parser_state_t) :: param_parser
         integer :: expr_index
-
         if (.not. allocated(current)) return
         call trim_token_sequence(current, cleaned)
         if (.not. allocated(cleaned)) return

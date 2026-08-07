@@ -8,6 +8,7 @@ module parser_declarations_type_spec_support_module
     use parser_type_spec_result_mod, only: set_derived_type_name_info
     use parser_type_spec_result_mod, only: process_derived_type_parameters
     use parser_type_spec_result_mod, only: analyze_derived_type_tokens
+    use parser_type_spec_result_mod, only: parse_single_parameter
     use parser_type_spec_attributes_mod, only: is_type_attribute_token
     use parser_type_spec_attributes_mod, only: skip_type_definition_attributes
     use parser_type_spec_attributes_mod, only: parser_is_at_type_definition
@@ -26,6 +27,7 @@ module parser_declarations_type_spec_support_module
     public :: set_derived_type_name_info
     public :: process_derived_type_parameters
     public :: analyze_derived_type_tokens
+    public :: parse_single_parameter
     public :: is_type_attribute_token
     public :: skip_type_definition_attributes
     public :: parser_is_at_type_definition
