@@ -47,7 +47,17 @@ module fortfront_compiler
         array_literal_query_t, pointer_assignment_query_t, nullify_query_t, &
         query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, &
-        query_pointer_assignment, query_nullify
+        query_pointer_assignment, query_nullify, &
+        STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER, &
+        STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON, &
+        OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE, &
+        OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC, &
+        OWNERSHIP_EVENT_NULLIFY, &
+        ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, &
+        storage_query_t, ownership_event_query_t, component_path_query_t, &
+        binding_resolution_query_t, global_reference_query_t, &
+        query_storage, query_ownership_events, query_component_path, &
+        query_type_binding_resolution, query_active_global_references
     use frontend_compiler_diagnostics, only: compiler_diagnostic_t, &
         get_compiler_diagnostics, &
         DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &
