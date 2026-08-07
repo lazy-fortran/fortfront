@@ -6,7 +6,8 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `c0a32743` (the merged procedure-name semantic
+The implementation source baseline is `c0a32743`; the current documentation
+handoff is `f482e048`. The source baseline is the merged procedure-name semantic
 boundary fix on top of the #2980 result-inference standardizer, explicit
 semantic-context mode initialization for GCC14, separate module-procedure dummy
 resolution, implicit `DIMENSION` dummy preservation, and the #2993 `IMPLICIT NONE`
