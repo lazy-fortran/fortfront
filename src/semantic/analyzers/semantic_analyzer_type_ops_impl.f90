@@ -80,6 +80,8 @@ contains
         copy%input_mode = this%input_mode
         copy%operating_mode = this%operating_mode
         copy%respect_implicit_none = this%respect_implicit_none
+        copy%enforce_implicit_none_references = &
+            this%enforce_implicit_none_references
         copy%signatures = this%signatures
         copy%explicit_interface_procedure_names = &
             this%explicit_interface_procedure_names
@@ -99,6 +101,8 @@ contains
         lhs%input_mode = rhs%input_mode
         lhs%operating_mode = rhs%operating_mode
         lhs%respect_implicit_none = rhs%respect_implicit_none
+        lhs%enforce_implicit_none_references = &
+            rhs%enforce_implicit_none_references
         lhs%signatures = rhs%signatures
         lhs%explicit_interface_procedure_names = &
             rhs%explicit_interface_procedure_names
