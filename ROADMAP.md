@@ -6,12 +6,14 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `ca26bf9d` (full-line continuation comments,
-fixed-form comment normalization, and the #2255 follow-up). The #2996 parser
-reproduction and accepted neighbor are green on this baseline; the remaining
-remote aggregate/Windows failures listed below are independent of that fix.
-No CI result for this exact baseline is recorded yet; do not treat the local
-GNU lane as remote-green evidence.
+The implementation baseline is `4bd83caf` (the #2993 `IMPLICIT NONE`
+undeclared-reference pass, full-line continuation comments, fixed-form comment
+normalization, and the #2255 follow-up). The #2993, #2996, and nested-binding
+focused oracles are green locally; the remaining remote aggregate/Windows
+failures listed below are independent of those fixes. Merge CI is [run
+31135930489](https://github.com/lazy-fortran/fortfront/actions/runs/31135930489)
+and is still in progress; do not treat the local GNU lane as remote-green
+evidence.
 
 The current local GNU lane builds 381 targets and 379 test programs across 484
 tests. `test_module_distribution` is parallel-fragile because it cleans shared
@@ -80,19 +82,18 @@ query in the same set of linked commits. Do not leave a permanent fallback.
    compiler/platform and preserve its exact signature.
 2. Generate a fresh accepted/rejected corpus baseline. Record raw outcomes,
    not prose counts, and keep invalid and valid-side gates paired.
-3. Close the missing semantic rejection in
-   [#2993](https://github.com/lazy-fortran/fortfront/issues/2993), the accepted
-   side of [#2897](https://github.com/lazy-fortran/fortfront/issues/2897), and
-   the lost or malformed AST evidence in #2986/#2987 without over-rejecting
-   valid code. #2993 is implemented as one arena-wide structural
-   `IMPLICIT NONE` reference pass over the public resolver: declaration,
-   host/use/associate, procedure, construct-entity, component, keyword,
-   NAMELIST, and SELECT TYPE bindings are accepted; only unresolved data
-   references are diagnosed. It runs when compiler/API callers select
+3. The missing semantic rejection in
+   [#2993](https://github.com/lazy-fortran/fortfront/issues/2993) is landed in
+   `4bd83caf`: the arena-wide structural `IMPLICIT NONE` reference pass covers
+   declaration, host/use/associate, procedure, construct-entity, component,
+   keyword, NAMELIST, and SELECT TYPE bindings. It runs when callers select
    standard analysis while preserving the Lazy transformation inference
    boundary (including Lazy sources that contain `IMPLICIT NONE`). The focused
    API oracle covers that lazy boundary and explicit `INPUT_MODE_STANDARD`, and
    the accepted neighbor is independently syntax-checked with GNU Fortran.
+   Next close the accepted side of [#2897](https://github.com/lazy-fortran/fortfront/issues/2897) and
+   the lost or malformed AST evidence in #2986/#2987 without over-rejecting
+   valid code.
 4. Complete binding identity across nested ASSOCIATE in
    [#2975](https://github.com/lazy-fortran/fortfront/issues/2975). The selector
    binding correction and exact declaration-identity oracle are now landed;
@@ -141,7 +142,7 @@ All open issues as of the snapshot are assigned below.
 
 | Workstream | Issues |
 | --- | --- |
-| rejection and accepted-side correctness | [#2883](https://github.com/lazy-fortran/fortfront/issues/2883), [#2897](https://github.com/lazy-fortran/fortfront/issues/2897), [#2924](https://github.com/lazy-fortran/fortfront/issues/2924), [#2951](https://github.com/lazy-fortran/fortfront/issues/2951), [#2970](https://github.com/lazy-fortran/fortfront/issues/2970), [#2986](https://github.com/lazy-fortran/fortfront/issues/2986), [#2987](https://github.com/lazy-fortran/fortfront/issues/2987), [#2993](https://github.com/lazy-fortran/fortfront/issues/2993) |
+| rejection and accepted-side correctness | [#2883](https://github.com/lazy-fortran/fortfront/issues/2883), [#2897](https://github.com/lazy-fortran/fortfront/issues/2897), [#2924](https://github.com/lazy-fortran/fortfront/issues/2924), [#2951](https://github.com/lazy-fortran/fortfront/issues/2951), [#2970](https://github.com/lazy-fortran/fortfront/issues/2970), [#2986](https://github.com/lazy-fortran/fortfront/issues/2986), and [#2987](https://github.com/lazy-fortran/fortfront/issues/2987). #2993 is landed in `4bd83caf`. |
 | parser and semantic identity | [#2973](https://github.com/lazy-fortran/fortfront/issues/2973), [#2975](https://github.com/lazy-fortran/fortfront/issues/2975), [#2980](https://github.com/lazy-fortran/fortfront/issues/2980), [#2994](https://github.com/lazy-fortran/fortfront/issues/2994) |
 | deferred syntax | [#2976](https://github.com/lazy-fortran/fortfront/issues/2976) |
 | lexer continuation correctness | [#2996](https://github.com/lazy-fortran/fortfront/issues/2996) |
@@ -165,10 +166,11 @@ Tests need an independent behavioral oracle:
   compiler.
 - rejection: require category/location for the invalid case and acceptance of
   a minimally different valid case.
-- #2993: run `test_issue_2993_implicit_none_diagnostics` (lazy auto-detection
-  and explicit standard mode), then run the bounded
-  `scripts/corpus_rejection_gate.sh` shard; every accepted-to-rejected delta
-  must be fixed before merge or named as pre-existing baseline drift.
+- #2993 (landed): retain `test_issue_2993_implicit_none_diagnostics` (lazy
+  auto-detection and explicit standard mode) and the bounded
+  `scripts/corpus_rejection_gate.sh` shard as merge-train regression gates;
+  every new accepted-to-rejected delta must be fixed or named as pre-existing
+  baseline drift.
 - binding/query changes: query exact declaration identities in nested scopes,
   then compile/link/run an ffc consumer that would fail under name lookup.
 - module and Lazy ABI changes: separate producer/consumer compilation and
