@@ -105,6 +105,8 @@ module frontend_compiler_queries
     public :: binding_resolution_query_t, global_reference_query_t
     public :: query_storage, query_ownership_events, query_component_path
     public :: query_type_binding_resolution, query_active_global_references
+    public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
+    public :: query_type_binding_hierarchy
 
     integer, parameter :: STORAGE_LOCAL = 1
     integer, parameter :: STORAGE_OWNED = 2
@@ -290,6 +292,59 @@ module frontend_compiler_queries
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
     end type binding_resolution_query_t
+
+    type :: binding_hierarchy_entry_t
+        !! Effective binding metadata for one type in an EXTENDS chain.
+        logical :: found = .false.
+        integer :: type_index = 0
+        integer :: parent_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: declaring_type_index = 0
+        character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: parent_type_name
+        character(len=:), allocatable :: declaring_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: pass_name
+        logical :: is_local = .false.
+        logical :: is_inherited = .false.
+        logical :: is_generic = .false.
+        logical :: is_deferred = .false.
+        logical :: is_abstract_type = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_resolved = .false.
+        logical :: pass_arg = .true.
+    end type binding_hierarchy_entry_t
+
+    type :: binding_hierarchy_query_t
+        !! Static binding information for one declared derived type.
+        !!
+        !! The hierarchy is ordered from the queried type toward its root
+        !! parent.  It contains no descendant or runtime dispatch targets.
+        logical :: found = .false.
+        character(len=:), allocatable :: requested_name
+        integer :: declared_type_index = 0
+        character(len=:), allocatable :: declared_type_name
+        integer :: declaring_type_index = 0
+        character(len=:), allocatable :: declaring_type_name
+        integer :: binding_node_index = 0
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: pass_name
+        logical :: is_inherited = .false.
+        logical :: is_generic = .false.
+        logical :: is_deferred = .false.
+        logical :: is_abstract_type = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: pass_arg = .true.
+        integer, allocatable :: parent_type_indices(:)
+        character(len=:), allocatable :: parent_type_names(:)
+        type(binding_hierarchy_entry_t), allocatable :: hierarchy(:)
+    end type binding_hierarchy_query_t
 
     type :: global_reference_query_t
         logical :: found = .false.
@@ -3102,6 +3157,252 @@ contains
             call append_dispatch_target(query, target_type, target%implementation)
         end do
     end function query_type_binding_resolution
+
+    function query_type_binding_hierarchy(arena, derived_type_index, &
+            binding_name) result(query)
+        !! Report one binding through the queried type's parent chain.
+        !!
+        !! This is deliberately a fixed, local query.  It walks only
+        !! ``EXTENDS`` parents from ``derived_type_index`` and never scans
+        !! descendants or invents a runtime dispatch target.  A generic with
+        !! more than one possible procedure is therefore marked ambiguous
+        !! and has no implementation guess.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: derived_type_index
+        character(len=*), intent(in) :: binding_name
+        type(binding_hierarchy_query_t) :: query
+        type(derived_type_query_t) :: derived
+        type(derived_type_query_t) :: parent
+        type(type_binding_query_t) :: binding
+        type(binding_hierarchy_entry_t), allocatable :: entries(:)
+        integer, allocatable :: chain(:)
+        integer :: current_index, parent_index, i, n, matches, width
+
+        call initialize_binding_hierarchy(query, binding_name)
+        if (.not. arena%has_node_at(derived_type_index)) return
+        derived = query_derived_type(arena, derived_type_index)
+        if (.not. derived%found) return
+
+        query%declared_type_index = derived_type_index
+        query%declared_type_name = derived%name
+        allocate (chain(0))
+        current_index = derived_type_index
+        do
+            call append_type_index(chain, current_index)
+            derived = query_derived_type(arena, current_index)
+            if (.not. derived%found) exit
+            if (len_trim(derived%extends_parent) == 0) exit
+            parent_index = find_derived_type_by_name(arena, derived%extends_parent)
+            if (parent_index <= 0) then
+                exit
+            end if
+            current_index = parent_index
+            if (size(chain) > arena%size) then
+                exit
+            end if
+        end do
+
+        n = size(chain)
+        allocate (entries(n))
+        do i = n, 1, -1
+            call initialize_binding_hierarchy_entry(entries(i))
+            derived = query_derived_type(arena, chain(i))
+            entries(i)%type_index = chain(i)
+            if (derived%found) then
+                entries(i)%type_name = derived%name
+                entries(i)%is_abstract_type = contains_word( &
+                    derived%attribute_clause, 'abstract')
+            end if
+            if (i < n) then
+                entries(i)%parent_type_index = chain(i + 1)
+                parent = query_derived_type(arena, chain(i + 1))
+                if (parent%found) entries(i)%parent_type_name = parent%name
+            end if
+
+            call find_local_hierarchy_binding(arena, chain(i), binding_name, &
+                binding, matches)
+            if (matches > 0) then
+                call fill_local_hierarchy_entry(entries(i), binding, matches)
+            else if (i < n) then
+                if (entries(i + 1)%found) then
+                    call inherit_hierarchy_entry(entries(i), entries(i + 1))
+                end if
+            end if
+        end do
+
+        deallocate (query%hierarchy)
+        allocate (query%hierarchy(n))
+        do i = 1, n
+            query%hierarchy(i) = entries(i)
+        end do
+        width = 1
+        do i = 2, n
+            width = max(width, len_trim(entries(i)%type_name))
+        end do
+        deallocate (query%parent_type_names, query%parent_type_indices)
+        allocate (character(len=width) :: query%parent_type_names(max(0, n - 1)))
+        allocate (query%parent_type_indices(max(0, n - 1)))
+        do i = 2, n
+            query%parent_type_indices(i - 1) = chain(i)
+            query%parent_type_names(i - 1) = entries(i)%type_name
+        end do
+
+        call copy_hierarchy_summary(query, entries(1))
+        if (.not. query%found) query%is_unresolved = .true.
+    end function query_type_binding_hierarchy
+
+    subroutine initialize_binding_hierarchy(query, requested_name)
+        type(binding_hierarchy_query_t), intent(out) :: query
+        character(len=*), intent(in) :: requested_name
+
+        query%requested_name = trim(requested_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%declaring_type_name)
+        call set_empty(query%binding_name)
+        call set_empty(query%implementation)
+        call set_empty(query%interface_name)
+        call set_empty(query%pass_name)
+        allocate (query%parent_type_indices(0))
+        allocate (character(len=1) :: query%parent_type_names(0))
+        allocate (query%hierarchy(0))
+    end subroutine initialize_binding_hierarchy
+
+    subroutine initialize_binding_hierarchy_entry(entry)
+        type(binding_hierarchy_entry_t), intent(out) :: entry
+
+        call set_empty(entry%type_name)
+        call set_empty(entry%parent_type_name)
+        call set_empty(entry%declaring_type_name)
+        call set_empty(entry%binding_name)
+        call set_empty(entry%implementation)
+        call set_empty(entry%interface_name)
+        call set_empty(entry%pass_name)
+    end subroutine initialize_binding_hierarchy_entry
+
+    subroutine append_type_index(indices, value)
+        integer, allocatable, intent(inout) :: indices(:)
+        integer, intent(in) :: value
+        integer, allocatable :: grown(:)
+        integer :: n
+
+        n = size(indices)
+        allocate (grown(n + 1))
+        if (n > 0) grown(:n) = indices
+        grown(n + 1) = value
+        call move_alloc(grown, indices)
+    end subroutine append_type_index
+
+    subroutine find_local_hierarchy_binding(arena, type_index, binding_name, &
+            binding, matches)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        character(len=*), intent(in) :: binding_name
+        type(type_binding_query_t), intent(out) :: binding
+        integer, intent(out) :: matches
+        type(derived_type_query_t) :: derived
+        type(type_binding_query_t) :: candidate
+        integer :: i
+
+        binding = query_type_binding(arena, 0)
+        matches = 0
+        derived = query_derived_type(arena, type_index)
+        if (.not. derived%found) return
+        do i = 1, size(derived%binding_indices)
+            candidate = query_type_binding(arena, derived%binding_indices(i))
+            if (.not. candidate%found) cycle
+            if (.not. binding_matches(candidate, binding_name)) cycle
+            matches = matches + 1
+            if (matches == 1) binding = candidate
+        end do
+    end subroutine find_local_hierarchy_binding
+
+    subroutine fill_local_hierarchy_entry(entry, binding, matches)
+        type(binding_hierarchy_entry_t), intent(inout) :: entry
+        type(type_binding_query_t), intent(in) :: binding
+        integer, intent(in) :: matches
+        logical :: has_implementation
+
+        entry%found = .true.
+        entry%binding_node_index = binding%node_index
+        entry%declaring_type_index = entry%type_index
+        entry%declaring_type_name = entry%type_name
+        entry%binding_name = binding%binding_name
+        entry%interface_name = binding%interface_name
+        entry%pass_name = binding%pass_name
+        entry%is_local = .true.
+        entry%is_inherited = .false.
+        entry%is_generic = binding%is_generic
+        entry%is_deferred = binding%is_deferred
+        entry%pass_arg = binding%pass_arg
+        entry%is_ambiguous = matches > 1
+        if (binding%is_generic) then
+            if (size(binding%generic_names) > 1) entry%is_ambiguous = .true.
+        end if
+        call set_empty(entry%implementation)
+
+        if (.not. entry%is_ambiguous) then
+            if (binding%is_generic) then
+                if (size(binding%generic_names) == 1) then
+                    entry%implementation = binding%generic_names(1)
+                end if
+            else if (allocated(binding%implementation)) then
+                if (len_trim(binding%implementation) > 0) then
+                    entry%implementation = binding%implementation
+                end if
+            else
+                entry%implementation = binding%binding_name
+            end if
+        end if
+
+        has_implementation = len_trim(entry%implementation) > 0
+        if (entry%is_deferred) then
+            call set_empty(entry%implementation)
+            has_implementation = .false.
+        end if
+        entry%is_resolved = has_implementation .and. .not. entry%is_ambiguous
+    end subroutine fill_local_hierarchy_entry
+
+    subroutine inherit_hierarchy_entry(entry, parent)
+        type(binding_hierarchy_entry_t), intent(inout) :: entry
+        type(binding_hierarchy_entry_t), intent(in) :: parent
+
+        entry%found = parent%found
+        entry%binding_node_index = parent%binding_node_index
+        entry%declaring_type_index = parent%declaring_type_index
+        entry%declaring_type_name = parent%declaring_type_name
+        entry%binding_name = parent%binding_name
+        entry%implementation = parent%implementation
+        entry%interface_name = parent%interface_name
+        entry%pass_name = parent%pass_name
+        entry%is_local = .false.
+        entry%is_inherited = parent%found
+        entry%is_generic = parent%is_generic
+        entry%is_deferred = parent%is_deferred
+        entry%is_ambiguous = parent%is_ambiguous
+        entry%is_resolved = parent%is_resolved
+        entry%pass_arg = parent%pass_arg
+    end subroutine inherit_hierarchy_entry
+
+    subroutine copy_hierarchy_summary(query, entry)
+        type(binding_hierarchy_query_t), intent(inout) :: query
+        type(binding_hierarchy_entry_t), intent(in) :: entry
+
+        query%found = entry%found
+        query%declaring_type_index = entry%declaring_type_index
+        query%declaring_type_name = entry%declaring_type_name
+        query%binding_node_index = entry%binding_node_index
+        query%binding_name = entry%binding_name
+        query%implementation = entry%implementation
+        query%interface_name = entry%interface_name
+        query%pass_name = entry%pass_name
+        query%is_inherited = entry%is_inherited
+        query%is_generic = entry%is_generic
+        query%is_deferred = entry%is_deferred
+        query%is_abstract_type = entry%is_abstract_type
+        query%is_ambiguous = entry%is_ambiguous
+        query%is_resolved = entry%is_resolved
+        query%pass_arg = entry%pass_arg
+    end subroutine copy_hierarchy_summary
 
     function query_active_global_references(arena, scope_index) result(refs)
         type(ast_arena_t), intent(in) :: arena
