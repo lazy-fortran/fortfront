@@ -15,6 +15,12 @@ are green locally. The current local GNU lane is green: 1,545 static modules,
 381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
 Windows lane and remote aggregate remain open.
 
+The semantic context constructor now assigns its input-mode and strict
+`IMPLICIT NONE` policy explicitly. This is required for GCC14, where relying
+on default initialization of an `INTENT(OUT)` derived context left the strict
+gate disabled. The `test_issue_2993_implicit_none_diagnostics` oracle passes
+with both local GCC16 and remote GCC14.2 after the explicit initialization.
+
 `test_module_distribution` was previously parallel-fragile because it cleans
 shared Makefile artifacts; isolate its outputs before treating the full suite as a
 parallel gate. The last-known Windows failures are
