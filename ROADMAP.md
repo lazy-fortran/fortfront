@@ -93,6 +93,16 @@ fallback or a second resolver implementation. `fo test
 test_compiler_scope_resolution` passes locally; no production resolver change
 was needed in this tranche.
 
+### #2973 legacy-I/O implied-do evidence (2026-08-07)
+
+The existing `(/` dispatch guard already separates legacy array literals from
+genuine I/O implied-do syntax. The merged typed AST regression
+`test_issue_2973_legacy_io_implied_do.f90` (`f0d70c0`) checks that
+`print *, (/(i,i=1,4)/)` produces an `array_literal_node` with an implied-do
+loop, while `print *, (i,i=1,4)` remains an `io_implied_do_node`. The focused
+oracle and full local `fo check` pass; no production parser change or XFAIL
+was needed.
+
 The canonical downstream plan and current corpus counts live in the
 [ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/ROADMAP.md).
 FortFront does not duplicate its parity dashboard.
