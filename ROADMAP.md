@@ -7,7 +7,7 @@ backend-neutral.
 ## Current truth
 
 The implementation semantic source baseline remains `c0a32743`; the current
-documentation/source handoff is merged main `9c528d6b`. The handoff includes
+documentation/source handoff is merged main `d8c8769a`. The handoff includes
 the typed #2974 compound-declaration regression on top of the procedure-name
 semantic boundary fix, #2980 result-inference standardizer, explicit
 semantic-context mode initialization for GCC14, separate module-procedure dummy
@@ -19,12 +19,13 @@ are green locally. The current local GNU lane is green: 1,545 static modules,
 381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
 Windows lane and remote aggregate remain open.
 
-The latest merged-handoff aggregate is [run 31146242801](https://github.com/lazy-fortran/fortfront/actions/runs/31146242801):
-Ubuntu passed; Windows retains the documented nine-test portability baseline
+The latest merged-handoff aggregate is [run 31147308041](https://github.com/lazy-fortran/fortfront/actions/runs/31147308041):
+Ubuntu passed, including the #2975 nested-associate owner-boundary scope test;
+Windows retains the documented nine-test portability baseline
 (`test_compiler_facing_queries`, fixed-form comment and implicit-DIMENSION
 oracles, type-bound call base, three rejection diagnostics, all examples, and
-elemental validation). The #2974 regression is not among those failures. The
-local GNU gate is not remote-green evidence.
+elemental validation). Neither the #2974 nor #2975 regression is among those
+failures. The local GNU gate is not remote-green evidence.
 
 The semantic context constructor now assigns its input-mode and strict
 `IMPLICIT NONE` policy explicitly. This is required for GCC14, where relying
