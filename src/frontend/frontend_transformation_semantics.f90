@@ -70,6 +70,7 @@ contains
 
             call create_semantic_context(local_ctx)
             local_ctx%input_mode = INPUT_MODE_LAZY
+            local_ctx%enforce_implicit_none_references = .false.
 
             call trace_enter('semantic:analyze_program')
             call analyze_program(local_ctx, arena, node_idx)

@@ -685,6 +685,10 @@ contains
             handled = .false.
             call create_semantic_context(ctx)
             ctx%operating_mode = operating_mode
+            ! The transformation pipeline preserves Lazy Fortran's inference
+            ! contract; the compiler API performs the strict IMPLICIT NONE
+            ! reference sweep separately.
+            ctx%enforce_implicit_none_references = .false.
 
             ! Start in LAZY mode, but allow automatic detection of implicit none
             ! which will switch to STANDARD mode for better performance
