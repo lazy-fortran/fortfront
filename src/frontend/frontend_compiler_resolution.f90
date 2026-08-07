@@ -193,6 +193,9 @@ contains
         call resolve_local_binding(arena, scope_node_index, name, binding)
         if (binding%found) return
 
+        call resolve_separate_module_dummy(arena, scope_node_index, name, binding)
+        if (binding%found) return
+
         call resolve_use_binding(arena, scope_node_index, name, binding)
         if (binding%found) return
 
@@ -224,6 +227,166 @@ contains
             return
         end do
     end subroutine resolve_local_binding
+
+    subroutine resolve_separate_module_dummy(arena, scope_node_index, name, binding)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        character(len=*), intent(in) :: name
+        type(declaration_binding_t), intent(out) :: binding
+        character(len=:), allocatable :: procedure_name, parent_name
+        integer :: parent_index, module_index, i
+
+        call clear_binding(binding)
+        call separate_procedure_name(arena, scope_node_index, procedure_name)
+        if (len_trim(procedure_name) == 0) return
+
+        parent_index = arena%entries(scope_node_index)%parent_index
+        if (.not. arena%has_node_at(parent_index)) return
+        select type (parent => arena%entries(parent_index)%node)
+            type is (submodule_node)
+            if (.not. allocated(parent%parent_identifier)) return
+            parent_name = root_parent_name(parent%parent_identifier)
+        class default
+            return
+        end select
+
+        module_index = find_module_index(arena, parent_name)
+        if (.not. arena%has_node_at(module_index)) return
+        select type (parent_module => arena%entries(module_index)%node)
+            type is (module_node)
+            if (.not. allocated(parent_module%declaration_indices)) return
+            do i = 1, size(parent_module%declaration_indices)
+                call resolve_interface_dummy(arena, &
+                    parent_module%declaration_indices(i), procedure_name, name, &
+                    scope_node_index, binding)
+                if (binding%found) return
+            end do
+        end select
+    end subroutine resolve_separate_module_dummy
+
+    subroutine separate_procedure_name(arena, scope_node_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        character(len=:), allocatable, intent(out) :: name
+
+        call set_empty(name)
+        if (.not. arena%has_node_at(scope_node_index)) return
+        select type (procedure => arena%entries(scope_node_index)%node)
+            type is (function_def_node)
+            if (allocated(procedure%name)) name = trim(procedure%name)
+            type is (subroutine_def_node)
+            if (allocated(procedure%name)) name = trim(procedure%name)
+        end select
+    end subroutine separate_procedure_name
+
+    function root_parent_name(parent_identifier) result(name)
+        character(len=*), intent(in) :: parent_identifier
+        character(len=:), allocatable :: name
+        integer :: separator
+
+        separator = index(parent_identifier, ':')
+        if (separator > 1) then
+            name = trim(parent_identifier(:separator - 1))
+        else
+            name = trim(parent_identifier)
+        end if
+    end function root_parent_name
+
+    subroutine resolve_interface_dummy(arena, interface_index, procedure_name, &
+            dummy_name, scope_node_index, binding)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: interface_index, scope_node_index
+        character(len=*), intent(in) :: procedure_name, dummy_name
+        type(declaration_binding_t), intent(out) :: binding
+        integer :: i, procedure_index
+
+        call clear_binding(binding)
+        if (.not. arena%has_node_at(interface_index)) return
+        select type (interface => arena%entries(interface_index)%node)
+            type is (interface_block_node)
+            if (.not. allocated(interface%procedure_indices)) return
+            do i = 1, size(interface%procedure_indices)
+                procedure_index = interface%procedure_indices(i)
+                if (.not. interface_procedure_matches(arena, procedure_index, &
+                    procedure_name)) cycle
+                if (.not. interface_has_dummy(arena, procedure_index, &
+                    dummy_name)) return
+                call resolve_local_binding(arena, procedure_index, dummy_name, &
+                    binding)
+                if (binding%found) then
+                    binding%scope_node_index = scope_node_index
+                    binding%association = ASSOCIATION_DIRECT
+                end if
+                return
+            end do
+        end select
+    end subroutine resolve_interface_dummy
+
+    logical function interface_procedure_matches(arena, procedure_index, name) &
+            result(matches)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        character(len=*), intent(in) :: name
+
+        matches = .false.
+        if (.not. arena%has_node_at(procedure_index)) return
+        select type (procedure => arena%entries(procedure_index)%node)
+            type is (function_def_node)
+            if (allocated(procedure%name)) then
+                matches = same_name(procedure%name, name)
+            end if
+            type is (subroutine_def_node)
+            if (allocated(procedure%name)) then
+                matches = same_name(procedure%name, name)
+            end if
+        end select
+    end function interface_procedure_matches
+
+    logical function interface_has_dummy(arena, procedure_index, name) &
+            result(has_dummy)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        character(len=*), intent(in) :: name
+        integer, allocatable :: parameter_indices(:)
+        integer :: i
+
+        has_dummy = .false.
+        if (.not. arena%has_node_at(procedure_index)) return
+        select type (procedure => arena%entries(procedure_index)%node)
+            type is (function_def_node)
+            if (.not. allocated(procedure%param_indices)) return
+            parameter_indices = procedure%param_indices
+            type is (subroutine_def_node)
+            if (.not. allocated(procedure%param_indices)) return
+            parameter_indices = procedure%param_indices
+        class default
+            return
+        end select
+
+        do i = 1, size(parameter_indices)
+            if (node_declares_name(arena, parameter_indices(i), name)) then
+                has_dummy = .true.
+                return
+            end if
+        end do
+    end function interface_has_dummy
+
+    logical function node_declares_name(arena, node_index, name) result(declares)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: name
+
+        declares = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (identifier_node)
+            if (allocated(node%name)) declares = same_name(node%name, name)
+            type is (parameter_declaration_node)
+            if (allocated(node%name)) declares = same_name(node%name, name)
+            type is (declaration_node)
+            if (allocated(node%var_name)) declares = same_name(node%var_name, name)
+        end select
+    end function node_declares_name
 
     subroutine resolve_use_binding(arena, scope_node_index, name, binding)
         type(ast_arena_t), intent(in) :: arena
