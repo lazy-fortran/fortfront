@@ -96,6 +96,9 @@ module semantic_analyzer
         integer :: input_mode = INPUT_MODE_LAZY
         integer :: operating_mode = OPERATING_MODE_INFER
         logical :: respect_implicit_none = .true.
+        ! Compiler/API analysis enforces IMPLICIT NONE references; Lazy
+        ! transformation retains its historical inference boundary.
+        logical :: enforce_implicit_none_references = .true.
         type(type_annotation_t), allocatable :: parser_type_hints(:)
         type(type_hierarchy_t) :: type_hierarchy
         type(signatures_map_t) :: signatures
