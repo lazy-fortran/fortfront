@@ -157,42 +157,44 @@
             end if
         end if
 
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "*") then
-            unit_spec = "*"
-            token = parser%consume()
-        else if (token%kind == TK_NUMBER) then
-            unit_spec = token%text
-            token = parser%consume()
-        else if (token%kind == TK_IDENTIFIER) then
-            ! A whole designator, not just a name. An internal read takes its
-            ! unit from a character variable, and that variable is often a
-            ! component or a substring - `read (p%text, *, iostat=ios) x` or
-            ! `read (name(11:), *, iostat=ios) n`. Stopping at the name left
-            ! the rest of the designator unconsumed, and the format clause
-            ! then failed with a complaint about a missing parenthesis.
-            unit_spec = token%text
-            token = parser%consume()
-            do
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == "%") then
-                    token = parser%consume()
-                    unit_spec = unit_spec//"%"
-                    token = parser%peek()
-                    if (token%kind /= TK_IDENTIFIER .and. &
-                        token%kind /= TK_KEYWORD) exit
-                    unit_spec = unit_spec//token%text
-                    token = parser%consume()
-                else if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                    unit_spec = unit_spec//consume_balanced_parens(parser)
-                else
-                    exit
-                end if
-            end do
-        else
-            unit_spec = ""
-        end if
+        unit_spec = consume_unit_expression(parser)
     end function parse_unit_specifier
+
+    function consume_unit_expression(parser) result(text)
+        !! Consume a scalar I/O-unit expression up to the control-list comma.
+        !! Parenthesized calls and subscripts may contain their own commas.
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable :: text
+        type(token_t) :: token
+        integer :: depth
+
+        text = ""
+        depth = 0
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_WHITESPACE)
+                token = parser%consume()
+                cycle
+            case (TK_NEWLINE, TK_COMMENT, TK_EOF)
+                exit
+            case (TK_OPERATOR)
+                select case (token%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth == 0) exit
+                    depth = depth - 1
+                case (",")
+                    if (depth == 0) exit
+                case (";")
+                    if (depth == 0) exit
+                end select
+            end select
+            text = text//token%text
+            token = parser%consume()
+        end do
+    end function consume_unit_expression
 
     function consume_balanced_parens(parser) result(text)
         !! Consume a parenthesised group, nesting and all, returning its text.

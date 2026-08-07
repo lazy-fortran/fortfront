@@ -9,6 +9,7 @@ program test_issue_498_write_statements
     call test_write_with_string_literal()
     call test_write_with_variables()
     call test_write_with_format()
+    call test_write_with_unit_expression()
     call test_write_integration()
 
 contains
@@ -121,6 +122,23 @@ contains
 
         print *, "PASS: write with format validation"
     end subroutine test_write_with_format
+
+    subroutine test_write_with_unit_expression()
+        character(len=:), allocatable :: source, generated, error_msg
+
+        source = "write(iunit + 1000, *) x"
+        call transform_lazy_fortran_string(source, generated, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: unit expression was rejected: ", trim(error_msg)
+            stop 1
+        end if
+        if (index(generated, "write(iunit + 1000, *) x") == 0) then
+            print *, "FAIL: unit expression was not preserved"
+            print *, "Generated: ", generated
+            stop 1
+        end if
+    end subroutine test_write_with_unit_expression
 
     subroutine test_write_integration()
         character(len=:), allocatable :: source, generated, error_msg

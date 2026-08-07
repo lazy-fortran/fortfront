@@ -16,6 +16,7 @@ program test_compiler_program_unit_queries
     implicit none
 
     call test_program_units_and_declarations()
+    call test_external_after_internal_procedure()
     call test_construct_queries()
     call test_block_data_query()
     call test_wrong_kind_and_parse_diagnostic()
@@ -23,6 +24,28 @@ program test_compiler_program_unit_queries
     write (output_unit, '(a)') 'PASS: compiler program-unit queries'
 
 contains
+
+    subroutine test_external_after_internal_procedure()
+        type(compiler_frontend_result_t) :: result
+        type(program_unit_query_t), allocatable :: units(:)
+        character(len=:), allocatable :: source
+
+        call read_example( &
+            'examples/f90/external_internal_then_external.f90', source)
+        call compile_parse_only(source, result, 'external after internal procedure')
+
+        units = query_program_units(result%arena, result%root_index)
+        call require(size(units) == 2, &
+            'external procedure after internal procedure remains top level')
+        call require(trim(units(1)%unit_kind) == 'subroutine', &
+            'host procedure remains a subroutine')
+        call require(trim(units(1)%name) == 'host_procedure', &
+            'host procedure name')
+        call require(trim(units(2)%unit_kind) == 'subroutine', &
+            'following external procedure remains a subroutine')
+        call require(trim(units(2)%name) == 'following_external_procedure', &
+            'following external procedure name')
+    end subroutine test_external_after_internal_procedure
 
     subroutine test_program_units_and_declarations()
         type(compiler_frontend_result_t) :: result
