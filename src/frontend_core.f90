@@ -498,6 +498,7 @@ contains
         logical :: skip_leading_ampersand
         logical :: continuation_active
         integer :: continuation_line
+        integer :: paren_depth
 
         if (.not. allocated(tokens)) return
         if (size(tokens) == 0) return
@@ -507,11 +508,17 @@ contains
         skip_leading_ampersand = .false.
         continuation_active = .false.
         continuation_line = 0
+        paren_depth = 0
         count = 0
 
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_OPERATOR) then
                 if (allocated(tokens(i)%text)) then
+                    if (trim(tokens(i)%text) == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (trim(tokens(i)%text) == ")" .and. paren_depth > 0) then
+                        paren_depth = paren_depth - 1
+                    end if
                     if (is_line_continuation_token(tokens(i)%text)) then
                         continuation_active = .true.
                         if (count > 0) continuation_line = normalized(count)%line
@@ -519,7 +526,7 @@ contains
                 end if
             end if
             if (should_skip_token(tokens, i, tokens(i), suppress_newline, &
-                skip_leading_ampersand, continuation_active)) then
+                skip_leading_ampersand, continuation_active, paren_depth)) then
                 cycle
             end if
             token_to_append = tokens(i)
@@ -535,13 +542,14 @@ contains
     end subroutine normalize_line_continuations
 
     logical function should_skip_token(tokens, token_index, token, suppress_newline, &
-            skip_leading_ampersand, continuation_active)
+            skip_leading_ampersand, continuation_active, paren_depth)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: token_index
         type(token_t), intent(in) :: token
         logical, intent(inout) :: suppress_newline
         logical, intent(inout) :: skip_leading_ampersand
         logical, intent(in) :: continuation_active
+        integer, intent(in) :: paren_depth
 
         should_skip_token = .false.
         select case (token%kind)
@@ -570,7 +578,7 @@ contains
             ! suppress this physical newline; otherwise expression parsers see
             ! an unexpected statement boundary after the trivia line.
             if (continuation_active .and. skip_leading_ampersand .and. &
-                .not. suppress_newline) then
+                .not. suppress_newline .and. paren_depth > 0) then
                 should_skip_token = .true.
                 return
             end if

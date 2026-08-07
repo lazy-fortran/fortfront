@@ -112,14 +112,18 @@ dependency order. Full builds on a constrained host run one at a time.
 
 The lexer normalization state machine now suppresses physical newlines from
 full-line comment/blank trivia encountered after a trailing continuation
-ampersand, without treating `!` inside character literals as a comment marker.
+ampersand while an expression remains parenthesized; it preserves the logical
+newline needed by a continued inline `IF` body. Parenthesis depth is tracked
+from operator tokens, so character-literal state remains independent and `!`
+inside literals is never treated as a comment marker.
 The lexer edge-case test checks raw token positions and literal/comment
 separation. The parser regression checks `parse_ok` and `semantic_ok` for both
 the commented and plain `SELECT CASE` forms, then checks the hand-authored AST
 contains both case values. A missing continuation marker is rejected. On an
 idle GNU host, both FortFront-generated and direct-gfortran executables print
-the byte-identical `PASS` output. Remote CI and the full corpus gate remain
-required before closing the issue.
+the byte-identical `PASS` output. The existing inline-IF comment-continuation
+regression also passes. Remote CI and the full corpus gate remain required
+before closing the issue.
 
 ## Open issue map
 
