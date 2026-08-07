@@ -6,9 +6,10 @@ backend-neutral.
 
 ## Current truth
 
-The implementation source baseline is `c0a32743`; the current documentation
-handoff is `f3aea46d`. The source baseline is the merged procedure-name semantic
-boundary fix on top of the #2980 result-inference standardizer, explicit
+The implementation semantic source baseline remains `c0a32743`; the current
+documentation/source handoff is merged main `9c528d6b`. The handoff includes
+the typed #2974 compound-declaration regression on top of the procedure-name
+semantic boundary fix, #2980 result-inference standardizer, explicit
 semantic-context mode initialization for GCC14, separate module-procedure dummy
 resolution, implicit `DIMENSION` dummy preservation, and the #2993 `IMPLICIT NONE`
 undeclared-reference pass, full-line continuation comments, fixed-form
@@ -18,11 +19,12 @@ are green locally. The current local GNU lane is green: 1,545 static modules,
 381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
 Windows lane and remote aggregate remain open.
 
-The merge push for this head is [run 31144447791](https://github.com/lazy-fortran/fortfront/actions/runs/31144447791)
-and remains in progress. The latest procedure-name PR observation is [run
-31144062538](https://github.com/lazy-fortran/fortfront/actions/runs/31144062538):
-Ubuntu completed successfully while Windows remains in progress and retains the
-known portability failures. The local GNU gate is not remote-green evidence.
+The latest merged-handoff aggregate is [run 31146242801](https://github.com/lazy-fortran/fortfront/actions/runs/31146242801):
+Ubuntu passed; Windows retains the documented nine-test portability baseline
+(`test_compiler_facing_queries`, fixed-form comment and implicit-DIMENSION
+oracles, type-bound call base, three rejection diagnostics, all examples, and
+elemental validation). The #2974 regression is not among those failures. The
+local GNU gate is not remote-green evidence.
 
 The semantic context constructor now assigns its input-mode and strict
 `IMPLICIT NONE` policy explicitly. This is required for GCC14, where relying
@@ -75,6 +77,20 @@ public code generator to emit a `real` result (not the I–N implicit-name
 GNU Fortran oracle.  The focused test passes locally with GCC; preserve the
 same source/behavior check on the Windows and downstream ffc lanes before
 reclassifying the issue as closed.
+
+### #2975 owner-boundary evidence (2026-08-07)
+
+The resolver correction is already landed in `d1c6a894`; it restores
+`ASSOCIATION_DIRECT` only when a nested selector resolves to a declaration
+owned by the enclosing function/subroutine. It leaves a genuine host binding
+as `ASSOCIATION_HOST`. The existing nested-dummy oracle remains in
+`test_compiler_scope_resolution`; its new owner-boundary case additionally
+queries a host selector and a local-dummy selector through the public typed
+binding API and requires exact declaration-node and declaration-entity
+identity on both sides. This is a regression boundary, not a source-text
+fallback or a second resolver implementation. `fo test
+test_compiler_scope_resolution` passes locally; no production resolver change
+was needed in this tranche.
 
 The canonical downstream plan and current corpus counts live in the
 [ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/ROADMAP.md).
