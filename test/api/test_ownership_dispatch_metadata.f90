@@ -1,5 +1,5 @@
 program test_ownership_dispatch_metadata
-    use fortfront, only: ast_arena_t, compiler_frontend_options_t, &
+    use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, get_node_type_at
     use fortfront_compiler, only: declaration_query_t, query_declaration, &
@@ -10,7 +10,6 @@ program test_ownership_dispatch_metadata
         component_path_query_t, query_component_path, &
         binding_resolution_query_t, query_type_binding_resolution, &
         global_reference_query_t, query_active_global_references, ACCESS_WRITE
-    use fortfront, only: common_block_query_t, query_common_block
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -43,13 +42,13 @@ program test_ownership_dispatch_metadata
     do i = 1, result%arena%size
         if (.not. result%arena%has_node_at(i)) cycle
         select case (trim(get_node_type_at(result%arena, i)))
-            case ('module_node')
+        case ('module_node')
             module_index = i
-            case ('derived_type')
+        case ('derived_type')
             derived = query_derived_type(result%arena, i)
             if (trim(derived%name) == 'base_t') base_index = i
             if (trim(derived%name) == 'child_t') child_index = i
-            case ('declaration')
+        case ('declaration')
             declaration = query_declaration(result%arena, i)
             if (trim(declaration%name) == 'temporary') temporary_index = i
             if (trim(declaration%name) == 'global_counter') global_index = i
@@ -59,17 +58,17 @@ program test_ownership_dispatch_metadata
     call require(module_index > 0, 'module node missing')
     call require(base_index > 0 .and. child_index > 0, 'type nodes missing')
     call require(temporary_index > 0 .and. global_index > 0 .and. &
-                 common_index > 0, 'state declarations missing')
+        common_index > 0, 'state declarations missing')
 
     storage = query_storage(result%arena, temporary_index)
     call require(storage%storage_class == STORAGE_OWNED, &
-                 'local allocatable is not owned')
+        'local allocatable is not owned')
     storage = query_storage(result%arena, global_index)
     call require(storage%storage_class == STORAGE_SAVE, &
-                 'SAVE state is not classified')
+        'SAVE state is not classified')
     storage = query_storage(result%arena, common_index)
     call require(storage%storage_class == STORAGE_COMMON, &
-                 'COMMON state is not classified')
+        'COMMON state is not classified')
 
     events = query_ownership_events(result%arena, module_index)
     event_count = 0
@@ -96,16 +95,16 @@ program test_ownership_dispatch_metadata
 
     binding = query_type_binding_resolution(result%arena, base_index, 'run')
     call require(binding%found .and. binding%is_generic, &
-                 'generic binding lookup failed')
+        'generic binding lookup failed')
     call require(size(binding%dispatch_target_type_indices) == 1 .and. &
-                 binding%dispatch_target_type_indices(1) == child_index, &
-                 'generic dispatch target was not resolved')
+        binding%dispatch_target_type_indices(1) == child_index, &
+        'generic dispatch target was not resolved')
     binding = query_type_binding_resolution(result%arena, base_index, 'work')
     call require(binding%found .and. binding%is_deferred .and. binding%pass_arg .and. &
-                 trim(binding%pass_name) == 'self', 'deferred PASS metadata failed')
+        trim(binding%pass_name) == 'self', 'deferred PASS metadata failed')
     call require(size(binding%dispatch_target_type_indices) == 1 .and. &
-                 binding%dispatch_target_type_indices(1) == child_index, &
-                 'dynamic dispatch target was not resolved')
+        binding%dispatch_target_type_indices(1) == child_index, &
+        'dynamic dispatch target was not resolved')
 
     references = query_active_global_references(result%arena, module_index)
     global_refs = 0
