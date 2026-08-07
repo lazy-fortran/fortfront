@@ -370,9 +370,11 @@
         type(mono_type_t) :: inferred_type
         logical :: has_value
         logical :: return_is_array_kind
+        logical :: implicit_result
 
         type_str = ""
         return_is_array_kind = .false.
+        implicit_result = function_result_is_implicit(arena, orig_func)
 
         if (allocated(signature%return_type_string)) then
             if (len_trim(signature%return_type_string) > 0) then
@@ -439,6 +441,18 @@
             if (len_trim(type_str) == 0) then
                 return_is_array_kind = .true.
             end if
+        end if
+
+        ! An untyped Lazy function has no authoritative result spelling in the
+        ! original AST.  The call signature is the specialization contract;
+        ! prefer it over the pre-specialization call node, whose result was
+        ! historically inferred from the function name (I-N => INTEGER).
+        ! Without this override `twice(2.5)` produced a real parameter but an
+        ! INTEGER result (issue #2980).  Explicit result declarations and
+        ! typed function headers remain authoritative.
+        if (implicit_result .and. signature%return_kind > 0 .and. &
+            signature%return_kind /= TARRAY) then
+            type_str = get_kind_type_string(signature%return_kind)
         end if
 
                 if (allocated(signature%param_kinds)) then
@@ -566,6 +580,46 @@
         call update_call_result_type(arena, signature%call_site_node, &
                                      signature%return_kind, type_str)
     end function determine_return_type_string
+
+    logical function function_result_is_implicit(arena, func) result(is_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), pointer, intent(in) :: func
+        integer :: i, body_index
+        character(len=:), allocatable :: result_name
+
+        is_implicit = .true.
+        if (.not. associated(func)) return
+        if (allocated(func%return_type)) then
+            if (len_trim(func%return_type) > 0) then
+                is_implicit = .false.
+                return
+            end if
+        end if
+        if (.not. allocated(func%body_indices)) return
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else if (allocated(func%name)) then
+            result_name = trim(func%name)
+        else
+            return
+        end if
+        if (len_trim(result_name) == 0) return
+
+        do i = 1, size(func%body_indices)
+            body_index = func%body_indices(i)
+            if (.not. arena%has_node_at(body_index)) cycle
+            select type (decl => arena%entries(body_index)%node)
+                type is (declaration_node)
+                if (.not. allocated(decl%var_name)) cycle
+                if (to_lower(trim(decl%var_name)) /= to_lower(result_name)) cycle
+                if (allocated(decl%type_name) .and. &
+                    len_trim(decl%type_name) > 0) then
+                    is_implicit = .false.
+                end if
+                return
+            end select
+        end do
+    end function function_result_is_implicit
 
     subroutine update_call_result_type(arena, call_index, return_kind, type_str)
         type(ast_arena_t), intent(inout) :: arena

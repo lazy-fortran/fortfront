@@ -39,6 +39,33 @@ parse/semantic drops. GNU and NVIDIA `nvfortran` 26.5 cold builds cover the
 381-target lane; the downstream FortAD nvfortran gate still needs a fresh run
 against this revision and is not evidence of a FortFront failure until then.
 
+### CI evidence and #2980 result-inference tranche (2026-08-07)
+
+Run [31138641474](https://github.com/lazy-fortran/fortfront/actions/runs/31138641474)
+has a green Ubuntu job (`92743669803`), including build, tests, rejection
+gate, and cleanliness.  Its aggregate is not green: the Windows job
+(`92743669828`) fails these ten concrete executables and they remain release
+gates until reproduced and fixed on Windows:
+
+`test_alternate_return_frontend.exe`, `test_compiler_facing_queries.exe`,
+`test_fixed_form_comment_oracle.exe`,
+`test_fixed_form_implicit_dimension_oracle.exe`,
+`test_type_bound_call_base_oracle.exe`,
+`test_reject_bind_01_diagnostics.exe`,
+`test_reject_placement_01_diagnostics.exe`,
+`test_reject_value_scope_01_diagnostics.exe`, `test_all_examples_slow.exe`,
+and `test_elemental_validation.exe`.  No expected-failure or XFAIL baseline
+was changed to mask this platform drift.
+
+Issue [#2980](https://github.com/lazy-fortran/fortfront/issues/2980) now has a
+minimal differential oracle in `test/standardizer/test_issue_2980_result_inference.f90`.
+It standardizes an untyped `twice(x)` whose body assigns `2*x`, requires the
+public code generator to emit a `real` result (not the I–N implicit-name
+`integer` fallback), then compiles and runs that output with an independent
+GNU Fortran oracle.  The focused test passes locally with GCC; preserve the
+same source/behavior check on the Windows and downstream ffc lanes before
+reclassifying the issue as closed.
+
 The canonical downstream plan and current corpus counts live in the
 [ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/ROADMAP.md).
 FortFront does not duplicate its parity dashboard.

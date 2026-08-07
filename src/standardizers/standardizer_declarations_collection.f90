@@ -36,6 +36,7 @@ module standardizer_declarations_collection
 
     public :: collect_statement_vars
     public :: collect_assignment_vars
+    public :: infer_assignment_type
     public :: handle_string_concatenation
     public :: infer_type_from_binary_operation
     public :: get_string_length_from_node
