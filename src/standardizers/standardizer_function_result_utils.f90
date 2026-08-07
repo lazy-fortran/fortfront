@@ -8,6 +8,7 @@ module standardizer_function_result_utils
     use standardizer_parameter, only: infer_parameter_type, is_type_variable_str, &
         reset_declaration_node
     use standardizer_declarations_array, only: set_array_properties_from_type
+    use standardizer_declarations_collection, only: infer_assignment_type
     use type_string_utils, only: is_character_type_string, mono_type_to_string
     implicit none
     private
@@ -319,7 +320,10 @@ contains
 
         call reset_declaration_node(decl)
         result_inferred = .false.
-        if (.not. fill_decl_from_return_type(func_def, decl)) then
+        if (.not. func_def%has_return_type_in_header .and. &
+            (.not. fill_decl_from_return_type(func_def, decl) .or. &
+             is_type_variable_str(decl%type_name) .or. &
+             trim(decl%type_name) == "function")) then
             call infer_result_type(func_def%result_variable, decl)
             result_inferred = .true.
         end if
@@ -378,9 +382,11 @@ contains
         end if
 
         result_inferred = .false.
-        if (.not. fill_decl_from_return_type(func_def, decl)) then
+        if (.not. func_def%has_return_type_in_header .and. &
+            .not. fill_decl_from_return_type(func_def, decl)) then
             call infer_result_type(func_def%result_variable, decl)
             result_inferred = .true.
+            call infer_result_type_from_body(arena, func_def, decl)
         end if
 
         if (decl%type_name == "real" .and. type_std_enabled .and. &
@@ -480,6 +486,49 @@ contains
         decl%type_name = trim(inferred_type)
 
     end subroutine infer_result_type
+
+    ! An explicit RESULT variable has no implicit type declaration in the
+    ! source. Infer it from its assignment expression when the header carries
+    ! no result type (issue #2980). Named-result functions whose result is the
+    ! function name retain the standard I-N implicit rule.
+    subroutine infer_result_type_from_body(arena, func_def, decl)
+        use ast_nodes_core, only: assignment_node, identifier_node
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        type(declaration_node), intent(inout) :: decl
+        character(len=:), allocatable :: result_name
+        character(len=64) :: inferred_type
+        integer :: i, body_index, value_index
+
+        if (func_def%has_return_type_in_header) return
+        if (.not. allocated(func_def%body_indices)) return
+        if (.not. allocated(func_def%result_variable)) return
+        result_name = trim(func_def%result_variable)
+        if (len_trim(result_name) == 0) return
+
+        do i = 1, size(func_def%body_indices)
+            body_index = func_def%body_indices(i)
+            if (.not. arena%has_node_at(body_index)) cycle
+            select type (stmt => arena%entries(body_index)%node)
+                type is (assignment_node)
+                if (stmt%target_index <= 0 .or. stmt%value_index <= 0) cycle
+                if (.not. arena%has_node_at(stmt%target_index)) cycle
+                select type (target => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (to_lower(trim(target%name)) /= to_lower(result_name)) cycle
+                    value_index = stmt%value_index
+                    inferred_type = infer_assignment_type(arena, value_index)
+                    if (len_trim(inferred_type) == 0) cycle
+                    decl%type_name = trim(inferred_type)
+                    decl%has_kind = .false.
+                    decl%kind_value = 0
+                    return
+                end select
+            end select
+        end do
+    end subroutine infer_result_type_from_body
+
     subroutine ensure_function_return_type(func_def, decl)
         use ast_nodes_data, only: declaration_node
         type(function_def_node), intent(inout) :: func_def
