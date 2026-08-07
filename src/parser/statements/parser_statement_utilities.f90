@@ -7,6 +7,7 @@ module parser_statement_utilities_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
         parse_derived_type_def, parser_is_at_type_definition
     use parser_parameter_statements_module, only: parse_parameter_statement
+    use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_value_statements_module, only: parse_value_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_expressions_module, only: parse_comparison
@@ -121,7 +122,7 @@ contains
                     "double", "type", "class", "procedure")
                 ! Check if this is actually an assignment like "double = 5"
                 if (trim(to_lower(token%text)) == "type" .and. &
-                        parser_is_at_type_definition(parser)) then
+                    parser_is_at_type_definition(parser)) then
                     stmt_index = parse_derived_type_def(parser, arena)
                     return
                 end if
@@ -162,6 +163,8 @@ contains
                 else
                     stmt_index = 0
                 end if
+            case ("dimension")
+                stmt_index = parse_dimension_statement(parser, arena)
             case ("value")
                 stmt_index = parse_value_statement(parser, arena)
             case ("allocate")
