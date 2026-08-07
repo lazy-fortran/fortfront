@@ -191,6 +191,15 @@ end subroutine
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
+- **Procedure-pointer target query**: `query_procedure_target` reports one
+  direct `=>` assignment whose left side is a declared procedure pointer. It
+  preserves the assignment, pointer declaration, target expression, and
+  lexical scope indices; reports the target procedure name and binding when
+  the resolver has one; and distinguishes a resolved internal procedure,
+  an external declaration binding, `NULL()`, and an unresolved target. A
+  non-identifier target (other than `NULL()`) remains unresolved, and the
+  query does not infer flow-sensitive callback state, generic dispatch, or
+  any AD policy.
 
 ## Dependencies
 
