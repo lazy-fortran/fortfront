@@ -183,7 +183,11 @@ end subroutine
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
-  includes concrete dynamic target type indices and implementations. Finally,
+  includes concrete dynamic target type indices and implementations.
+  `query_type_binding_hierarchy` is the bounded alternative for one declared
+  type: it reports the local-to-parent chain and effective binding metadata,
+  without scanning descendants or guessing an ambiguous, deferred, or
+  unresolved implementation. Finally,
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
