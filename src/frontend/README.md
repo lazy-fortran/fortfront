@@ -161,6 +161,17 @@ end subroutine
   derived-type identity for an analyzed expression. The compiler pipeline
   resolves numeric and named kind selectors once after semantic analysis;
   backend callers do not inspect literal or declaration spelling.
+- **Ownership and dispatch queries**: `query_storage` reports allocatable,
+  pointer, target, contiguous, SAVE, module, and COMMON storage facts.
+  `query_ownership_events` reports `ALLOCATE`, `DEALLOCATE`, `MOVE_ALLOC`,
+  and pointer-assignment nodes with their operand indices.
+  `query_component_path` returns the ordered component names and AST indices
+  for chained `%` access. `query_type_binding_resolution` resolves a binding
+  through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
+  includes concrete dynamic target type indices and implementations. Finally,
+  `query_active_global_references` reports identifier references bound to
+  module entities or COMMON members. These are facts, not AD policy: a
+  consumer may deliberately reject active mutable global state.
 
 ## Dependencies
 

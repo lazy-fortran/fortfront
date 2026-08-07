@@ -5,7 +5,7 @@ module frontend_compiler_queries
         subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
-        pointer_assignment_node
+        pointer_assignment_node, assignment_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
     use ast_nodes_transfer, only: nullify_node, return_node, &
@@ -17,11 +17,14 @@ module frontend_compiler_queries
     use ast_nodes_misc, only: interface_block_node, import_statement_node, &
         use_statement_node, visibility_statement_node, &
         namelist_statement_node, data_statement_node, &
-        statement_function_node
+        statement_function_node, allocate_statement_node, &
+        deallocate_statement_node
     use ast_nodes_legacy, only: common_block_node, enum_node
     use ast_nodes_conditional, only: select_case_node, case_block_node, &
         case_default_node, case_range_node, &
         select_type_node, type_guard_block_node
+    use frontend_compiler_resolution, only: declaration_binding_t, &
+        resolve_identifier_binding
     implicit none
     private
 
@@ -83,6 +86,34 @@ module frontend_compiler_queries
     public :: query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
+    public :: STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER
+    public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
+    public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
+    public :: OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC
+    public :: OWNERSHIP_EVENT_NULLIFY
+    public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
+    public :: storage_query_t, ownership_event_query_t, component_path_query_t
+    public :: binding_resolution_query_t, global_reference_query_t
+    public :: query_storage, query_ownership_events, query_component_path
+    public :: query_type_binding_resolution, query_active_global_references
+
+    integer, parameter :: STORAGE_LOCAL = 1
+    integer, parameter :: STORAGE_OWNED = 2
+    integer, parameter :: STORAGE_BORROWED = 3
+    integer, parameter :: STORAGE_POINTER = 4
+    integer, parameter :: STORAGE_MODULE = 5
+    integer, parameter :: STORAGE_SAVE = 6
+    integer, parameter :: STORAGE_COMMON = 7
+
+    integer, parameter :: OWNERSHIP_EVENT_ALLOCATE = 1
+    integer, parameter :: OWNERSHIP_EVENT_DEALLOCATE = 2
+    integer, parameter :: OWNERSHIP_EVENT_POINTER_ASSIGN = 3
+    integer, parameter :: OWNERSHIP_EVENT_MOVE_ALLOC = 4
+    integer, parameter :: OWNERSHIP_EVENT_NULLIFY = 5
+
+    integer, parameter :: ACCESS_READ = 1
+    integer, parameter :: ACCESS_WRITE = 2
+    integer, parameter :: ACCESS_READ_WRITE = 3
 
     ! Derived-type parameter formal (issue #2952)
     type :: type_parameter_t
@@ -127,6 +158,74 @@ module frontend_compiler_queries
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
     end type nullify_query_t
+
+    ! Normalized storage facts for compiler consumers.  The existing
+    ! declaration query mirrors source attributes; this record additionally
+    ! gives ownership-sensitive consumers one stable classification.
+    type :: storage_query_t
+        logical :: found = .false.
+        integer :: node_index = 0
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: type_name
+        integer :: storage_class = STORAGE_LOCAL
+        logical :: is_allocatable = .false.
+        logical :: is_pointer = .false.
+        logical :: is_target = .false.
+        logical :: is_contiguous = .false.
+        logical :: is_module_state = .false.
+        logical :: is_save_state = .false.
+        logical :: is_common_state = .false.
+    end type storage_query_t
+
+    type :: ownership_event_query_t
+        logical :: found = .false.
+        integer :: node_index = 0
+        integer :: event_kind = 0
+        integer, allocatable :: object_indices(:)
+        integer :: source_index = 0
+        integer :: target_index = 0
+    end type ownership_event_query_t
+
+    type :: component_path_query_t
+        logical :: found = .false.
+        integer :: node_index = 0
+        integer :: base_node_index = 0
+        character(len=:), allocatable :: component_names(:)
+        integer, allocatable :: component_node_indices(:)
+    end type component_path_query_t
+
+    type :: binding_resolution_query_t
+        logical :: found = .false.
+        character(len=:), allocatable :: requested_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: pass_name
+        integer :: declaring_type_index = 0
+        integer :: resolved_type_index = 0
+        integer :: binding_node_index = 0
+        logical :: is_inherited = .false.
+        logical :: is_generic = .false.
+        logical :: is_deferred = .false.
+        logical :: is_abstract_type = .false.
+        logical :: pass_arg = .true.
+        character(len=:), allocatable :: generic_names(:)
+        integer, allocatable :: dispatch_target_type_indices(:)
+        character(len=:), allocatable :: dispatch_target_implementations(:)
+    end type binding_resolution_query_t
+
+    type :: global_reference_query_t
+        logical :: found = .false.
+        integer :: reference_node_index = 0
+        integer :: declaration_node_index = 0
+        integer :: owner_scope_index = 0
+        integer :: access_kind = ACCESS_READ
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: module_name
+        logical :: is_module_state = .false.
+        logical :: is_save_state = .false.
+        logical :: is_common_state = .false.
+    end type global_reference_query_t
 
     type :: used_module_t
         character(len=:), allocatable :: module_name
@@ -2081,5 +2180,657 @@ contains
 
         allocate (character(len=0) :: value)
     end subroutine set_empty
+
+    function query_storage(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t) :: query
+        type(declaration_query_t) :: declaration
+        integer :: owner, i
+        logical :: common_state
+
+        call set_empty(query%name)
+        call set_empty(query%type_name)
+        if (.not. arena%has_node_at(node_index)) return
+        declaration = query_declaration(arena, node_index)
+        if (.not. declaration%found) return
+
+        query%found = .true.
+        query%node_index = node_index
+        query%name = declaration%name
+        query%type_name = declaration%type_name
+        query%is_allocatable = declaration%is_allocatable
+        query%is_pointer = declaration%is_pointer
+        query%is_target = declaration%is_target
+        query%is_contiguous = declaration%is_contiguous
+        owner = enclosing_module(arena, node_index)
+        query%is_module_state = declaration_owned_by_module(arena, node_index)
+        query%is_save_state = declaration%is_save
+        common_state = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (common_member_name(arena, i, declaration%name)) then
+                common_state = .true.
+                exit
+            end if
+        end do
+        query%is_common_state = common_state
+
+        if (query%is_common_state) then
+            query%storage_class = STORAGE_COMMON
+        else if (query%is_save_state) then
+            query%storage_class = STORAGE_SAVE
+        else if (query%is_module_state) then
+            query%storage_class = STORAGE_MODULE
+        else if (query%is_pointer) then
+            query%storage_class = STORAGE_POINTER
+        else if (query%is_allocatable) then
+            if (len_trim(declaration%intent) > 0) then
+                query%storage_class = STORAGE_BORROWED
+            else
+                query%storage_class = STORAGE_OWNED
+            end if
+        else if (len_trim(declaration%intent) > 0 .or. query%is_target) then
+            query%storage_class = STORAGE_BORROWED
+        else
+            query%storage_class = STORAGE_LOCAL
+        end if
+    end function query_storage
+
+    function query_ownership_events(arena, scope_index) result(events)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(ownership_event_query_t), allocatable :: events(:)
+        integer :: i, count
+
+        allocate (events(0))
+        if (.not. arena%has_node_at(scope_index)) return
+        count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. node_is_in_scope(arena, i, scope_index)) cycle
+            if (is_ownership_event(arena, i)) count = count + 1
+        end do
+        if (count == 0) return
+        deallocate (events)
+        allocate (events(count))
+        count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. node_is_in_scope(arena, i, scope_index)) cycle
+            if (.not. is_ownership_event(arena, i)) cycle
+            count = count + 1
+            events(count) = ownership_event(arena, i)
+        end do
+    end function query_ownership_events
+
+    function query_component_path(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(component_path_query_t) :: query
+        integer, allocatable :: indices(:)
+        character(len=:), allocatable :: names(:)
+
+        allocate (character(len=1) :: query%component_names(0))
+        allocate (query%component_node_indices(0))
+        if (.not. arena%has_node_at(node_index)) return
+        call collect_component_path(arena, node_index, names, indices, &
+                                    query%base_node_index)
+        if (size(indices) == 0) return
+        query%found = .true.
+        query%node_index = node_index
+        query%component_names = names
+        query%component_node_indices = indices
+    end function query_component_path
+
+    function query_type_binding_resolution(arena, derived_type_index, &
+            binding_name) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: derived_type_index
+        character(len=*), intent(in) :: binding_name
+        type(binding_resolution_query_t) :: query
+        integer :: i, j, target_type
+        type(binding_resolution_query_t) :: target
+        type(binding_resolution_query_t) :: concrete
+
+        call initialize_binding_resolution(query, binding_name)
+        if (.not. arena%has_node_at(derived_type_index)) return
+        call resolve_binding_base(arena, derived_type_index, binding_name, query)
+        if (.not. query%found) return
+        query%resolved_type_index = derived_type_index
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. is_derived_type_at(arena, i)) cycle
+            if (.not. type_extends(arena, i, derived_type_index)) cycle
+            target_type = i
+            call initialize_binding_resolution(target, binding_name)
+            call resolve_binding_base(arena, target_type, binding_name, target)
+            if (.not. target%found) cycle
+            if (len_trim(target%implementation) == 0 .and. target%is_generic) then
+                do j = 1, size(target%generic_names)
+                    call initialize_binding_resolution(concrete, &
+                        target%generic_names(j))
+                    call resolve_binding_base(arena, target_type, &
+                        target%generic_names(j), concrete)
+                    if (concrete%found .and. &
+                        len_trim(concrete%implementation) > 0) then
+                        target%implementation = concrete%implementation
+                        exit
+                    end if
+                end do
+            end if
+            if (len_trim(target%implementation) == 0) cycle
+            call append_dispatch_target(query, target_type, target%implementation)
+        end do
+    end function query_type_binding_resolution
+
+    function query_active_global_references(arena, scope_index) result(refs)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(global_reference_query_t), allocatable :: refs(:)
+        type(declaration_binding_t) :: binding
+        integer :: i, count
+        character(len=:), allocatable :: error_msg
+
+        allocate (refs(0))
+        if (.not. arena%has_node_at(scope_index)) return
+        count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. node_is_in_scope(arena, i, scope_index)) cycle
+            if (.not. is_identifier_at(arena, i)) cycle
+            call resolve_identifier_binding(arena, i, binding, error_msg)
+            if (.not. binding%found) cycle
+            if (.not. global_declaration(arena, binding%declaration_node_index, &
+                                         binding%name)) cycle
+            count = count + 1
+        end do
+        if (count == 0) return
+        deallocate (refs)
+        allocate (refs(count))
+        count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. node_is_in_scope(arena, i, scope_index)) cycle
+            if (.not. is_identifier_at(arena, i)) cycle
+            call resolve_identifier_binding(arena, i, binding, error_msg)
+            if (.not. binding%found) cycle
+            if (.not. global_declaration(arena, binding%declaration_node_index, &
+                                         binding%name)) cycle
+            count = count + 1
+            refs(count) = make_global_reference(arena, i, binding)
+        end do
+    end function query_active_global_references
+
+    subroutine initialize_binding_resolution(query, requested_name)
+        type(binding_resolution_query_t), intent(out) :: query
+        character(len=*), intent(in) :: requested_name
+
+        query%requested_name = trim(requested_name)
+        call set_empty(query%binding_name)
+        call set_empty(query%implementation)
+        call set_empty(query%interface_name)
+        call set_empty(query%pass_name)
+        allocate (character(len=1) :: query%generic_names(0))
+        allocate (query%dispatch_target_type_indices(0))
+        allocate (character(len=1) :: query%dispatch_target_implementations(0))
+    end subroutine initialize_binding_resolution
+
+    recursive subroutine resolve_binding_base(arena, type_index, name, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        character(len=*), intent(in) :: name
+        type(binding_resolution_query_t), intent(inout) :: query
+        type(derived_type_query_t) :: type_query
+        type(type_binding_query_t) :: binding
+        type(binding_resolution_query_t) :: parent_query
+        integer :: i, parent_index
+
+        type_query = query_derived_type(arena, type_index)
+        if (.not. type_query%found) return
+        query%is_abstract_type = contains_word(type_query%attribute_clause, &
+                                               'abstract')
+        do i = 1, size(type_query%binding_indices)
+            binding = query_type_binding(arena, type_query%binding_indices(i))
+            if (.not. binding%found) cycle
+            if (.not. binding_matches(binding, name)) cycle
+            query%found = .true.
+            query%declaring_type_index = type_index
+            query%binding_node_index = binding%node_index
+            query%binding_name = binding%binding_name
+            query%implementation = binding%implementation
+            query%interface_name = binding%interface_name
+            query%pass_name = binding%pass_name
+            query%is_generic = binding%is_generic
+            query%is_deferred = binding%is_deferred
+            query%pass_arg = binding%pass_arg
+            query%generic_names = binding%generic_names
+            return
+        end do
+
+        parent_index = find_derived_type_by_name(arena, type_query%extends_parent)
+        if (parent_index <= 0) return
+        call initialize_binding_resolution(parent_query, name)
+        call resolve_binding_base(arena, parent_index, name, parent_query)
+        if (.not. parent_query%found) return
+        query = parent_query
+        query%is_inherited = .true.
+        query%is_abstract_type = contains_word(type_query%attribute_clause, &
+                                               'abstract')
+    end subroutine resolve_binding_base
+
+    subroutine append_dispatch_target(query, type_index, implementation)
+        type(binding_resolution_query_t), intent(inout) :: query
+        integer, intent(in) :: type_index
+        character(len=*), intent(in) :: implementation
+        integer, allocatable :: int_tmp(:)
+        character(len=:), allocatable :: char_tmp(:)
+        integer :: n, width
+
+        n = size(query%dispatch_target_type_indices)
+        allocate (int_tmp(n + 1))
+        if (n > 0) int_tmp(:n) = query%dispatch_target_type_indices
+        int_tmp(n + 1) = type_index
+        call move_alloc(int_tmp, query%dispatch_target_type_indices)
+        width = max(1, len_trim(implementation))
+        allocate (character(len=width) :: char_tmp(n + 1))
+        if (n > 0) char_tmp(:n) = query%dispatch_target_implementations
+        char_tmp(n + 1) = trim(implementation)
+        call move_alloc(char_tmp, query%dispatch_target_implementations)
+    end subroutine append_dispatch_target
+
+    logical function binding_matches(binding, name)
+        type(type_binding_query_t), intent(in) :: binding
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        binding_matches = same_name(binding%binding_name, name)
+        if (binding_matches .or. .not. binding%is_generic) return
+        do i = 1, size(binding%generic_names)
+            if (same_name(binding%generic_names(i), name)) then
+                binding_matches = .true.
+                return
+            end if
+        end do
+    end function binding_matches
+
+    logical function type_extends(arena, candidate_index, base_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: candidate_index, base_index
+        type(derived_type_query_t) :: candidate, base
+        integer :: parent_index, guard
+
+        type_extends = .false.
+        if (candidate_index == base_index) return
+        base = query_derived_type(arena, base_index)
+        if (.not. base%found) return
+        candidate = query_derived_type(arena, candidate_index)
+        guard = 0
+        do while (candidate%found .and. len_trim(candidate%extends_parent) > 0)
+            parent_index = find_derived_type_by_name(arena, candidate%extends_parent)
+            if (parent_index <= 0) return
+            if (parent_index == base_index) then
+                type_extends = .true.
+                return
+            end if
+            candidate = query_derived_type(arena, parent_index)
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function type_extends
+
+    integer function find_derived_type_by_name(arena, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        type(derived_type_query_t) :: query
+        integer :: i
+
+        index = 0
+        if (len_trim(name) == 0) return
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            query = query_derived_type(arena, i)
+            if (query%found .and. same_name(query%name, name)) then
+                index = i
+                return
+            end if
+        end do
+    end function find_derived_type_by_name
+
+    logical function is_derived_type_at(arena, index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        type(derived_type_query_t) :: query
+
+        query = query_derived_type(arena, index)
+        is_derived_type_at = query%found
+    end function is_derived_type_at
+
+    recursive subroutine collect_component_path(arena, node_index, names, indices, base)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: names(:)
+        integer, allocatable, intent(out) :: indices(:)
+        integer, intent(out) :: base
+        type(component_access_query_t) :: component
+        character(len=:), allocatable :: prefix_names(:)
+        integer, allocatable :: prefix_indices(:)
+        integer :: i, width
+
+        base = 0
+        component = query_component_access(arena, node_index)
+        if (.not. component%found) then
+            allocate (character(len=1) :: names(0))
+            allocate (indices(0))
+            base = node_index
+            return
+        end if
+        call collect_component_path(arena, component%base_node_index, &
+                                    prefix_names, prefix_indices, base)
+        width = max(1, len_trim(component%component_name))
+        allocate (character(len=width) :: names(size(prefix_names) + 1))
+        do i = 1, size(prefix_names)
+            names(i) = prefix_names(i)
+        end do
+        names(size(prefix_names) + 1) = trim(component%component_name)
+        allocate (indices(size(prefix_indices) + 1))
+        if (size(prefix_indices) > 0) indices(:size(prefix_indices)) = prefix_indices
+        indices(size(prefix_indices) + 1) = node_index
+    end subroutine collect_component_path
+
+    logical function is_ownership_event(arena, index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+
+        is_ownership_event = .false.
+        select type (node => arena%entries(index)%node)
+            type is (allocate_statement_node)
+            is_ownership_event = .true.
+            type is (deallocate_statement_node)
+            is_ownership_event = .true.
+            type is (pointer_assignment_node)
+            is_ownership_event = .true.
+            type is (nullify_node)
+            is_ownership_event = .true.
+            type is (subroutine_call_node)
+            is_ownership_event = allocated(node%name) .and. &
+                same_name(node%name, 'move_alloc')
+        class default
+        end select
+    end function is_ownership_event
+
+    function ownership_event(arena, index) result(event)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        type(ownership_event_query_t) :: event
+
+        allocate (event%object_indices(0))
+        event%found = .true.
+        event%node_index = index
+        select type (node => arena%entries(index)%node)
+            type is (allocate_statement_node)
+            event%event_kind = OWNERSHIP_EVENT_ALLOCATE
+            call copy_integer_array(node%var_indices, event%object_indices)
+            type is (deallocate_statement_node)
+            event%event_kind = OWNERSHIP_EVENT_DEALLOCATE
+            call copy_integer_array(node%var_indices, event%object_indices)
+            type is (pointer_assignment_node)
+            event%event_kind = OWNERSHIP_EVENT_POINTER_ASSIGN
+            event%source_index = node%target_index
+            event%target_index = node%pointer_index
+            type is (nullify_node)
+            event%event_kind = OWNERSHIP_EVENT_NULLIFY
+            call copy_integer_array(node%pointer_indices, event%object_indices)
+            type is (subroutine_call_node)
+            event%event_kind = OWNERSHIP_EVENT_MOVE_ALLOC
+            if (allocated(node%arg_indices)) then
+                event%object_indices = node%arg_indices
+                if (size(node%arg_indices) >= 2) then
+                    event%source_index = node%arg_indices(1)
+                    event%target_index = node%arg_indices(2)
+                end if
+            end if
+        class default
+        end select
+    end function ownership_event
+
+    logical function node_is_in_scope(arena, node_index, scope_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, scope_index
+        integer :: current, guard
+
+        current = node_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            if (current == scope_index) then
+                node_is_in_scope = .true.
+                return
+            end if
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) exit
+        end do
+        node_is_in_scope = .false.
+    end function node_is_in_scope
+
+    integer function enclosing_module(arena, node_index) result(module_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current, guard
+
+        module_index = 0
+        current = node_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            select type (node => arena%entries(current)%node)
+                type is (module_node)
+                module_index = current
+                return
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function enclosing_module
+
+    logical function declaration_owned_by_module(arena, node_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current, guard
+
+        declaration_owned_by_module = .false.
+        current = arena%entries(node_index)%parent_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            select type (node => arena%entries(current)%node)
+                type is (module_node)
+                declaration_owned_by_module = .true.
+                return
+                type is (subroutine_def_node)
+                return
+                type is (function_def_node)
+                return
+                type is (derived_type_node)
+                return
+                type is (program_node)
+                return
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function declaration_owned_by_module
+
+    logical function common_member_name(arena, node_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: name
+        type(common_block_query_t) :: query
+        integer :: i
+
+        common_member_name = .false.
+        query = query_common_block(arena, node_index)
+        if (.not. query%found) return
+        do i = 1, size(query%member_names)
+            if (same_name(query%member_names(i), name)) then
+                common_member_name = .true.
+                return
+            end if
+        end do
+    end function common_member_name
+
+    logical function global_declaration(arena, declaration_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: declaration_index
+        character(len=*), intent(in) :: name
+        type(storage_query_t) :: storage
+
+        storage = query_storage_without_common_scan(arena, declaration_index)
+        global_declaration = storage%found .and. (storage%is_module_state .or. &
+            storage%is_save_state .or. storage%is_common_state)
+        if (.not. global_declaration) then
+            global_declaration = common_name_in_arena(arena, name)
+        end if
+    end function global_declaration
+
+    function query_storage_without_common_scan(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t) :: query
+        type(declaration_query_t) :: declaration
+        integer :: owner
+
+        call set_empty(query%name)
+        call set_empty(query%type_name)
+        declaration = query_declaration(arena, node_index)
+        if (.not. declaration%found) return
+        query%found = .true.
+        query%node_index = node_index
+        query%name = declaration%name
+        query%type_name = declaration%type_name
+        query%is_allocatable = declaration%is_allocatable
+        query%is_pointer = declaration%is_pointer
+        query%is_target = declaration%is_target
+        query%is_contiguous = declaration%is_contiguous
+        query%is_save_state = declaration%is_save
+        owner = enclosing_module(arena, node_index)
+        query%is_module_state = declaration_owned_by_module(arena, node_index)
+        if (query%is_save_state) then
+            query%storage_class = STORAGE_SAVE
+        else if (query%is_module_state) then
+            query%storage_class = STORAGE_MODULE
+        else if (query%is_pointer) then
+            query%storage_class = STORAGE_POINTER
+        else if (query%is_allocatable) then
+            query%storage_class = STORAGE_OWNED
+        else
+            query%storage_class = STORAGE_LOCAL
+        end if
+    end function query_storage_without_common_scan
+
+    logical function common_name_in_arena(arena, name)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        common_name_in_arena = .false.
+        do i = 1, arena%size
+            if (common_member_name(arena, i, name)) then
+                common_name_in_arena = .true.
+                return
+            end if
+        end do
+    end function common_name_in_arena
+
+    function make_global_reference(arena, reference_index, binding) result(ref)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: reference_index
+        type(declaration_binding_t), intent(in) :: binding
+        type(global_reference_query_t) :: ref
+        type(storage_query_t) :: storage
+        type(identifier_node) :: identifier
+
+        call set_empty(ref%name)
+        call set_empty(ref%module_name)
+        ref%found = .true.
+        ref%reference_node_index = reference_index
+        ref%declaration_node_index = binding%declaration_node_index
+        ref%owner_scope_index = enclosing_module(arena, &
+                                                 binding%declaration_node_index)
+        ref%name = binding%name
+        storage = query_storage(arena, binding%declaration_node_index)
+        ref%is_module_state = storage%is_module_state
+        ref%is_save_state = storage%is_save_state
+        ref%is_common_state = storage%is_common_state .or. &
+            common_name_in_arena(arena, binding%name)
+        if (ref%owner_scope_index > 0) then
+            select type (module => arena%entries(ref%owner_scope_index)%node)
+                type is (module_node)
+                if (allocated(module%name)) ref%module_name = module%name
+            class default
+            end select
+        end if
+        ref%access_kind = reference_access_kind(arena, reference_index)
+    end function make_global_reference
+
+    logical function is_identifier_at(arena, index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+
+        is_identifier_at = .false.
+        select type (node => arena%entries(index)%node)
+            type is (identifier_node)
+            is_identifier_at = allocated(node%name)
+        class default
+        end select
+    end function is_identifier_at
+
+    integer function reference_access_kind(arena, reference_index) result(kind)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: reference_index
+        integer :: parent
+
+        kind = ACCESS_READ
+        parent = arena%entries(reference_index)%parent_index
+        if (.not. arena%has_node_at(parent)) return
+        select type (node => arena%entries(parent)%node)
+            type is (assignment_node)
+            if (node%target_index == reference_index) then
+                kind = ACCESS_WRITE
+            else if (node%value_index == reference_index) then
+                kind = ACCESS_READ
+            end if
+            type is (pointer_assignment_node)
+            if (node%pointer_index == reference_index) kind = ACCESS_WRITE
+        class default
+        end select
+    end function reference_access_kind
+
+    logical function same_name(left, right)
+        character(len=*), intent(in) :: left, right
+        same_name = lower_text(trim(left)) == lower_text(trim(right))
+    end function same_name
+
+    logical function contains_word(text, word)
+        character(len=*), intent(in) :: text, word
+        contains_word = index(lower_text(text), lower_text(word)) > 0
+    end function contains_word
+
+    function lower_text(value) result(result)
+        character(len=*), intent(in) :: value
+        character(len=len(value)) :: result
+        integer :: i, code
+
+        result = value
+        do i = 1, len(value)
+            code = iachar(result(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                result(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+        end do
+    end function lower_text
 
 end module frontend_compiler_queries

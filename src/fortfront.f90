@@ -74,7 +74,16 @@ module fortfront
         query_visibility, query_namelist, query_data_statement, &
         query_common_block, query_enum, query_statement_function, &
         query_component_access, query_array_bounds, query_range_expression, &
-        query_block_data
+        query_block_data, STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, &
+        STORAGE_POINTER, STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON, &
+        OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE, &
+        OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC, &
+        OWNERSHIP_EVENT_NULLIFY, &
+        ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, storage_query_t, &
+        ownership_event_query_t, component_path_query_t, &
+        binding_resolution_query_t, global_reference_query_t, query_storage, &
+        query_ownership_events, query_component_path, &
+        query_type_binding_resolution, query_active_global_references
     use frontend_compiler_resolution, only: declaration_binding_t, &
         get_scope_bindings, resolve_name_in_scope, &
         resolve_name_at_node, resolve_identifier_binding, &
