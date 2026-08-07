@@ -27,7 +27,7 @@ module frontend_compiler_queries
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_identifier_binding, resolve_name_at_node, find_enclosing_scope, &
         find_host_scope, resolve_name_in_scope, BINDING_FUNCTION, &
-        BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE
+        BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE, BINDING_DECLARATION
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
     implicit none
@@ -91,6 +91,7 @@ module frontend_compiler_queries
     public :: query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
+    public :: procedure_target_query_t, query_procedure_target
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
@@ -165,6 +166,30 @@ module frontend_compiler_queries
         logical :: found = .false.
         integer :: pointer_node_index = 0, target_node_index = 0
     end type pointer_assignment_query_t
+
+    type :: procedure_target_query_t
+        !! Facts for one procedure-pointer assignment.
+        !!
+        !! FOUND means that the assignment has a directly resolved procedure
+        !! pointer on its left-hand side.  The target may still be unresolved
+        !! or NULL; no flow-sensitive target state is inferred here.
+        logical :: found = .false.
+        integer :: assignment_node_index = 0
+        integer :: pointer_node_index = 0
+        integer :: pointer_declaration_index = 0
+        integer :: target_node_index = 0
+        integer :: target_declaration_index = 0
+        integer :: target_procedure_index = 0
+        integer :: binding_node_index = 0
+        integer :: binding_kind = 0
+        integer :: scope_node_index = 0
+        character(len=:), allocatable :: pointer_name
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: binding_name
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_null = .false.
+    end type procedure_target_query_t
     type :: nullify_query_t
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
@@ -669,6 +694,73 @@ contains
             query%target_node_index = max(node%target_index, 0)
         end select
     end function query_pointer_assignment
+
+    function query_procedure_target(arena, node_index) result(query)
+        !! Resolve one direct procedure-pointer assignment without inferring
+        !! flow-sensitive callback state.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_target_query_t) :: query
+        type(pointer_assignment_query_t) :: assignment
+        type(declaration_binding_t) :: pointer_binding, target_binding
+        type(declaration_query_t) :: pointer_declaration, target_declaration
+        character(len=:), allocatable :: error_msg
+
+        call initialize_procedure_target_query(query)
+        assignment = query_pointer_assignment(arena, node_index)
+        if (.not. assignment%found) return
+
+        query%assignment_node_index = node_index
+        query%pointer_node_index = assignment%pointer_node_index
+        query%target_node_index = assignment%target_node_index
+        query%scope_node_index = find_enclosing_scope(arena, node_index)
+
+        call resolve_identifier_binding(arena, query%pointer_node_index, &
+            pointer_binding, error_msg)
+        if (.not. pointer_binding%found) return
+        query%pointer_declaration_index = pointer_binding%declaration_node_index
+        query%pointer_name = pointer_binding%name
+        pointer_declaration = query_declaration(arena, &
+            query%pointer_declaration_index)
+        if (.not. is_procedure_pointer_declaration(pointer_declaration)) return
+        query%found = .true.
+
+        call procedure_target_name_at(arena, query%target_node_index, &
+            query%procedure_name)
+        if (is_null_procedure_target(arena, query%target_node_index)) then
+            query%is_null = .true.
+            return
+        end if
+
+        if (.not. is_identifier_at(arena, query%target_node_index)) then
+            query%is_unresolved = .true.
+            return
+        end if
+
+        call resolve_identifier_binding(arena, query%target_node_index, &
+            target_binding, error_msg)
+        if (.not. target_binding%found) then
+            query%is_unresolved = .true.
+            return
+        end if
+
+        query%binding_node_index = target_binding%node_index
+        query%binding_kind = target_binding%binding_kind
+        query%target_declaration_index = target_binding%declaration_node_index
+        query%binding_name = target_binding%name
+
+        if (target_binding%binding_kind == BINDING_FUNCTION .or. &
+            target_binding%binding_kind == BINDING_SUBROUTINE) then
+            query%target_procedure_index = target_binding%node_index
+            query%is_resolved = .true.
+        else if (target_binding%binding_kind == BINDING_DECLARATION) then
+            target_declaration = query_declaration(arena, &
+                target_binding%declaration_node_index)
+            query%is_resolved = target_declaration%found .and. &
+                target_declaration%is_external
+        end if
+        query%is_unresolved = .not. query%is_resolved
+    end function query_procedure_target
 
     function query_nullify(arena, node_index) result(query)
         type(ast_arena_t), intent(in) :: arena
@@ -2663,6 +2755,50 @@ contains
         allocate (character(len=1) :: query%names(0))
         allocate (query%dimension_indices(0))
     end subroutine initialize_declaration_query
+
+    subroutine initialize_procedure_target_query(query)
+        type(procedure_target_query_t), intent(out) :: query
+
+        call set_empty(query%pointer_name)
+        call set_empty(query%procedure_name)
+        call set_empty(query%binding_name)
+    end subroutine initialize_procedure_target_query
+
+    logical function is_procedure_pointer_declaration(query) result(is_pointer)
+        type(declaration_query_t), intent(in) :: query
+        character(len=:), allocatable :: normalized
+
+        is_pointer = .false.
+        if (.not. query%found .or. .not. query%is_pointer) return
+        normalized = remove_type_spec_spaces(lower_text(query%type_name))
+        is_pointer = index(normalized, 'procedure') == 1
+    end function is_procedure_pointer_declaration
+
+    subroutine procedure_target_name_at(arena, node_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+
+        call set_empty(name)
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (identifier_node)
+            if (allocated(node%name)) name = node%name
+            type is (call_or_subscript_node)
+            if (allocated(node%name)) name = node%name
+        class default
+        end select
+    end subroutine procedure_target_name_at
+
+    logical function is_null_procedure_target(arena, node_index) result(is_null)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: name
+
+        is_null = .false.
+        call procedure_target_name_at(arena, node_index, name)
+        is_null = lower_text(trim(name)) == 'null'
+    end function is_null_procedure_target
 
     subroutine initialize_derived_type_query(query)
         type(derived_type_query_t), intent(out) :: query
