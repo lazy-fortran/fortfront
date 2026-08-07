@@ -6,20 +6,17 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `704cd27f` (separate module-procedure dummy
+The implementation baseline is `b4f1d2f2` (separate module-procedure dummy
 resolution, implicit `DIMENSION` dummy preservation, the #2993 `IMPLICIT NONE`
 undeclared-reference pass, full-line continuation comments, fixed-form
 comment normalization, and the #2255 follow-up). The #2993, #2996,
 nested-binding, implicit-DIMENSION, and separate-module-dummy focused oracles
-are green locally; the remaining remote aggregate/Windows failures listed
-below are independent of those fixes. Merge CI is [run
-31136782260](https://github.com/lazy-fortran/fortfront/actions/runs/31136782260)
-and is still in progress; do not treat the local GNU lane as remote-green
-evidence.
+are green locally. The current local GNU lane is green: 1,545 static modules,
+381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
+Windows lane and remote aggregate remain open.
 
-The current local GNU lane builds 381 targets and 379 test programs across 484
-tests. `test_module_distribution` is parallel-fragile because it cleans shared
-Makefile artifacts; isolate its outputs before treating the full suite as a
+`test_module_distribution` was previously parallel-fragile because it cleans
+shared Makefile artifacts; isolate its outputs before treating the full suite as a
 parallel gate. The last-known Windows failures are
 `test_compiler_facing_queries`, `test_reject_bind_02_diagnostics`,
 `test_reject_placement_01_diagnostics`, `test_reject_value_scope_01_diagnostics`,
