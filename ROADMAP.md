@@ -6,9 +6,10 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `39bac6c2` (explicit semantic-context mode
-initialization for GCC14, separate module-procedure dummy resolution, implicit
-`DIMENSION` dummy preservation, the #2993 `IMPLICIT NONE`
+The implementation baseline is `f46a0059` (the #2980 result-inference
+standardizer fix on top of explicit semantic-context mode initialization for
+GCC14, separate module-procedure dummy resolution, implicit `DIMENSION` dummy
+preservation, and the #2993 `IMPLICIT NONE`
 undeclared-reference pass, full-line continuation comments, fixed-form
 comment normalization, and the #2255 follow-up). The #2993, #2996,
 nested-binding, implicit-DIMENSION, and separate-module-dummy focused oracles
@@ -90,6 +91,18 @@ line, the case that previously tokenized `C` as code. The normalizer is also
 available through the compatibility facade for source-aware downstream file
 drivers. This is one source-form fix, not a claim of complete fixed-form or
 preprocessor support.
+
+### Procedure-name semantic boundary (2026-08-07)
+
+Specific procedure names declared in an explicit interface body and names
+introduced by `ENTRY` are procedure identifiers in their enclosing scoping
+unit. The strict `IMPLICIT NONE` pass now recognizes both forms before data
+name resolution, so downstream ffc can issue its precise procedure-assignment
+diagnostic instead of receiving a misleading "not declared" error. The
+focused `test_interface_procedure_reference` oracle covers both forms, and
+ffc's `test_session_reject_result_01_compiler` rejection suite passes against
+this FortFront revision. Keep the interface checker helper shared with the
+undefined-name pass; do not reintroduce source-text heuristics in ffc.
 
 ## Required public architecture
 

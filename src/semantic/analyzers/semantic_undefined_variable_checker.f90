@@ -12,11 +12,13 @@ module semantic_undefined_variable_checker
     use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_misc, only: implicit_statement_node, use_statement_node, &
-        statement_function_node, namelist_statement_node
+        statement_function_node, namelist_statement_node, interface_block_node
+    use ast_nodes_transfer, only: entry_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         subroutine_call_node
     use intrinsic_registry, only: is_intrinsic_subroutine
-    use semantic_explicit_interface_checker, only: is_part_reference
+    use semantic_explicit_interface_checker, only: is_part_reference, &
+        interface_declares_subroutine
     use semantic_external_declaration_names, only: collect_declared_procedures
     use frontend_compiler_resolution, only: declaration_binding_t, &
         find_enclosing_scope, find_host_scope, get_scope_statement_indices, &
@@ -63,17 +65,17 @@ contains
             select type (node => arena%entries(i)%node)
                 type is (assignment_node)
                 if (node%is_keyword_argument .or. &
-                        is_call_keyword_assignment(arena, i)) then
+                    is_call_keyword_assignment(arena, i)) then
                     if (node%target_index > 0 .and. &
-                            node%target_index <= arena%size) then
+                        node%target_index <= arena%size) then
                         keyword_targets(node%target_index) = .true.
                     end if
                 end if
                 type is (pointer_assignment_node)
                 if (node%pointer_index > 0 .and. &
-                        node%pointer_index <= arena%size) then
+                    node%pointer_index <= arena%size) then
                     if (node%target_index > 0 .and. &
-                            node%target_index <= arena%size) then
+                        node%target_index <= arena%size) then
                         if (is_select_type_selector(arena, i)) then
                             construct_targets(node%pointer_index) = .true.
                         end if
@@ -117,10 +119,10 @@ contains
             if (is_part_reference(trim(name))) return
             if (is_component_name_reference(arena, reference_index, trim(name))) return
             if (is_component_designator_reference(arena, reference_index, &
-                    trim(name))) return
+                trim(name))) return
             if (is_keyword_argument_name(reference_index)) return
             if (reference_index > 0 .and. reference_index <= &
-                    size(construct_targets)) then
+                size(construct_targets)) then
                 if (construct_targets(reference_index)) return
             end if
 
@@ -139,6 +141,8 @@ contains
             if (is_select_type_associate_name(arena, scope_index, trim(name))) return
             if (is_use_associated_name(arena, scope_index, trim(name))) return
             if (is_namelist_name(arena, scope_index, trim(name))) return
+            if (is_interface_procedure_name(arena, scope_index, trim(name))) return
+            if (is_entry_procedure_name(arena, scope_index, trim(name))) return
 
             call resolve_name_at_node(arena, reference_index, trim(name), &
                 binding, resolver_error)
@@ -150,7 +154,7 @@ contains
                 component="semantic_undefined_variable_checker", &
                 context="check_implicit_none_references", &
                 suggestion="Declare the name before using it, or provide an "// &
-                    "explicit interface for the procedure", &
+                "explicit interface for the procedure", &
                 line=line, column=column, end_line=line, end_column=column + 1))
         end subroutine check_reference
 
@@ -344,7 +348,7 @@ contains
                     if (.not. is_select_type_selector(arena, i)) cycle
                     pointer_index = selector%pointer_index
                     if (pointer_index <= 0 .or. &
-                            pointer_index > arena%size) cycle
+                        pointer_index > arena%size) cycle
                     if (.not. arena%has_node_at(pointer_index)) cycle
                     select type (pointer => arena%entries(pointer_index)%node)
                         type is (identifier_node)
@@ -471,6 +475,69 @@ contains
                 current = find_host_scope(arena, current)
             end do
         end function is_namelist_name
+
+        ! Specific procedure names declared inside an explicit interface body
+        ! are procedure names in the enclosing scoping unit.  They are not
+        ! data objects subject to implicit typing (Fortran 2018 19.6.7).
+        logical function is_interface_procedure_name(arena, scope_index, name) &
+                result(found)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: scope_index
+            character(len=*), intent(in) :: name
+            integer :: current, i
+            integer, allocatable :: indices(:)
+
+            found = .false.
+            current = scope_index
+            do while (current > 0)
+                if (.not. is_scope_node(arena, current)) exit
+                call get_scope_statement_indices(arena, current, indices)
+                do i = 1, size(indices)
+                    if (.not. arena%has_node_at(indices(i))) cycle
+                    select type (block => arena%entries(indices(i))%node)
+                        type is (interface_block_node)
+                        if (allocated(block%name)) then
+                            if (same_name(block%name, name)) then
+                                found = .true.
+                                return
+                            end if
+                        end if
+                        if (interface_declares_subroutine(arena, block, name)) then
+                            found = .true.
+                            return
+                        end if
+                    end select
+                end do
+                current = find_host_scope(arena, current)
+            end do
+        end function is_interface_procedure_name
+
+        ! ENTRY introduces another procedure name in the enclosing procedure
+        ! body.  It must not be diagnosed as an undeclared implicitly typed
+        ! variable; the result/assignment validator owns its legality.
+        logical function is_entry_procedure_name(arena, scope_index, name) &
+                result(found)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: scope_index
+            character(len=*), intent(in) :: name
+            integer :: i
+            integer, allocatable :: indices(:)
+
+            found = .false.
+            call get_scope_statement_indices(arena, scope_index, indices)
+            do i = 1, size(indices)
+                if (.not. arena%has_node_at(indices(i))) cycle
+                select type (entry => arena%entries(indices(i))%node)
+                    type is (entry_node)
+                    if (allocated(entry%name)) then
+                        if (same_name(entry%name, name)) then
+                            found = .true.
+                            return
+                        end if
+                    end if
+                end select
+            end do
+        end function is_entry_procedure_name
 
         logical function same_name(left, right) result(equal)
             character(len=*), intent(in) :: left, right

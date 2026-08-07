@@ -29,6 +29,7 @@ module semantic_explicit_interface_checker
     public :: validate_whole_file_explicit_interface
     public :: build_explicit_interface_name_cache
     public :: is_part_reference
+    public :: interface_declares_subroutine
 
 contains
 
