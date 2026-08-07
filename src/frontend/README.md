@@ -163,6 +163,14 @@ end subroutine
   keyword, and marks omitted optional dummies. Unresolved procedures,
   ambiguous generic calls, array accesses, and invalid argument lists return
   `found=.false.` rather than guessing.
+- **Generic candidate query**: `query_generic_call` enumerates the concrete
+  procedures in a same-arena named generic interface and exposes each formal's
+  semantic type category, exact kind, rank, and derived-type identity. A
+  candidate is marked `is_match` only for a complete exact signature match;
+  `selected_procedure_node_index` is populated only when exactly one candidate
+  matches. Conversions, extension-type compatibility, elemental expansion,
+  and procedure-pointer dispatch remain explicit boundaries, so ambiguous or
+  unsupported generic calls are never guessed.
 - **Resolved type query**: `query_resolved_type` returns the semantic intrinsic
   category, exact Fortran kind value, storage size in bits, rank, and
   derived-type identity for an analyzed expression. The compiler pipeline
