@@ -2186,7 +2186,7 @@ contains
         integer, intent(in) :: node_index
         type(storage_query_t) :: query
         type(declaration_query_t) :: declaration
-        integer :: owner, i
+        integer :: i
         logical :: common_state
 
         call set_empty(query%name)
@@ -2203,7 +2203,6 @@ contains
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
         query%is_contiguous = declaration%is_contiguous
-        owner = enclosing_module(arena, node_index)
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         query%is_save_state = declaration%is_save
         common_state = .false.
@@ -2701,8 +2700,6 @@ contains
         integer, intent(in) :: node_index
         type(storage_query_t) :: query
         type(declaration_query_t) :: declaration
-        integer :: owner
-
         call set_empty(query%name)
         call set_empty(query%type_name)
         declaration = query_declaration(arena, node_index)
@@ -2716,7 +2713,6 @@ contains
         query%is_target = declaration%is_target
         query%is_contiguous = declaration%is_contiguous
         query%is_save_state = declaration%is_save
-        owner = enclosing_module(arena, node_index)
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         if (query%is_save_state) then
             query%storage_class = STORAGE_SAVE
@@ -2751,7 +2747,6 @@ contains
         type(declaration_binding_t), intent(in) :: binding
         type(global_reference_query_t) :: ref
         type(storage_query_t) :: storage
-        type(identifier_node) :: identifier
 
         call set_empty(ref%name)
         call set_empty(ref%module_name)
