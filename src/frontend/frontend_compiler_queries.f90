@@ -14,7 +14,8 @@ module frontend_compiler_queries
         parameter_declaration_node, module_node, block_data_node, &
         submodule_node, multi_unit_container_node, type_binding_node, &
         PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN
-    use ast_nodes_misc, only: interface_block_node, import_statement_node, &
+    use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
+        import_statement_node, &
         use_statement_node, visibility_statement_node, &
         namelist_statement_node, data_statement_node, &
         statement_function_node, allocate_statement_node, &
@@ -25,7 +26,10 @@ module frontend_compiler_queries
         select_type_node, type_guard_block_node
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_identifier_binding, resolve_name_at_node, find_enclosing_scope, &
-        BINDING_FUNCTION, BINDING_SUBROUTINE
+        find_host_scope, resolve_name_in_scope, BINDING_FUNCTION, &
+        BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE
+    use frontend_compiler_type_queries, only: resolved_type_query_t, &
+        query_resolved_type
     implicit none
     private
 
@@ -89,6 +93,8 @@ module frontend_compiler_queries
         query_nullify
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
+    public :: generic_argument_query_t, generic_candidate_query_t, &
+        generic_call_query_t, query_generic_call
     public :: STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER
     public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
@@ -183,6 +189,47 @@ module frontend_compiler_queries
         character(len=:), allocatable :: procedure_kind
         type(call_argument_query_t), allocatable :: arguments(:)
     end type call_arguments_query_t
+
+    ! Exact generic-candidate facts for compiler consumers.  The query does
+    ! not apply implicit conversions or dynamic dispatch: a candidate is an
+    ! exact match only when every supplied actual has the same semantic
+    ! category, kind, and rank as its formal (and derived types have the same
+    ! identity).  This keeps a backend from guessing when a generic is
+    ! ambiguous or requires a rule it does not implement.
+    type :: generic_argument_query_t
+        logical :: found = .false.
+        integer :: formal_node_index = 0
+        character(len=:), allocatable :: name
+        logical :: is_optional = .false.
+        integer :: type_kind = 0
+        integer :: kind_value = 0
+        integer :: rank = -1
+        character(len=:), allocatable :: derived_type_name
+    end type generic_argument_query_t
+
+    type :: generic_candidate_query_t
+        logical :: found = .false.
+        integer :: procedure_node_index = 0
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: procedure_kind
+        logical :: is_match = .false.
+        logical :: has_unknown_types = .false.
+        type(generic_argument_query_t), allocatable :: arguments(:)
+    end type generic_candidate_query_t
+
+    type :: generic_call_query_t
+        ! FOUND means that CALL or function-reference syntax resolved to a
+        ! same-arena named generic and its concrete candidates were listed.
+        logical :: found = .false.
+        logical :: is_generic = .false.
+        logical :: is_ambiguous = .false.
+        logical :: has_exact_match = .false.
+        integer :: call_node_index = 0
+        integer :: interface_node_index = 0
+        integer :: selected_procedure_node_index = 0
+        character(len=:), allocatable :: generic_name
+        type(generic_candidate_query_t), allocatable :: candidates(:)
+    end type generic_call_query_t
 
     ! Normalized storage facts for compiler consumers.  The existing
     ! declaration query mirrors source attributes; this record additionally
@@ -687,6 +734,318 @@ contains
         query%procedure_name = procedure%name
         query%procedure_kind = procedure%unit_kind
     end function query_call_arguments
+
+    function query_generic_call(arena, call_node_index) result(query)
+        !! Enumerate and exactly match a same-arena named generic call.
+        !!
+        !! The result is deliberately conservative.  It records every
+        !! concrete interface candidate, including its semantic formal
+        !! category, kind, rank, and derived-type identity.  `is_match` is
+        !! true only for a complete exact signature match; conversions,
+        !! extension-type compatibility, elemental expansion, and procedure
+        !! pointer dispatch remain outside this contract.  A unique exact
+        !! match is exposed through selected_procedure_node_index.  Zero or
+        !! multiple exact matches are reported without selecting a procedure.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        type(generic_call_query_t) :: query
+
+        type(declaration_binding_t) :: binding
+        integer, allocatable :: actual_indices(:)
+        integer, allocatable :: candidate_indices(:)
+        character(len=:), allocatable :: call_name
+        character(len=:), allocatable :: error_msg
+        logical :: is_call
+        integer :: i, match_count
+
+        call initialize_generic_call_query(query)
+        call get_call_parts(arena, call_node_index, call_name, actual_indices, &
+            is_call)
+        if (.not. is_call) return
+        if (len_trim(call_name) == 0) return
+
+        call resolve_name_at_node(arena, call_node_index, call_name, binding, &
+            error_msg)
+        if (.not. binding%found) return
+        if (binding%binding_kind /= BINDING_GENERIC_INTERFACE) return
+        if (.not. arena%has_node_at(binding%node_index)) return
+
+        query%is_generic = .true.
+        query%call_node_index = call_node_index
+        query%interface_node_index = binding%node_index
+        query%generic_name = trim(call_name)
+        call collect_generic_candidate_indices(arena, binding%node_index, &
+            candidate_indices)
+        if (size(candidate_indices) == 0) return
+
+        if (allocated(query%candidates)) deallocate (query%candidates)
+        allocate (query%candidates(size(candidate_indices)))
+        match_count = 0
+        do i = 1, size(candidate_indices)
+            call fill_generic_candidate(arena, actual_indices, &
+                candidate_indices(i), query%candidates(i))
+            if (query%candidates(i)%is_match) match_count = match_count + 1
+        end do
+
+        query%found = .true.
+        query%has_exact_match = match_count > 0
+        query%is_ambiguous = match_count > 1
+        if (match_count == 1) then
+            do i = 1, size(query%candidates)
+                if (query%candidates(i)%is_match) then
+                    query%selected_procedure_node_index = &
+                        query%candidates(i)%procedure_node_index
+                    exit
+                end if
+            end do
+        end if
+    end function query_generic_call
+
+    subroutine initialize_generic_call_query(query)
+        type(generic_call_query_t), intent(out) :: query
+
+        call set_empty(query%generic_name)
+        allocate (query%candidates(0))
+    end subroutine initialize_generic_call_query
+
+    subroutine collect_generic_candidate_indices(arena, interface_index, indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: interface_index
+        integer, allocatable, intent(out) :: indices(:)
+        integer :: i, j, procedure_index, resolved_index
+
+        allocate (indices(0))
+        if (.not. arena%has_node_at(interface_index)) return
+        select type (interface => arena%entries(interface_index)%node)
+            type is (interface_block_node)
+            if (.not. allocated(interface%procedure_indices)) return
+            do i = 1, size(interface%procedure_indices)
+                procedure_index = interface%procedure_indices(i)
+                if (.not. arena%has_node_at(procedure_index)) cycle
+                select type (procedure => arena%entries(procedure_index)%node)
+                    type is (function_def_node)
+                    call append_candidate_index(indices, procedure_index)
+                    type is (subroutine_def_node)
+                    call append_candidate_index(indices, procedure_index)
+                    type is (module_procedure_node)
+                    if (.not. allocated(procedure%procedure_names)) cycle
+                    do j = 1, size(procedure%procedure_names)
+                        call resolve_generic_procedure_name(arena, &
+                            interface_index, procedure%procedure_names(j)%s, &
+                            resolved_index)
+                        if (resolved_index > 0) then
+                            call append_candidate_index(indices, resolved_index)
+                        end if
+                    end do
+                end select
+            end do
+        end select
+    end subroutine collect_generic_candidate_indices
+
+    subroutine resolve_generic_procedure_name(arena, interface_index, name, &
+            procedure_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: interface_index
+        character(len=*), intent(in) :: name
+        integer, intent(out) :: procedure_index
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+        integer :: scope_index, host_index
+
+        procedure_index = 0
+        if (len_trim(name) == 0) return
+        scope_index = find_enclosing_scope(arena, interface_index)
+        if (scope_index == interface_index) then
+            host_index = find_host_scope(arena, scope_index)
+            scope_index = host_index
+        end if
+        if (scope_index <= 0) return
+        call resolve_name_in_scope(arena, scope_index, trim(name), binding, &
+            error_msg)
+        if (.not. binding%found) return
+        if (binding%binding_kind /= BINDING_FUNCTION .and. &
+            binding%binding_kind /= BINDING_SUBROUTINE) return
+        procedure_index = binding%node_index
+    end subroutine resolve_generic_procedure_name
+
+    subroutine append_candidate_index(indices, value)
+        integer, allocatable, intent(inout) :: indices(:)
+        integer, intent(in) :: value
+        integer, allocatable :: expanded(:)
+        integer :: i
+
+        if (value <= 0) return
+        do i = 1, size(indices)
+            if (indices(i) == value) return
+        end do
+        allocate (expanded(size(indices) + 1))
+        if (size(indices) > 0) expanded(:size(indices)) = indices
+        expanded(size(expanded)) = value
+        call move_alloc(expanded, indices)
+    end subroutine append_candidate_index
+
+    subroutine fill_generic_candidate(arena, actual_indices, procedure_index, &
+            candidate)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: actual_indices(:)
+        integer, intent(in) :: procedure_index
+        type(generic_candidate_query_t), intent(out) :: candidate
+        type(program_unit_query_t) :: procedure
+        type(declaration_query_t) :: declaration
+        type(resolved_type_query_t) :: resolved
+        integer, allocatable :: actual_for_formal(:)
+        integer, allocatable :: value_for_formal(:)
+        logical :: valid_mapping, supplied
+        integer :: i
+
+        call initialize_generic_candidate(candidate)
+        procedure = query_program_unit(arena, procedure_index)
+        if (.not. procedure%found) return
+        if (procedure%unit_kind /= 'function' .and. &
+            procedure%unit_kind /= 'subroutine') return
+        candidate%found = .true.
+        candidate%procedure_node_index = procedure_index
+        candidate%procedure_name = procedure%name
+        candidate%procedure_kind = procedure%unit_kind
+        if (allocated(candidate%arguments)) deallocate (candidate%arguments)
+        allocate (candidate%arguments(size(procedure%parameter_indices)))
+
+        do i = 1, size(procedure%parameter_indices)
+            call initialize_generic_argument(candidate%arguments(i))
+            candidate%arguments(i)%formal_node_index = &
+                procedure%parameter_indices(i)
+            declaration = query_declaration(arena, &
+                procedure%parameter_indices(i))
+            if (.not. declaration%found) cycle
+            candidate%arguments(i)%name = declaration%name
+            candidate%arguments(i)%is_optional = declaration%is_optional
+            resolved = query_resolved_type(arena, &
+                procedure%parameter_indices(i))
+            if (.not. resolved%found) then
+                candidate%has_unknown_types = .true.
+                cycle
+            end if
+            candidate%arguments(i)%found = .true.
+            candidate%arguments(i)%type_kind = resolved%type_kind
+            candidate%arguments(i)%kind_value = resolved%kind_value
+            candidate%arguments(i)%rank = resolved%rank
+            candidate%arguments(i)%derived_type_name = &
+                resolved%derived_type_name
+        end do
+
+        call map_generic_actuals(arena, actual_indices, &
+            procedure%parameter_indices, actual_for_formal, value_for_formal, &
+            valid_mapping)
+        if (.not. valid_mapping) return
+        candidate%is_match = .true.
+        do i = 1, size(procedure%parameter_indices)
+            supplied = actual_for_formal(i) > 0
+            if (.not. supplied) then
+                if (.not. candidate%arguments(i)%is_optional) then
+                    candidate%is_match = .false.
+                    return
+                end if
+                cycle
+            end if
+            if (.not. candidate%arguments(i)%found) then
+                candidate%is_match = .false.
+                return
+            end if
+            resolved = query_resolved_type(arena, value_for_formal(i))
+            if (.not. resolved%found) then
+                candidate%has_unknown_types = .true.
+                candidate%is_match = .false.
+                return
+            end if
+            if (.not. generic_types_match(candidate%arguments(i), resolved)) then
+                candidate%is_match = .false.
+                return
+            end if
+        end do
+    end subroutine fill_generic_candidate
+
+    subroutine initialize_generic_candidate(candidate)
+        type(generic_candidate_query_t), intent(out) :: candidate
+
+        call set_empty(candidate%procedure_name)
+        call set_empty(candidate%procedure_kind)
+        allocate (candidate%arguments(0))
+    end subroutine initialize_generic_candidate
+
+    subroutine initialize_generic_argument(argument)
+        type(generic_argument_query_t), intent(out) :: argument
+
+        call set_empty(argument%name)
+        call set_empty(argument%derived_type_name)
+    end subroutine initialize_generic_argument
+
+    subroutine map_generic_actuals(arena, actual_indices, formal_indices, &
+            actual_for_formal, value_for_formal, valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: actual_indices(:), formal_indices(:)
+        integer, allocatable, intent(out) :: actual_for_formal(:)
+        integer, allocatable, intent(out) :: value_for_formal(:)
+        logical, intent(out) :: valid
+        character(len=:), allocatable :: keyword
+        logical :: is_keyword
+        integer :: i, formal, next_formal, value_index
+        type(declaration_query_t) :: formal_query
+
+        allocate (actual_for_formal(size(formal_indices)))
+        allocate (value_for_formal(size(formal_indices)))
+        actual_for_formal = 0
+        value_for_formal = 0
+        valid = size(actual_indices) <= size(formal_indices)
+        if (.not. valid) return
+        next_formal = 1
+        do i = 1, size(actual_indices)
+            call get_call_actual_info(arena, actual_indices(i), keyword, &
+                value_index, is_keyword)
+            if (is_keyword) then
+                formal = find_formal_name(arena, formal_indices, keyword)
+            else
+                formal = next_formal
+                do while (next_formal <= size(formal_indices))
+                    if (actual_for_formal(next_formal) == 0) exit
+                    next_formal = next_formal + 1
+                end do
+            end if
+            if (formal <= 0 .or. formal > size(formal_indices)) then
+                valid = .false.
+                return
+            end if
+            if (actual_for_formal(formal) /= 0) then
+                valid = .false.
+                return
+            end if
+            if (.not. is_keyword) then
+                formal_query = query_declaration(arena, formal_indices(formal))
+                if (.not. formal_query%found) then
+                    valid = .false.
+                    return
+                end if
+            end if
+            actual_for_formal(formal) = actual_indices(i)
+            value_for_formal(formal) = value_index
+            if (.not. is_keyword) next_formal = formal + 1
+        end do
+    end subroutine map_generic_actuals
+
+    logical function generic_types_match(formal, actual) result(matches)
+        type(generic_argument_query_t), intent(in) :: formal
+        type(resolved_type_query_t), intent(in) :: actual
+
+        matches = .false.
+        if (formal%type_kind /= actual%type_kind) return
+        if (formal%kind_value /= actual%kind_value) return
+        if (formal%rank /= actual%rank) return
+        if (len_trim(formal%derived_type_name) > 0 .or. &
+            len_trim(actual%derived_type_name) > 0) then
+            if (.not. same_name(formal%derived_type_name, &
+                actual%derived_type_name)) return
+        end if
+        matches = .true.
+    end function generic_types_match
 
     subroutine initialize_call_arguments_query(query)
         type(call_arguments_query_t), intent(out) :: query
