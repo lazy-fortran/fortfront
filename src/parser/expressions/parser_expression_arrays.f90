@@ -904,8 +904,17 @@ contains
         end do
 
         base_expr_for_call = 0
-        if (has_range .and. base_expr > 0 .and. base_expr <= arena%size) then
-            if (allocated(arena%entries(base_expr)%node)) base_expr_for_call = base_expr
+        if (base_expr > 0 .and. base_expr <= arena%size) then
+            if (allocated(arena%entries(base_expr)%node)) then
+                select type (base => arena%entries(base_expr)%node)
+                    type is (component_access_node)
+                    ! `object%binding(args)` needs the receiver designator even
+                    ! though its arguments contain no range.
+                    base_expr_for_call = base_expr
+                class default
+                    if (has_range) base_expr_for_call = base_expr
+                end select
+            end if
         end if
 
         expr_index = push_call_or_subscript_with_slice_detection( &

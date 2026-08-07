@@ -42,6 +42,12 @@ or in an actual argument. This is a downstream ffc requirement (ffc #669), not
 a source-spelling workaround: the parser must never orphan the range node or
 flatten the designator back to `c`.
 
+The same postfix parser keeps a component-access base for
+`object%binding(args)` while leaving an ordinary `array(i)` base-free. The
+compiled `test_type_bound_call_base_oracle` transforms and runs a complete
+type-bound program; downstream FortAD's compiled `test_type_bound_oracle`
+checks the receiver is still available for derivative inlining.
+
 ## Required public architecture
 
 ffc consumes one immutable typed program snapshot through public FortFront
