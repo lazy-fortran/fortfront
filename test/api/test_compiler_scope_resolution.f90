@@ -3,7 +3,7 @@ program test_compiler_scope_resolution
     use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: declaration_node
-    use ast_nodes_procedure, only: subroutine_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use fortfront_compiler, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, declaration_binding_t, &
@@ -20,6 +20,7 @@ program test_compiler_scope_resolution
     call test_associate_scope()
     call test_nested_block_shadow()
     call test_use_rename()
+    call test_nested_associate_selector_binding()
     call test_module_accessibility()
     call test_procedure_and_generic()
     print *, 'PASS: compiler scope resolution queries'
@@ -250,6 +251,70 @@ contains
             error stop 1
         end if
     end subroutine test_associate_scope
+
+    subroutine test_nested_associate_selector_binding()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+        integer :: inner_associate
+        integer :: function_index
+        integer :: selector_index
+        integer :: i
+
+        call compile_standard( &
+            'program g1'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  real :: x(4), y(4)'//new_line('a')// &
+            '  integer :: i'//new_line('a')// &
+            '  do i = 1, 4'//new_line('a')// &
+            '    y(i) = compute(x(i))'//new_line('a')// &
+            '  end do'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  pure function compute(x) result(r)'//new_line('a')// &
+            '    real, intent(in) :: x'//new_line('a')// &
+            '    real :: r'//new_line('a')// &
+            '    associate(n => 1)'//new_line('a')// &
+            '      associate(z => x + real(n))'//new_line('a')// &
+            '        r = z'//new_line('a')// &
+            '      end associate'//new_line('a')// &
+            '    end associate'//new_line('a')// &
+            '  end function compute'//new_line('a')// &
+            'end program g1', result)
+
+        inner_associate = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+            type is (associate_node)
+                if (result%arena%entries(i)%parent_index <= 0) cycle
+                select type (parent_node => &
+                             result%arena%entries(result%arena%entries(i)%parent_index)%node)
+                type is (associate_node)
+                    inner_associate = i
+                end select
+            end select
+        end do
+        if (inner_associate <= 0) then
+            write (error_unit, '(A)') 'FAIL: nested ASSOCIATE not found'
+            error stop 1
+        end if
+        function_index = find_function(result, 'compute')
+        select type (node => result%arena%entries(inner_associate)%node)
+        type is (associate_node)
+            selector_index = node%associations(1)%expr_index
+        class default
+            error stop 'FAIL: nested ASSOCIATE has wrong node type'
+        end select
+        call resolve_name_at_node(result%arena, selector_index, 'x', binding, &
+                                   error_msg)
+        call require_found(error_msg, binding, BINDING_DECLARATION, &
+                           ASSOCIATION_DIRECT, 'nested ASSOCIATE local dummy')
+        if (binding%scope_node_index /= function_index) then
+            write (error_unit, '(A)') &
+                'FAIL: nested ASSOCIATE dummy binding escaped its procedure'
+            error stop 1
+        end if
+    end subroutine test_nested_associate_selector_binding
 
     subroutine test_use_rename()
         type(compiler_frontend_result_t) :: result
@@ -523,6 +588,25 @@ contains
         write (error_unit, '(A)') 'FAIL: subroutine not found: '//trim(name)
         error stop 1
     end function find_subroutine
+
+    integer function find_function(result, name) result(index)
+        type(compiler_frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        index = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+                type is (function_def_node)
+                if (.not. allocated(node%name)) cycle
+                if (trim(node%name) == trim(name)) index = i
+            end select
+        end do
+        if (index > 0) return
+        write (error_unit, '(A)') 'FAIL: function not found: '//trim(name)
+        error stop 1
+    end function find_function
 
     integer function find_declaration(result, name) result(index)
         type(compiler_frontend_result_t), intent(in) :: result
