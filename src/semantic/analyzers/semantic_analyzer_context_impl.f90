@@ -11,7 +11,7 @@ use semantic_annotation_utils, only: type_from_annotation
 use semantic_inference_helpers, only: check_implicit_none, &
     process_declaration_variables
 use semantic_undefined_variable_checker, only: check_undefined_variables_generic, &
-    check_external_implicit_none
+    check_external_implicit_none, check_implicit_none_references
 use semantic_walrus_checker, only: check_walrus_redeclaration
 use constant_transformation, only: fold_constants_in_arena
 use error_handling, only: create_error_collection
@@ -193,6 +193,11 @@ contains
                 if (ctx%operating_mode == OPERATING_MODE_INFER) then
                     if (check_implicit_none(arena, ast)) then
                         ctx%input_mode = INPUT_MODE_STANDARD
+                        ! A Lazy caller may include IMPLICIT NONE while still
+                        ! relying on inferred names (the transformation path
+                        ! and .lf corpus use this boundary). Explicit
+                        ! INPUT_MODE_STANDARD remains strictly checked.
+                        ctx%enforce_implicit_none_references = .false.
                     end if
                 end if
             end if
@@ -200,6 +205,10 @@ contains
             type is (multi_unit_container_node)
             call analyze_multi_unit_container_arena(ctx, arena, ast, root_index)
             type is (module_node)
+            if (ctx%enforce_implicit_none_references .and. &
+                    ctx%input_mode == INPUT_MODE_STANDARD) then
+                call check_implicit_none_references(arena, ctx%errors)
+            end if
             return
         class default
             call infer_and_store_type(ctx, arena, root_index)
@@ -289,6 +298,10 @@ contains
         end if
         call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
             ctx%input_mode, arena, prog_index)
+        if (ctx%enforce_implicit_none_references .and. &
+                ctx%input_mode == INPUT_MODE_STANDARD) then
+            call check_implicit_none_references(arena, ctx%errors)
+        end if
     end subroutine analyze_program_node_arena
 
     ! All units of a multi-unit container share one context: a call in one
@@ -329,6 +342,10 @@ contains
         call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
             ctx%input_mode, arena, &
             container_index)
+        if (ctx%enforce_implicit_none_references .and. &
+                ctx%input_mode == INPUT_MODE_STANDARD) then
+            call check_implicit_none_references(arena, ctx%errors)
+        end if
     end subroutine analyze_multi_unit_container_arena
 
     module subroutine infer_and_store_type(ctx, arena, node_index)
@@ -394,6 +411,8 @@ contains
         temp_context%input_mode = this%input_mode
         temp_context%operating_mode = this%operating_mode
         temp_context%respect_implicit_none = this%respect_implicit_none
+        temp_context%enforce_implicit_none_references = &
+            this%enforce_implicit_none_references
         temp_context%signatures = this%signatures
 
         allocate (cloned, source=temp_context)
