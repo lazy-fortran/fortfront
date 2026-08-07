@@ -21,6 +21,7 @@ program test_compiler_scope_resolution
     call test_nested_block_shadow()
     call test_use_rename()
     call test_nested_associate_selector_binding()
+    call test_nested_associate_owner_boundary()
     call test_module_accessibility()
     call test_procedure_and_generic()
     print *, 'PASS: compiler scope resolution queries'
@@ -315,6 +316,123 @@ contains
             error stop 1
         end if
     end subroutine test_nested_associate_selector_binding
+
+    subroutine test_nested_associate_owner_boundary()
+        ! A nested selector must preserve both sides of the ownership
+        ! boundary: a local dummy remains DIRECT, while a same-named host
+        ! variable remains HOST. The declaration node and entity identities
+        ! must agree with the corresponding scope query in both cases.
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: dummy_scope_binding
+        type(declaration_binding_t) :: host_scope_binding
+        type(declaration_binding_t) :: dummy_selector_binding
+        type(declaration_binding_t) :: host_selector_binding
+        character(len=:), allocatable :: error_msg
+        integer :: outer_associate
+        integer :: inner_associate
+        integer :: outer_selector
+        integer :: inner_selector
+        integer :: function_index
+        integer :: program_index
+        integer :: i
+
+        call compile_standard( &
+            'program owner_boundary'//new_line('a')// &
+            '  implicit none'//new_line('a')// &
+            '  real :: x, y'//new_line('a')// &
+            '  y = compute(x)'//new_line('a')// &
+            '  print *, y'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  pure function compute(value) result(r)'//new_line('a')// &
+            '    real, intent(in) :: value'//new_line('a')// &
+            '    real :: r'//new_line('a')// &
+            '    associate(host_alias => x)'//new_line('a')// &
+            '      associate(sum => value + host_alias)'//new_line('a')// &
+            '        r = sum'//new_line('a')// &
+            '      end associate'//new_line('a')// &
+            '    end associate'//new_line('a')// &
+            '  end function compute'//new_line('a')// &
+            'end program owner_boundary', result)
+
+        outer_associate = 0
+        inner_associate = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+                type is (associate_node)
+                if (result%arena%entries(i)%parent_index <= 0) cycle
+                select type (parent_node => result%arena%entries( &
+                        result%arena%entries(i)%parent_index)%node)
+                    type is (associate_node)
+                    inner_associate = i
+                    outer_associate = result%arena%entries(i)%parent_index
+                end select
+            end select
+        end do
+        if (outer_associate <= 0 .or. inner_associate <= 0) then
+            write (error_unit, '(A)') &
+                'FAIL: owner-boundary nested ASSOCIATE not found'
+            error stop 1
+        end if
+
+        function_index = find_function(result, 'compute')
+        program_index = find_program(result, 'owner_boundary')
+        call resolve_name_in_scope(result%arena, function_index, 'value', &
+            dummy_scope_binding, error_msg)
+        call require_found(error_msg, dummy_scope_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'owner-boundary local dummy')
+        call resolve_name_in_scope(result%arena, program_index, 'x', &
+            host_scope_binding, error_msg)
+        call require_found(error_msg, host_scope_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'owner-boundary host variable')
+
+        select type (node => result%arena%entries(outer_associate)%node)
+            type is (associate_node)
+            outer_selector = node%associations(1)%expr_index
+        class default
+            error stop 'FAIL: outer ASSOCIATE has wrong node type'
+        end select
+        select type (node => result%arena%entries(inner_associate)%node)
+            type is (associate_node)
+            inner_selector = node%associations(1)%expr_index
+        class default
+            error stop 'FAIL: inner ASSOCIATE has wrong node type'
+        end select
+
+        call resolve_name_at_node(result%arena, outer_selector, 'x', &
+            host_selector_binding, error_msg)
+        call require_binding(error_msg, host_selector_binding, &
+            host_scope_binding%declaration_node_index, BINDING_DECLARATION, &
+            ASSOCIATION_HOST, 'owner-boundary host selector')
+        if (host_selector_binding%scope_node_index /= program_index) then
+            write (error_unit, '(A)') &
+                'FAIL: host selector owner escaped the host program'
+            error stop 1
+        end if
+
+        call resolve_name_at_node(result%arena, inner_selector, 'value', &
+            dummy_selector_binding, error_msg)
+        call require_binding(error_msg, dummy_selector_binding, &
+            dummy_scope_binding%declaration_node_index, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'owner-boundary local selector')
+        if (dummy_selector_binding%scope_node_index /= function_index) then
+            write (error_unit, '(A)') &
+                'FAIL: local selector owner escaped its function'
+            error stop 1
+        end if
+        if (dummy_selector_binding%declaration_entity_index /= &
+            dummy_scope_binding%declaration_entity_index) then
+            write (error_unit, '(A)') &
+                'FAIL: local selector changed declaration entity identity'
+            error stop 1
+        end if
+        if (host_selector_binding%declaration_entity_index /= &
+            host_scope_binding%declaration_entity_index) then
+            write (error_unit, '(A)') &
+                'FAIL: host selector changed declaration entity identity'
+            error stop 1
+        end if
+    end subroutine test_nested_associate_owner_boundary
 
     subroutine test_use_rename()
         type(compiler_frontend_result_t) :: result
