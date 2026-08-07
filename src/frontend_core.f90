@@ -719,7 +719,14 @@ contains
             if (line(1:1) == "&") return ! Already normalized to free form
         end if
         if (len_line < 6) return
-        if (is_fixed_form_comment(line)) return
+        if (is_fixed_form_comment(line)) then
+            ! The lexer understands free-form `!` comments.  Preserve the
+            ! comment text while translating the fixed-form column-1 marker;
+            ! otherwise a source with no continuation line tokenizes `C` as
+            ! an identifier and fails before parsing.
+            line(1:1) = "!"
+            return
+        end if
 
         cont_char = line(6:6)
         if (cont_char == " " .or. cont_char == "0") return
