@@ -64,6 +64,7 @@ module fortfront
         used_module_t, defined_module_t, &
         program_unit_query_t, declaration_query_t, &
         derived_type_query_t, type_binding_query_t, component_access_query_t, &
+        array_bounds_query_t, range_expression_query_t, &
         use_statement_query_t, interface_query_t, visibility_query_t, &
         namelist_query_t, data_statement_query_t, common_block_query_t, &
         enum_query_t, statement_function_query_t, block_data_query_t, &
@@ -72,7 +73,7 @@ module fortfront
         query_use_statement, query_use_statements, query_interface, &
         query_visibility, query_namelist, query_data_statement, &
         query_common_block, query_enum, query_statement_function, &
-        query_component_access, &
+        query_component_access, query_array_bounds, query_range_expression, &
         query_block_data
     use frontend_compiler_resolution, only: declaration_binding_t, &
         get_scope_bindings, resolve_name_in_scope, &

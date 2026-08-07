@@ -196,6 +196,22 @@ The intended compiler boundary is:
 The compiler API is Fortran-only today. A full C ABI for typed AST traversal is
 not implemented.
 
+Consumers using the unified `fortfront` facade can query array-bound and range
+nodes without importing concrete AST node types:
+
+```fortran
+use fortfront, only: array_bounds_query_t, query_array_bounds
+
+type(array_bounds_query_t) :: bounds
+
+bounds = query_array_bounds(result%arena, bounds_index)
+if (bounds%found) print *, bounds%lower_bound_node_index
+```
+
+`query_range_expression` provides the corresponding lower, upper, and stride
+indices for explicit ranges. These read-only records are the stable boundary
+for consumers that simplify shapes or loop bounds.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the
