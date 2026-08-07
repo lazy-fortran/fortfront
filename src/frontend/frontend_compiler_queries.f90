@@ -5,7 +5,7 @@ module frontend_compiler_queries
         subroutine_def_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
-        pointer_assignment_node, assignment_node
+        call_or_subscript_node, pointer_assignment_node, assignment_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
     use ast_nodes_transfer, only: nullify_node, return_node, &
@@ -2256,6 +2256,7 @@ contains
         type(declaration_query_t) :: base_declaration, component_declaration
         type(storage_query_t) :: base_storage
         type(component_access_query_t) :: base_component
+        logical :: base_is_array_element
         type(derived_type_query_t) :: derived
         character(len=:), allocatable :: base_type, derived_name, error_msg
         character(len=:), allocatable :: base_name
@@ -2265,12 +2266,19 @@ contains
         query%node_index = node_index
         base_declaration = query_declaration(arena, component%base_node_index)
         base_component = query_component_access(arena, component%base_node_index)
+        base_is_array_element = is_array_element_node(arena, &
+            component%base_node_index)
         if (base_declaration%found) then
             base_type = base_declaration%type_name
         else if (base_component%found) then
             base_storage = query_storage(arena, component%base_node_index)
             if (.not. base_storage%found) return
             base_type = base_storage%type_name
+        else if (base_is_array_element) then
+            call resolve_array_element_declaration(arena, &
+                component%base_node_index, base_declaration)
+            if (.not. base_declaration%found) return
+            base_type = base_declaration%type_name
         else
             call resolve_identifier_binding(arena, component%base_node_index, &
                 binding, error_msg)
@@ -2331,6 +2339,73 @@ contains
             return
         end do
     end subroutine query_component_storage
+
+    logical function is_array_element_node(arena, node_index) result(is_element)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_element = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            if (.not. allocated(node%arg_indices)) return
+            is_element = size(node%arg_indices) > 0
+        class default
+        end select
+    end function is_array_element_node
+
+    subroutine resolve_array_element_declaration(arena, node_index, declaration)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(declaration_query_t), intent(out) :: declaration
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg, array_name
+        integer :: i, fallback_index, scope_index
+
+        declaration = query_declaration(arena, node_index)
+        if (declaration%found) return
+        call resolve_identifier_binding(arena, node_index, binding, error_msg)
+        if (binding%found) then
+            declaration = query_declaration(arena, binding%declaration_node_index)
+            if (declaration%found .and. declaration%is_array) return
+        end if
+
+        call array_element_name_at(arena, node_index, array_name)
+        if (len_trim(array_name) == 0) return
+        scope_index = find_enclosing_scope(arena, node_index)
+        fallback_index = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            declaration = query_declaration(arena, i)
+            if (.not. declaration%found .or. .not. declaration%is_array) cycle
+            if (.not. same_name(declaration%name, array_name)) cycle
+            if (fallback_index == 0) fallback_index = i
+            if (scope_index > 0 .and. node_is_in_scope(arena, i, &
+                scope_index)) then
+                fallback_index = i
+                exit
+            end if
+        end do
+        if (fallback_index > 0) then
+            declaration = query_declaration(arena, fallback_index)
+        else
+            declaration%found = .false.
+        end if
+    end subroutine resolve_array_element_declaration
+
+    subroutine array_element_name_at(arena, node_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+
+        call set_empty(name)
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            if (allocated(node%name)) name = node%name
+        class default
+        end select
+    end subroutine array_element_name_at
 
     function derived_type_name_from_spec(type_name) result(name)
         character(len=*), intent(in) :: type_name
@@ -2657,6 +2732,7 @@ contains
         call collect_component_path(arena, component%base_node_index, &
                                     prefix_names, prefix_indices, base)
         width = max(1, len_trim(component%component_name))
+        if (size(prefix_names) > 0) width = max(width, len(prefix_names))
         allocate (character(len=width) :: names(size(prefix_names) + 1))
         do i = 1, size(prefix_names)
             names(i) = prefix_names(i)
