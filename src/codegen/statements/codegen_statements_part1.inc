@@ -17,6 +17,31 @@
         end if
     end subroutine prepend_stmt_label
 
+    function generate_transfer_unit_code(arena, unit_spec, specifiers) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=:), allocatable, intent(in) :: unit_spec
+        type(io_specifier_t), allocatable, intent(in) :: specifiers(:)
+        character(len=:), allocatable :: code
+        integer :: i
+
+        if (allocated(unit_spec)) then
+            code = unit_spec
+        else
+            code = "*"
+        end if
+        if (.not. allocated(specifiers)) return
+
+        do i = 1, size(specifiers)
+            if (.not. allocated(specifiers(i)%name)) cycle
+            if (specifiers(i)%name /= "unit") cycle
+            if (specifiers(i)%value_node_index <= 0) return
+            if (specifiers(i)%value_node_index > arena%size) return
+            code = generate_code_from_arena( &
+                arena, specifiers(i)%value_node_index)
+            return
+        end do
+    end function generate_transfer_unit_code
+
     ! Generate code for assignment statements
     function generate_code_assignment(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -193,12 +218,8 @@
         character(len=:), allocatable :: unit_code, format_code, args_code
         integer :: i
 
-        ! Generate unit specifier
-        if (allocated(node%unit_spec)) then
-            unit_code = node%unit_spec
-        else
-            unit_code = "*"
-        end if
+        unit_code = generate_transfer_unit_code( &
+            arena, node%unit_spec, node%specifiers)
 
         ! Generate format specifier or namelist
         if (allocated(node%namelist_group)) then
@@ -251,12 +272,8 @@
         character(len=:), allocatable :: unit_code, format_code, vars_code
         integer :: i
 
-        ! Generate unit specifier
-        if (allocated(node%unit_spec)) then
-            unit_code = node%unit_spec
-        else
-            unit_code = "*"
-        end if
+        unit_code = generate_transfer_unit_code( &
+            arena, node%unit_spec, node%specifiers)
 
         ! Generate format or namelist specifier
         if (allocated(node%namelist_group)) then

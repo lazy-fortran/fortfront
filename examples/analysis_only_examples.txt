@@ -16,6 +16,8 @@ f90/ast_coverage_control_flow.f90
 f90/ast_forall_pointer.f90
 f90/call_graph_internal_procedures.f90
 f90/call_graph_module_program_scopes.f90
+f90/ownership_dispatch_metadata.f90  # metadata fixture omits abstract interface body
+f90/component_storage_query.f90  # class(*) allocation events omit SOURCE/MOLD
 f90/issue_2281_header_only_declarations.f90
 f90/issue_2283_nested_modules.f90
 f90/issue_2078_include_statement_silently_dropped.f90
