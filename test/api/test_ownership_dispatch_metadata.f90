@@ -1,13 +1,12 @@
 program test_ownership_dispatch_metadata
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at
-    use fortfront_compiler, only: declaration_query_t, query_declaration, &
-        derived_type_query_t, query_derived_type, storage_query_t, query_storage, &
-        STORAGE_OWNED, STORAGE_SAVE, STORAGE_COMMON, ownership_event_query_t, &
-        query_ownership_events, OWNERSHIP_EVENT_ALLOCATE, &
-        OWNERSHIP_EVENT_MOVE_ALLOC, OWNERSHIP_EVENT_NULLIFY, &
-        component_path_query_t, query_component_path, &
+        INPUT_MODE_STANDARD, get_node_type_at, declaration_query_t, &
+        query_declaration, derived_type_query_t, query_derived_type, &
+        storage_query_t, query_storage, STORAGE_OWNED, STORAGE_SAVE, &
+        STORAGE_COMMON, ownership_event_query_t, query_ownership_events, &
+        OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_MOVE_ALLOC, &
+        OWNERSHIP_EVENT_NULLIFY, component_path_query_t, query_component_path, &
         binding_resolution_query_t, query_type_binding_resolution, &
         global_reference_query_t, query_active_global_references, ACCESS_WRITE
     implicit none
@@ -16,6 +15,7 @@ program test_ownership_dispatch_metadata
     type(compiler_frontend_result_t) :: result
     character(:), allocatable :: source
     integer :: i, module_index, base_index, child_index, temporary_index
+    integer :: polymorphic_index, unlimited_index
     integer :: global_index, common_index, event_count, path_count
     integer :: global_refs, common_refs, nullify_count
     type(declaration_query_t) :: declaration
@@ -37,6 +37,8 @@ program test_ownership_dispatch_metadata
     base_index = 0
     child_index = 0
     temporary_index = 0
+    polymorphic_index = 0
+    unlimited_index = 0
     global_index = 0
     common_index = 0
     do i = 1, result%arena%size
@@ -51,18 +53,29 @@ program test_ownership_dispatch_metadata
         case ('declaration')
             declaration = query_declaration(result%arena, i)
             if (trim(declaration%name) == 'temporary') temporary_index = i
+            if (trim(declaration%name) == 'polymorphic_owned') polymorphic_index = i
+            if (trim(declaration%name) == 'unlimited_owned') unlimited_index = i
             if (trim(declaration%name) == 'global_counter') global_index = i
             if (trim(declaration%name) == 'common_value') common_index = i
         end select
     end do
     call require(module_index > 0, 'module node missing')
     call require(base_index > 0 .and. child_index > 0, 'type nodes missing')
-    call require(temporary_index > 0 .and. global_index > 0 .and. &
-        common_index > 0, 'state declarations missing')
+    call require(temporary_index > 0 .and. polymorphic_index > 0 .and. &
+        unlimited_index > 0 .and. global_index > 0 .and. common_index > 0, &
+        'state declarations missing')
 
     storage = query_storage(result%arena, temporary_index)
     call require(storage%storage_class == STORAGE_OWNED, &
         'local allocatable is not owned')
+    storage = query_storage(result%arena, polymorphic_index)
+    call require(storage%storage_class == STORAGE_OWNED .and. &
+        storage%is_polymorphic .and. .not. storage%is_unlimited_polymorphic, &
+        'declared polymorphic ownership metadata is missing')
+    storage = query_storage(result%arena, unlimited_index)
+    call require(storage%storage_class == STORAGE_OWNED .and. &
+        storage%is_polymorphic .and. storage%is_unlimited_polymorphic, &
+        'unlimited polymorphic ownership metadata is missing')
     storage = query_storage(result%arena, global_index)
     call require(storage%storage_class == STORAGE_SAVE, &
         'SAVE state is not classified')

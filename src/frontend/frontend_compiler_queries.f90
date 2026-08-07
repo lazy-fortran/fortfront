@@ -172,6 +172,8 @@ module frontend_compiler_queries
         logical :: is_pointer = .false.
         logical :: is_target = .false.
         logical :: is_contiguous = .false.
+        logical :: is_polymorphic = .false.
+        logical :: is_unlimited_polymorphic = .false.
         logical :: is_module_state = .false.
         logical :: is_save_state = .false.
         logical :: is_common_state = .false.
@@ -2203,6 +2205,9 @@ contains
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
         query%is_contiguous = declaration%is_contiguous
+        query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
+        query%is_unlimited_polymorphic = &
+            is_unlimited_polymorphic_type_spec(query%type_name)
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         query%is_save_state = declaration%is_save
         common_state = .false.
@@ -2712,6 +2717,9 @@ contains
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
         query%is_contiguous = declaration%is_contiguous
+        query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
+        query%is_unlimited_polymorphic = &
+            is_unlimited_polymorphic_type_spec(query%type_name)
         query%is_save_state = declaration%is_save
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         if (query%is_save_state) then
@@ -2726,6 +2734,45 @@ contains
             query%storage_class = STORAGE_LOCAL
         end if
     end function query_storage_without_common_scan
+
+    logical function is_polymorphic_type_spec(type_name)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: normalized
+
+        normalized = remove_type_spec_spaces(lower_text(trim(type_name)))
+        is_polymorphic_type_spec = .false.
+        if (len(normalized) < 7) return
+        if (normalized(1:6) /= 'class(') return
+        is_polymorphic_type_spec = normalized(len(normalized):) == ')'
+    end function is_polymorphic_type_spec
+
+    logical function is_unlimited_polymorphic_type_spec(type_name)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: normalized
+
+        normalized = remove_type_spec_spaces(lower_text(trim(type_name)))
+        is_unlimited_polymorphic_type_spec = .false.
+        if (len(normalized) /= 8) return
+        is_unlimited_polymorphic_type_spec = normalized == 'class(*)'
+    end function is_unlimited_polymorphic_type_spec
+
+    function remove_type_spec_spaces(value) result(result)
+        character(len=*), intent(in) :: value
+        character(len=:), allocatable :: result
+        integer :: i, count
+
+        count = 0
+        do i = 1, len(value)
+            if (value(i:i) /= ' ' .and. value(i:i) /= achar(9)) count = count + 1
+        end do
+        allocate (character(len=count) :: result)
+        count = 0
+        do i = 1, len(value)
+            if (value(i:i) == ' ' .or. value(i:i) == achar(9)) cycle
+            count = count + 1
+            result(count:count) = value(i:i)
+        end do
+    end function remove_type_spec_spaces
 
     logical function common_name_in_arena(arena, name)
         type(ast_arena_t), intent(in) :: arena

@@ -21,6 +21,8 @@ contains
     subroutine child_work(self)
         class(child_t), intent(inout) :: self
         integer, allocatable :: temporary(:)
+        class(base_t), allocatable :: polymorphic_owned
+        class(*), allocatable :: unlimited_owned
 
         allocate (temporary(2))
         temporary = 1
