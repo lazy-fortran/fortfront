@@ -6,14 +6,19 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `b4f1d2f2` (separate module-procedure dummy
-resolution, implicit `DIMENSION` dummy preservation, the #2993 `IMPLICIT NONE`
+The implementation baseline is `39bac6c2` (explicit semantic-context mode
+initialization for GCC14, separate module-procedure dummy resolution, implicit
+`DIMENSION` dummy preservation, the #2993 `IMPLICIT NONE`
 undeclared-reference pass, full-line continuation comments, fixed-form
 comment normalization, and the #2255 follow-up). The #2993, #2996,
 nested-binding, implicit-DIMENSION, and separate-module-dummy focused oracles
 are green locally. The current local GNU lane is green: 1,545 static modules,
 381 build targets, 378 derivative targets, 483/483 tests, and clean lint. The
 Windows lane and remote aggregate remain open.
+
+Merge CI is [run 31138513938](https://github.com/lazy-fortran/fortfront/actions/runs/31138513938)
+for this head and remains in progress; the local GNU gate is not remote-green
+evidence.
 
 The semantic context constructor now assigns its input-mode and strict
 `IMPLICIT NONE` policy explicitly. This is required for GCC14, where relying
