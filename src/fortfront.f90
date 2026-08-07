@@ -35,6 +35,8 @@ module fortfront
         compiler_frontend_result_t, &
         compile_frontend_from_string, &
         compile_frontend_from_file
+    use frontend_core, only: core_is_fixed_form_file => is_fixed_form_file, &
+        core_normalize_fixed_form_source_text => normalize_fixed_form_source_text
     use frontend_compiler_queries, only: is_subroutine_call_statement, &
         get_subroutine_call_name, &
         get_subroutine_call_arg_indices, &
@@ -235,6 +237,21 @@ module fortfront
     implicit none
     public
 contains
+
+    pure logical function is_fixed_form_file(path) result(is_fixed)
+        !! Whether `path` names one of the fixed-form file extensions accepted
+        !! by the file frontend.
+        character(len=*), intent(in) :: path
+
+        is_fixed = core_is_fixed_form_file(path)
+    end function is_fixed_form_file
+
+    subroutine normalize_fixed_form_source_text(source)
+        !! Normalize text already identified as fixed form by its file path.
+        character(len=:), allocatable, intent(inout) :: source
+
+        call core_normalize_fixed_form_source_text(source)
+    end subroutine normalize_fixed_form_source_text
 
     function get_call_edges(graph) result(edges)
         type(call_graph_t), intent(in) :: graph

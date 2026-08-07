@@ -48,6 +48,14 @@ compiled `test_type_bound_call_base_oracle` transforms and runs a complete
 type-bound program; downstream FortAD's compiled `test_type_bound_oracle`
 checks the receiver is still available for derivative inlining.
 
+The fixed-form file path translates column-1 `C`, `c`, and `*` comments to
+free-form `!` comments before lexing. The compiled
+`test_fixed_form_comment_oracle` covers a `.f` program with no continuation
+line, the case that previously tokenized `C` as code. The normalizer is also
+available through the compatibility facade for source-aware downstream file
+drivers. This is one source-form fix, not a claim of complete fixed-form or
+preprocessor support.
+
 ## Required public architecture
 
 ffc consumes one immutable typed program snapshot through public FortFront
