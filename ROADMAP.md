@@ -6,7 +6,8 @@ backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `ac02b4d0` (component-access query facade). Its
+The implementation baseline is `aa5880ae` (plain array-element query
+preservation for nested character substrings). Its
 latest check is
 [run 31127135731](https://github.com/lazy-fortran/fortfront/actions/runs/31127135731):
 Windows and the aggregate gate failed, while the Ubuntu lane was cancelled.
@@ -75,8 +76,10 @@ query in the same set of linked commits. Do not leave a permanent fallback.
    the lost or malformed AST evidence in #2986/#2987 without over-rejecting
    valid code.
 4. Complete binding identity across nested ASSOCIATE in
-   [#2975](https://github.com/lazy-fortran/fortfront/issues/2975). This is the
-   frontend prerequisite for ffc #584 and removal of text-name lookup.
+   [#2975](https://github.com/lazy-fortran/fortfront/issues/2975). The selector
+   binding correction and exact declaration-identity oracle are now landed;
+   this remains the frontend prerequisite for ffc #584 and removal of
+   text-name lookup.
 5. Fix parser representation defects #2973 and the remaining explicit-
    interface representation work #2970. Then rebaseline stale umbrellas
    #2883/#2924/#2951 and close or split them by live signature.

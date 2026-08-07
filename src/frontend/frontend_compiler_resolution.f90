@@ -118,6 +118,7 @@ contains
         type(declaration_binding_t), intent(out) :: binding
         character(len=:), allocatable, intent(out) :: error_msg
         integer :: scope_node_index
+        logical :: selector_reference
 
         call clear_binding(binding)
         call set_empty(error_msg)
@@ -129,13 +130,29 @@ contains
 
         scope_node_index = find_enclosing_scope(arena, reference_node_index)
         if (scope_node_index <= 0) return
-        if (is_associate_selector_reference(arena, scope_node_index, &
-                                            reference_node_index)) then
+        selector_reference = is_associate_selector_reference(arena, &
+                                                             scope_node_index, &
+                                                             reference_node_index)
+        if (selector_reference) then
             scope_node_index = find_host_scope(arena, scope_node_index)
             if (scope_node_index <= 0) return
         end if
         call resolve_name_in_scope(arena, scope_node_index, name, binding, &
                                    error_msg)
+        ! A selector expression is evaluated in the enclosing scoping unit.
+        ! With nested ASSOCIATE constructs, recursively walking the intermediate
+        ! ASSOCIATE scope used to relabel a declaration belonging to the
+        ! current procedure as ASSOCIATION_HOST.  That misclassification makes
+        ! consumers materialise a host variable for a local dummy (#2975).
+        ! Preserve true host association while restoring DIRECT for a binding
+        ! owned by the nearest enclosing procedure.
+        if (selector_reference .and. binding%found .and. &
+            binding%association == ASSOCIATION_HOST) then
+            if (binding%scope_node_index == &
+                find_enclosing_procedure_scope(arena, scope_node_index)) then
+                binding%association = ASSOCIATION_DIRECT
+            end if
+        end if
     end subroutine resolve_name_at_node
 
     subroutine resolve_identifier_binding(arena, use_node_index, binding, &
@@ -763,6 +780,30 @@ contains
             current = arena%entries(current)%parent_index
         end do
     end function find_host_scope
+
+    integer function find_enclosing_procedure_scope(arena, scope_node_index) &
+            result(procedure_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        integer :: current
+
+        procedure_index = 0
+        if (.not. arena%has_node_at(scope_node_index)) return
+        current = scope_node_index
+        do while (current > 0)
+            if (.not. arena%has_node_at(current)) return
+            select type (node => arena%entries(current)%node)
+            type is (function_def_node)
+                procedure_index = current
+                return
+            type is (subroutine_def_node)
+                procedure_index = current
+                return
+            class default
+                current = arena%entries(current)%parent_index
+            end select
+        end do
+    end function find_enclosing_procedure_scope
 
     logical function is_scope_node(arena, node_index) result(is_scope)
         type(ast_arena_t), intent(in) :: arena
