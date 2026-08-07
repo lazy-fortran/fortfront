@@ -25,6 +25,7 @@ contains
         allocate (temporary(2))
         temporary = 1
         call move_alloc(temporary, self%owned)
+        nullify (self%link)
         global_counter = global_counter + self%owned(1)
     end subroutine child_work
 
