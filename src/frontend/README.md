@@ -164,7 +164,7 @@ end subroutine
 - **Ownership and dispatch queries**: `query_storage` reports allocatable,
   pointer, target, contiguous, SAVE, module, and COMMON storage facts.
   `query_ownership_events` reports `ALLOCATE`, `DEALLOCATE`, `MOVE_ALLOC`,
-  and pointer-assignment nodes with their operand indices.
+  pointer-assignment, and `NULLIFY` nodes with their operand indices.
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and

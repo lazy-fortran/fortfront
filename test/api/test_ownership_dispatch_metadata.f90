@@ -6,7 +6,8 @@ program test_ownership_dispatch_metadata
         derived_type_query_t, query_derived_type, storage_query_t, query_storage, &
         STORAGE_OWNED, STORAGE_SAVE, STORAGE_COMMON, ownership_event_query_t, &
         query_ownership_events, OWNERSHIP_EVENT_ALLOCATE, &
-        OWNERSHIP_EVENT_MOVE_ALLOC, component_path_query_t, query_component_path, &
+        OWNERSHIP_EVENT_MOVE_ALLOC, OWNERSHIP_EVENT_NULLIFY, &
+        component_path_query_t, query_component_path, &
         binding_resolution_query_t, query_type_binding_resolution, &
         global_reference_query_t, query_active_global_references, ACCESS_WRITE
     use fortfront, only: common_block_query_t, query_common_block
@@ -17,7 +18,7 @@ program test_ownership_dispatch_metadata
     character(:), allocatable :: source
     integer :: i, module_index, base_index, child_index, temporary_index
     integer :: global_index, common_index, event_count, path_count
-    integer :: global_refs, common_refs
+    integer :: global_refs, common_refs, nullify_count
     type(declaration_query_t) :: declaration
     type(storage_query_t) :: storage
     type(derived_type_query_t) :: derived
@@ -72,12 +73,16 @@ program test_ownership_dispatch_metadata
 
     events = query_ownership_events(result%arena, module_index)
     event_count = 0
+    nullify_count = 0
     do i = 1, size(events)
         if (events(i)%event_kind == OWNERSHIP_EVENT_ALLOCATE .or. &
             events(i)%event_kind == OWNERSHIP_EVENT_MOVE_ALLOC) &
             event_count = event_count + 1
+        if (events(i)%event_kind == OWNERSHIP_EVENT_NULLIFY) &
+            nullify_count = nullify_count + 1
     end do
     call require(event_count == 2, 'allocation lifetime events incomplete')
+    call require(nullify_count == 1, 'NULLIFY lifetime event missing')
 
     path_count = 0
     do i = 1, result%arena%size
