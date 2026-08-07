@@ -1,21 +1,15 @@
 # FortFront roadmap
 
-Snapshot: 2026-08-06. FortFront owns lexing, parsing, semantic resolution,
+Snapshot: 2026-08-07. FortFront owns lexing, parsing, semantic resolution,
 typed public queries, and diagnostics for the ffc pipeline. It remains
 backend-neutral.
 
 ## Current truth
 
-The implementation baseline is `aa5880ae` (plain array-element query
-preservation for nested character substrings). Its
-latest check is
-[run 31127135731](https://github.com/lazy-fortran/fortfront/actions/runs/31127135731):
-Windows and the aggregate gate failed, while the Ubuntu lane was cancelled.
-The previous checked ancestor `e84ac97b` in
-[run 31110432510](https://github.com/lazy-fortran/fortfront/actions/runs/31110432510)
-had the same Windows/aggregate defect. The intervening main commits
-`c40ce77e` (continued character literals), `11da10a4` (portable backslashes),
-and `ac02b4d0` remain locally evidence-backed but not remote-green.
+The current upstream baseline is `5f100f26` (fixed-form comment-marker
+normalization), including the nested-associate binding fix `d1c6a894` and the
+type-bound receiver fix `7f52742e`. No CI result for this exact baseline is
+recorded yet; do not treat the local GNU lane as remote-green evidence.
 
 The current local GNU lane builds 381 targets and 379 test programs across 484
 tests. `test_module_distribution` is parallel-fragile because it cleans shared
@@ -101,7 +95,10 @@ query in the same set of linked commits. Do not leave a permanent fallback.
    serializes or emits it.
 7. Fix the full-line-comment-inside-continuation lexer defect in
    [#2996](https://github.com/lazy-fortran/fortfront/issues/2996) with its
-   parser reproduction and gfortran accepted neighbor.
+   parser reproduction, token/position oracle, gfortran accepted neighbor, and
+   a malformed-continuation rejection control. The implementation keeps the
+   lexer continuation state alive across comment/blank trivia while preserving
+   character-literal state separately; the focused tests pass locally.
 8. Keep the nested character-array substring AST contract green for downstream
    ffc #669 and run its read/write/overlap/actual-argument differential oracle.
 9. Run downstream ffc binding, rejection, module-consumer, and Lazy ABI gates
@@ -110,6 +107,19 @@ query in the same set of linked commits. Do not leave a permanent fallback.
 Parser, semantic, query, and portability work may proceed in isolated
 worktrees. Changes to the same public query family merge as passing commits in
 dependency order. Full builds on a constrained host run one at a time.
+
+### #2996 evidence tranche
+
+The lexer normalization state machine now suppresses physical newlines from
+full-line comment/blank trivia encountered after a trailing continuation
+ampersand, without treating `!` inside character literals as a comment marker.
+The lexer edge-case test checks raw token positions and literal/comment
+separation. The parser regression checks `parse_ok` and `semantic_ok` for both
+the commented and plain `SELECT CASE` forms, then checks the hand-authored AST
+contains both case values. A missing continuation marker is rejected. On an
+idle GNU host, both FortFront-generated and direct-gfortran executables print
+the byte-identical `PASS` output. Remote CI and the full corpus gate remain
+required before closing the issue.
 
 ## Open issue map
 

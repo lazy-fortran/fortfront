@@ -11,6 +11,7 @@ program test_frontend_lexer_edge_cases
     all_passed = .true.
 
     if (.not. test_continuation_and_positions()) all_passed = .false.
+    if (.not. test_continuation_comment_positions()) all_passed = .false.
     if (.not. test_continued_character_literals()) all_passed = .false.
     if (.not. test_kind_parameter_literals()) all_passed = .false.
     if (.not. test_complex_and_hollerith_literals()) all_passed = .false.
@@ -26,6 +27,51 @@ program test_frontend_lexer_edge_cases
     stop 1
 
 contains
+
+    logical function test_continuation_comment_positions()
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: source
+        integer :: amp_index, comment_index, value_index
+
+        test_continuation_comment_positions = .true.
+        source = "case (1, &"//new_line('a')// &
+            "    ! full-line comment"//new_line('a')//"    2)"
+        call tokenize_core(source, tokens)
+
+        amp_index = find_token_text(tokens, "&")
+        comment_index = find_token_text(tokens, "! full-line comment")
+        value_index = find_token_text(tokens, "2")
+
+        if (amp_index == 0 .or. .not. expect_position(tokens, amp_index, 1, 10)) then
+            print '(a)', "FAIL: continuation ampersand position changed"
+            test_continuation_comment_positions = .false.
+        end if
+        if (comment_index == 0 .or. .not. expect_position(tokens, comment_index, 2, 5)) then
+            print '(a)', "FAIL: full-line comment trivia position changed"
+            test_continuation_comment_positions = .false.
+        end if
+        if (value_index == 0 .or. .not. expect_position(tokens, value_index, 3, 5)) then
+            print '(a)', "FAIL: resumed token position changed"
+            test_continuation_comment_positions = .false.
+        end if
+
+        source = "text = '! marker' // &"//new_line('a')// &
+            "    ! comment containing '!'"//new_line('a')// &
+            "    & '! still literal'"
+        call tokenize_core(source, tokens)
+        if (.not. has_token_text(tokens, "'! marker'")) then
+            print '(a)', "FAIL: ! inside first character literal was not literal"
+            test_continuation_comment_positions = .false.
+        end if
+        if (.not. has_token_text(tokens, "'! still literal'")) then
+            print '(a)', "FAIL: ! inside resumed character literal was not literal"
+            test_continuation_comment_positions = .false.
+        end if
+        if (.not. has_token_text(tokens, "! comment containing '!'")) then
+            print '(a)', "FAIL: comment trivia was not kept separate"
+            test_continuation_comment_positions = .false.
+        end if
+    end function test_continuation_comment_positions
 
     logical function test_continuation_and_positions()
         type(token_t), allocatable :: tokens(:)
@@ -244,6 +290,13 @@ contains
             end if
         end do
     end function find_token_text
+
+    logical function has_token_text(tokens, text)
+        type(token_t), intent(in) :: tokens(:)
+        character(len=*), intent(in) :: text
+
+        has_token_text = find_token_text(tokens, text) > 0
+    end function has_token_text
 
     logical function has_trivia_kind(token, kind)
         type(token_t), intent(in) :: token

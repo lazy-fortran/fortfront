@@ -519,7 +519,7 @@ contains
                 end if
             end if
             if (should_skip_token(tokens, i, tokens(i), suppress_newline, &
-                skip_leading_ampersand)) then
+                skip_leading_ampersand, continuation_active)) then
                 cycle
             end if
             token_to_append = tokens(i)
@@ -535,12 +535,13 @@ contains
     end subroutine normalize_line_continuations
 
     logical function should_skip_token(tokens, token_index, token, suppress_newline, &
-            skip_leading_ampersand)
+            skip_leading_ampersand, continuation_active)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: token_index
         type(token_t), intent(in) :: token
         logical, intent(inout) :: suppress_newline
         logical, intent(inout) :: skip_leading_ampersand
+        logical, intent(in) :: continuation_active
 
         should_skip_token = .false.
         select case (token%kind)
@@ -563,6 +564,16 @@ contains
             suppress_newline = .true.
             should_skip_token = .true.
         case (TK_NEWLINE)
+            ! A full-line comment (or blank line) between the trailing
+            ! ampersand and the next source line is still part of the same
+            ! free-form continuation.  Keep the continuation state alive and
+            ! suppress this physical newline; otherwise expression parsers see
+            ! an unexpected statement boundary after the trivia line.
+            if (continuation_active .and. skip_leading_ampersand .and. &
+                .not. suppress_newline) then
+                should_skip_token = .true.
+                return
+            end if
             if (.not. suppress_newline) then
                 if (line_starts_with_continuation(tokens, token_index)) then
                     suppress_newline = .true.
