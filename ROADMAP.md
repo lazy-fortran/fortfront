@@ -87,6 +87,16 @@ or in an actual argument. This is a downstream ffc requirement (ffc #669), not
 a source-spelling workaround: the parser must never orphan the range node or
 flatten the designator back to `c`.
 
+Issue [#2974](https://github.com/lazy-fortran/fortfront/issues/2974) now has a
+dedicated typed public-query regression in
+`test_issue_2974_compound_declaration`. It feeds the original upper-case
+`DOUBLE PRECISION a(n+1), res` shape through
+`compile_frontend_from_string`, checks independent declaration nodes and array
+shapes for `n`, `a`, `res`, and `b`, and first accepts the same source with
+`gfortran -fsyntax-only`. This keeps the already-landed case-insensitive
+attribute fix (#2982) tied to the consumer-facing declaration contract rather
+than only to a parser-arena count.
+
 The same postfix parser keeps a component-access base for
 `object%binding(args)` while leaving an ordinary `array(i)` base-free. The
 compiled `test_type_bound_call_base_oracle` transforms and runs a complete
@@ -219,7 +229,10 @@ All open issues as of the snapshot are assigned below.
 #2924's rejection gate and much of #2883/#2951 have partial implementations
 on main. Re-run their named invalid cases and valid corpus neighbors, keep only
 live signatures as child issues, then close stale umbrellas. Closed silent-
-source-drop issues #2966/#2967/#2972/#2974/#2977 are not active blockers.
+source-drop issues #2966/#2967/#2972/#2974/#2977 are not active blockers. Their
+focused regressions remain merge-train gates; #2974's gate must continue to
+query typed declaration nodes and retain its independent GNU syntax oracle
+when downstream ffc changes its declaration consumer.
 
 Fortran Synthesis #2976 starts only after standard #756 is accepted. It does
 not block standard-Fortran convergence.
