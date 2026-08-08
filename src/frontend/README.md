@@ -213,11 +213,17 @@ end subroutine
   acquisition, and alias paths remain unbounded and retain their explicit
   refusal flags. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
-  includes concrete dynamic target type indices and implementations.
+  includes concrete dynamic target type indices, implementation names, and
+  implementation procedure node indices.
   `query_type_binding_hierarchy` is the bounded alternative for one declared
   type: it reports the local-to-parent chain and effective binding metadata,
   without scanning descendants or guessing an ambiguous, deferred, or
-  unresolved implementation. Finally,
+  unresolved implementation. For an effective statically resolvable binding,
+  the hierarchy summary and each entry also expose the implementation
+  procedure node, effective PASS dummy name and position, passed-object
+  declared type, and `implementation_signature_resolved`. Deferred inherited
+  entries and ambiguous generics deliberately expose no implementation target
+  or signature. Finally,
   `query_type_bound_call` combines a call site's receiver and binding with
   that resolution metadata. It reports the declared receiver type, effective
   implementation, PASS, interface, and concrete descendant dispatch targets.
@@ -232,9 +238,9 @@ end subroutine
   consumer may deliberately reject active mutable global state.
 - **Type-bound dispatch signatures**: `query_type_bound_call` preserves the
   existing dispatch target type and implementation arrays and adds parallel
-  effective PASS names, positions, passed-object declared types, and a
-  signature-resolved flag for each concrete target. Refused generic or
-  unresolved calls expose no target facts.
+  implementation procedure node indices, effective PASS names, positions,
+  passed-object declared types, and a signature-resolved flag for each
+  concrete target. Refused generic or unresolved calls expose no target facts.
 - **Procedure-pointer target query**: `query_procedure_target` reports one
   direct `=>` assignment whose left side is a declared procedure pointer. It
   preserves the assignment, pointer declaration, target expression, and

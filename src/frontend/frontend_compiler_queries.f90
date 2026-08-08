@@ -420,6 +420,7 @@ module frontend_compiler_queries
         character(len=:), allocatable :: requested_name
         character(len=:), allocatable :: binding_name
         character(len=:), allocatable :: implementation
+        integer :: implementation_node_index = 0
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: pass_name
         integer :: declaring_type_index = 0
@@ -433,6 +434,7 @@ module frontend_compiler_queries
         character(len=:), allocatable :: generic_names(:)
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
+        integer, allocatable :: dispatch_target_implementation_node_indices(:)
         character(len=:), allocatable :: dispatch_target_pass_names(:)
         integer, allocatable :: dispatch_target_pass_positions(:)
         character(len=:), allocatable :: dispatch_target_passed_object_types(:)
@@ -454,6 +456,11 @@ module frontend_compiler_queries
         character(len=:), allocatable :: declaring_type_name
         character(len=:), allocatable :: binding_name
         character(len=:), allocatable :: implementation
+        integer :: implementation_node_index = 0
+        character(len=:), allocatable :: implementation_pass_name
+        integer :: implementation_pass_position = 0
+        character(len=:), allocatable :: implementation_passed_object_type
+        logical :: implementation_signature_resolved = .false.
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: pass_name
         logical :: is_local = .false.
@@ -480,6 +487,11 @@ module frontend_compiler_queries
         integer :: binding_node_index = 0
         character(len=:), allocatable :: binding_name
         character(len=:), allocatable :: implementation
+        integer :: implementation_node_index = 0
+        character(len=:), allocatable :: implementation_pass_name
+        integer :: implementation_pass_position = 0
+        character(len=:), allocatable :: implementation_passed_object_type
+        logical :: implementation_signature_resolved = .false.
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: pass_name
         logical :: is_inherited = .false.
@@ -531,6 +543,7 @@ module frontend_compiler_queries
         type(component_path_query_t) :: receiver_path
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
+        integer, allocatable :: dispatch_target_implementation_node_indices(:)
         character(len=:), allocatable :: dispatch_target_pass_names(:)
         integer, allocatable :: dispatch_target_pass_positions(:)
         character(len=:), allocatable :: dispatch_target_passed_object_types(:)
@@ -4279,6 +4292,8 @@ contains
                 resolution%dispatch_target_type_indices
             query%dispatch_target_implementations = &
                 resolution%dispatch_target_implementations
+            query%dispatch_target_implementation_node_indices = &
+                resolution%dispatch_target_implementation_node_indices
             query%dispatch_target_pass_names = &
                 resolution%dispatch_target_pass_names
             query%dispatch_target_pass_positions = &
@@ -4310,6 +4325,8 @@ contains
         call resolve_binding_base(arena, derived_type_index, binding_name, query)
         if (.not. query%found) return
         query%resolved_type_index = derived_type_index
+        query%implementation_node_index = find_procedure_definition(arena, &
+            query%implementation)
 
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
@@ -4328,6 +4345,8 @@ contains
                     if (concrete%found .and. &
                         len_trim(concrete%implementation) > 0) then
                         target%implementation = concrete%implementation
+                        target%implementation_node_index = &
+                            concrete%implementation_node_index
                         exit
                     end if
                 end do
@@ -4401,7 +4420,8 @@ contains
             call find_local_hierarchy_binding(arena, chain(i), binding_name, &
                 binding, matches)
             if (matches > 0) then
-                call fill_local_hierarchy_entry(entries(i), binding, matches)
+                call fill_local_hierarchy_entry(arena, entries(i), binding, &
+                    matches)
             else if (i < n) then
                 if (entries(i + 1)%found) then
                     call inherit_hierarchy_entry(entries(i), entries(i + 1))
@@ -4439,6 +4459,7 @@ contains
         call set_empty(query%declaring_type_name)
         call set_empty(query%binding_name)
         call set_empty(query%implementation)
+        query%implementation_node_index = 0
         call set_empty(query%interface_name)
         call set_empty(query%pass_name)
         allocate (query%parent_type_indices(0))
@@ -4454,6 +4475,11 @@ contains
         call set_empty(entry%declaring_type_name)
         call set_empty(entry%binding_name)
         call set_empty(entry%implementation)
+        entry%implementation_node_index = 0
+        call set_empty(entry%implementation_pass_name)
+        entry%implementation_pass_position = 0
+        call set_empty(entry%implementation_passed_object_type)
+        entry%implementation_signature_resolved = .false.
         call set_empty(entry%interface_name)
         call set_empty(entry%pass_name)
     end subroutine initialize_binding_hierarchy_entry
@@ -4495,7 +4521,8 @@ contains
         end do
     end subroutine find_local_hierarchy_binding
 
-    subroutine fill_local_hierarchy_entry(entry, binding, matches)
+    subroutine fill_local_hierarchy_entry(arena, entry, binding, matches)
+        type(ast_arena_t), intent(in) :: arena
         type(binding_hierarchy_entry_t), intent(inout) :: entry
         type(type_binding_query_t), intent(in) :: binding
         integer, intent(in) :: matches
@@ -4539,7 +4566,20 @@ contains
             has_implementation = .false.
         end if
         entry%is_resolved = has_implementation .and. .not. entry%is_ambiguous
+        call fill_implementation_facts(arena, entry)
     end subroutine fill_local_hierarchy_entry
+
+    subroutine fill_implementation_facts(arena, entry)
+        type(ast_arena_t), intent(in) :: arena
+        type(binding_hierarchy_entry_t), intent(inout) :: entry
+
+        call resolve_dispatch_signature(arena, entry%implementation, &
+            entry%pass_arg, entry%pass_name, entry%implementation_pass_name, &
+            entry%implementation_pass_position, &
+            entry%implementation_passed_object_type, &
+            entry%implementation_signature_resolved, &
+            entry%implementation_node_index)
+    end subroutine fill_implementation_facts
 
     subroutine inherit_hierarchy_entry(entry, parent)
         type(binding_hierarchy_entry_t), intent(inout) :: entry
@@ -4551,6 +4591,13 @@ contains
         entry%declaring_type_name = parent%declaring_type_name
         entry%binding_name = parent%binding_name
         entry%implementation = parent%implementation
+        entry%implementation_node_index = parent%implementation_node_index
+        entry%implementation_pass_name = parent%implementation_pass_name
+        entry%implementation_pass_position = parent%implementation_pass_position
+        entry%implementation_passed_object_type = &
+            parent%implementation_passed_object_type
+        entry%implementation_signature_resolved = &
+            parent%implementation_signature_resolved
         entry%interface_name = parent%interface_name
         entry%pass_name = parent%pass_name
         entry%is_local = .false.
@@ -4572,6 +4619,13 @@ contains
         query%binding_node_index = entry%binding_node_index
         query%binding_name = entry%binding_name
         query%implementation = entry%implementation
+        query%implementation_node_index = entry%implementation_node_index
+        query%implementation_pass_name = entry%implementation_pass_name
+        query%implementation_pass_position = entry%implementation_pass_position
+        query%implementation_passed_object_type = &
+            entry%implementation_passed_object_type
+        query%implementation_signature_resolved = &
+            entry%implementation_signature_resolved
         query%interface_name = entry%interface_name
         query%pass_name = entry%pass_name
         query%is_inherited = entry%is_inherited
@@ -4633,6 +4687,7 @@ contains
         call initialize_component_path_query(query%receiver_path)
         allocate (query%dispatch_target_type_indices(0))
         allocate (character(len=1) :: query%dispatch_target_implementations(0))
+        allocate (query%dispatch_target_implementation_node_indices(0))
         allocate (character(len=1) :: query%dispatch_target_pass_names(0))
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
@@ -4925,11 +4980,13 @@ contains
         query%requested_name = trim(requested_name)
         call set_empty(query%binding_name)
         call set_empty(query%implementation)
+        query%implementation_node_index = 0
         call set_empty(query%interface_name)
         call set_empty(query%pass_name)
         allocate (character(len=1) :: query%generic_names(0))
         allocate (query%dispatch_target_type_indices(0))
         allocate (character(len=1) :: query%dispatch_target_implementations(0))
+        allocate (query%dispatch_target_implementation_node_indices(0))
         allocate (character(len=1) :: query%dispatch_target_pass_names(0))
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
@@ -4988,12 +5045,12 @@ contains
         logical, allocatable :: logical_tmp(:)
         character(len=:), allocatable :: char_tmp(:)
         character(len=:), allocatable :: pass_name, passed_object_type
-        integer :: n, width, pass_position
+        integer :: n, width, pass_position, procedure_index
         logical :: signature_resolved
 
         call resolve_dispatch_signature(arena, target%implementation, &
             target%pass_arg, target%pass_name, pass_name, pass_position, &
-            passed_object_type, signature_resolved)
+            passed_object_type, signature_resolved, procedure_index)
 
         n = size(query%dispatch_target_type_indices)
         allocate (int_tmp(n + 1))
@@ -5005,6 +5062,13 @@ contains
         if (n > 0) char_tmp(:n) = query%dispatch_target_implementations
         char_tmp(n + 1) = trim(target%implementation)
         call move_alloc(char_tmp, query%dispatch_target_implementations)
+
+        allocate (int_tmp(n + 1))
+        if (n > 0) int_tmp(:n) = &
+            query%dispatch_target_implementation_node_indices
+        int_tmp(n + 1) = procedure_index
+        call move_alloc(int_tmp, &
+            query%dispatch_target_implementation_node_indices)
 
         call append_dispatch_character(query%dispatch_target_pass_names, &
             pass_name)
@@ -5020,7 +5084,7 @@ contains
 
     subroutine resolve_dispatch_signature(arena, implementation, pass_arg, &
             binding_pass_name, pass_name, pass_position, passed_object_type, &
-            signature_resolved)
+            signature_resolved, procedure_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: implementation
         logical, intent(in) :: pass_arg
@@ -5029,19 +5093,20 @@ contains
         integer, intent(out) :: pass_position
         character(len=:), allocatable, intent(out) :: passed_object_type
         logical, intent(out) :: signature_resolved
-        integer :: procedure_index, i, pass_index
+        integer, intent(out) :: procedure_index
+        integer :: i, pass_index
         type(declaration_query_t) :: formal
 
         call set_empty(pass_name)
         pass_position = 0
         call set_empty(passed_object_type)
         signature_resolved = .false.
+        procedure_index = find_procedure_definition(arena, implementation)
         if (.not. pass_arg) then
             signature_resolved = .true.
             return
         end if
 
-        procedure_index = find_procedure_definition(arena, implementation)
         if (procedure_index <= 0) return
         pass_index = 0
         select type (procedure => arena%entries(procedure_index)%node)
