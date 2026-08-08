@@ -8,6 +8,7 @@ module parser_declarations_derived_module
         skip_type_definition_attributes
     use parser_type_spec_attributes_mod, only: extract_extends_from_attributes
     use parser_declarations_core_module, only: parse_declaration
+    use parser_declarations_multi_module, only: parse_multi_declaration
     use parser_submodule_placement_module, only: reject_misplaced_submodule
     use string_utils_mod, only: to_lower
     use string_types, only: string_t
@@ -303,6 +304,8 @@ contains
         integer :: bind_capacity
         integer :: comp_index
         integer :: bind_index
+        integer :: i
+        integer, allocatable :: parsed_component_indices(:)
         logical :: in_contains
 
         capacity = 8
@@ -358,17 +361,30 @@ contains
                     call skip_failed_component(parser)
                 end if
             else
-                comp_index = parse_derived_type_component(parser, arena)
-                if (comp_index > 0) then
-                    component_count = component_count + 1
-                    if (component_count > capacity) then
-                        call expand_component_storage(indices, capacity)
-                    end if
-                    indices(component_count) = comp_index
-                    call skip_component_trivia(parser)
+                if (component_declaration_ahead(parser)) then
+                    parsed_component_indices = parse_multi_declaration( &
+                        parser, arena, force_individual=.true.)
+                    do i = 1, size(parsed_component_indices)
+                        if (parsed_component_indices(i) <= 0) cycle
+                        component_count = component_count + 1
+                        if (component_count > capacity) then
+                            call expand_component_storage(indices, capacity)
+                        end if
+                        indices(component_count) = parsed_component_indices(i)
+                    end do
                 else
-                    call skip_failed_component(parser)
+                    comp_index = parse_derived_type_component(parser, arena)
+                    if (comp_index > 0) then
+                        component_count = component_count + 1
+                        if (component_count > capacity) then
+                            call expand_component_storage(indices, capacity)
+                        end if
+                        indices(component_count) = comp_index
+                    else
+                        call skip_failed_component(parser)
+                    end if
                 end if
+                call skip_component_trivia(parser)
             end if
         end do
 
@@ -377,6 +393,21 @@ contains
         call finalize_binding_storage(bind_indices, binding_count, &
             binding_indices)
     end subroutine collect_derived_type_components
+
+    logical function component_declaration_ahead(parser) result(is_declaration)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        is_declaration = .false.
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+
+        select case (to_lower(trim(adjustl(token%text))))
+        case ("integer", "real", "complex", "logical", "character", &
+                "type", "class", "double", "procedure")
+            is_declaration = .true.
+        end select
+    end function component_declaration_ahead
 
     ! F2018 R731: a type-param-def-stmt is an INTEGER declaration carrying the
     ! KIND or LEN attribute. Detect it before the generic component parser,
