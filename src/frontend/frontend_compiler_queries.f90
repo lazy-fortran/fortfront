@@ -110,6 +110,7 @@ module frontend_compiler_queries
     public :: query_type_binding_resolution, query_active_global_references
     public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
     public :: query_type_binding_hierarchy
+    public :: type_bound_call_query_t, query_type_bound_call
 
     integer, parameter :: STORAGE_LOCAL = 1
     integer, parameter :: STORAGE_OWNED = 2
@@ -402,6 +403,41 @@ module frontend_compiler_queries
         character(len=:), allocatable :: parent_type_names(:)
         type(binding_hierarchy_entry_t), allocatable :: hierarchy(:)
     end type binding_hierarchy_query_t
+
+    type :: type_bound_call_query_t
+        !! Static facts for one type-bound call site.
+        !!
+        !! FOUND means that the call receiver has a declared derived type and
+        !! its binding was found.  IS_RESOLVED is narrower: generic,
+        !! ambiguous, deferred, and implementation-free bindings are never
+        !! given an implementation guess.  Dispatch targets are the concrete
+        !! descendant facts supplied by query_type_binding_resolution; no
+        !! runtime object flow or AD policy is inferred here.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_generic = .false.
+        logical :: is_deferred = .false.
+        logical :: is_inherited = .false.
+        logical :: is_abstract_type = .false.
+        logical :: pass_arg = .true.
+        integer :: call_node_index = 0
+        integer :: receiver_node_index = 0
+        integer :: receiver_declaration_index = 0
+        integer :: declared_type_index = 0
+        integer :: declaring_type_index = 0
+        integer :: resolved_type_index = 0
+        integer :: binding_node_index = 0
+        character(len=:), allocatable :: receiver_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: pass_name
+        integer, allocatable :: dispatch_target_type_indices(:)
+        character(len=:), allocatable :: dispatch_target_implementations(:)
+    end type type_bound_call_query_t
 
     type :: global_reference_query_t
         logical :: found = .false.
@@ -3486,6 +3522,88 @@ contains
         query%component_node_indices = indices
     end function query_component_path
 
+    function query_type_bound_call(arena, call_node_index) result(query)
+        !! Resolve one type-bound call into receiver and binding facts.
+        !!
+        !! The receiver must have a declared derived type.  The query then
+        !! delegates binding and descendant enumeration to
+        !! query_type_binding_resolution, so it does not repeat EXTENDS
+        !! traversal.  Generic, ambiguous, deferred, and unresolved cases
+        !! remain visible in the result without selecting a procedure.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        type(type_bound_call_query_t) :: query
+        type(binding_resolution_query_t) :: resolution
+        character(len=:), allocatable :: receiver_type_name
+        character(len=:), allocatable :: binding_name
+        logical :: is_call
+
+        call initialize_type_bound_call_query(query)
+        if (.not. arena%has_node_at(call_node_index)) return
+
+        call get_type_bound_call_parts(arena, call_node_index, &
+            query%receiver_node_index, query%receiver_name, binding_name, &
+            is_call)
+        if (.not. is_call) return
+        if (len_trim(binding_name) == 0) return
+        query%call_node_index = call_node_index
+
+        call resolve_type_bound_receiver(arena, call_node_index, &
+            query%receiver_node_index, query%receiver_name, &
+            query%receiver_declaration_index, receiver_type_name)
+        query%declared_type_name = receiver_type_name
+        query%binding_name = trim(binding_name)
+        if (len_trim(receiver_type_name) == 0) then
+            query%is_unresolved = .true.
+            return
+        end if
+
+        query%declared_type_index = find_derived_type_by_name(arena, &
+            receiver_type_name)
+        if (query%declared_type_index <= 0) then
+            query%is_unresolved = .true.
+            return
+        end if
+
+        resolution = query_type_binding_resolution(arena, &
+            query%declared_type_index, binding_name)
+        if (.not. resolution%found) then
+            query%is_unresolved = .true.
+            return
+        end if
+
+        query%found = .true.
+        query%declaring_type_index = resolution%declaring_type_index
+        query%resolved_type_index = resolution%resolved_type_index
+        query%binding_node_index = resolution%binding_node_index
+        query%implementation = resolution%implementation
+        query%interface_name = resolution%interface_name
+        query%pass_name = resolution%pass_name
+        query%is_inherited = resolution%is_inherited
+        query%is_generic = resolution%is_generic
+        query%is_deferred = resolution%is_deferred
+        query%is_abstract_type = resolution%is_abstract_type
+        query%pass_arg = resolution%pass_arg
+        query%is_ambiguous = query%is_generic .and. &
+            size(resolution%generic_names) > 1
+
+        ! query_type_binding_resolution deliberately exposes descendant
+        ! implementations for ordinary and deferred bindings.  Generic
+        ! dispatch still needs argument matching, so this call-site query
+        ! refuses those targets rather than forwarding a guessed candidate.
+        if (.not. query%is_generic) then
+            query%dispatch_target_type_indices = &
+                resolution%dispatch_target_type_indices
+            query%dispatch_target_implementations = &
+                resolution%dispatch_target_implementations
+        end if
+        query%is_resolved = .not. query%is_generic .and. &
+            .not. query%is_ambiguous .and. .not. query%is_deferred .and. &
+            len_trim(query%implementation) > 0
+        if (.not. query%is_resolved .and. .not. query%is_generic .and. &
+            .not. query%is_deferred) query%is_unresolved = .true.
+    end function query_type_bound_call
+
     function query_type_binding_resolution(arena, derived_type_index, &
             binding_name) result(query)
         type(ast_arena_t), intent(in) :: arena
@@ -3811,6 +3929,166 @@ contains
             refs(count) = make_global_reference(arena, i, binding)
         end do
     end function query_active_global_references
+
+    subroutine initialize_type_bound_call_query(query)
+        type(type_bound_call_query_t), intent(out) :: query
+
+        call set_empty(query%receiver_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%binding_name)
+        call set_empty(query%implementation)
+        call set_empty(query%interface_name)
+        call set_empty(query%pass_name)
+        allocate (query%dispatch_target_type_indices(0))
+        allocate (character(len=1) :: query%dispatch_target_implementations(0))
+    end subroutine initialize_type_bound_call_query
+
+    subroutine get_type_bound_call_parts(arena, call_node_index, &
+            receiver_node_index, receiver_name, binding_name, is_call)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        integer, intent(out) :: receiver_node_index
+        character(len=:), allocatable, intent(out) :: receiver_name
+        character(len=:), allocatable, intent(out) :: binding_name
+        logical, intent(out) :: is_call
+        integer :: separator
+        character(len=:), allocatable :: designator
+
+        receiver_node_index = 0
+        call set_empty(receiver_name)
+        call set_empty(binding_name)
+        is_call = .false.
+        if (.not. arena%has_node_at(call_node_index)) return
+
+        select type (node => arena%entries(call_node_index)%node)
+            type is (subroutine_call_node)
+            if (.not. allocated(node%name)) return
+            designator = trim(node%name)
+            separator = index(designator, '%')
+            if (separator <= 1) return
+            receiver_name = trim(designator(:separator - 1))
+            binding_name = trim(designator(separator + 1:))
+            if (index(receiver_name, '%') > 0) return
+            if (index(receiver_name, '(') > 0) return
+            if (index(receiver_name, '[') > 0) return
+            if (index(binding_name, '%') > 0) return
+            if (len_trim(receiver_name) == 0) return
+            if (len_trim(binding_name) == 0) return
+            is_call = .true.
+            type is (call_or_subscript_node)
+            if (node%is_array_access) return
+            if (node%base_expr_index <= 0) return
+            if (.not. arena%has_node_at(node%base_expr_index)) return
+            select type (base => arena%entries(node%base_expr_index)%node)
+                type is (component_access_node)
+                if (.not. allocated(base%component_name)) return
+                receiver_node_index = base%base_expr_index
+                if (receiver_node_index <= 0) return
+                binding_name = trim(base%component_name)
+                call receiver_designator_name(arena, receiver_node_index, &
+                    receiver_name)
+                if (len_trim(binding_name) == 0) return
+                is_call = .true.
+            class default
+                return
+            end select
+        end select
+    end subroutine get_type_bound_call_parts
+
+    recursive subroutine receiver_designator_name(arena, node_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        character(len=:), allocatable :: base_name
+
+        call set_empty(name)
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (identifier_node)
+            if (allocated(node%name)) name = trim(node%name)
+            type is (component_access_node)
+            if (.not. allocated(node%component_name)) return
+            call receiver_designator_name(arena, node%base_expr_index, base_name)
+            if (len_trim(base_name) > 0) then
+                name = trim(base_name)//'%'//trim(node%component_name)
+            end if
+            type is (call_or_subscript_node)
+            if (allocated(node%name)) name = trim(node%name)
+        end select
+    end subroutine receiver_designator_name
+
+    subroutine resolve_type_bound_receiver(arena, call_node_index, &
+            receiver_node_index, receiver_name, declaration_index, type_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        integer, intent(in) :: receiver_node_index
+        character(len=*), intent(in) :: receiver_name
+        integer, intent(out) :: declaration_index
+        character(len=:), allocatable, intent(out) :: type_name
+        type(declaration_binding_t) :: binding
+        type(declaration_query_t) :: declaration
+        type(resolved_type_query_t) :: resolved
+        character(len=:), allocatable :: error_msg
+
+        declaration_index = 0
+        call set_empty(type_name)
+
+        if (receiver_node_index > 0) then
+            resolved = query_resolved_type(arena, receiver_node_index)
+            if (resolved%found) then
+                if (len_trim(resolved%derived_type_name) > 0) then
+                    type_name = trim(resolved%derived_type_name)
+                end if
+            end if
+        end if
+
+        if (receiver_node_index > 0) then
+            select type (receiver => arena%entries(receiver_node_index)%node)
+                type is (identifier_node)
+                call resolve_identifier_binding(arena, receiver_node_index, &
+                    binding, error_msg)
+                if (binding%found) declaration_index = &
+                    binding%declaration_node_index
+            class default
+            end select
+        else
+            if (len_trim(receiver_name) > 0) then
+                call resolve_name_at_node(arena, call_node_index, &
+                    receiver_name, binding, error_msg)
+                if (binding%found) declaration_index = &
+                    binding%declaration_node_index
+            end if
+        end if
+
+        if (declaration_index <= 0) return
+        declaration = query_declaration(arena, declaration_index)
+        if (.not. declaration%found) return
+        if (len_trim(declaration%type_name) > 0) then
+            type_name = declared_type_name(declaration%type_name)
+        end if
+    end subroutine resolve_type_bound_receiver
+
+    function declared_type_name(source) result(name)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: lowered
+        integer :: left, right, prefix_length
+
+        name = trim(source)
+        lowered = lower_text(name)
+        left = index(lowered, 'class(')
+        prefix_length = len('class(')
+        if (left /= 1) then
+            left = index(lowered, 'type(')
+            prefix_length = len('type(')
+        end if
+        if (left == 1) then
+            right = index(name, ')')
+            if (right > prefix_length) then
+                name = trim(name(prefix_length + 1:right - 1))
+            end if
+        end if
+    end function declared_type_name
 
     subroutine initialize_binding_resolution(query, requested_name)
         type(binding_resolution_query_t), intent(out) :: query

@@ -86,6 +86,7 @@ module fortfront
         query_ownership_events, query_component_path, &
         query_type_binding_resolution, query_active_global_references, &
         query_type_binding_hierarchy, &
+        type_bound_call_query_t, query_type_bound_call, &
         procedure_target_query_t, query_procedure_target, &
         procedure_call_target_query_t, query_procedure_call_target, &
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
