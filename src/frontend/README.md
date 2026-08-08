@@ -200,6 +200,18 @@ end subroutine
   non-identifier target (other than `NULL()`) remains unresolved, and the
   query does not infer flow-sensitive callback state, generic dispatch, or
   any AD policy.
+- **Bounded procedure-pointer call target query**:
+  `query_procedure_call_target` reports a complete fact only for a direct
+  call through a declared procedure pointer with exactly one unconditional,
+  same-scope, direct `=>` assignment before the call. The result preserves
+  the call/pointer occurrence, pointer declaration, assignment, target
+  expression, lexical scope, and resolved internal/external target identity
+  (the AST stores a direct call's callee name on the call node, so the call
+  and pointer occurrence share that node index). `found=.false.` with
+  `is_unresolved=.true.` is returned when that proof is unavailable, including
+  branch-local assignments, reassignment or `NULLIFY`, `NULL()`, and other
+  flow-sensitive cases; generic calls are not callback facts. This is a
+  bounded identity query, not general callback analysis or AD policy.
 
 ## Dependencies
 
