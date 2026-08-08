@@ -3618,8 +3618,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(declaration_query_t) :: declaration
+        type(declaration_binding_t) :: binding
         type(resolved_type_query_t) :: resolved
-        integer :: base_rank, retained_dimensions, i
+        character(len=:), allocatable :: name, error_message
+        integer :: base_rank, retained_dimensions, i, scope_index, fallback_index
 
         rank = -1
         if (.not. arena%has_node_at(node_index)) return
@@ -3627,6 +3629,38 @@ contains
         rank = resolved%rank
 
         select type (node => arena%entries(node_index)%node)
+            type is (identifier_node)
+            declaration = query_declaration(arena, node_index)
+            if (.not. declaration%found) then
+                call resolve_identifier_binding(arena, node_index, binding, &
+                    error_message)
+                if (binding%found .and. binding%binding_kind /= &
+                    BINDING_ASSOCIATE_NAME) then
+                    declaration = query_declaration(arena, &
+                        binding%declaration_node_index)
+                end if
+            end if
+            if (.not. declaration%found) then
+                call identifier_name_at(arena, node_index, name)
+                scope_index = find_enclosing_scope(arena, node_index)
+                fallback_index = 0
+                do i = 1, arena%size
+                    if (.not. arena%has_node_at(i)) cycle
+                    declaration = query_declaration(arena, i)
+                    if (.not. declaration%found) cycle
+                    if (.not. same_name(declaration%name, name)) cycle
+                    if (fallback_index == 0) fallback_index = i
+                    if (scope_index > 0 .and. node_is_in_scope(arena, i, &
+                        scope_index)) then
+                        fallback_index = i
+                        exit
+                    end if
+                end do
+                if (fallback_index > 0) declaration = query_declaration(arena, &
+                    fallback_index)
+            end if
+            if (declaration%found) rank = declaration_rank(declaration)
+            return
             type is (call_or_subscript_node)
             if (.not. allocated(node%arg_indices)) return
             if (size(node%arg_indices) == 0) return
