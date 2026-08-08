@@ -190,7 +190,15 @@ end subroutine
   for compatibility; unresolved ranks are `-1` and absent expression lists
   are empty.
   `query_component_path` returns the ordered component names and AST indices
-  for chained `%` access. `query_type_binding_resolution` resolves a binding
+  for chained `%` access, plus the resolved component declaration indices,
+  base and result rank, terminal storage class, and explicit
+  `is_array_element`, `is_concrete_derived`, `is_allocatable`, `is_pointer`,
+  and polymorphism facts. `query_storage` exposes the same terminal facts
+  for a component, together with its declaration identity and rank. A direct
+  component whose base is an `ASSOCIATE` name is unresolved (`found=.false.`)
+  rather than guessed; pointer components remain visible as `STORAGE_POINTER`
+  and are never reported as owned. Existing storage and global-state fields
+  are preserved. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
   includes concrete dynamic target type indices and implementations.
   `query_type_binding_hierarchy` is the bounded alternative for one declared
