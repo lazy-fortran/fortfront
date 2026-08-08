@@ -6,6 +6,7 @@ module frontend_compiler_queries
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
         call_or_subscript_node, pointer_assignment_node, assignment_node
+    use ast_nodes_associate, only: associate_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
     use ast_nodes_transfer, only: nullify_node, return_node, &
@@ -3416,6 +3417,7 @@ contains
         integer :: fallback_index
 
         query%node_index = node_index
+        if (is_associate_selector_node(arena, node_index)) return
         base_declaration = query_declaration(arena, component%base_node_index)
         base_component = query_component_access(arena, component%base_node_index)
         base_is_array_element = is_array_element_node(arena, &
@@ -4834,6 +4836,34 @@ contains
         if (size(prefix_indices) > 0) indices(:size(prefix_indices)) = prefix_indices
         indices(size(prefix_indices) + 1) = node_index
     end subroutine collect_component_path
+
+    logical function is_associate_selector_node(arena, node_index) result(is_selector)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current, i, guard
+
+        is_selector = .false.
+        current = node_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            select type (node => arena%entries(current)%node)
+                type is (associate_node)
+                if (.not. allocated(node%associations)) exit
+                do i = 1, size(node%associations)
+                    if (node%associations(i)%expr_index <= 0) cycle
+                    if (node_is_in_scope(arena, node_index, &
+                        node%associations(i)%expr_index)) then
+                        is_selector = .true.
+                        return
+                    end if
+                end do
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) exit
+        end do
+    end function is_associate_selector_node
 
     logical function is_ownership_event(arena, index)
         type(ast_arena_t), intent(in) :: arena
