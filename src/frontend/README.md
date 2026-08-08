@@ -263,6 +263,14 @@ end subroutine
   non-identifier target (other than `NULL()`) remains unresolved, and the
   query does not infer flow-sensitive callback state, generic dispatch, or
   any AD policy.
+- **SELECT RANK arm query**: `query_control_statement` now returns one
+  `select_rank_arm_query_t` per explicit, `RANK (*)`, or `RANK DEFAULT` arm.
+  Each record preserves the selector and declaration identity, selected rank,
+  arm source location, body entry/exit nodes, and dispatch kind. Existing
+  storage and component-path facts are reused where available. Pointer
+  selectors, unresolved dynamic ownership, and unsupported selector forms set
+  explicit boundary flags and refusal reasons; the query does not invent an AD
+  lowering model.
 - **Bounded procedure-pointer call target query**:
   `query_procedure_call_target` reports a complete fact only for a direct
   call through a declared procedure pointer with exactly one unconditional,
