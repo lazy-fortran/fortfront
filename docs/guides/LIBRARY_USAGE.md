@@ -225,6 +225,18 @@ resolved. Direct selectors use their existing node as the expression index and
 leave associate fields unset. Unresolved targets do not receive invented AST,
 declaration, rank, or shape facts.
 
+## SELECT TYPE branch type predicates
+
+`query_select_type_branch(arena, arm_node_index)` returns the source-backed
+runtime predicate for one `SELECT TYPE` arm. `SELECT_TYPE_MATCH_EXACT` denotes
+`TYPE IS`; `SELECT_TYPE_MATCH_EXTENSION` denotes `CLASS IS` and includes the
+named type's extensions; and `SELECT_TYPE_MATCH_DEFAULT` denotes `CLASS
+DEFAULT`. The result also identifies whether the guard is the selector's
+declared type or an extension, and flags abstract guards. Intrinsic, unresolved,
+ambiguous, and out-of-hierarchy cases are explicit refusals with
+`SELECT_TYPE_MATCH_UNKNOWN`; consumers must not infer a concrete runtime type
+from them.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the

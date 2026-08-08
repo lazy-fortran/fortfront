@@ -13,6 +13,49 @@ module frontend_compiler_select_type_queries
     implicit none
     private
 
+    integer, parameter, public :: SELECT_TYPE_MATCH_UNKNOWN = 0
+    integer, parameter, public :: SELECT_TYPE_MATCH_EXACT = 1
+    integer, parameter, public :: SELECT_TYPE_MATCH_EXTENSION = 2
+    integer, parameter, public :: SELECT_TYPE_MATCH_DEFAULT = 3
+
+    type, public :: select_type_branch_query_t
+        !! Source-backed type narrowing facts for one SELECT TYPE arm.
+        !!
+        !! EXACT means TYPE IS and matches only the named dynamic type.
+        !! EXTENSION means CLASS IS and matches the named type or one of its
+        !! extensions.  These are predicates, not runtime type selections;
+        !! unresolved, ambiguous, intrinsic, and out-of-hierarchy guards are
+        !! refused rather than assigned a guessed type.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_type_is = .false.
+        logical :: is_class_is = .false.
+        logical :: is_class_default = .false.
+        logical :: is_exact_dynamic_type = .false.
+        logical :: is_extension_dynamic_type = .false.
+        logical :: is_guard_type_abstract = .false.
+        logical :: is_declared_type_relation_known = .false.
+        logical :: is_guard_same_as_declared = .false.
+        logical :: is_guard_extension_of_declared = .false.
+        logical :: is_guard_base_of_declared = .false.
+        logical :: is_out_of_hierarchy = .false.
+        integer :: match_kind = SELECT_TYPE_MATCH_UNKNOWN
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: arm_ordinal = 0
+        integer :: selector_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: guard_type_node_index = 0
+        integer :: concrete_type_index = 0
+        integer :: declared_type_index = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: guard_type_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: refusal_reason
+    end type select_type_branch_query_t
+
     type, public :: select_type_dispatch_query_t
         !! Facts for one direct type-bound CALL in one concrete SELECT TYPE arm.
         !!
@@ -81,9 +124,187 @@ module frontend_compiler_select_type_queries
         type(procedure_signature_query_t) :: signature
     end type select_type_dispatch_query_t
 
-    public :: query_select_type_dispatch
+    public :: query_select_type_branch, query_select_type_dispatch
 
 contains
+
+    function query_select_type_branch(arena, arm_node_index) result(query)
+        !! Return the semantic type predicate represented by one SELECT TYPE arm.
+        !! The result is found only when ARM_NODE_INDEX is an arm in a SELECT
+        !! TYPE construct; a found result can still be refused when its source
+        !! identity is incomplete or outside the selector hierarchy.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        type(select_type_branch_query_t) :: query
+        type(control_statement_query_t) :: control
+        integer :: j
+        integer :: select_index
+
+        call initialize_branch_query(query, arm_node_index)
+        if (.not. arena%has_node_at(arm_node_index)) then
+            call refuse_branch(query, 'SELECT TYPE arm node is absent')
+            return
+        end if
+
+        select_index = enclosing_select_type(arena, arm_node_index)
+        if (select_index <= 0) then
+            call refuse_branch(query, &
+                'node is not a SELECT TYPE arm of an enclosing construct')
+            return
+        end if
+        control = query_control_statement(arena, select_index)
+        if (.not. control%found .or. &
+            control%statement_kind /= CONTROL_SELECT_TYPE) then
+            call refuse_branch(query, 'SELECT TYPE control facts are absent')
+            return
+        end if
+        do j = 1, size(control%type_arms)
+            if (control%type_arms(j)%arm_node_index /= arm_node_index) cycle
+            query%found = control%type_arms(j)%found
+            query%select_type_node_index = select_index
+            call copy_branch_arm_facts(query, control%type_arms(j))
+            call classify_branch(query, arena, control%type_arms(j))
+            return
+        end do
+
+        call refuse_branch(query, &
+            'node is not a SELECT TYPE arm of an enclosing construct')
+    end function query_select_type_branch
+
+    subroutine initialize_branch_query(query, arm_node_index)
+        type(select_type_branch_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index
+
+        query%arm_node_index = arm_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%guard_type_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%refusal_reason)
+    end subroutine initialize_branch_query
+
+    subroutine copy_branch_arm_facts(query, arm)
+        type(select_type_branch_query_t), intent(inout) :: query
+        type(select_type_arm_query_t), intent(in) :: arm
+
+        query%arm_ordinal = arm%arm_ordinal
+        query%selector_node_index = arm%selector_node_index
+        query%selector_declaration_index = arm%selector_declaration_index
+        query%guard_type_node_index = arm%type_name_node_index
+        query%concrete_type_index = arm%concrete_type_index
+        query%declared_type_index = arm%declared_type_index
+        query%selector_name = arm%selector_name
+        query%guard_type_name = arm%concrete_type_name
+        query%declared_type_name = arm%declared_type_name
+        query%is_type_is = arm%is_type_is
+        query%is_class_is = arm%is_class_is
+        query%is_class_default = arm%is_class_default
+        query%is_out_of_hierarchy = arm%is_out_of_hierarchy
+        query%is_unresolved = arm%is_unresolved
+        query%is_refused = arm%is_invalid .or. arm%is_unresolved
+        if (query%is_refused) query%refusal_reason = arm%refusal_reason
+    end subroutine copy_branch_arm_facts
+
+    subroutine classify_branch(query, arena, arm)
+        type(select_type_branch_query_t), intent(inout) :: query
+        type(ast_arena_t), intent(in) :: arena
+        type(select_type_arm_query_t), intent(in) :: arm
+        type(derived_type_query_t) :: guard_type
+
+        if (query%is_class_default) then
+            query%match_kind = SELECT_TYPE_MATCH_DEFAULT
+            query%is_resolved = query%found .and. arm%is_selector_resolved .and. &
+                .not. query%is_refused
+            return
+        end if
+        if (.not. arm%is_concrete_type_resolved) then
+            call refuse_branch(query, 'SELECT TYPE guard type identity is unresolved')
+            return
+        end if
+
+        if (query%is_type_is) then
+            query%match_kind = SELECT_TYPE_MATCH_EXACT
+            query%is_exact_dynamic_type = .true.
+        else if (query%is_class_is) then
+            query%match_kind = SELECT_TYPE_MATCH_EXTENSION
+            query%is_extension_dynamic_type = .true.
+        else
+            call refuse_branch(query, 'SELECT TYPE guard kind is unresolved')
+            return
+        end if
+
+        guard_type = query_derived_type(arena, query%concrete_type_index)
+        if (guard_type%found) then
+            query%is_guard_type_abstract = contains_word( &
+                guard_type%attribute_clause, 'abstract')
+        end if
+        query%is_declared_type_relation_known = &
+            arm%is_declared_type_resolved .and. query%declared_type_index > 0
+        if (query%is_declared_type_relation_known) then
+            if (same_name(query%guard_type_name, query%declared_type_name)) then
+                query%is_guard_same_as_declared = .true.
+            else if (type_extends(arena, query%concrete_type_index, &
+                query%declared_type_index)) then
+                query%is_guard_extension_of_declared = .true.
+            else if (type_extends(arena, query%declared_type_index, &
+                query%concrete_type_index)) then
+                query%is_guard_base_of_declared = .true.
+            end if
+        end if
+
+        query%is_resolved = query%found .and. arm%is_selector_resolved .and. &
+            .not. query%is_refused
+        if (.not. query%is_resolved .and. len_trim(query%refusal_reason) == 0) then
+            call refuse_branch(query, 'SELECT TYPE branch facts are unresolved')
+        end if
+    end subroutine classify_branch
+
+    logical function contains_word(text, word)
+        character(len=*), intent(in) :: text, word
+
+        contains_word = index(to_lower(trim(text)), to_lower(trim(word))) > 0
+    end function contains_word
+
+    logical function type_extends(arena, candidate_index, base_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: candidate_index, base_index
+        type(derived_type_query_t) :: candidate, parent
+        integer :: parent_index, steps
+
+        type_extends = .false.
+        candidate = query_derived_type(arena, candidate_index)
+        steps = 0
+        do while (candidate%found .and. len_trim(candidate%extends_parent) > 0)
+            steps = steps + 1
+            if (steps > arena%size) return
+            parent_index = 0
+            do parent_index = 1, arena%size
+                parent = query_derived_type(arena, parent_index)
+                if (parent%found .and. same_name(parent%name, &
+                    candidate%extends_parent)) exit
+            end do
+            if (parent_index > arena%size) return
+            if (parent_index == base_index) then
+                type_extends = .true.
+                return
+            end if
+            candidate = parent
+        end do
+    end function type_extends
+
+    logical function same_name(left, right)
+        character(len=*), intent(in) :: left, right
+
+        same_name = to_lower(trim(left)) == to_lower(trim(right))
+    end function same_name
+
+    subroutine refuse_branch(query, reason)
+        type(select_type_branch_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) query%refusal_reason = trim(reason)
+    end subroutine refuse_branch
 
     function query_select_type_dispatch(arena, arm_node_index, call_node_index) &
             result(query)
@@ -459,12 +680,6 @@ contains
         query%is_unresolved = .true.
         call refuse(query, reason)
     end subroutine refuse_unresolved
-
-    logical function same_name(left, right) result(equal)
-        character(len=*), intent(in) :: left, right
-
-        equal = to_lower(trim(left)) == to_lower(trim(right))
-    end function same_name
 
     subroutine set_empty(value)
         character(len=:), allocatable, intent(out) :: value
