@@ -70,6 +70,24 @@ names remain explicit refusals through dedicated boundary flags. The
 independent GNU syntax/API oracle is
 `test/api/test_procedure_actual_mapping_query.f90`.
 
+### Procedure-pointer reassignment refusal fact (2026-08-09)
+
+`query_procedure_call_target` now exposes `has_reassignment` when its
+flow-sensitive proof finds two or more direct pointer assignments in the same
+lexical scope. The call remains unresolved and refused; the flag only
+distinguishes reassignment from the existing `NULLIFY`, branch-local, generic,
+ambiguous, incompatible, loop, and unresolved-target boundaries. The
+independent API oracle is
+`test/api/test_procedure_reassignment_refusal.f90`.
+
+### Procedure-pointer missing-arm refusal fact (2026-08-09)
+
+The branch-merged callback query now distinguishes an IF/ELSE arm with no
+direct pointer assignment as `has_missing_assignment`. Such a proof remains
+unresolved and refused; `has_reassignment` is reserved for two or more
+assignments and is no longer asserted for a missing target. The independent
+API oracle is `test/api/test_procedure_callback_missing_assignment.f90`.
+
 ### Tapenade v290 derived-component metadata (2026-08-08)
 
 The derived-type collector now gives each component entity its own declaration
