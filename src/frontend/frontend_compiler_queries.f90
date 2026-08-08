@@ -28,9 +28,11 @@ module frontend_compiler_queries
         resolve_identifier_binding, resolve_name_at_node, find_enclosing_scope, &
         get_scope_statement_indices, &
         find_host_scope, resolve_name_in_scope, BINDING_FUNCTION, &
-        BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE, BINDING_DECLARATION
+        BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE, BINDING_DECLARATION, &
+        BINDING_ASSOCIATE_NAME
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
+    use type_system_unified, only: TDERIVED
     implicit none
     private
 
@@ -305,9 +307,15 @@ module frontend_compiler_queries
     type :: storage_query_t
         logical :: found = .false.
         integer :: node_index = 0
+        integer :: declaration_index = 0
+        integer :: rank = -1
         character(len=:), allocatable :: name
         character(len=:), allocatable :: type_name
         integer :: storage_class = STORAGE_LOCAL
+        logical :: is_component = .false.
+        logical :: is_array_element = .false.
+        logical :: is_derived = .false.
+        logical :: is_concrete_derived = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
         logical :: is_target = .false.
@@ -323,8 +331,20 @@ module frontend_compiler_queries
         logical :: found = .false.
         integer :: node_index = 0
         integer :: base_node_index = 0
+        integer :: base_rank = -1
+        integer :: rank = -1
+        integer :: storage_class = STORAGE_LOCAL
+        integer :: base_storage_class = STORAGE_LOCAL
+        logical :: is_array_element = .false.
+        logical :: is_derived = .false.
+        logical :: is_concrete_derived = .false.
+        logical :: is_allocatable = .false.
+        logical :: is_pointer = .false.
+        logical :: is_polymorphic = .false.
+        logical :: is_unlimited_polymorphic = .false.
         character(len=:), allocatable :: component_names(:)
         integer, allocatable :: component_node_indices(:)
+        integer, allocatable :: component_declaration_indices(:)
     end type component_path_query_t
 
     type :: ownership_event_query_t
@@ -3281,8 +3301,10 @@ contains
 
         query%found = .true.
         query%node_index = node_index
+        query%declaration_index = node_index
         query%name = declaration%name
         query%type_name = declaration%type_name
+        query%rank = declaration_rank(declaration)
         query%is_allocatable = declaration%is_allocatable
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
@@ -3290,6 +3312,7 @@ contains
         query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
         query%is_unlimited_polymorphic = &
             is_unlimited_polymorphic_type_spec(query%type_name)
+        call set_derived_storage_facts(arena, node_index, query)
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         query%is_save_state = declaration%is_save
         common_state = .false.
@@ -3323,6 +3346,59 @@ contains
         end if
     end function query_storage
 
+    integer function declaration_rank(declaration) result(rank)
+        type(declaration_query_t), intent(in) :: declaration
+
+        rank = 0
+        if (.not. declaration%found) then
+            rank = -1
+            return
+        end if
+        if (declaration%is_array) then
+            if (allocated(declaration%dimension_indices)) then
+                rank = size(declaration%dimension_indices)
+            else
+                rank = -1
+            end if
+        end if
+    end function declaration_rank
+
+    subroutine set_derived_storage_facts(arena, node_index, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t), intent(inout) :: query
+        type(resolved_type_query_t) :: resolved
+
+        resolved = query_resolved_type(arena, node_index)
+        if (resolved%found) then
+            query%is_derived = resolved%type_kind == TDERIVED
+        else
+            query%is_derived = is_derived_type_spec(query%type_name)
+        end if
+        query%is_concrete_derived = query%is_derived .and. &
+            .not. query%is_polymorphic
+    end subroutine set_derived_storage_facts
+
+    logical function is_derived_type_spec(type_name)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: normalized
+
+        normalized = remove_type_spec_spaces(lower_text(trim(type_name)))
+        is_derived_type_spec = .false.
+        if (len(normalized) < 6) return
+        if (normalized(1:5) == 'type(' .and. &
+            normalized(len(normalized):len(normalized)) == ')') then
+            is_derived_type_spec = .true.
+            return
+        end if
+        if (len(normalized) >= 6) then
+            if (normalized(1:6) == 'class(' .and. &
+                normalized(len(normalized):len(normalized)) == ')') then
+                is_derived_type_spec = .true.
+            end if
+        end if
+    end function is_derived_type_spec
+
     subroutine query_component_storage(arena, node_index, component, query)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -3335,9 +3411,7 @@ contains
         logical :: base_is_array_element
         type(derived_type_query_t) :: derived
         character(len=:), allocatable :: base_type, derived_name, error_msg
-        character(len=:), allocatable :: base_name
-        integer :: derived_index, i, component_index, scope_index
-        integer :: fallback_index
+        integer :: derived_index, i, component_index
 
         query%node_index = node_index
         base_declaration = query_declaration(arena, component%base_node_index)
@@ -3346,6 +3420,7 @@ contains
             component%base_node_index)
         if (base_declaration%found) then
             base_type = base_declaration%type_name
+            base_storage = query_storage(arena, base_declaration%node_index)
         else if (base_component%found) then
             base_storage = query_storage(arena, component%base_node_index)
             if (.not. base_storage%found) return
@@ -3355,34 +3430,19 @@ contains
                 component%base_node_index, base_declaration)
             if (.not. base_declaration%found) return
             base_type = base_declaration%type_name
+            base_storage = query_storage(arena, base_declaration%node_index)
         else
             call resolve_identifier_binding(arena, component%base_node_index, &
                 binding, error_msg)
-            if (binding%found) then
-                base_declaration = query_declaration(arena, &
-                    binding%declaration_node_index)
-            else
-                call identifier_name_at(arena, component%base_node_index, base_name)
-                scope_index = find_enclosing_scope(arena, node_index)
-                fallback_index = 0
-                do i = 1, arena%size
-                    if (.not. arena%has_node_at(i)) cycle
-                    base_declaration = query_declaration(arena, i)
-                    if (.not. base_declaration%found) cycle
-                    if (.not. same_name(base_declaration%name, base_name)) cycle
-                    if (fallback_index == 0) fallback_index = i
-                    if (scope_index > 0 .and. node_is_in_scope(arena, i, &
-                        scope_index)) then
-                        fallback_index = i
-                        exit
-                    end if
-                end do
-                if (fallback_index == 0) return
-                base_declaration = query_declaration(arena, fallback_index)
-            end if
+            if (.not. binding%found) return
+            if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+            base_declaration = query_declaration(arena, &
+                binding%declaration_node_index)
             if (.not. base_declaration%found) return
             base_type = base_declaration%type_name
+            base_storage = query_storage(arena, base_declaration%node_index)
         end if
+        if (.not. base_storage%found) return
 
         derived_name = derived_type_name_from_spec(base_type)
         derived_index = find_derived_type_by_name(arena, derived_name)
@@ -3398,6 +3458,11 @@ contains
             query%found = .true.
             query%name = component_declaration%name
             query%type_name = component_declaration%type_name
+            query%declaration_index = component_index
+            query%rank = component_rank(arena, component_declaration) + &
+                max(0, designator_rank(arena, component%base_node_index))
+            query%is_component = .true.
+            query%is_array_element = base_is_array_element
             query%is_allocatable = component_declaration%is_allocatable
             query%is_pointer = component_declaration%is_pointer
             query%is_target = component_declaration%is_target
@@ -3405,6 +3470,10 @@ contains
             query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
             query%is_unlimited_polymorphic = &
                 is_unlimited_polymorphic_type_spec(query%type_name)
+            call set_derived_storage_facts(arena, component_index, query)
+            query%is_module_state = base_storage%is_module_state
+            query%is_save_state = base_storage%is_save_state
+            query%is_common_state = base_storage%is_common_state
             if (query%is_pointer) then
                 query%storage_class = STORAGE_POINTER
             else if (query%is_allocatable) then
@@ -3412,9 +3481,27 @@ contains
             else
                 query%storage_class = STORAGE_LOCAL
             end if
+            if (query%is_common_state) then
+                query%storage_class = STORAGE_COMMON
+            else if (query%is_save_state) then
+                query%storage_class = STORAGE_SAVE
+            else if (query%is_module_state) then
+                query%storage_class = STORAGE_MODULE
+            end if
             return
         end do
     end subroutine query_component_storage
+
+    integer function component_rank(arena, declaration) result(rank)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_query_t), intent(in) :: declaration
+
+        rank = declaration_rank(declaration)
+        if (rank < 0) return
+        if (declaration%node_index > 0) then
+            if (.not. arena%has_node_at(declaration%node_index)) rank = -1
+        end if
+    end function component_rank
 
     logical function is_array_element_node(arena, node_index) result(is_element)
         type(ast_arena_t), intent(in) :: arena
@@ -3435,25 +3522,43 @@ contains
         integer, intent(in) :: node_index
         type(declaration_query_t), intent(out) :: declaration
         type(declaration_binding_t) :: binding
-        character(len=:), allocatable :: error_msg, array_name
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: array_name
         integer :: i, fallback_index, scope_index
 
         declaration = query_declaration(arena, node_index)
         if (declaration%found) return
-        call resolve_identifier_binding(arena, node_index, binding, error_msg)
-        if (binding%found) then
-            declaration = query_declaration(arena, binding%declaration_node_index)
-            if (declaration%found .and. declaration%is_array) return
-        end if
-
         call array_element_name_at(arena, node_index, array_name)
         if (len_trim(array_name) == 0) return
+        call resolve_name_at_node(arena, node_index, array_name, binding, &
+            error_msg)
+        if (.not. binding%found) then
+            scope_index = find_enclosing_scope(arena, node_index)
+            if (scope_index > 0) then
+                call resolve_name_in_scope(arena, scope_index, array_name, &
+                    binding, error_msg)
+            end if
+        end if
+        if (binding%found) then
+            if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+            declaration = query_declaration(arena, binding%declaration_node_index)
+            if (.not. declaration%found) return
+            if (.not. declaration%is_array) declaration%found = .false.
+            return
+        end if
+
+        ! Parse-only callers do not populate the resolver's lexical scope
+        ! bindings.  Match the already parsed declaration nodes in that
+        ! scope, retaining the old query behavior without inspecting source
+        ! text.  Semantic callers take the resolver path above, including its
+        ! explicit rejection of ASSOCIATE aliases.
         scope_index = find_enclosing_scope(arena, node_index)
         fallback_index = 0
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             declaration = query_declaration(arena, i)
-            if (.not. declaration%found .or. .not. declaration%is_array) cycle
+            if (.not. declaration%found) cycle
+            if (.not. declaration%is_array) cycle
             if (.not. same_name(declaration%name, array_name)) cycle
             if (fallback_index == 0) fallback_index = i
             if (scope_index > 0 .and. node_is_in_scope(arena, i, &
@@ -3482,6 +3587,55 @@ contains
         class default
         end select
     end subroutine array_element_name_at
+
+    recursive integer function designator_rank(arena, node_index) result(rank)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(declaration_query_t) :: declaration
+        type(resolved_type_query_t) :: resolved
+        integer :: base_rank, retained_dimensions, i
+
+        rank = -1
+        if (.not. arena%has_node_at(node_index)) return
+        resolved = query_resolved_type(arena, node_index)
+        rank = resolved%rank
+
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            if (.not. allocated(node%arg_indices)) return
+            if (size(node%arg_indices) == 0) return
+            call resolve_array_element_declaration(arena, node_index, declaration)
+            if (.not. declaration%found) return
+            base_rank = declaration_rank(declaration)
+            if (base_rank < 0) return
+            retained_dimensions = 0
+            do i = 1, size(node%arg_indices)
+                if (subscript_retains_dimension(arena, node%arg_indices(i))) &
+                    retained_dimensions = retained_dimensions + 1
+            end do
+            rank = max(0, base_rank - size(node%arg_indices) + &
+                retained_dimensions)
+            type is (component_access_node)
+            base_rank = designator_rank(arena, node%base_expr_index)
+            if (resolved%rank >= 0 .and. base_rank >= 0) then
+                rank = resolved%rank + base_rank
+            end if
+        end select
+    end function designator_rank
+
+    logical function subscript_retains_dimension(arena, node_index) result(retains)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        retains = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (range_expression_node)
+            retains = .true.
+            type is (array_bounds_node)
+            retains = .true.
+        end select
+    end function subscript_retains_dimension
 
     function derived_type_name_from_spec(type_name) result(name)
         character(len=*), intent(in) :: type_name
@@ -3549,18 +3703,65 @@ contains
         type(component_path_query_t) :: query
         integer, allocatable :: indices(:)
         character(len=:), allocatable :: names(:)
+        type(storage_query_t) :: storage, base_storage, segment_storage
+        integer :: i
 
         allocate (character(len=1) :: query%component_names(0))
         allocate (query%component_node_indices(0))
+        allocate (query%component_declaration_indices(0))
         if (.not. arena%has_node_at(node_index)) return
         call collect_component_path(arena, node_index, names, indices, &
             query%base_node_index)
         if (size(indices) == 0) return
+        storage = query_storage(arena, node_index)
+        if (.not. storage%found) return
+        if (.not. storage%is_component) return
         query%found = .true.
         query%node_index = node_index
         query%component_names = names
         query%component_node_indices = indices
+        deallocate (query%component_declaration_indices)
+        allocate (query%component_declaration_indices(size(indices)))
+        do i = 1, size(indices)
+            segment_storage = query_storage(arena, indices(i))
+            if (.not. segment_storage%found) then
+                query%found = .false.
+                deallocate (query%component_declaration_indices)
+                allocate (query%component_declaration_indices(0))
+                return
+            end if
+            query%component_declaration_indices(i) = &
+                segment_storage%declaration_index
+        end do
+        query%base_rank = designator_rank(arena, query%base_node_index)
+        query%rank = storage%rank
+        query%storage_class = storage%storage_class
+        query%is_array_element = storage%is_array_element
+        query%is_derived = storage%is_derived
+        query%is_concrete_derived = storage%is_concrete_derived
+        query%is_allocatable = storage%is_allocatable
+        query%is_pointer = storage%is_pointer
+        query%is_polymorphic = storage%is_polymorphic
+        query%is_unlimited_polymorphic = storage%is_unlimited_polymorphic
+        base_storage = query_designator_storage(arena, query%base_node_index)
+        if (base_storage%found) then
+            query%base_storage_class = base_storage%storage_class
+        end if
     end function query_component_path
+
+    function query_designator_storage(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t) :: query
+        type(declaration_query_t) :: declaration
+
+        query = query_storage(arena, node_index)
+        if (query%found) return
+        if (.not. is_array_element_node(arena, node_index)) return
+        call resolve_array_element_declaration(arena, node_index, declaration)
+        if (.not. declaration%found) return
+        query = query_storage(arena, declaration%node_index)
+    end function query_designator_storage
 
     function query_type_bound_call(arena, call_node_index) result(query)
         !! Resolve one type-bound call into receiver and binding facts.
@@ -4003,6 +4204,7 @@ contains
 
         allocate (character(len=1) :: query%component_names(0))
         allocate (query%component_node_indices(0))
+        allocate (query%component_declaration_indices(0))
     end subroutine initialize_component_path_query
 
     subroutine get_type_bound_call_parts(arena, call_node_index, &
@@ -4835,8 +5037,10 @@ contains
         if (.not. declaration%found) return
         query%found = .true.
         query%node_index = node_index
+        query%declaration_index = node_index
         query%name = declaration%name
         query%type_name = declaration%type_name
+        query%rank = declaration_rank(declaration)
         query%is_allocatable = declaration%is_allocatable
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
@@ -4844,6 +5048,7 @@ contains
         query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
         query%is_unlimited_polymorphic = &
             is_unlimited_polymorphic_type_spec(query%type_name)
+        call set_derived_storage_facts(arena, node_index, query)
         query%is_save_state = declaration%is_save
         query%is_module_state = declaration_owned_by_module(arena, node_index)
         if (query%is_save_state) then
