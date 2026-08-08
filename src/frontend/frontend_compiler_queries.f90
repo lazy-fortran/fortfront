@@ -5466,6 +5466,10 @@ contains
                 end do
             end if
             if (len_trim(target%implementation) == 0) cycle
+            ! An ABSTRACT descendant may provide a concrete implementation,
+            ! but it is not an instantiable runtime dispatch arm. Consumers
+            ! use this array as the set of possible concrete dynamic types.
+            if (target%is_abstract_type) cycle
             call append_dispatch_target(arena, query, target_type, target)
         end do
     end function query_type_binding_resolution

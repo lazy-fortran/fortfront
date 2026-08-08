@@ -226,7 +226,9 @@ end subroutine
   or signature. Finally,
   `query_type_bound_call` combines a call site's receiver and binding with
   that resolution metadata. It reports the declared receiver type, effective
-  implementation, PASS, interface, and concrete descendant dispatch targets.
+  implementation, PASS, interface, and concrete descendant dispatch targets;
+  abstract descendants are excluded even when they provide a concrete
+  binding.
   For expression-form calls, `receiver_path` preserves the receiver's
   component names and AST nodes (for example the `inner` component in
   `outer%inner%method`). Explicit `CALL` statements retain the exact nested
