@@ -315,6 +315,7 @@ module frontend_compiler_queries
         integer :: storage_class = STORAGE_LOCAL
         logical :: is_component = .false.
         logical :: is_array_element = .false.
+        logical :: is_array_section = .false.
         logical :: is_derived = .false.
         logical :: is_concrete_derived = .false.
         logical :: is_allocatable = .false.
@@ -337,6 +338,7 @@ module frontend_compiler_queries
         integer :: storage_class = STORAGE_LOCAL
         integer :: base_storage_class = STORAGE_LOCAL
         logical :: is_array_element = .false.
+        logical :: is_array_section = .false.
         logical :: is_derived = .false.
         logical :: is_concrete_derived = .false.
         logical :: is_allocatable = .false.
@@ -3409,11 +3411,11 @@ contains
         type(declaration_query_t) :: base_declaration, component_declaration
         type(storage_query_t) :: base_storage
         type(component_access_query_t) :: base_component
-        logical :: base_is_array_element
-        type(derived_type_query_t) :: derived
+        logical :: base_is_array_element, base_is_array_section
+        logical :: base_is_array_designator
         character(len=:), allocatable :: base_type, derived_name, error_msg
         character(len=:), allocatable :: base_name
-        integer :: derived_index, i, component_index, scope_index
+        integer :: derived_index, component_index, i, scope_index
         integer :: fallback_index
 
         query%node_index = node_index
@@ -3422,6 +3424,10 @@ contains
         base_component = query_component_access(arena, component%base_node_index)
         base_is_array_element = is_array_element_node(arena, &
             component%base_node_index)
+        base_is_array_section = is_array_section_node(arena, &
+            component%base_node_index)
+        base_is_array_designator = base_is_array_element .or. &
+            base_is_array_section
         if (base_declaration%found) then
             base_type = base_declaration%type_name
             base_storage = query_storage(arena, base_declaration%node_index)
@@ -3429,7 +3435,9 @@ contains
             base_storage = query_storage(arena, component%base_node_index)
             if (.not. base_storage%found) return
             base_type = base_storage%type_name
-        else if (base_is_array_element) then
+            base_is_array_element = base_storage%is_array_element
+            base_is_array_section = base_storage%is_array_section
+        else if (base_is_array_designator) then
             call resolve_array_element_declaration(arena, &
                 component%base_node_index, base_declaration)
             if (.not. base_declaration%found) return
@@ -3442,7 +3450,8 @@ contains
                 if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
                 base_declaration = query_declaration(arena, &
                     binding%declaration_node_index)
-            else
+            end if
+            if (.not. base_declaration%found) then
                 ! Semantic callers normally resolve the identifier above. A
                 ! parse-only arena may not have lexical bindings yet; retain
                 ! the old scope-bounded declaration fallback so nested
@@ -3475,49 +3484,46 @@ contains
         derived_name = derived_type_name_from_spec(base_type)
         derived_index = find_derived_type_by_name(arena, derived_name)
         if (derived_index <= 0) return
-        derived = query_derived_type(arena, derived_index)
-        do i = 1, size(derived%component_indices)
-            component_index = derived%component_indices(i)
-            component_declaration = query_declaration(arena, component_index)
-            if (.not. component_declaration%found) cycle
-            if (.not. same_name(component_declaration%name, &
-                component%component_name)) cycle
+        component_index = find_component_declaration_in_hierarchy(arena, &
+            derived_index, component%component_name)
+        if (component_index <= 0) return
+        component_declaration = query_declaration(arena, component_index)
+        if (.not. component_declaration%found) return
 
-            query%found = .true.
-            query%name = component_declaration%name
-            query%type_name = component_declaration%type_name
-            query%declaration_index = component_index
-            query%rank = component_rank(arena, component_declaration) + &
-                max(0, designator_rank(arena, component%base_node_index))
-            query%is_component = .true.
-            query%is_array_element = base_is_array_element
-            query%is_allocatable = component_declaration%is_allocatable
-            query%is_pointer = component_declaration%is_pointer
-            query%is_target = component_declaration%is_target
-            query%is_contiguous = component_declaration%is_contiguous
-            query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
-            query%is_unlimited_polymorphic = &
-                is_unlimited_polymorphic_type_spec(query%type_name)
-            call set_derived_storage_facts(arena, component_index, query)
-            query%is_module_state = base_storage%is_module_state
-            query%is_save_state = base_storage%is_save_state
-            query%is_common_state = base_storage%is_common_state
-            if (query%is_pointer) then
-                query%storage_class = STORAGE_POINTER
-            else if (query%is_allocatable) then
-                query%storage_class = STORAGE_OWNED
-            else
-                query%storage_class = STORAGE_LOCAL
-            end if
-            if (query%is_common_state) then
-                query%storage_class = STORAGE_COMMON
-            else if (query%is_save_state) then
-                query%storage_class = STORAGE_SAVE
-            else if (query%is_module_state) then
-                query%storage_class = STORAGE_MODULE
-            end if
-            return
-        end do
+        query%found = .true.
+        query%name = component_declaration%name
+        query%type_name = component_declaration%type_name
+        query%declaration_index = component_index
+        query%rank = component_rank(arena, component_declaration) + &
+            max(0, designator_rank(arena, component%base_node_index))
+        query%is_component = .true.
+        query%is_array_element = base_is_array_element
+        query%is_array_section = base_is_array_section
+        query%is_allocatable = component_declaration%is_allocatable
+        query%is_pointer = component_declaration%is_pointer
+        query%is_target = component_declaration%is_target
+        query%is_contiguous = component_declaration%is_contiguous
+        query%is_polymorphic = is_polymorphic_type_spec(query%type_name)
+        query%is_unlimited_polymorphic = &
+            is_unlimited_polymorphic_type_spec(query%type_name)
+        call set_derived_storage_facts(arena, component_index, query)
+        query%is_module_state = base_storage%is_module_state
+        query%is_save_state = base_storage%is_save_state
+        query%is_common_state = base_storage%is_common_state
+        if (query%is_pointer) then
+            query%storage_class = STORAGE_POINTER
+        else if (query%is_allocatable) then
+            query%storage_class = STORAGE_OWNED
+        else
+            query%storage_class = STORAGE_LOCAL
+        end if
+        if (query%is_common_state) then
+            query%storage_class = STORAGE_COMMON
+        else if (query%is_save_state) then
+            query%storage_class = STORAGE_SAVE
+        else if (query%is_module_state) then
+            query%storage_class = STORAGE_MODULE
+        end if
     end subroutine query_component_storage
 
     integer function component_rank(arena, declaration) result(rank)
@@ -3536,14 +3542,47 @@ contains
         integer, intent(in) :: node_index
 
         is_element = .false.
+        if (.not. is_array_designator_node(arena, node_index)) return
+        if (is_array_section_node(arena, node_index)) return
+        is_element = .true.
+    end function is_array_element_node
+
+    logical function is_array_designator_node(arena, node_index) result(is_designator)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_designator = .false.
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
             type is (call_or_subscript_node)
             if (.not. allocated(node%arg_indices)) return
-            is_element = size(node%arg_indices) > 0
+            is_designator = size(node%arg_indices) > 0
+            type is (array_slice_node)
+            is_designator = node%num_dimensions > 0
         class default
         end select
-    end function is_array_element_node
+    end function is_array_designator_node
+
+    logical function is_array_section_node(arena, node_index) result(is_section)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: i
+
+        is_section = .false.
+        if (.not. is_array_designator_node(arena, node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            do i = 1, size(node%arg_indices)
+                if (subscript_retains_dimension(arena, node%arg_indices(i))) then
+                    is_section = .true.
+                    return
+                end if
+            end do
+            type is (array_slice_node)
+            is_section = .true.
+        class default
+        end select
+    end function is_array_section_node
 
     subroutine resolve_array_element_declaration(arena, node_index, declaration)
         type(ast_arena_t), intent(in) :: arena
@@ -3556,6 +3595,25 @@ contains
 
         declaration = query_declaration(arena, node_index)
         if (declaration%found) return
+        select type (node => arena%entries(node_index)%node)
+            type is (array_slice_node)
+            if (node%array_index <= 0) return
+            declaration = query_declaration(arena, node%array_index)
+            if (.not. declaration%found) then
+                call resolve_identifier_binding(arena, node%array_index, &
+                    binding, error_msg)
+                if (binding%found) then
+                    if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+                    declaration = query_declaration(arena, &
+                        binding%declaration_node_index)
+                end if
+            end if
+            if (declaration%found .and. .not. declaration%is_array) then
+                declaration%found = .false.
+            end if
+            return
+        class default
+        end select
         call array_element_name_at(arena, node_index, array_name)
         if (len_trim(array_name) == 0) return
         call resolve_name_at_node(arena, node_index, array_name, binding, &
@@ -3621,9 +3679,14 @@ contains
         integer, intent(in) :: node_index
         type(declaration_query_t) :: declaration
         type(declaration_binding_t) :: binding
+        type(component_access_query_t) :: component
+        type(storage_query_t) :: base_storage
+        type(declaration_query_t) :: component_declaration
         type(resolved_type_query_t) :: resolved
         character(len=:), allocatable :: name, error_message
+        character(len=:), allocatable :: base_type, derived_name
         integer :: base_rank, retained_dimensions, i, scope_index, fallback_index
+        integer :: derived_index, component_index
 
         rank = -1
         if (.not. arena%has_node_at(node_index)) return
@@ -3677,9 +3740,43 @@ contains
             end do
             rank = max(0, base_rank - size(node%arg_indices) + &
                 retained_dimensions)
+            type is (array_slice_node)
+            call resolve_array_element_declaration(arena, node_index, declaration)
+            if (.not. declaration%found) return
+            base_rank = declaration_rank(declaration)
+            if (base_rank < 0) return
+            retained_dimensions = 0
+            do i = 1, node%num_dimensions
+                if (subscript_retains_dimension(arena, node%bounds_indices(i))) &
+                    retained_dimensions = retained_dimensions + 1
+            end do
+            rank = max(0, base_rank - node%num_dimensions + &
+                retained_dimensions)
             type is (component_access_node)
             base_rank = designator_rank(arena, node%base_expr_index)
-            if (resolved%rank >= 0 .and. base_rank >= 0) then
+            if (base_rank < 0) return
+            component = query_component_access(arena, node_index)
+            base_storage = query_designator_storage(arena, &
+                component%base_node_index)
+            if (base_storage%found) then
+                base_type = base_storage%type_name
+                derived_name = derived_type_name_from_spec(base_type)
+                derived_index = find_derived_type_by_name(arena, derived_name)
+                if (derived_index > 0) then
+                    component_index = find_component_declaration_in_hierarchy(&
+                        arena, derived_index, component%component_name)
+                    if (component_index > 0) then
+                        component_declaration = query_declaration(arena, &
+                            component_index)
+                    end if
+                    if (component_declaration%found) then
+                        rank = component_rank(arena, component_declaration) + &
+                            max(0, base_rank)
+                        return
+                    end if
+                end if
+            end if
+            if (resolved%rank >= 0) then
                 rank = resolved%rank + base_rank
             end if
         end select
@@ -3799,6 +3896,7 @@ contains
         query%rank = storage%rank
         query%storage_class = storage%storage_class
         query%is_array_element = storage%is_array_element
+        query%is_array_section = storage%is_array_section
         query%is_derived = storage%is_derived
         query%is_concrete_derived = storage%is_concrete_derived
         query%is_allocatable = storage%is_allocatable
@@ -3819,7 +3917,7 @@ contains
 
         query = query_storage(arena, node_index)
         if (query%found) return
-        if (.not. is_array_element_node(arena, node_index)) return
+        if (.not. is_array_designator_node(arena, node_index)) return
         call resolve_array_element_declaration(arena, node_index, declaration)
         if (.not. declaration%found) return
         query = query_storage(arena, declaration%node_index)
@@ -4491,6 +4589,32 @@ contains
             end if
         end do
     end function find_component_declaration
+
+    integer function find_component_declaration_in_hierarchy(arena, &
+            derived_index, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: derived_index
+        character(len=*), intent(in) :: name
+        type(derived_type_query_t) :: derived
+        integer :: current_index, parent_index, guard
+
+        index = 0
+        current_index = derived_index
+        guard = 0
+        do while (current_index > 0)
+            derived = query_derived_type(arena, current_index)
+            if (.not. derived%found) return
+            index = find_component_declaration(arena, derived, name)
+            if (index > 0) return
+            if (len_trim(derived%extends_parent) == 0) return
+            parent_index = find_derived_type_by_name(arena, &
+                derived%extends_parent)
+            if (parent_index <= 0) return
+            current_index = parent_index
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function find_component_declaration_in_hierarchy
 
     function declared_type_name(source) result(name)
         character(len=*), intent(in) :: source

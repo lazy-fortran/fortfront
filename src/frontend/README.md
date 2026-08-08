@@ -192,8 +192,12 @@ end subroutine
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access, plus the resolved component declaration indices,
   base and result rank, terminal storage class, and explicit
-  `is_array_element`, `is_concrete_derived`, `is_allocatable`, `is_pointer`,
-  and polymorphism facts. `query_storage` exposes the same terminal facts
+  `is_array_element`, `is_array_section`, `is_concrete_derived`,
+  `is_allocatable`, `is_pointer`, and polymorphism facts. A fully indexed
+  designator such as `items(i,j)%payload` sets `is_array_element`; a
+  non-strided section whose range AST facts are available, such as
+  `items(:, :)%payload`, sets `is_array_section` instead and retains its
+  rank. `query_storage` exposes the same terminal facts
   for a component, together with its declaration identity and rank. A direct
   component whose base is an `ASSOCIATE` name is unresolved (`found=.false.`)
   rather than guessed; pointer components remain visible as `STORAGE_POINTER`
