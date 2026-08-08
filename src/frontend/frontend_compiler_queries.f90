@@ -26,6 +26,7 @@ module frontend_compiler_queries
         select_type_node, type_guard_block_node
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_identifier_binding, resolve_name_at_node, find_enclosing_scope, &
+        get_scope_statement_indices, &
         find_host_scope, resolve_name_in_scope, BINDING_FUNCTION, &
         BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE, BINDING_DECLARATION
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
@@ -92,6 +93,7 @@ module frontend_compiler_queries
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
     public :: procedure_target_query_t, query_procedure_target
+    public :: procedure_call_target_query_t, query_procedure_call_target
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
@@ -190,6 +192,36 @@ module frontend_compiler_queries
         logical :: is_unresolved = .false.
         logical :: is_null = .false.
     end type procedure_target_query_t
+
+    type :: procedure_call_target_query_t
+        !! One bounded, resolved call through a procedure pointer.
+        !!
+        !! FOUND means that CALL_NODE_INDEX names a procedure pointer and its
+        !! lexical scope contains exactly one unconditional direct pointer
+        !! assignment before the call.  That assignment must resolve to an
+        !! internal or external procedure.  A pointer call with no such
+        !! proof leaves FOUND false and sets IS_UNRESOLVED; this includes
+        !! branches, reassignment, NULL(), generic calls, and other
+        !! flow-sensitive cases.
+        logical :: found = .false.
+        integer :: call_node_index = 0
+        ! Call nodes carry the callee name directly; for this bounded fact
+        ! POINTER_NODE_INDEX identifies that same pointer-call occurrence.
+        integer :: pointer_node_index = 0
+        integer :: pointer_declaration_index = 0
+        integer :: assignment_node_index = 0
+        integer :: target_node_index = 0
+        integer :: target_declaration_index = 0
+        integer :: target_procedure_index = 0
+        integer :: target_binding_node_index = 0
+        integer :: target_binding_kind = 0
+        integer :: scope_node_index = 0
+        character(len=:), allocatable :: pointer_name
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: target_binding_name
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+    end type procedure_call_target_query_t
     type :: nullify_query_t
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
@@ -761,6 +793,85 @@ contains
         end if
         query%is_unresolved = .not. query%is_resolved
     end function query_procedure_target
+
+    function query_procedure_call_target(arena, node_index) result(query)
+        !! Resolve one direct call through a procedure pointer.
+        !!
+        !! The proof is deliberately bounded: the pointer must have exactly
+        !! one direct assignment in the call's lexical scope, that assignment
+        !! must precede the call, and no other same-scope pointer assignment or
+        !! NULLIFY may touch the pointer.  No branch or general dataflow
+        !! analysis is attempted.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_call_target_query_t) :: query
+        type(declaration_binding_t) :: pointer_binding
+        type(declaration_query_t) :: pointer_declaration
+        type(procedure_target_query_t) :: target
+        character(len=:), allocatable :: call_name
+        character(len=:), allocatable :: error_msg
+        integer, allocatable :: scope_indices(:)
+        integer :: call_scope_statement, assignment_count
+        integer :: assignment_index
+        logical :: is_call, has_non_direct_mutation
+
+        call initialize_procedure_call_target_query(query)
+        if (.not. arena%has_node_at(node_index)) return
+
+        call get_call_parts(arena, node_index, call_name, scope_indices, is_call)
+        if (.not. is_call) return
+        if (len_trim(call_name) == 0) return
+
+        query%call_node_index = node_index
+        query%scope_node_index = find_enclosing_scope(arena, node_index)
+        if (query%scope_node_index <= 0) return
+
+        call resolve_identifier_binding(arena, node_index, pointer_binding, &
+            error_msg)
+        if (.not. pointer_binding%found) return
+        pointer_declaration = query_declaration(arena, &
+            pointer_binding%declaration_node_index)
+        if (pointer_binding%binding_kind /= BINDING_DECLARATION .or. &
+            .not. is_procedure_pointer_declaration(pointer_declaration)) return
+
+        query%pointer_node_index = node_index
+        query%pointer_declaration_index = &
+            pointer_binding%declaration_node_index
+        query%pointer_name = pointer_binding%name
+        query%is_unresolved = .true.
+
+        call get_scope_statement_indices(arena, query%scope_node_index, &
+            scope_indices)
+        call direct_scope_statement_for_node(arena, node_index, &
+            query%scope_node_index, call_scope_statement)
+        if (call_scope_statement <= 0) return
+
+        assignment_count = 0
+        assignment_index = 0
+        has_non_direct_mutation = .false.
+        call find_pointer_mutations(arena, query%scope_node_index, &
+            query%pointer_declaration_index, query%pointer_name, &
+            scope_indices, assignment_count, assignment_index, &
+            has_non_direct_mutation)
+        if (assignment_count /= 1 .or. has_non_direct_mutation) return
+        if (.not. index_precedes(scope_indices, assignment_index, &
+            call_scope_statement)) return
+
+        target = query_procedure_target(arena, assignment_index)
+        if (.not. target%found .or. .not. target%is_resolved) return
+
+        query%assignment_node_index = target%assignment_node_index
+        query%target_node_index = target%target_node_index
+        query%target_declaration_index = target%target_declaration_index
+        query%target_procedure_index = target%target_procedure_index
+        query%target_binding_node_index = target%binding_node_index
+        query%target_binding_kind = target%binding_kind
+        query%procedure_name = target%procedure_name
+        query%target_binding_name = target%binding_name
+        query%found = .true.
+        query%is_resolved = .true.
+        query%is_unresolved = .false.
+    end function query_procedure_call_target
 
     function query_nullify(arena, node_index) result(query)
         type(ast_arena_t), intent(in) :: arena
@@ -2763,6 +2874,129 @@ contains
         call set_empty(query%procedure_name)
         call set_empty(query%binding_name)
     end subroutine initialize_procedure_target_query
+
+    subroutine initialize_procedure_call_target_query(query)
+        type(procedure_call_target_query_t), intent(out) :: query
+
+        call set_empty(query%pointer_name)
+        call set_empty(query%procedure_name)
+        call set_empty(query%target_binding_name)
+    end subroutine initialize_procedure_call_target_query
+
+    subroutine direct_scope_statement_for_node(arena, node_index, scope_index, &
+            statement_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, scope_index
+        integer, intent(out) :: statement_index
+        integer :: current, parent
+
+        statement_index = 0
+        current = node_index
+        do while (current > 0)
+            if (.not. arena%has_node_at(current)) return
+            if (current == scope_index) return
+            parent = arena%entries(current)%parent_index
+            if (parent == scope_index) then
+                statement_index = current
+                return
+            end if
+            current = parent
+        end do
+    end subroutine direct_scope_statement_for_node
+
+    subroutine find_pointer_mutations(arena, scope_index, declaration_index, &
+            pointer_name, scope_indices, mutation_count, assignment_index, &
+            has_non_direct_mutation)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index, declaration_index
+        character(len=*), intent(in) :: pointer_name
+        integer, intent(in) :: scope_indices(:)
+        integer, intent(out) :: mutation_count, assignment_index
+        logical, intent(out) :: has_non_direct_mutation
+        type(pointer_assignment_query_t) :: assignment
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: mutation_name
+        integer :: i, j
+        logical :: matches
+
+        mutation_count = 0
+        assignment_index = 0
+        has_non_direct_mutation = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. index_in_list(scope_indices, i)) then
+                if (find_enclosing_scope(arena, i) /= scope_index) cycle
+            end if
+
+            matches = .false.
+            select type (node => arena%entries(i)%node)
+                type is (pointer_assignment_node)
+                assignment = query_pointer_assignment(arena, i)
+                if (.not. assignment%found) cycle
+                call resolve_identifier_binding(arena, &
+                    assignment%pointer_node_index, binding, error_msg)
+                if (binding%found .and. binding%declaration_node_index == &
+                    declaration_index .and. same_name(binding%name, &
+                    pointer_name)) then
+                    matches = .true.
+                end if
+                if (matches) then
+                    mutation_count = mutation_count + 1
+                    if (assignment_index == 0) assignment_index = i
+                    if (.not. index_in_list(scope_indices, i)) then
+                        has_non_direct_mutation = .true.
+                    end if
+                end if
+                type is (nullify_node)
+                if (.not. allocated(node%pointer_indices)) cycle
+                do j = 1, size(node%pointer_indices)
+                    call procedure_target_name_at(arena, node%pointer_indices(j), &
+                        mutation_name)
+                    call resolve_name_in_scope(arena, scope_index, mutation_name, &
+                        binding, error_msg)
+                    if (.not. binding%found) cycle
+                    if (binding%declaration_node_index /= declaration_index) cycle
+                    if (.not. same_name(binding%name, pointer_name)) cycle
+                    matches = .true.
+                    exit
+                end do
+                if (matches) then
+                    mutation_count = mutation_count + 1
+                    if (.not. index_in_list(scope_indices, i)) then
+                        has_non_direct_mutation = .true.
+                    end if
+                end if
+            class default
+            end select
+        end do
+    end subroutine find_pointer_mutations
+
+    logical function index_in_list(indices, value) result(found)
+        integer, intent(in) :: indices(:), value
+        integer :: i
+
+        found = .false.
+        do i = 1, size(indices)
+            if (indices(i) == value) then
+                found = .true.
+                return
+            end if
+        end do
+    end function index_in_list
+
+    logical function index_precedes(indices, first, second) result(precedes)
+        integer, intent(in) :: indices(:), first, second
+        integer :: i, first_position, second_position
+
+        first_position = 0
+        second_position = 0
+        do i = 1, size(indices)
+            if (indices(i) == first) first_position = i
+            if (indices(i) == second) second_position = i
+        end do
+        precedes = first_position > 0 .and. second_position > first_position
+    end function index_precedes
 
     logical function is_procedure_pointer_declaration(query) result(is_pointer)
         type(declaration_query_t), intent(in) :: query
