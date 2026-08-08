@@ -500,6 +500,7 @@
                     has_program_start = .true.
                     call push_construct(UNIT_PROGRAM)
                 case ("function")
+                    if (is_procedure_name_keyword(tokens, i)) cycle
                     ! Check if this is not "end function"
                     if (i == 1) then
                         function_count = function_count + 1
@@ -509,6 +510,7 @@
                         call push_construct(UNIT_FUNCTION)
                     end if
                 case ("subroutine")
+                    if (is_procedure_name_keyword(tokens, i)) cycle
                     ! Check if this is not "end subroutine"
                     if (i == 1) then
                         subroutine_count = subroutine_count + 1
@@ -815,6 +817,27 @@
         end do
         idx = 0
     end function find_next_significant_token
+
+    logical function is_procedure_name_keyword(tokens, idx) result(is_name)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        integer :: prev_idx
+        character(len=:), allocatable :: previous
+
+        is_name = .false.
+        prev_idx = find_previous_significant_token(tokens, idx - 1)
+        if (prev_idx <= 0) return
+        if (tokens(prev_idx)%line /= tokens(idx)%line) return
+        if (tokens(prev_idx)%kind /= TK_KEYWORD .and. &
+            tokens(prev_idx)%kind /= TK_IDENTIFIER) return
+
+        previous = to_lower(trim(tokens(prev_idx)%text))
+        if (previous == "call") then
+            is_name = .true.
+            return
+        end if
+        is_name = previous == "function" .or. previous == "subroutine"
+    end function is_procedure_name_keyword
 
     ! Check for specifically invalid patterns that should be rejected
     logical function contains_invalid_patterns(tokens) result(is_invalid)

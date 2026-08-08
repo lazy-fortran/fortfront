@@ -79,9 +79,9 @@ contains
         call scan_optional_child(arena, node%value_index, metadata)
 
         call collect_param_indices(arena, node%target_index, metadata, &
-            target_params)
+            target_params, include_component_base=.true.)
         call collect_param_indices(arena, node%value_index, metadata, &
-            value_params)
+            value_params, include_component_base=.false.)
 
         target_has_array = has_array_parameter(metadata, target_params)
         if (target_has_array) then
@@ -281,19 +281,27 @@ contains
         indices = arena%entries(node_index)%child_indices(1:count_children)
     end function get_child_list
 
-    subroutine collect_param_indices(arena, node_index, metadata, params)
+    subroutine collect_param_indices(arena, node_index, metadata, params, &
+            include_component_base)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(param_metadata_t), intent(in) :: metadata
         integer, allocatable, intent(out) :: params(:)
+        logical, intent(in), optional :: include_component_base
+        logical :: include_component
 
         allocate (params(0))
+        include_component = .false.
+        if (present(include_component_base)) then
+            include_component = include_component_base
+        end if
         call collect_recursive(node_index)
 
     contains
 
         recursive subroutine collect_recursive(current_index)
-            use ast_nodes_core, only: identifier_node, call_or_subscript_node
+            use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
+                component_access_node
             use ast_nodes_core, only: binary_op_node
             integer, intent(in) :: current_index
             integer :: param_idx
@@ -319,6 +327,10 @@ contains
                     do j = 1, size(node%arg_indices)
                         call collect_recursive(node%arg_indices(j))
                     end do
+                end if
+                type is (component_access_node)
+                if (include_component) then
+                    call collect_recursive(node%base_expr_index)
                 end if
                 type is (binary_op_node)
                 if (node%left_index > 0) call collect_recursive(node%left_index)
