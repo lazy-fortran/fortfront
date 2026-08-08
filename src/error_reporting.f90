@@ -93,9 +93,12 @@ contains
             context%filename = filename
         end if
 
-        if (present(source_lines) .and. token%line > 0 .and. token%line <= &
-            size(source_lines)) then
-            context%source_line = source_lines(token%line)
+        ! Fortran does not guarantee short-circuit evaluation of .and.;
+        ! guard the optional array before querying its size or indexing it.
+        if (present(source_lines)) then
+            if (token%line > 0 .and. token%line <= size(source_lines)) then
+                context%source_line = source_lines(token%line)
+            end if
         end if
     end function create_error_context_from_token
 
@@ -210,7 +213,7 @@ contains
         type(error_record_t), intent(in) :: error
         character(len=:), allocatable :: formatted
         character(len=20) :: severity_str
-        character(len=20) :: location_str
+        character(len=64) :: location_str
 
         ! Format severity
         select case (error%severity)
