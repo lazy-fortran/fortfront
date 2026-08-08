@@ -6,6 +6,7 @@ module frontend_compiler_queries
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
         call_or_subscript_node, pointer_assignment_node, assignment_node
+    use ast_nodes_control, only: if_node, do_loop_node
     use ast_nodes_associate, only: associate_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
@@ -99,6 +100,8 @@ module frontend_compiler_queries
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
     public :: procedure_target_query_t, query_procedure_target
+    public :: procedure_callback_target_query_t, procedure_callback_flow_query_t
+    public :: query_procedure_callback_flow, query_procedure_pointer_callback_flow
     public :: procedure_call_target_query_t, query_procedure_call_target
     public :: procedure_dummy_query_t, procedure_signature_query_t
     public :: call_argument_query_t, call_arguments_query_t
@@ -290,6 +293,50 @@ module frontend_compiler_queries
         logical :: is_unresolved = .false.
         type(procedure_signature_query_t) :: signature
     end type procedure_call_target_query_t
+
+    type :: procedure_callback_target_query_t
+        !! One ordered target in a branch-merged callback proof.
+        integer :: branch_assignment_node_index = 0
+        integer :: target_procedure_index = 0
+        integer :: target_declaration_index = 0
+        character(len=:), allocatable :: procedure_name
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_generic = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_signature_compatible = .false.
+        type(procedure_signature_query_t) :: signature
+    end type procedure_callback_target_query_t
+
+    type :: procedure_callback_flow_query_t
+        !! A deliberately narrow IF/ELSE callback target-set proof.
+        logical :: found = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: has_loop = .false.
+        logical :: has_nested_branch = .false.
+        logical :: has_missing_branch = .false.
+        logical :: has_reassignment = .false.
+        logical :: has_null_assignment = .false.
+        logical :: has_nullify = .false.
+        logical :: has_generic_target = .false.
+        logical :: has_ambiguous_target = .false.
+        logical :: has_incompatible_signature = .false.
+        logical :: has_branch_call = .false.
+        integer :: pointer_node_index = 0
+        integer :: pointer_declaration_index = 0
+        integer :: call_node_index = 0
+        integer :: call_pointer_node_index = 0
+        integer :: if_node_index = 0
+        integer :: then_entry_node_index = 0
+        integer :: then_exit_node_index = 0
+        integer :: else_entry_node_index = 0
+        integer :: else_exit_node_index = 0
+        integer :: merge_boundary_node_index = 0
+        integer :: scope_node_index = 0
+        character(len=:), allocatable :: pointer_name
+        type(procedure_callback_target_query_t), allocatable :: targets(:)
+    end type procedure_callback_flow_query_t
     type :: nullify_query_t
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
@@ -1347,6 +1394,194 @@ contains
         query%is_resolved = .true.
         query%is_unresolved = .false.
     end function query_procedure_call_target
+
+    function query_procedure_callback_flow(arena, node_index) result(query)
+        !! Prove one IF/ELSE procedure-pointer callback target set.
+        !!
+        !! NODE_INDEX must be the direct call after the IF.  The proof has
+        !! exactly two arms, one direct assignment in each arm, two resolved
+        !! internal targets with matching signatures, and no other mutation.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_callback_flow_query_t) :: query
+        type(declaration_binding_t) :: binding
+        type(declaration_query_t) :: declaration
+        type(procedure_target_query_t) :: then_target, else_target
+        type(if_node) :: branch
+        character(len=:), allocatable :: call_name, error_msg
+        integer, allocatable :: scope_indices(:)
+        integer :: call_statement, if_statement, i
+        logical :: is_call
+
+        call initialize_procedure_callback_flow_query(query)
+        if (.not. arena%has_node_at(node_index)) return
+        call get_call_parts(arena, node_index, call_name, scope_indices, is_call)
+        if (.not. is_call .or. len_trim(call_name) == 0) return
+        call resolve_identifier_binding(arena, node_index, binding, error_msg)
+        if (.not. binding%found) return
+        declaration = query_declaration(arena, binding%declaration_node_index)
+        if (binding%binding_kind /= BINDING_DECLARATION .or. &
+            .not. is_procedure_pointer_declaration(declaration)) return
+
+        query%call_node_index = node_index
+        query%call_pointer_node_index = node_index
+        query%pointer_node_index = node_index
+        query%pointer_declaration_index = binding%declaration_node_index
+        query%pointer_name = binding%name
+        query%scope_node_index = find_enclosing_scope(arena, node_index)
+        query%is_unresolved = .true.
+        if (query%scope_node_index <= 0) return
+        call get_scope_statement_indices(arena, query%scope_node_index, scope_indices)
+        call direct_scope_statement_for_node(arena, node_index, &
+            query%scope_node_index, call_statement)
+        if (call_statement <= 0) return
+        if (call_statement /= node_index) then
+            query%has_branch_call = .true.
+            query%if_node_index = call_statement
+            query%is_refused = .true.
+            return
+        end if
+        call scan_scope_loops(arena, query%scope_node_index, query)
+
+        do i = 1, size(scope_indices)
+            if (scope_indices(i) == call_statement) exit
+            if (.not. arena%has_node_at(scope_indices(i))) cycle
+            select type (candidate => arena%entries(scope_indices(i))%node)
+                type is (if_node)
+                if (if_statement /= 0) cycle
+                if_statement = scope_indices(i)
+                branch = candidate
+            class default
+            end select
+        end do
+        if (if_statement <= 0) return
+        if (.not. index_precedes(scope_indices, if_statement, call_statement)) return
+        query%if_node_index = if_statement
+        query%merge_boundary_node_index = call_statement
+
+        if (.not. allocated(branch%then_body_indices) .or. &
+            .not. allocated(branch%else_body_indices) .or. &
+            size(branch%then_body_indices) == 0 .or. &
+            size(branch%else_body_indices) == 0 .or. &
+            allocated(branch%elseif_blocks)) then
+            query%has_missing_branch = .true.
+            query%is_refused = .true.
+            return
+        end if
+
+        query%then_entry_node_index = branch%then_body_indices(1)
+        query%then_exit_node_index = branch%then_body_indices(size(branch%then_body_indices))
+        query%else_entry_node_index = branch%else_body_indices(1)
+        query%else_exit_node_index = branch%else_body_indices(size(branch%else_body_indices))
+
+        call inspect_callback_arm(arena, branch%then_body_indices, &
+            query%pointer_declaration_index, query%pointer_name, then_target, query)
+        call inspect_callback_arm(arena, branch%else_body_indices, &
+            query%pointer_declaration_index, query%pointer_name, else_target, query)
+        if (query%has_loop .or. query%has_nested_branch .or. &
+            query%has_reassignment .or. query%has_null_assignment .or. &
+            query%has_nullify .or. query%has_branch_call) then
+            query%is_refused = .true.
+            return
+        end if
+
+        if (.not. then_target%is_resolved .or. .not. else_target%is_resolved) then
+            query%is_refused = .true.
+            return
+        end if
+        if (.not. signatures_compatible(then_target%signature, &
+            else_target%signature)) then
+            query%has_incompatible_signature = .true.
+            query%is_refused = .true.
+            return
+        end if
+
+        call append_callback_target(query%targets, then_target)
+        call append_callback_target(query%targets, else_target)
+        query%found = .true.
+        query%is_unresolved = .false.
+        query%is_refused = .false.
+    end function query_procedure_callback_flow
+
+    function query_procedure_pointer_callback_flow(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_callback_flow_query_t) :: query
+
+        query = query_procedure_callback_flow(arena, node_index)
+    end function query_procedure_pointer_callback_flow
+
+    subroutine scan_scope_loops(arena, scope_index, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(procedure_callback_flow_query_t), intent(inout) :: query
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. node_is_descendant_of(arena, i, [scope_index])) cycle
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (do_loop_node)
+                query%has_loop = .true.
+            class default
+            end select
+        end do
+    end subroutine scan_scope_loops
+
+    subroutine inspect_callback_arm(arena, body_indices, declaration_index, &
+            pointer_name, target, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:), declaration_index
+        character(len=*), intent(in) :: pointer_name
+        type(procedure_target_query_t), intent(out) :: target
+        type(procedure_callback_flow_query_t), intent(inout) :: query
+        type(pointer_assignment_query_t) :: assignment
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg, name
+        integer :: i, count
+
+        call initialize_procedure_target_query(target)
+        count = 0
+        do i = 1, arena%size
+            if (.not. node_is_descendant_of(arena, i, body_indices)) cycle
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (if_node)
+                query%has_nested_branch = .true.
+                type is (do_loop_node)
+                query%has_loop = .true.
+                type is (nullify_node)
+                if (nullify_touches_pointer(arena, i, declaration_index, &
+                    pointer_name)) query%has_nullify = .true.
+                type is (pointer_assignment_node)
+                assignment = query_pointer_assignment(arena, i)
+                if (.not. assignment%found) cycle
+                call resolve_identifier_binding(arena, assignment%pointer_node_index, &
+                    binding, error_msg)
+                if (.not. binding%found .or. binding%declaration_node_index /= &
+                    declaration_index .or. .not. same_name(binding%name, pointer_name)) cycle
+                count = count + 1
+                if (count == 1) target = query_procedure_target(arena, i)
+                type is (assignment_node)
+                call procedure_target_name_at(arena, node%target_index, name)
+                call resolve_name_in_scope(arena, query%scope_node_index, name, &
+                    binding, error_msg)
+                if (binding%found .and. binding%declaration_node_index == &
+                    declaration_index) query%has_reassignment = .true.
+            class default
+            end select
+        end do
+        if (count /= 1) query%has_reassignment = .true.
+        if (target%found) then
+            if (target%is_null) query%has_null_assignment = .true.
+            if (target%is_unresolved) query%is_unresolved = .true.
+            if (target%binding_kind == BINDING_GENERIC_INTERFACE) then
+                query%has_generic_target = .true.
+                query%has_ambiguous_target = .true.
+            end if
+        end if
+        call detect_callback_branch_call(arena, body_indices, pointer_name, query)
+    end subroutine inspect_callback_arm
 
     function query_nullify(arena, node_index) result(query)
         type(ast_arena_t), intent(in) :: arena
@@ -3359,6 +3594,141 @@ contains
         call set_empty(query%target_binding_name)
         call initialize_procedure_signature_query(query%signature)
     end subroutine initialize_procedure_call_target_query
+
+    subroutine initialize_procedure_callback_flow_query(query)
+        type(procedure_callback_flow_query_t), intent(out) :: query
+
+        call set_empty(query%pointer_name)
+        allocate (query%targets(0))
+    end subroutine initialize_procedure_callback_flow_query
+
+    logical function node_is_descendant_of(arena, node_index, roots) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, roots(:)
+        integer :: current, parent, i
+
+        found = .false.
+        current = node_index
+        do while (current > 0 .and. arena%has_node_at(current))
+            do i = 1, size(roots)
+                if (current == roots(i)) then
+                    found = .true.
+                    return
+                end if
+            end do
+            parent = arena%entries(current)%parent_index
+            if (parent == current) exit
+            current = parent
+        end do
+    end function node_is_descendant_of
+
+    logical function node_is_direct_child(arena, node_index, roots) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, roots(:)
+        integer :: i
+
+        found = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        do i = 1, size(roots)
+            if (arena%entries(node_index)%parent_index == roots(i)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function node_is_direct_child
+
+    logical function nullify_touches_pointer(arena, node_index, declaration_index, &
+            pointer_name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, declaration_index
+        character(len=*), intent(in) :: pointer_name
+        type(nullify_query_t) :: nullify
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: name, error_msg
+        integer :: i
+
+        found = .false.
+        nullify = query_nullify(arena, node_index)
+        if (.not. nullify%found .or. .not. allocated(nullify%pointer_node_indices)) return
+        do i = 1, size(nullify%pointer_node_indices)
+            call procedure_target_name_at(arena, nullify%pointer_node_indices(i), name)
+            call resolve_name_in_scope(arena, find_enclosing_scope(arena, node_index), &
+                name, binding, error_msg)
+            if (binding%found .and. binding%declaration_node_index == declaration_index &
+                .and. same_name(binding%name, pointer_name)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function nullify_touches_pointer
+
+    subroutine detect_callback_branch_call(arena, body_indices, pointer_name, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: pointer_name
+        type(procedure_callback_flow_query_t), intent(inout) :: query
+        character(len=:), allocatable :: name
+        integer, allocatable :: ignored(:)
+        logical :: is_call
+        integer :: i
+
+        do i = 1, arena%size
+            if (.not. node_is_descendant_of(arena, i, body_indices)) cycle
+            call get_call_parts(arena, i, name, ignored, is_call)
+            if (is_call .and. same_name(name, pointer_name)) then
+                query%has_branch_call = .true.
+                return
+            end if
+        end do
+    end subroutine detect_callback_branch_call
+
+    logical function signatures_compatible(first, second) result(compatible)
+        type(procedure_signature_query_t), intent(in) :: first, second
+        integer :: i
+
+        compatible = first%found .and. second%found .and. &
+            first%is_function .eqv. second%is_function .and. &
+            first%dummy_count == second%dummy_count
+        if (.not. compatible) return
+        do i = 1, first%dummy_count
+            if (first%dummies(i)%type_known .neqv. second%dummies(i)%type_known) return
+            if (first%dummies(i)%type_known) then
+                if (first%dummies(i)%type_category /= second%dummies(i)%type_category) return
+                if (first%dummies(i)%type_kind /= second%dummies(i)%type_kind) return
+            end if
+            if (first%dummies(i)%rank_known .neqv. second%dummies(i)%rank_known) return
+            if (first%dummies(i)%rank_known .and. first%dummies(i)%rank /= second%dummies(i)%rank) return
+            if (first%dummies(i)%is_optional .neqv. second%dummies(i)%is_optional) return
+            if (first%dummies(i)%is_value .neqv. second%dummies(i)%is_value) return
+        end do
+        if (first%is_function) then
+            if (first%result_category_known .neqv. second%result_category_known) return
+            if (first%result_category_known .and. first%result_category /= second%result_category) return
+            if (first%result_type_kind /= second%result_type_kind) return
+            if (first%result_rank_known .neqv. second%result_rank_known) return
+            if (first%result_rank_known .and. first%result_rank /= second%result_rank) return
+        end if
+    end function signatures_compatible
+
+    subroutine append_callback_target(targets, source)
+        type(procedure_callback_target_query_t), allocatable, intent(inout) :: targets(:)
+        type(procedure_target_query_t), intent(in) :: source
+        type(procedure_callback_target_query_t), allocatable :: extended(:)
+        integer :: n
+
+        n = size(targets)
+        allocate (extended(n + 1))
+        if (n > 0) extended(:n) = targets
+        extended(n + 1)%branch_assignment_node_index = source%assignment_node_index
+        extended(n + 1)%target_procedure_index = source%target_procedure_index
+        extended(n + 1)%target_declaration_index = source%target_declaration_index
+        extended(n + 1)%procedure_name = source%procedure_name
+        extended(n + 1)%is_resolved = source%is_resolved
+        extended(n + 1)%is_unresolved = source%is_unresolved
+        extended(n + 1)%is_signature_compatible = .true.
+        extended(n + 1)%signature = source%signature
+        call move_alloc(extended, targets)
+    end subroutine append_callback_target
 
     subroutine initialize_procedure_signature_query(query)
         type(procedure_signature_query_t), intent(out) :: query
