@@ -236,6 +236,9 @@ end subroutine
   implementation, PASS, interface, and concrete descendant dispatch targets;
   abstract descendants are excluded even when they provide a concrete
   binding.
+  Explicit `CALL` statements with an indexed receiver, such as
+  `call values(i)%run()`, retain the full receiver designator while resolving
+  storage through its declared array object; no receiver AST node is invented.
   For expression-form calls, `receiver_path` preserves the receiver's
   component names and AST nodes (for example the `inner` component in
   `outer%inner%method`). Explicit `CALL` statements retain the exact nested

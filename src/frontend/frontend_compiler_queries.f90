@@ -5869,8 +5869,6 @@ contains
             if (separator <= 1) return
             receiver_name = trim(designator(:separator - 1))
             binding_name = trim(designator(separator + 1:))
-            if (index(receiver_name, '(') > 0) return
-            if (index(receiver_name, '[') > 0) return
             if (index(binding_name, '%') > 0) return
             if (len_trim(receiver_name) == 0) return
             if (len_trim(binding_name) == 0) return
@@ -5995,12 +5993,12 @@ contains
         call set_empty(type_name)
         separator = index(trim(name), '%')
         if (separator <= 0) then
-            call resolve_name_at_node(arena, call_node_index, trim(name), &
-                binding, error_msg)
+            call resolve_name_at_node(arena, call_node_index, &
+                receiver_object_name(name), binding, error_msg)
             return
         end if
 
-        base_name = trim(name(:separator - 1))
+        base_name = receiver_object_name(name(:separator - 1))
         call resolve_name_at_node(arena, call_node_index, base_name, binding, &
             error_msg)
         if (.not. binding%found) return
@@ -6016,6 +6014,7 @@ contains
             else
                 component_name = trim(remaining(start:start + separator - 2))
             end if
+            component_name = receiver_object_name(component_name)
             if (len_trim(component_name) == 0) then
                 call set_empty(type_name)
                 return
@@ -6047,6 +6046,20 @@ contains
             end if
         end do
     end subroutine resolve_receiver_designator
+
+    function receiver_object_name(designator) result(name)
+        character(len=*), intent(in) :: designator
+        character(len=:), allocatable :: name
+        integer :: separator
+
+        ! Explicit CALL nodes retain the receiver as source text.  Strip only
+        ! its subscript so name resolution can recover the declared object;
+        ! the public receiver_name remains the original indexed designator.
+        name = trim(designator)
+        separator = index(name, '(')
+        if (separator <= 0) separator = index(name, '[')
+        if (separator > 1) name = trim(name(:separator - 1))
+    end function receiver_object_name
 
     integer function find_component_declaration(arena, derived, name) result(index)
         type(ast_arena_t), intent(in) :: arena
