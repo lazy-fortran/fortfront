@@ -14,7 +14,8 @@ module frontend_compiler_queries
     use ast_nodes_data, only: declaration_node, derived_type_node, &
         parameter_declaration_node, module_node, block_data_node, &
         submodule_node, multi_unit_container_node, type_binding_node, &
-        PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN
+        PARAM_UNKNOWN, PARAM_KIND, PARAM_LEN, INTENT_IN, INTENT_OUT, &
+        INTENT_INOUT
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
         import_statement_node, &
         use_statement_node, visibility_statement_node, &
@@ -33,6 +34,8 @@ module frontend_compiler_queries
         BINDING_ASSOCIATE_NAME
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
+    use semantic_procedure_signature, only: type_category
+    use string_utils_mod, only: to_lower
     use type_system_unified, only: TDERIVED
     implicit none
     private
@@ -97,6 +100,7 @@ module frontend_compiler_queries
         query_nullify
     public :: procedure_target_query_t, query_procedure_target
     public :: procedure_call_target_query_t, query_procedure_call_target
+    public :: procedure_dummy_query_t, procedure_signature_query_t
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
@@ -191,6 +195,46 @@ module frontend_compiler_queries
         integer :: pointer_node_index = 0, target_node_index = 0
     end type pointer_assignment_query_t
 
+    type :: procedure_dummy_query_t
+        !! Bounded facts for one ordered dummy of a resolved procedure.
+        !! A *_known flag is required before a consumer uses the value; the
+        !! frontend does not fill in defaults or infer missing declarations.
+        integer :: node_index = 0
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: type_category
+        character(len=:), allocatable :: intent
+        integer :: type_kind = 0
+        integer :: kind_value = 0
+        integer :: rank = -1
+        logical :: type_known = .false.
+        logical :: category_known = .false.
+        logical :: kind_known = .false.
+        logical :: rank_known = .false.
+        logical :: has_intent = .false.
+        logical :: is_optional = .false.
+        logical :: is_value = .false.
+    end type procedure_dummy_query_t
+
+    type :: procedure_signature_query_t
+        !! Signature facts for one directly resolved internal procedure.
+        !! External, generic, ambiguous, and unresolved targets leave FOUND
+        !! false rather than receiving a guessed interface.
+        logical :: found = .false.
+        logical :: is_function = .false.
+        integer :: procedure_node_index = 0
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: result_category
+        integer :: result_type_kind = 0
+        integer :: result_kind_value = 0
+        integer :: result_rank = -1
+        logical :: result_type_known = .false.
+        logical :: result_category_known = .false.
+        logical :: result_kind_known = .false.
+        logical :: result_rank_known = .false.
+        integer :: dummy_count = 0
+        type(procedure_dummy_query_t), allocatable :: dummies(:)
+    end type procedure_signature_query_t
+
     type :: procedure_target_query_t
         !! Facts for one procedure-pointer assignment.
         !!
@@ -213,6 +257,7 @@ module frontend_compiler_queries
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
         logical :: is_null = .false.
+        type(procedure_signature_query_t) :: signature
     end type procedure_target_query_t
 
     type :: procedure_call_target_query_t
@@ -243,6 +288,7 @@ module frontend_compiler_queries
         character(len=:), allocatable :: target_binding_name
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
+        type(procedure_signature_query_t) :: signature
     end type procedure_call_target_query_t
     type :: nullify_query_t
         logical :: found = .false.
@@ -985,7 +1031,242 @@ contains
                 target_declaration%is_external
         end if
         query%is_unresolved = .not. query%is_resolved
+        if (query%is_resolved) then
+            call fill_procedure_signature(arena, query%target_procedure_index, &
+                query%signature)
+        end if
     end function query_procedure_target
+
+    subroutine fill_procedure_signature(arena, procedure_index, signature)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        type(procedure_signature_query_t), intent(out) :: signature
+        type(program_unit_query_t) :: procedure
+        type(declaration_query_t) :: formal, body_declaration, result_decl
+        type(resolved_type_query_t) :: resolved
+        integer :: i, body_index, result_index
+        character(len=:), allocatable :: result_name
+        logical :: has_body_declaration
+
+        call initialize_procedure_signature_query(signature)
+        if (.not. arena%has_node_at(procedure_index)) return
+
+        procedure = query_program_unit(arena, procedure_index)
+        if (.not. procedure%found) return
+        if (trim(procedure%unit_kind) /= 'function' .and. &
+            trim(procedure%unit_kind) /= 'subroutine') return
+
+        signature%found = .true.
+        signature%is_function = trim(procedure%unit_kind) == 'function'
+        signature%procedure_node_index = procedure_index
+        signature%procedure_name = procedure%name
+        if (allocated(procedure%parameter_indices)) then
+            signature%dummy_count = size(procedure%parameter_indices)
+        end if
+        deallocate (signature%dummies)
+        allocate (signature%dummies(signature%dummy_count))
+
+        do i = 1, signature%dummy_count
+            formal = query_declaration(arena, procedure%parameter_indices(i))
+            body_index = find_named_declaration(arena, procedure%body_indices, &
+                formal%name)
+            has_body_declaration = body_index > 0
+            if (has_body_declaration) then
+                body_declaration = query_declaration(arena, body_index)
+            else
+                call initialize_declaration_query(body_declaration)
+            end if
+            call fill_procedure_dummy(arena, formal, body_declaration, &
+                has_body_declaration, signature%dummies(i))
+        end do
+
+        if (.not. signature%is_function) return
+        result_name = procedure%result_name
+        if (len_trim(result_name) == 0) result_name = procedure%name
+        result_index = find_named_declaration(arena, procedure%body_indices, &
+            result_name)
+        if (result_index > 0) then
+            result_decl = query_declaration(arena, result_index)
+        else
+            call initialize_declaration_query(result_decl)
+        end if
+        resolved = query_resolved_type(arena, result_index)
+        if (.not. resolved%found) then
+            resolved = query_resolved_type(arena, procedure_index)
+        end if
+        call fill_procedure_result(result_decl, procedure%return_type, resolved, &
+            signature)
+    end subroutine fill_procedure_signature
+
+    subroutine fill_procedure_dummy(arena, formal, body_declaration, has_body, &
+            dummy)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_query_t), intent(in) :: formal, body_declaration
+        logical, intent(in) :: has_body
+        type(procedure_dummy_query_t), intent(out) :: dummy
+        type(declaration_query_t) :: selected
+        type(resolved_type_query_t) :: resolved, body_resolved
+
+        call initialize_procedure_dummy_query(dummy)
+        dummy%node_index = formal%node_index
+        dummy%name = formal%name
+        selected = formal
+        if (len_trim(selected%type_name) == 0) then
+            if (has_body) selected%type_name = body_declaration%type_name
+        end if
+        if (.not. selected%has_kind) then
+            if (has_body) then
+                if (body_declaration%has_kind) then
+                    selected%has_kind = .true.
+                    selected%kind_value = body_declaration%kind_value
+                end if
+            end if
+        end if
+        if (.not. selected%is_array) then
+            if (has_body) selected%is_array = body_declaration%is_array
+        end if
+        if (has_body) then
+            if (body_declaration%is_optional) selected%is_optional = .true.
+            if (body_declaration%is_value) selected%is_value = .true.
+        end if
+
+        if (len_trim(selected%type_name) > 0) then
+            dummy%type_category = type_category(selected%type_name)
+            dummy%category_known = len_trim(dummy%type_category) > 0
+        end if
+        resolved = query_resolved_type(arena, formal%node_index)
+        if (has_body) then
+            body_resolved = query_resolved_type(arena, body_declaration%node_index)
+            if (body_resolved%found) resolved = body_resolved
+        end if
+        if (resolved%found) then
+            dummy%type_known = .true.
+            dummy%type_kind = resolved%type_kind
+            dummy%kind_value = resolved%kind_value
+            dummy%kind_known = resolved%kind_value > 0
+            dummy%rank = resolved%rank
+            dummy%rank_known = resolved%rank >= 0
+        else
+            if (selected%has_kind) then
+                dummy%kind_value = selected%kind_value
+                dummy%kind_known = selected%kind_value > 0
+            end if
+            call fill_syntactic_rank(selected, dummy%rank, dummy%rank_known)
+        end if
+
+        if (has_body) then
+            if (body_declaration%has_intent) then
+                dummy%intent = body_declaration%intent
+                dummy%has_intent = len_trim(dummy%intent) > 0
+            end if
+        end if
+        if (.not. dummy%has_intent) then
+            call intent_text_from_query(formal, dummy%intent, dummy%has_intent)
+        end if
+        dummy%is_optional = selected%is_optional
+        dummy%is_value = selected%is_value
+    end subroutine fill_procedure_dummy
+
+    subroutine fill_procedure_result(declaration, header_type, resolved, signature)
+        type(declaration_query_t), intent(in) :: declaration
+        character(len=*), intent(in) :: header_type
+        type(resolved_type_query_t), intent(in) :: resolved
+        type(procedure_signature_query_t), intent(inout) :: signature
+        character(len=:), allocatable :: type_name
+
+        type_name = declaration%type_name
+        if (len_trim(type_name) == 0) type_name = header_type
+        if (len_trim(type_name) > 0) then
+            signature%result_category = type_category(type_name)
+            signature%result_category_known = &
+                len_trim(signature%result_category) > 0
+        end if
+        if (resolved%found) then
+            signature%result_type_known = .true.
+            signature%result_type_kind = resolved%type_kind
+            signature%result_kind_value = resolved%kind_value
+            signature%result_kind_known = resolved%kind_value > 0
+            signature%result_rank = resolved%rank
+            signature%result_rank_known = resolved%rank >= 0
+        else
+            if (declaration%has_kind) then
+                signature%result_kind_value = declaration%kind_value
+                signature%result_kind_known = declaration%kind_value > 0
+            end if
+            call fill_syntactic_rank(declaration, signature%result_rank, &
+                signature%result_rank_known)
+        end if
+    end subroutine fill_procedure_result
+
+    subroutine fill_syntactic_rank(declaration, rank, known)
+        type(declaration_query_t), intent(in) :: declaration
+        integer, intent(out) :: rank
+        logical, intent(out) :: known
+
+        rank = -1
+        known = .false.
+        if (.not. declaration%is_array) then
+            rank = 0
+            known = .true.
+        else if (allocated(declaration%dimension_indices)) then
+            rank = size(declaration%dimension_indices)
+            known = rank > 0
+        end if
+    end subroutine fill_syntactic_rank
+
+    subroutine intent_text_from_query(declaration, intent, known)
+        type(declaration_query_t), intent(in) :: declaration
+        character(len=:), allocatable, intent(out) :: intent
+        logical, intent(out) :: known
+
+        intent = ''
+        known = .false.
+        if (declaration%has_intent) then
+            intent = to_lower(trim(declaration%intent))
+            known = len_trim(intent) > 0
+            return
+        end if
+        select case (declaration%intent_type)
+        case (INTENT_IN)
+            intent = 'in'
+        case (INTENT_OUT)
+            intent = 'out'
+        case (INTENT_INOUT)
+            intent = 'inout'
+        case default
+            return
+        end select
+        known = .true.
+    end subroutine intent_text_from_query
+
+    integer function find_named_declaration(arena, indices, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: indices(:)
+        character(len=*), intent(in) :: name
+        type(declaration_query_t) :: declaration
+        integer :: i, j
+        character(len=:), allocatable :: wanted
+
+        index = 0
+        wanted = to_lower(trim(name))
+        if (len_trim(wanted) == 0) return
+        if (.not. allocated(indices)) return
+        do i = 1, size(indices)
+            declaration = query_declaration(arena, indices(i))
+            if (.not. declaration%found) cycle
+            if (to_lower(trim(declaration%name)) == wanted) then
+                index = indices(i)
+                return
+            end if
+            if (.not. allocated(declaration%names)) cycle
+            do j = 1, size(declaration%names)
+                if (to_lower(trim(declaration%names(j))) == wanted) then
+                    index = indices(i)
+                    return
+                end if
+            end do
+        end do
+    end function find_named_declaration
 
     function query_procedure_call_target(arena, node_index) result(query)
         !! Resolve one direct call through a procedure pointer.
@@ -1061,6 +1342,7 @@ contains
         query%target_binding_kind = target%binding_kind
         query%procedure_name = target%procedure_name
         query%target_binding_name = target%binding_name
+        query%signature = target%signature
         query%found = .true.
         query%is_resolved = .true.
         query%is_unresolved = .false.
@@ -3066,6 +3348,7 @@ contains
         call set_empty(query%pointer_name)
         call set_empty(query%procedure_name)
         call set_empty(query%binding_name)
+        call initialize_procedure_signature_query(query%signature)
     end subroutine initialize_procedure_target_query
 
     subroutine initialize_procedure_call_target_query(query)
@@ -3074,7 +3357,24 @@ contains
         call set_empty(query%pointer_name)
         call set_empty(query%procedure_name)
         call set_empty(query%target_binding_name)
+        call initialize_procedure_signature_query(query%signature)
     end subroutine initialize_procedure_call_target_query
+
+    subroutine initialize_procedure_signature_query(query)
+        type(procedure_signature_query_t), intent(out) :: query
+
+        call set_empty(query%procedure_name)
+        call set_empty(query%result_category)
+        allocate (query%dummies(0))
+    end subroutine initialize_procedure_signature_query
+
+    subroutine initialize_procedure_dummy_query(query)
+        type(procedure_dummy_query_t), intent(out) :: query
+
+        call set_empty(query%name)
+        call set_empty(query%type_category)
+        call set_empty(query%intent)
+    end subroutine initialize_procedure_dummy_query
 
     subroutine direct_scope_statement_for_node(arena, node_index, scope_index, &
             statement_index)

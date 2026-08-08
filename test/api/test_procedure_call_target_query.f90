@@ -48,10 +48,21 @@ program test_procedure_call_target_query
                 len_trim(query%target_binding_name) > 0, &
                 'resolved target has no binding identity')
             select case (trim(query%procedure_name))
-            case ('internal_scale', 'internal_action')
+            case ('internal_scale')
                 saw_internal = .true.
+                call require(query%signature%found .and. &
+                    query%signature%dummy_count == 1, &
+                    'internal callback signature was not copied')
+            case ('internal_action')
+                saw_internal = .true.
+                call require(query%signature%found .and. &
+                    query%signature%dummy_count == 0 .and. &
+                    .not. query%signature%is_function, &
+                    'internal subroutine signature was not copied')
             case ('external_scale')
                 saw_external = .true.
+                call require(.not. query%signature%found, &
+                    'external callback received an invented signature')
             case default
                 call require(.false., 'unexpected resolved procedure')
             end select

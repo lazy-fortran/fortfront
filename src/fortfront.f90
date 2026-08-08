@@ -97,6 +97,7 @@ module fortfront
         type_bound_call_query_t, query_type_bound_call, &
         procedure_target_query_t, query_procedure_target, &
         procedure_call_target_query_t, query_procedure_call_target, &
+        procedure_dummy_query_t, procedure_signature_query_t, &
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
         query_generic_call
