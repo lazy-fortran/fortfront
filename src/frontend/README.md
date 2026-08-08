@@ -188,6 +188,11 @@ end subroutine
   type: it reports the local-to-parent chain and effective binding metadata,
   without scanning descendants or guessing an ambiguous, deferred, or
   unresolved implementation. Finally,
+  `query_type_bound_call` combines a call site's receiver and binding with
+  that resolution metadata. It reports the declared receiver type, effective
+  implementation, PASS, interface, and concrete descendant dispatch targets;
+  generic, ambiguous, deferred, and unresolved/refused cases remain marked
+  without selecting a runtime procedure. Finally,
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
