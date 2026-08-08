@@ -100,6 +100,11 @@ module fortfront
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
         query_generic_call
+    use frontend_compiler_control_queries, only: control_statement_query_t, &
+        select_rank_arm_query_t, query_control_statement, &
+        CONTROL_SELECT_RANK, CONTROL_TYPE_GUARD, &
+        SELECT_RANK_DISPATCH_EXPLICIT, SELECT_RANK_DISPATCH_ASSUMED_SIZE, &
+        SELECT_RANK_DISPATCH_DEFAULT
     use frontend_compiler_resolution, only: declaration_binding_t, &
         get_scope_bindings, resolve_name_in_scope, &
         resolve_name_at_node, resolve_identifier_binding, &
