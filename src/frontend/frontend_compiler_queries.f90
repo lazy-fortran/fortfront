@@ -422,6 +422,7 @@ module frontend_compiler_queries
         logical :: is_array_section = .false.
         logical :: is_derived = .false.
         logical :: is_concrete_derived = .false.
+        logical :: is_abstract_type = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
         logical :: is_target = .false.
@@ -445,6 +446,7 @@ module frontend_compiler_queries
         logical :: is_array_section = .false.
         logical :: is_derived = .false.
         logical :: is_concrete_derived = .false.
+        logical :: is_abstract_type = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
         logical :: is_polymorphic = .false.
@@ -4168,7 +4170,28 @@ contains
         end if
         query%is_concrete_derived = query%is_derived .and. &
             .not. query%is_polymorphic
+        query%is_abstract_type = query%is_derived .and. &
+            derived_storage_type_is_abstract(arena, node_index)
     end subroutine set_derived_storage_facts
+
+    logical function derived_storage_type_is_abstract(arena, node_index) &
+            result(is_abstract)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(declaration_query_t) :: declaration
+        type(derived_type_query_t) :: derived
+        integer :: derived_index
+
+        is_abstract = .false.
+        declaration = query_declaration(arena, node_index)
+        if (.not. declaration%found) return
+        derived_index = find_derived_type_by_name(arena, &
+            derived_type_name_from_spec(declaration%type_name))
+        if (derived_index <= 0) return
+        derived = query_derived_type(arena, derived_index)
+        if (derived%found) is_abstract = contains_word(derived%attribute_clause, &
+            'abstract')
+    end function derived_storage_type_is_abstract
 
     logical function is_derived_type_spec(type_name)
         character(len=*), intent(in) :: type_name
@@ -4702,6 +4725,7 @@ contains
         query%is_array_section = storage%is_array_section
         query%is_derived = storage%is_derived
         query%is_concrete_derived = storage%is_concrete_derived
+        query%is_abstract_type = storage%is_abstract_type
         query%is_allocatable = storage%is_allocatable
         query%is_pointer = storage%is_pointer
         query%is_polymorphic = storage%is_polymorphic
