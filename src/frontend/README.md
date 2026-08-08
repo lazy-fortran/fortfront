@@ -302,6 +302,15 @@ end subroutine
   Each record preserves selector identity, one-based arm ordinal, arm kind,
   source location, and body entry/exit boundaries. Derived guard identities and
   the selector's declared derived identity are reported only when they resolve.
+  For `SELECT TYPE (alias => selector)`, `is_selector_associate` is true,
+  `selector_associate_name` and `selector_associate_node_index` identify the
+  source alias, and `selector_expression_node_index` identifies the original
+  selector expression. `selector_node_index` remains the parser's real
+  pointer-assignment node; `selector_name` and storage facts describe the
+  source selector when it resolves. Direct selectors set the expression index
+  to their existing selector node and leave the associate-name fields unset.
+  No AST node, declaration, rank, or shape fact is fabricated for an unresolved
+  alias target.
   intrinsic guards, ambiguous or unresolved names, non-polymorphic selectors,
   and guards outside the selector's `EXTENDS` hierarchy carry explicit
   `is_intrinsic`, `is_ambiguous`, `is_unresolved`, `is_invalid`, or

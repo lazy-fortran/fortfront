@@ -212,6 +212,19 @@ if (bounds%found) print *, bounds%lower_bound_node_index
 indices for explicit ranges. These read-only records are the stable boundary
 for consumers that simplify shapes or loop bounds.
 
+## SELECT TYPE associate selectors
+
+`query_control_statement` exposes `select_type_arm_query_t` records for each
+`TYPE IS`, `CLASS IS`, and `CLASS DEFAULT` arm. For
+`SELECT TYPE (typed => object)`, `is_selector_associate` is true;
+`selector_associate_name` and `selector_associate_node_index` identify `typed`,
+while `selector_expression_node_index` identifies the existing AST node for
+`object`. `selector_node_index` remains the parser's pointer-assignment node,
+and `selector_name` plus storage facts refer to the source selector when it is
+resolved. Direct selectors use their existing node as the expression index and
+leave associate fields unset. Unresolved targets do not receive invented AST,
+declaration, rank, or shape facts.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the
