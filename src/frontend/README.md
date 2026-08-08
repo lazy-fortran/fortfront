@@ -404,8 +404,10 @@ end subroutine
   (the AST stores a direct call's callee name on the call node, so the call
   and pointer occurrence share that node index). `found=.false.` with
   `is_unresolved=.true.` is returned when that proof is unavailable, including
-  branch-local assignments, reassignment or `NULLIFY`, `NULL()`, and other
-  flow-sensitive cases. Generic calls are not callback facts. Resolved calls
+  branch-local assignments, `NULLIFY`, `NULL()`, and other flow-sensitive
+  cases. `has_reassignment=.true.` identifies the narrower refusal where two
+  or more direct same-scope pointer assignments touch the pointer; `NULLIFY`
+  does not set that flag. Generic calls are not callback facts. Resolved calls
   carry the same `signature` record as `query_procedure_target`, so a backend
   can compare ordered formal metadata without re-walking the AST. External
   targets remain identity-only when their interface is unavailable. This is a
@@ -418,8 +420,10 @@ end subroutine
   pointer/call identity, IF arm and merge boundaries, and source-ordered target
   records. `is_unresolved` and `is_refused` distinguish an incomplete proof.
   explicit flags cover loops, nested or missing branches, reassignment,
-  `NULL()`/`NULLIFY`, generic or ambiguous targets, incompatible signatures,
-  and calls inside an arm. Multi-line counted, concurrent, and `DO WHILE`
+  missing arm assignments, `NULL()`/`NULLIFY`, generic or ambiguous targets,
+  incompatible signatures, and calls inside an arm. `has_missing_assignment`
+  identifies an arm with no direct assignment; `has_reassignment` is reserved
+  for two or more assignments. Multi-line counted, concurrent, and `DO WHILE`
   constructs inside either arm are retained by the procedure parser and set
   `has_loop`/`is_refused` before any callback target is exposed. No callback
   target is guessed. The alias

@@ -274,8 +274,9 @@ module frontend_compiler_queries
         !! assignment before the call.  That assignment must resolve to an
         !! internal or external procedure.  A pointer call with no such
         !! proof leaves FOUND false and sets IS_UNRESOLVED; this includes
-        !! branches, reassignment, NULL(), generic calls, and other
-        !! flow-sensitive cases.
+        !! branches, NULL(), generic calls, and other flow-sensitive cases.
+        !! HAS_REASSIGNMENT is a narrower refusal fact for two or more direct
+        !! same-scope pointer assignments; NULLIFY does not set it.
         logical :: found = .false.
         integer :: call_node_index = 0
         ! Call nodes carry the callee name directly; for this bounded fact
@@ -294,6 +295,7 @@ module frontend_compiler_queries
         character(len=:), allocatable :: target_binding_name
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
+        logical :: has_reassignment = .false.
         type(procedure_signature_query_t) :: signature
     end type procedure_call_target_query_t
 
@@ -322,6 +324,7 @@ module frontend_compiler_queries
         logical :: has_reassignment = .false.
         logical :: has_null_assignment = .false.
         logical :: has_nullify = .false.
+        logical :: has_missing_assignment = .false.
         logical :: has_generic_target = .false.
         logical :: has_ambiguous_target = .false.
         logical :: has_incompatible_signature = .false.
@@ -1423,7 +1426,7 @@ contains
         integer, allocatable :: scope_indices(:)
         integer :: call_scope_statement, assignment_count
         integer :: assignment_index
-        logical :: is_call, has_non_direct_mutation
+        logical :: is_call, has_non_direct_mutation, has_reassignment
 
         call initialize_procedure_call_target_query(query)
         if (.not. arena%has_node_at(node_index)) return
@@ -1459,10 +1462,12 @@ contains
         assignment_count = 0
         assignment_index = 0
         has_non_direct_mutation = .false.
+        has_reassignment = .false.
         call find_pointer_mutations(arena, query%scope_node_index, &
             query%pointer_declaration_index, query%pointer_name, &
             scope_indices, assignment_count, assignment_index, &
-            has_non_direct_mutation)
+            has_non_direct_mutation, has_reassignment)
+        query%has_reassignment = has_reassignment
         if (assignment_count /= 1 .or. has_non_direct_mutation) return
         if (.not. index_precedes(scope_indices, assignment_index, &
             call_scope_statement)) return
@@ -1570,7 +1575,8 @@ contains
             query%pointer_declaration_index, query%pointer_name, else_target, query)
         if (query%has_loop .or. query%has_nested_branch .or. &
             query%has_reassignment .or. query%has_null_assignment .or. &
-            query%has_nullify .or. query%has_branch_call) then
+            query%has_nullify .or. query%has_missing_assignment .or. &
+            query%has_branch_call) then
             query%is_refused = .true.
             return
         end if
@@ -1665,7 +1671,8 @@ contains
             class default
             end select
         end do
-        if (count /= 1) query%has_reassignment = .true.
+        if (count == 0) query%has_missing_assignment = .true.
+        if (count > 1) query%has_reassignment = .true.
         if (target%found) then
             if (target%is_null) query%has_null_assignment = .true.
             if (target%is_unresolved) query%is_unresolved = .true.
@@ -1945,7 +1952,7 @@ contains
         integer :: i, scope_index, mutation_count, assignment_index
         integer :: call_statement
         integer, allocatable :: scope_indices(:)
-        logical :: has_non_direct_mutation
+        logical :: has_non_direct_mutation, has_reassignment
 
         call initialize_procedure_actual_argument_query(query)
         if (.not. arena%has_node_at(call_node_index)) return
@@ -2031,8 +2038,8 @@ contains
                         call find_pointer_mutations(arena, scope_index, &
                             actual_binding%declaration_node_index, query%actual_name, &
                             scope_indices, mutation_count, assignment_index, &
-                            has_non_direct_mutation)
-                        query%has_reassignment = mutation_count > 1
+                            has_non_direct_mutation, has_reassignment)
+                        query%has_reassignment = has_reassignment
                         query%has_branch_target = has_non_direct_mutation
                         call direct_scope_statement_for_node(arena, &
                             call_node_index, scope_index, call_statement)
@@ -4221,23 +4228,25 @@ contains
 
     subroutine find_pointer_mutations(arena, scope_index, declaration_index, &
             pointer_name, scope_indices, mutation_count, assignment_index, &
-            has_non_direct_mutation)
+            has_non_direct_mutation, has_reassignment)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: scope_index, declaration_index
         character(len=*), intent(in) :: pointer_name
         integer, intent(in) :: scope_indices(:)
         integer, intent(out) :: mutation_count, assignment_index
-        logical, intent(out) :: has_non_direct_mutation
+        logical, intent(out) :: has_non_direct_mutation, has_reassignment
         type(pointer_assignment_query_t) :: assignment
         type(declaration_binding_t) :: binding
         character(len=:), allocatable :: error_msg
         character(len=:), allocatable :: mutation_name
-        integer :: i, j
+        integer :: i, j, pointer_assignment_count
         logical :: matches
 
         mutation_count = 0
         assignment_index = 0
         has_non_direct_mutation = .false.
+        pointer_assignment_count = 0
+        has_reassignment = .false.
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             if (.not. index_in_list(scope_indices, i)) then
@@ -4258,6 +4267,7 @@ contains
                 end if
                 if (matches) then
                     mutation_count = mutation_count + 1
+                    pointer_assignment_count = pointer_assignment_count + 1
                     if (assignment_index == 0) assignment_index = i
                     if (.not. index_in_list(scope_indices, i)) then
                         has_non_direct_mutation = .true.
@@ -4285,6 +4295,7 @@ contains
             class default
             end select
         end do
+        has_reassignment = pointer_assignment_count > 1
     end subroutine find_pointer_mutations
 
     logical function index_in_list(indices, value) result(found)
