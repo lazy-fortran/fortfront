@@ -109,9 +109,13 @@ module frontend_compiler_queries
     public :: OWNERSHIP_ASSIGNMENT_NONE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
     public :: OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL
     public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
+    public :: POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE
+    public :: POLYMORPHIC_SOURCE_POLYMORPHIC
     public :: storage_query_t, ownership_event_query_t, component_path_query_t
+    public :: polymorphic_allocation_query_t
     public :: binding_resolution_query_t, global_reference_query_t
     public :: query_storage, query_ownership_events, query_component_path
+    public :: query_polymorphic_allocation
     public :: query_type_binding_resolution, query_active_global_references
     public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
     public :: query_type_binding_hierarchy
@@ -140,6 +144,10 @@ module frontend_compiler_queries
     integer, parameter :: ACCESS_READ = 1
     integer, parameter :: ACCESS_WRITE = 2
     integer, parameter :: ACCESS_READ_WRITE = 3
+
+    integer, parameter :: POLYMORPHIC_SOURCE_UNKNOWN = 0
+    integer, parameter :: POLYMORPHIC_SOURCE_CONCRETE = 1
+    integer, parameter :: POLYMORPHIC_SOURCE_POLYMORPHIC = 2
 
     ! Derived-type parameter formal (issue #2952)
     type :: type_parameter_t
@@ -350,6 +358,33 @@ module frontend_compiler_queries
         integer, allocatable :: component_declaration_indices(:)
     end type component_path_query_t
 
+    ! One deliberately bounded fact for a polymorphic ALLOCATE target.  FOUND
+    ! means that the allocation target is a directly resolved polymorphic
+    ! allocatable.  IS_BOUNDED is true only for one direct SOURCE= data
+    ! designator with a concrete declared derived type and one acquisition in
+    ! the enclosing scope.  The remaining flags make the refusal boundary
+    ! observable without asking a backend to guess from source text.
+    type :: polymorphic_allocation_query_t
+        logical :: found = .false.
+        logical :: is_bounded = .false.
+        integer :: allocation_node_index = 0
+        integer :: owner_node_index = 0
+        integer :: owner_declaration_index = 0
+        integer :: source_declaration_index = 0
+        integer :: source_expr_index = 0
+        integer :: source_classification = POLYMORPHIC_SOURCE_UNKNOWN
+        character(len=:), allocatable :: owner_declared_type
+        character(len=:), allocatable :: source_resolved_type
+        type(component_path_query_t) :: owner_path
+        type(component_path_query_t) :: source_path
+        logical :: is_source_concrete = .false.
+        logical :: is_source_polymorphic = .false.
+        logical :: is_source_unknown = .true.
+        logical :: is_factory_source = .false.
+        logical :: is_repeated_acquisition = .false.
+        logical :: is_alias = .false.
+    end type polymorphic_allocation_query_t
+
     type :: ownership_event_query_t
         logical :: found = .false.
         integer :: node_index = 0
@@ -371,6 +406,7 @@ module frontend_compiler_queries
         ! Assignment-specific names make the ownership direction explicit.
         type(component_path_query_t) :: lhs_owner_path
         type(component_path_query_t) :: rhs_owner_path
+        type(polymorphic_allocation_query_t) :: polymorphic_allocation
         integer :: lhs_rank = -1
         integer :: rhs_rank = -1
         integer :: assignment_kind = OWNERSHIP_ASSIGNMENT_NONE
@@ -3909,19 +3945,263 @@ contains
         end if
     end function query_component_path
 
+    function query_polymorphic_allocation(arena, allocation_node_index) result(query)
+        !! Return the bounded SOURCE= fact for one polymorphic allocation.
+        !!
+        !! FOUND identifies a directly resolved polymorphic allocatable target;
+        !! IS_BOUNDED additionally requires one scalar concrete data-designator
+        !! source and one acquisition in the enclosing scope.  Calls, dynamic
+        !! polymorphic sources, aliases, and repeated acquisitions remain
+        !! observable as unbounded facts rather than being guessed as concrete.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: allocation_node_index
+        type(polymorphic_allocation_query_t) :: query
+        type(storage_query_t) :: owner_storage, source_storage
+        type(allocate_statement_node) :: allocation
+        logical :: owner_alias, source_alias, has_type_spec
+        integer :: owner_index, scope_index
+
+        call initialize_polymorphic_allocation_query(query)
+        if (.not. arena%has_node_at(allocation_node_index)) return
+        select type (node => arena%entries(allocation_node_index)%node)
+            type is (allocate_statement_node)
+            allocation = node
+        class default
+            return
+        end select
+
+        query%allocation_node_index = allocation_node_index
+        query%source_expr_index = allocation%source_expr_index
+        has_type_spec = .false.
+        if (allocated(allocation%type_spec)) then
+            has_type_spec = len_trim(allocation%type_spec) > 0
+        end if
+        if (.not. allocated(allocation%var_indices)) return
+        if (size(allocation%var_indices) /= 1) return
+        owner_index = allocation%var_indices(1)
+        query%owner_node_index = owner_index
+        query%owner_path = ownership_path(arena, owner_index)
+        owner_alias = is_associate_selector_node(arena, owner_index)
+        if (owner_alias) query%is_alias = .true.
+
+        owner_storage = query_polymorphic_owner_storage(arena, owner_index)
+        if (.not. owner_storage%found) return
+        if (.not. owner_storage%is_allocatable) return
+        if (.not. owner_storage%is_polymorphic) return
+        if (owner_storage%is_pointer .or. owner_storage%is_target) then
+            query%is_alias = .true.
+        end if
+
+        query%found = .true.
+        query%owner_declaration_index = owner_storage%declaration_index
+        query%owner_declared_type = owner_storage%type_name
+        if (allocation%source_expr_index <= 0) return
+
+        query%source_path = ownership_path(arena, allocation%source_expr_index)
+        source_alias = is_associate_selector_node(arena, &
+            allocation%source_expr_index)
+        if (source_alias) query%is_alias = .true.
+        source_storage = query_designator_storage(arena, &
+            allocation%source_expr_index)
+        if (.not. source_storage%found) then
+            query%is_factory_source = is_factory_source_expression(arena, &
+                allocation%source_expr_index)
+            if (.not. query%is_factory_source) then
+                if (is_identifier_at(arena, allocation%source_expr_index)) then
+                    query%is_alias = .true.
+                end if
+            end if
+            return
+        end if
+
+        query%source_declaration_index = source_storage%declaration_index
+        if (source_storage%is_polymorphic) then
+            query%source_classification = POLYMORPHIC_SOURCE_POLYMORPHIC
+            query%is_source_concrete = .false.
+            query%is_source_polymorphic = .true.
+            query%is_source_unknown = .false.
+        else if (source_storage%is_concrete_derived .and. &
+                source_storage%rank == 0) then
+            query%source_classification = POLYMORPHIC_SOURCE_CONCRETE
+            query%source_resolved_type = derived_type_name_from_spec( &
+                source_storage%type_name)
+            query%is_source_concrete = len_trim(query%source_resolved_type) > 0
+            query%is_source_unknown = .not. query%is_source_concrete
+        end if
+        if (source_storage%is_pointer .or. source_storage%is_target .or. &
+            source_storage%is_allocatable) query%is_alias = .true.
+
+        scope_index = find_enclosing_scope(arena, allocation_node_index)
+        if (scope_index > 0) then
+            query%is_repeated_acquisition = has_repeated_polymorphic_acquisition( &
+                arena, allocation_node_index, owner_index, scope_index)
+        end if
+        query%is_bounded = query%is_source_concrete .and. &
+            .not. query%is_source_polymorphic .and. .not. query%is_alias .and. &
+            .not. query%is_factory_source .and. &
+            .not. query%is_repeated_acquisition .and. &
+            owner_storage%rank == 0 .and. source_storage%rank == 0 .and. &
+            allocation%mold_expr_index == 0 .and. .not. has_type_spec
+    end function query_polymorphic_allocation
+
+    subroutine initialize_polymorphic_allocation_query(query)
+        type(polymorphic_allocation_query_t), intent(out) :: query
+
+        call set_empty(query%owner_declared_type)
+        call set_empty(query%source_resolved_type)
+        call initialize_component_path_query(query%owner_path)
+        call initialize_component_path_query(query%source_path)
+    end subroutine initialize_polymorphic_allocation_query
+
+    logical function is_factory_source_expression(arena, node_index) result(is_factory)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_factory = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            if (.not. is_array_designator_node(arena, node_index)) then
+                is_factory = .true.
+            end if
+        class default
+        end select
+    end function is_factory_source_expression
+
+    logical function has_repeated_polymorphic_acquisition(arena, &
+            allocation_node_index, owner_index, scope_index) result(repeated)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: allocation_node_index, owner_index, scope_index
+        integer :: i, candidate_owner
+
+        repeated = .false.
+        do i = 1, arena%size
+            if (i == allocation_node_index) cycle
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. node_is_in_scope(arena, i, scope_index)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (allocate_statement_node)
+                if (.not. allocated(node%var_indices)) cycle
+                if (size(node%var_indices) /= 1) cycle
+                candidate_owner = node%var_indices(1)
+                if (same_allocation_owner(arena, owner_index, candidate_owner)) then
+                    repeated = .true.
+                    return
+                end if
+            class default
+            end select
+        end do
+    end function has_repeated_polymorphic_acquisition
+
+    logical function same_allocation_owner(arena, left_index, right_index) &
+            result(same)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: left_index, right_index
+        type(component_path_query_t) :: left_path, right_path
+        type(storage_query_t) :: left_base, right_base, left_storage, right_storage
+        integer :: i
+
+        same = .false.
+        left_path = query_component_path(arena, left_index)
+        right_path = query_component_path(arena, right_index)
+        if (left_path%found .neqv. right_path%found) return
+        if (left_path%found) then
+            if (size(left_path%component_names) /= &
+                size(right_path%component_names)) return
+            do i = 1, size(left_path%component_names)
+                if (.not. same_name(left_path%component_names(i), &
+                    right_path%component_names(i))) return
+            end do
+            left_base = query_designator_storage(arena, left_path%base_node_index)
+            right_base = query_designator_storage(arena, right_path%base_node_index)
+            if (.not. left_base%found .or. .not. right_base%found) return
+            if (left_base%declaration_index /= right_base%declaration_index) return
+            if (size(left_path%component_declaration_indices) /= &
+                size(right_path%component_declaration_indices)) return
+            do i = 1, size(left_path%component_declaration_indices)
+                if (left_path%component_declaration_indices(i) /= &
+                    right_path%component_declaration_indices(i)) return
+            end do
+            same = .true.
+            return
+        end if
+
+        left_storage = query_designator_storage(arena, left_index)
+        right_storage = query_designator_storage(arena, right_index)
+        if (.not. left_storage%found .or. .not. right_storage%found) return
+        same = left_storage%declaration_index == right_storage%declaration_index
+    end function same_allocation_owner
+
     function query_designator_storage(arena, node_index) result(query)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(storage_query_t) :: query
         type(declaration_query_t) :: declaration
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg, name
+        integer :: i, fallback_index, scope_index
 
         query = query_storage(arena, node_index)
         if (query%found) return
+        call identifier_name_at(arena, node_index, name)
+        if (len_trim(name) > 0) then
+            scope_index = find_enclosing_scope(arena, node_index)
+            fallback_index = 0
+            do i = 1, arena%size
+                if (.not. arena%has_node_at(i)) cycle
+                declaration = query_declaration(arena, i)
+                if (.not. declaration%found) cycle
+                if (.not. same_name(declaration%name, name)) cycle
+                if (scope_index > 0 .and. node_is_in_scope(arena, i, &
+                    scope_index)) then
+                    fallback_index = i
+                else if (fallback_index == 0) then
+                    fallback_index = i
+                end if
+            end do
+            if (fallback_index > 0) then
+                query = query_storage(arena, fallback_index)
+                if (query%found) return
+            end if
+        end if
+        call resolve_identifier_binding(arena, node_index, binding, error_msg)
+        if (binding%found) then
+            if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+            query = query_storage(arena, binding%declaration_node_index)
+            if (query%found) return
+        end if
         if (.not. is_array_designator_node(arena, node_index)) return
         call resolve_array_element_declaration(arena, node_index, declaration)
         if (.not. declaration%found) return
         query = query_storage(arena, declaration%node_index)
     end function query_designator_storage
+
+    function query_polymorphic_owner_storage(arena, node_index) result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t) :: query, candidate
+        type(declaration_query_t) :: declaration
+        character(len=:), allocatable :: name
+        integer :: i
+
+        query = query_designator_storage(arena, node_index)
+        if (query%found) then
+            if (query%is_allocatable .and. query%is_polymorphic) return
+        end if
+        call identifier_name_at(arena, node_index, name)
+        if (len_trim(name) == 0) return
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            declaration = query_declaration(arena, i)
+            if (.not. declaration%found) cycle
+            if (.not. same_name(declaration%name, name)) cycle
+            candidate = query_storage(arena, i)
+            if (.not. candidate%found) cycle
+            if (.not. candidate%is_allocatable) cycle
+            if (.not. candidate%is_polymorphic) cycle
+            query = candidate
+        end do
+    end function query_polymorphic_owner_storage
 
     function query_type_bound_call(arena, call_node_index) result(query)
         !! Resolve one type-bound call into receiver and binding facts.
@@ -5049,6 +5329,7 @@ contains
         call initialize_component_path_query(event%destination_path)
         call initialize_component_path_query(event%lhs_owner_path)
         call initialize_component_path_query(event%rhs_owner_path)
+        call initialize_polymorphic_allocation_query(event%polymorphic_allocation)
         event%found = .true.
         event%node_index = index
         select type (node => arena%entries(index)%node)
@@ -5070,6 +5351,7 @@ contains
                 event%source_path = ownership_path(arena, &
                     node%source_expr_index)
             end if
+            event%polymorphic_allocation = query_polymorphic_allocation(arena, index)
             type is (deallocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_DEALLOCATE
             call copy_integer_array(node%var_indices, event%object_indices)
