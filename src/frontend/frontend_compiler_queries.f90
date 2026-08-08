@@ -680,7 +680,11 @@ module frontend_compiler_queries
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: pass_name
         ! For expression-form calls, preserve the receiver's component path
-        ! instead of making consumers recover it from a flattened name.
+        ! instead of making consumers recover it from a flattened name.  An
+        ! explicit CALL may have no receiver AST node; in that case the path
+        ! can still carry semantically resolved component names and
+        ! declaration identities, while unavailable AST/shape facts remain
+        ! unset.
         type(component_path_query_t) :: receiver_path
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
@@ -5379,8 +5383,13 @@ contains
         if (.not. is_call) return
         if (len_trim(binding_name) == 0) return
         query%call_node_index = call_node_index
-        query%receiver_path = query_component_path(arena, &
-            query%receiver_node_index)
+        if (query%receiver_node_index > 0) then
+            query%receiver_path = query_component_path(arena, &
+                query%receiver_node_index)
+        else
+            call resolve_source_receiver_path(arena, call_node_index, &
+                query%receiver_name, query%receiver_path)
+        end if
 
         call resolve_type_bound_receiver(arena, call_node_index, &
             query%receiver_node_index, query%receiver_name, &
@@ -5447,6 +5456,115 @@ contains
         if (.not. query%is_resolved .and. .not. query%is_generic .and. &
             .not. query%is_deferred) query%is_unresolved = .true.
     end function query_type_bound_call
+
+    subroutine resolve_source_receiver_path(arena, call_node_index, name, path)
+        !! Resolve component identity for an explicit CALL receiver whose
+        !! parser representation is source-only (for example
+        !! ``call outer%inner%apply()``).  No AST component nodes are
+        !! manufactured: component_node_indices stay zero, and rank/section
+        !! facts that depend on the missing designator AST stay at their
+        !! initialized unknown values.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        character(len=*), intent(in) :: name
+        type(component_path_query_t), intent(inout) :: path
+        type(declaration_binding_t) :: binding
+        type(declaration_query_t) :: base_declaration, component_declaration
+        type(storage_query_t) :: base_storage, terminal_storage
+        character(len=:), allocatable :: base_name, remaining, component_name
+        character(len=:), allocatable :: type_name, error_msg
+        integer :: separator, start, derived_index, component_index
+
+        if (len_trim(name) == 0) return
+        path%found = .false.
+        separator = top_level_percent(name)
+        if (separator <= 0) return
+        base_name = trim(name(:separator - 1))
+        remaining = trim(name(separator + 1:))
+        if (len_trim(base_name) == 0 .or. len_trim(remaining) == 0) return
+
+        call resolve_name_at_node(arena, call_node_index, &
+            receiver_object_name(base_name), binding, error_msg)
+        if (.not. binding%found) return
+        if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+        base_declaration = query_declaration(arena, &
+            binding%declaration_node_index)
+        if (.not. base_declaration%found) return
+        base_storage = query_storage(arena, base_declaration%node_index)
+        if (.not. base_storage%found) return
+
+        type_name = declared_type_name(base_declaration%type_name)
+        start = 1
+        do
+            separator = top_level_percent(remaining(start:))
+            if (separator <= 0) then
+                component_name = trim(remaining(start:))
+            else
+                if (separator == 1) return
+                component_name = trim(remaining(start:start + separator - 2))
+            end if
+            component_name = receiver_object_name(component_name)
+            if (len_trim(component_name) == 0) return
+
+            derived_index = find_derived_type_by_name(arena, type_name)
+            if (derived_index <= 0) return
+            component_index = find_component_declaration_in_hierarchy(arena, &
+                derived_index, component_name)
+            if (component_index <= 0) return
+            component_declaration = query_declaration(arena, component_index)
+            if (.not. component_declaration%found) return
+            terminal_storage = query_storage(arena, component_index)
+            if (.not. terminal_storage%found) return
+
+            call append_dispatch_character(path%component_names, &
+                component_declaration%name)
+            call append_dispatch_integer(path%component_node_indices, 0)
+            call append_dispatch_integer(path%component_declaration_indices, &
+                component_index)
+            type_name = declared_type_name(component_declaration%type_name)
+            if (separator <= 0) exit
+            start = start + separator
+            if (start > len(remaining)) return
+        end do
+
+        path%storage_class = terminal_storage%storage_class
+        path%base_storage_class = base_storage%storage_class
+        path%is_derived = terminal_storage%is_derived
+        path%is_concrete_derived = terminal_storage%is_concrete_derived
+        path%is_abstract_type = terminal_storage%is_abstract_type
+        path%is_allocatable = terminal_storage%is_allocatable
+        path%is_pointer = terminal_storage%is_pointer
+        path%is_polymorphic = terminal_storage%is_polymorphic
+        path%is_unlimited_polymorphic = terminal_storage%is_unlimited_polymorphic
+        path%is_array_element = .false.
+        path%is_array_section = .false.
+        path%base_rank = -1
+        path%rank = -1
+        path%found = size(path%component_declaration_indices) > 0
+    end subroutine resolve_source_receiver_path
+
+    integer function top_level_percent(text) result(position)
+        character(len=*), intent(in) :: text
+        integer :: i, depth
+        character :: ch
+
+        position = 0
+        depth = 0
+        do i = 1, len_trim(text)
+            ch = text(i:i)
+            select case (ch)
+            case ('(', '[')
+                depth = depth + 1
+            case (')', ']')
+                if (depth > 0) depth = depth - 1
+            case ('%')
+                if (depth == 0) then
+                    position = i
+                    return
+                end if
+            end select
+        end do
+    end function top_level_percent
 
     function query_type_binding_resolution(arena, derived_type_index, &
             binding_name) result(query)
