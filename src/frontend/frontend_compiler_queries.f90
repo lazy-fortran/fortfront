@@ -102,7 +102,7 @@ module frontend_compiler_queries
     public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
     public :: OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC
-    public :: OWNERSHIP_EVENT_NULLIFY
+    public :: OWNERSHIP_EVENT_NULLIFY, OWNERSHIP_EVENT_ASSIGNMENT
     public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
     public :: storage_query_t, ownership_event_query_t, component_path_query_t
     public :: binding_resolution_query_t, global_reference_query_t
@@ -125,6 +125,7 @@ module frontend_compiler_queries
     integer, parameter :: OWNERSHIP_EVENT_POINTER_ASSIGN = 3
     integer, parameter :: OWNERSHIP_EVENT_MOVE_ALLOC = 4
     integer, parameter :: OWNERSHIP_EVENT_NULLIFY = 5
+    integer, parameter :: OWNERSHIP_EVENT_ASSIGNMENT = 6
 
     integer, parameter :: ACCESS_READ = 1
     integer, parameter :: ACCESS_WRITE = 2
@@ -311,6 +312,14 @@ module frontend_compiler_queries
         logical :: is_common_state = .false.
     end type storage_query_t
 
+    type :: component_path_query_t
+        logical :: found = .false.
+        integer :: node_index = 0
+        integer :: base_node_index = 0
+        character(len=:), allocatable :: component_names(:)
+        integer, allocatable :: component_node_indices(:)
+    end type component_path_query_t
+
     type :: ownership_event_query_t
         logical :: found = .false.
         integer :: node_index = 0
@@ -321,15 +330,14 @@ module frontend_compiler_queries
         ! ALLOCATE SOURCE=/MOLD= expression indices, when present.
         integer :: source_expr_index = 0
         integer :: mold_expr_index = 0
+        ! Paths retain the existing component-path representation, including
+        ! the base node for a plain identifier or array reference.
+        type(component_path_query_t) :: owner_path
+        type(component_path_query_t) :: source_path
+        type(component_path_query_t) :: destination_path
+        logical :: is_potential_automatic_reallocation = .false.
+        logical :: is_explicit_ownership_transfer = .false.
     end type ownership_event_query_t
-
-    type :: component_path_query_t
-        logical :: found = .false.
-        integer :: node_index = 0
-        integer :: base_node_index = 0
-        character(len=:), allocatable :: component_names(:)
-        integer, allocatable :: component_node_indices(:)
-    end type component_path_query_t
 
     type :: binding_resolution_query_t
         logical :: found = .false.
@@ -4378,7 +4386,7 @@ contains
                 pass_index = i
                 exit
             end do
-            class default
+        class default
             return
         end select
 
@@ -4565,9 +4573,36 @@ contains
             type is (subroutine_call_node)
             is_ownership_event = allocated(node%name) .and. &
                 same_name(node%name, 'move_alloc')
+            type is (assignment_node)
+            is_ownership_event = is_potential_reallocation_assignment(arena, index)
         class default
         end select
     end function is_ownership_event
+
+    logical function is_potential_reallocation_assignment(arena, index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        type(storage_query_t) :: storage
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+
+        is_potential_reallocation_assignment = .false.
+        select type (node => arena%entries(index)%node)
+            type is (assignment_node)
+            if (node%is_keyword_argument) return
+            storage = query_storage(arena, node%target_index)
+            if (.not. storage%found) then
+                call resolve_identifier_binding(arena, node%target_index, binding, &
+                    error_msg)
+                if (binding%found) then
+                    storage = query_storage(arena, binding%declaration_node_index)
+                end if
+            end if
+            is_potential_reallocation_assignment = storage%found .and. &
+                storage%is_allocatable
+        class default
+        end select
+    end function is_potential_reallocation_assignment
 
     function ownership_event(arena, index) result(event)
         type(ast_arena_t), intent(in) :: arena
@@ -4575,6 +4610,9 @@ contains
         type(ownership_event_query_t) :: event
 
         allocate (event%object_indices(0))
+        call initialize_component_path_query(event%owner_path)
+        call initialize_component_path_query(event%source_path)
+        call initialize_component_path_query(event%destination_path)
         event%found = .true.
         event%node_index = index
         select type (node => arena%entries(index)%node)
@@ -4583,9 +4621,21 @@ contains
             call copy_integer_array(node%var_indices, event%object_indices)
             event%source_expr_index = node%source_expr_index
             event%mold_expr_index = node%mold_expr_index
+            if (allocated(node%var_indices)) then
+                if (size(node%var_indices) > 0) event%owner_path = &
+                    ownership_path(arena, node%var_indices(1))
+            end if
+            if (node%source_expr_index > 0) then
+                event%source_path = ownership_path(arena, &
+                    node%source_expr_index)
+            end if
             type is (deallocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_DEALLOCATE
             call copy_integer_array(node%var_indices, event%object_indices)
+            if (allocated(node%var_indices)) then
+                if (size(node%var_indices) > 0) event%owner_path = &
+                    ownership_path(arena, node%var_indices(1))
+            end if
             type is (pointer_assignment_node)
             event%event_kind = OWNERSHIP_EVENT_POINTER_ASSIGN
             event%source_index = node%target_index
@@ -4595,16 +4645,38 @@ contains
             call copy_integer_array(node%pointer_indices, event%object_indices)
             type is (subroutine_call_node)
             event%event_kind = OWNERSHIP_EVENT_MOVE_ALLOC
+            event%is_explicit_ownership_transfer = .true.
             if (allocated(node%arg_indices)) then
                 event%object_indices = node%arg_indices
                 if (size(node%arg_indices) >= 2) then
                     event%source_index = node%arg_indices(1)
                     event%target_index = node%arg_indices(2)
+                    event%source_path = ownership_path(arena, &
+                        node%arg_indices(1))
+                    event%destination_path = ownership_path(arena, &
+                        node%arg_indices(2))
                 end if
             end if
+            type is (assignment_node)
+            event%event_kind = OWNERSHIP_EVENT_ASSIGNMENT
+            event%is_potential_automatic_reallocation = .true.
+            event%source_path = ownership_path(arena, node%value_index)
+            event%destination_path = ownership_path(arena, node%target_index)
+            event%owner_path = event%destination_path
         class default
         end select
     end function ownership_event
+
+    function ownership_path(arena, node_index) result(path)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(component_path_query_t) :: path
+
+        path = query_component_path(arena, node_index)
+        if (.not. arena%has_node_at(node_index)) return
+        path%node_index = node_index
+        if (path%base_node_index == 0) path%base_node_index = node_index
+    end function ownership_path
 
     logical function node_is_in_scope(arena, node_index, scope_index)
         type(ast_arena_t), intent(in) :: arena

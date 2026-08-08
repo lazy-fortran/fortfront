@@ -52,7 +52,7 @@ module fortfront_compiler
         STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON, &
         OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE, &
         OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC, &
-        OWNERSHIP_EVENT_NULLIFY, &
+        OWNERSHIP_EVENT_NULLIFY, OWNERSHIP_EVENT_ASSIGNMENT, &
         ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, &
         storage_query_t, ownership_event_query_t, component_path_query_t, &
         binding_resolution_query_t, global_reference_query_t, &
