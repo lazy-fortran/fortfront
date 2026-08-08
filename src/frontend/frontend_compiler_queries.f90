@@ -105,6 +105,8 @@ module frontend_compiler_queries
     public :: procedure_call_target_query_t, query_procedure_call_target
     public :: procedure_dummy_query_t, procedure_signature_query_t
     public :: query_procedure_signature
+    public :: procedure_actual_argument_query_t
+    public :: query_procedure_actual_argument
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
@@ -395,6 +397,36 @@ module frontend_compiler_queries
         logical :: is_refused = .false.
         type(call_argument_query_t), allocatable :: arguments(:)
     end type call_arguments_query_t
+
+    type :: procedure_actual_argument_query_t
+        !! One bounded procedure actual-to-formal mapping.
+        !!
+        !! FOUND means that CALL_NODE_INDEX resolved to a same-arena call and
+        !! FORMAL_NAME identifies a procedure dummy in that call.  A direct
+        !! contained function or subroutine actual is the only target for
+        !! which IS_RESOLVED is set and SIGNATURE is populated.  Procedure
+        !! pointers, procedure dummies, external/contextual names, generic
+        !! names, and non-identifiers remain refusal-only facts.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: has_reassignment = .false.
+        logical :: has_contextual_target = .false.
+        logical :: has_ambiguous_target = .false.
+        integer :: call_node_index = 0
+        integer :: formal_node_index = 0
+        integer :: actual_node_index = 0
+        integer :: actual_value_node_index = 0
+        integer :: target_procedure_index = 0
+        integer :: target_declaration_index = 0
+        integer :: target_binding_node_index = 0
+        character(len=:), allocatable :: formal_name
+        character(len=:), allocatable :: actual_name
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: procedure_kind
+        type(procedure_signature_query_t) :: signature
+    end type procedure_actual_argument_query_t
 
     ! Exact generic-candidate facts for compiler consumers.  The query does
     ! not apply implicit conversions or dynamic dispatch: a candidate is an
@@ -1883,6 +1915,129 @@ contains
         query%procedure_kind = procedure%unit_kind
     end function query_call_arguments
 
+    function query_procedure_actual_argument(arena, call_node_index, &
+            formal_name) result(query)
+        !! Join one procedure actual with a named procedure dummy.
+        !!
+        !! The call mapping is obtained from QUERY_CALL_ARGUMENTS.  A target
+        !! is exposed only when the mapped actual is an identifier that the
+        !! resolver binds directly to a same-arena function or subroutine.
+        !! Pointer and dummy actuals are contextual targets, so even a single
+        !! visible assignment is not promoted to a target proof here.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        character(len=*), intent(in) :: formal_name
+        type(procedure_actual_argument_query_t) :: query
+        type(call_arguments_query_t) :: call_query
+        type(call_argument_query_t) :: argument
+        type(declaration_query_t) :: formal_declaration, actual_declaration
+        type(declaration_binding_t) :: actual_binding
+        character(len=:), allocatable :: actual_error
+        integer :: i, scope_index, mutation_count, assignment_index
+        integer, allocatable :: scope_indices(:)
+        logical :: has_non_direct_mutation
+
+        call initialize_procedure_actual_argument_query(query)
+        if (.not. arena%has_node_at(call_node_index)) return
+        if (len_trim(formal_name) == 0) return
+
+        call_query = query_call_arguments(arena, call_node_index)
+        if (.not. call_query%found) return
+        do i = 1, size(call_query%arguments)
+            if (.not. same_name(call_query%arguments(i)%formal_name, &
+                    formal_name)) cycle
+            argument = call_query%arguments(i)
+            formal_declaration = query_declaration(arena, &
+                argument%formal_node_index)
+            if (.not. is_procedure_dummy_declaration(formal_declaration)) return
+
+            query%found = .true.
+            query%call_node_index = call_node_index
+            query%formal_node_index = argument%formal_node_index
+            query%formal_name = argument%formal_name
+            query%actual_node_index = argument%actual_node_index
+            query%actual_value_node_index = argument%actual_value_node_index
+            if (.not. argument%is_supplied) then
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            end if
+
+            call identifier_name_at(arena, argument%actual_value_node_index, &
+                query%actual_name)
+            if (.not. is_identifier_at(arena, argument%actual_value_node_index)) then
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            end if
+
+            call resolve_identifier_binding(arena, &
+                argument%actual_value_node_index, actual_binding, actual_error)
+            if (.not. actual_binding%found) then
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            end if
+
+            select case (actual_binding%binding_kind)
+            case (BINDING_FUNCTION, BINDING_SUBROUTINE)
+                if (actual_binding%node_index <= 0) then
+                    query%is_unresolved = .true.
+                    query%is_refused = .true.
+                    return
+                end if
+                query%target_procedure_index = actual_binding%node_index
+                query%target_binding_node_index = actual_binding%node_index
+                query%procedure_name = actual_binding%name
+                if (actual_binding%binding_kind == BINDING_FUNCTION) then
+                    query%procedure_kind = 'function'
+                else
+                    query%procedure_kind = 'subroutine'
+                end if
+                call fill_procedure_signature(arena, actual_binding%node_index, &
+                    query%signature)
+                if (.not. query%signature%found) then
+                    query%is_unresolved = .true.
+                    query%is_refused = .true.
+                    return
+                end if
+                query%is_resolved = .true.
+                return
+            case (BINDING_GENERIC_INTERFACE)
+                query%has_ambiguous_target = .true.
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            case (BINDING_DECLARATION, BINDING_ASSOCIATE_NAME)
+                actual_declaration = query_declaration(arena, &
+                    actual_binding%declaration_node_index)
+                query%has_contextual_target = .true.
+                if (is_procedure_pointer_declaration(actual_declaration)) then
+                    scope_index = find_enclosing_scope(arena, &
+                        argument%actual_value_node_index)
+                    if (scope_index > 0) then
+                        call get_scope_statement_indices(arena, scope_index, &
+                            scope_indices)
+                        call find_pointer_mutations(arena, scope_index, &
+                            actual_binding%declaration_node_index, query%actual_name, &
+                            scope_indices, mutation_count, assignment_index, &
+                            has_non_direct_mutation)
+                        query%has_reassignment = mutation_count > 1 .or. &
+                            has_non_direct_mutation
+                        query%has_ambiguous_target = query%has_reassignment
+                    end if
+                end if
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            case default
+                query%is_unresolved = .true.
+                query%is_refused = .true.
+                return
+            end select
+        end do
+    end function query_procedure_actual_argument
+
     subroutine initialize_call_argument_query(query)
         type(call_argument_query_t), intent(out) :: query
 
@@ -1891,6 +2046,16 @@ contains
         call set_empty(query%formal_type_category)
         call set_empty(query%actual_derived_type_name)
     end subroutine initialize_call_argument_query
+
+    subroutine initialize_procedure_actual_argument_query(query)
+        type(procedure_actual_argument_query_t), intent(out) :: query
+
+        call set_empty(query%formal_name)
+        call set_empty(query%actual_name)
+        call set_empty(query%procedure_name)
+        call set_empty(query%procedure_kind)
+        call initialize_procedure_signature_query(query%signature)
+    end subroutine initialize_procedure_actual_argument_query
 
     logical function is_procedure_dummy_declaration(query) result(is_procedure)
         type(declaration_query_t), intent(in) :: query

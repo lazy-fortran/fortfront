@@ -172,6 +172,13 @@ end subroutine
   aliases, or an unresolved callback. Unresolved procedures, ambiguous
   generic calls, array accesses, and invalid argument lists return
   `found=.false.` rather than guessing.
+- **Passed-procedure mapping**: `query_procedure_actual_argument` joins one
+  named procedure dummy from `query_call_arguments` to a direct same-arena
+  function or subroutine actual. Only that proven target receives its
+  procedure identity and `procedure_signature_query_t`; procedure pointers,
+  procedure dummies, branch/reassignment contexts, generic names, and
+  non-identifiers remain refusal-only facts with `is_unresolved` and explicit
+  context, reassignment, or ambiguity flags.
 - **Generic candidate query**: `query_generic_call` enumerates the concrete
   procedures in a same-arena named generic interface and exposes each formal's
   semantic type category, exact kind, rank, and derived-type identity. A

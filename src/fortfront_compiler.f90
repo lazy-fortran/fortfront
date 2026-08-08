@@ -66,6 +66,7 @@ module fortfront_compiler
         query_type_binding_hierarchy, &
         type_bound_call_query_t, query_type_bound_call, &
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
+        procedure_actual_argument_query_t, query_procedure_actual_argument, &
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
         query_generic_call
     use frontend_compiler_diagnostics, only: compiler_diagnostic_t, &
