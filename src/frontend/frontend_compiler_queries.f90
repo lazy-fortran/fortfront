@@ -403,10 +403,13 @@ module frontend_compiler_queries
         !!
         !! FOUND means that CALL_NODE_INDEX resolved to a same-arena call and
         !! FORMAL_NAME identifies a procedure dummy in that call.  A direct
-        !! contained function or subroutine actual is the only target for
-        !! which IS_RESOLVED is set and SIGNATURE is populated.  Procedure
-        !! pointers, procedure dummies, external/contextual names, generic
-        !! names, and non-identifiers remain refusal-only facts.
+        !! contained function or subroutine actual, or a procedure pointer
+        !! with exactly one unconditional direct assignment before the call,
+        !! is the only target for which IS_RESOLVED is set and SIGNATURE is
+        !! populated.  Procedure dummies, external/contextual names, generic
+        !! names, and non-identifiers remain refusal-only facts.  Pointer
+        !! targets retain explicit branch, NULL, reassignment, and unresolved
+        !! target flags; no flow-sensitive state is guessed.
         logical :: found = .false.
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
@@ -414,10 +417,15 @@ module frontend_compiler_queries
         logical :: has_reassignment = .false.
         logical :: has_contextual_target = .false.
         logical :: has_ambiguous_target = .false.
+        logical :: has_branch_target = .false.
+        logical :: has_null_target = .false.
+        logical :: has_unresolved_target = .false.
         integer :: call_node_index = 0
         integer :: formal_node_index = 0
         integer :: actual_node_index = 0
         integer :: actual_value_node_index = 0
+        integer :: target_assignment_node_index = 0
+        integer :: target_node_index = 0
         integer :: target_procedure_index = 0
         integer :: target_declaration_index = 0
         integer :: target_binding_node_index = 0
@@ -1920,10 +1928,10 @@ contains
         !! Join one procedure actual with a named procedure dummy.
         !!
         !! The call mapping is obtained from QUERY_CALL_ARGUMENTS.  A target
-        !! is exposed only when the mapped actual is an identifier that the
-        !! resolver binds directly to a same-arena function or subroutine.
-        !! Pointer and dummy actuals are contextual targets, so even a single
-        !! visible assignment is not promoted to a target proof here.
+        !! is exposed when the mapped actual is either a directly resolved
+        !! same-arena function or subroutine, or a procedure pointer with one
+        !! unconditional direct assignment before this call.  Procedure
+        !! dummies and other contextual targets remain refusal-only facts.
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: call_node_index
         character(len=*), intent(in) :: formal_name
@@ -1932,8 +1940,10 @@ contains
         type(call_argument_query_t) :: argument
         type(declaration_query_t) :: formal_declaration, actual_declaration
         type(declaration_binding_t) :: actual_binding
+        type(procedure_target_query_t) :: pointer_target
         character(len=:), allocatable :: actual_error
         integer :: i, scope_index, mutation_count, assignment_index
+        integer :: call_statement
         integer, allocatable :: scope_indices(:)
         logical :: has_non_direct_mutation
 
@@ -2022,9 +2032,58 @@ contains
                             actual_binding%declaration_node_index, query%actual_name, &
                             scope_indices, mutation_count, assignment_index, &
                             has_non_direct_mutation)
-                        query%has_reassignment = mutation_count > 1 .or. &
-                            has_non_direct_mutation
-                        query%has_ambiguous_target = query%has_reassignment
+                        query%has_reassignment = mutation_count > 1
+                        query%has_branch_target = has_non_direct_mutation
+                        call direct_scope_statement_for_node(arena, &
+                            call_node_index, scope_index, call_statement)
+                        if (mutation_count /= 1 .or. has_non_direct_mutation .or. &
+                                call_statement <= 0 .or. &
+                                .not. index_precedes(scope_indices, &
+                                assignment_index, call_statement)) then
+                            query%has_ambiguous_target = .true.
+                            query%has_unresolved_target = .true.
+                            query%is_unresolved = .true.
+                            query%is_refused = .true.
+                            return
+                        end if
+
+                        pointer_target = query_procedure_target(arena, &
+                            assignment_index)
+                        if (.not. pointer_target%found) then
+                            query%has_unresolved_target = .true.
+                            query%is_unresolved = .true.
+                            query%is_refused = .true.
+                            return
+                        end if
+                        query%target_assignment_node_index = &
+                            pointer_target%assignment_node_index
+                        query%target_node_index = pointer_target%target_node_index
+                        if (pointer_target%is_null) then
+                            query%has_null_target = .true.
+                            query%has_unresolved_target = .true.
+                            query%is_unresolved = .true.
+                            query%is_refused = .true.
+                            return
+                        end if
+                        if (.not. pointer_target%is_resolved .or. &
+                                .not. pointer_target%signature%found) then
+                            query%has_unresolved_target = .true.
+                            query%is_unresolved = .true.
+                            query%is_refused = .true.
+                            return
+                        end if
+                        query%target_procedure_index = &
+                            pointer_target%target_procedure_index
+                        query%target_declaration_index = &
+                            pointer_target%target_declaration_index
+                        query%target_binding_node_index = &
+                            pointer_target%binding_node_index
+                        query%procedure_name = pointer_target%procedure_name
+                        query%signature = pointer_target%signature
+                        query%is_resolved = .true.
+                        query%is_unresolved = .false.
+                        query%is_refused = .false.
+                        return
                     end if
                 end if
                 query%is_unresolved = .true.

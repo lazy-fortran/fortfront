@@ -57,6 +57,19 @@ instantiable runtime arms. The regression oracle is
 leaf to retain the inherited implementation while the abstract intermediate
 is absent.
 
+### Bounded passed-procedure pointer actuals (2026-08-09)
+
+`query_procedure_actual_argument` now composes the existing procedure-pointer
+assignment facts with a call's procedure-dummy mapping. It resolves a pointer
+actual only when one same-scope direct assignment precedes the call and the
+target has a complete same-arena signature. The result retains the assignment
+and target node identities, so FortAD can lower the callback without walking
+the arena or guessing from the pointer name. Branch-local targets,
+reassignment, `NULL()`, unresolved targets, procedure dummies, and generic
+names remain explicit refusals through dedicated boundary flags. The
+independent GNU syntax/API oracle is
+`test/api/test_procedure_actual_mapping_query.f90`.
+
 ### Tapenade v290 derived-component metadata (2026-08-08)
 
 The derived-type collector now gives each component entity its own declaration
