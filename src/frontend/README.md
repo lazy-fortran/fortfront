@@ -190,8 +190,12 @@ end subroutine
   unresolved implementation. Finally,
   `query_type_bound_call` combines a call site's receiver and binding with
   that resolution metadata. It reports the declared receiver type, effective
-  implementation, PASS, interface, and concrete descendant dispatch targets;
-  generic, ambiguous, deferred, and unresolved/refused cases remain marked
+  implementation, PASS, interface, and concrete descendant dispatch targets.
+  For expression-form calls, `receiver_path` preserves the receiver's
+  component names and AST nodes (for example the `inner` component in
+  `outer%inner%method`); explicit `CALL` statements retain the exact nested
+  designator in `receiver_name` when their syntax has no receiver AST node.
+  Generic, ambiguous, deferred, and unresolved/refused cases remain marked
   without selecting a runtime procedure. Finally,
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a

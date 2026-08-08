@@ -435,6 +435,9 @@ module frontend_compiler_queries
         character(len=:), allocatable :: implementation
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: pass_name
+        ! For expression-form calls, preserve the receiver's component path
+        ! instead of making consumers recover it from a flattened name.
+        type(component_path_query_t) :: receiver_path
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
     end type type_bound_call_query_t
@@ -3547,6 +3550,8 @@ contains
         if (.not. is_call) return
         if (len_trim(binding_name) == 0) return
         query%call_node_index = call_node_index
+        query%receiver_path = query_component_path(arena, &
+            query%receiver_node_index)
 
         call resolve_type_bound_receiver(arena, call_node_index, &
             query%receiver_node_index, query%receiver_name, &
@@ -3939,9 +3944,17 @@ contains
         call set_empty(query%implementation)
         call set_empty(query%interface_name)
         call set_empty(query%pass_name)
+        call initialize_component_path_query(query%receiver_path)
         allocate (query%dispatch_target_type_indices(0))
         allocate (character(len=1) :: query%dispatch_target_implementations(0))
     end subroutine initialize_type_bound_call_query
+
+    subroutine initialize_component_path_query(query)
+        type(component_path_query_t), intent(out) :: query
+
+        allocate (character(len=1) :: query%component_names(0))
+        allocate (query%component_node_indices(0))
+    end subroutine initialize_component_path_query
 
     subroutine get_type_bound_call_parts(arena, call_node_index, &
             receiver_node_index, receiver_name, binding_name, is_call)
@@ -3964,11 +3977,10 @@ contains
             type is (subroutine_call_node)
             if (.not. allocated(node%name)) return
             designator = trim(node%name)
-            separator = index(designator, '%')
+            separator = index(designator, '%', back=.true.)
             if (separator <= 1) return
             receiver_name = trim(designator(:separator - 1))
             binding_name = trim(designator(separator + 1:))
-            if (index(receiver_name, '%') > 0) return
             if (index(receiver_name, '(') > 0) return
             if (index(receiver_name, '[') > 0) return
             if (index(binding_name, '%') > 0) return
@@ -4040,6 +4052,12 @@ contains
                     type_name = trim(resolved%derived_type_name)
                 end if
             end if
+            if (len_trim(type_name) == 0 .and. len_trim(receiver_name) > 0) then
+                call resolve_receiver_designator(arena, call_node_index, &
+                    receiver_name, binding, type_name)
+                if (binding%found) declaration_index = &
+                    binding%declaration_node_index
+            end if
         end if
 
         if (receiver_node_index > 0) then
@@ -4053,8 +4071,8 @@ contains
             end select
         else
             if (len_trim(receiver_name) > 0) then
-                call resolve_name_at_node(arena, call_node_index, &
-                    receiver_name, binding, error_msg)
+                call resolve_receiver_designator(arena, call_node_index, &
+                    receiver_name, binding, type_name)
                 if (binding%found) declaration_index = &
                     binding%declaration_node_index
             end if
@@ -4064,9 +4082,102 @@ contains
         declaration = query_declaration(arena, declaration_index)
         if (.not. declaration%found) return
         if (len_trim(declaration%type_name) > 0) then
-            type_name = declared_type_name(declaration%type_name)
+            if (len_trim(type_name) == 0) then
+                type_name = declared_type_name(declaration%type_name)
+            end if
         end if
     end subroutine resolve_type_bound_receiver
+
+    subroutine resolve_receiver_designator(arena, call_node_index, name, &
+            binding, type_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        character(len=*), intent(in) :: name
+        type(declaration_binding_t), intent(out) :: binding
+        character(len=:), allocatable, intent(out) :: type_name
+        character(len=:), allocatable :: base_name, remaining
+        character(len=:), allocatable :: component_name, component_type
+        character(len=:), allocatable :: error_msg
+        type(declaration_query_t) :: declaration, component_declaration
+        type(derived_type_query_t) :: derived
+        integer :: separator, start, derived_index, component_index
+
+        binding%found = .false.
+        binding%declaration_node_index = 0
+        call set_empty(type_name)
+        separator = index(trim(name), '%')
+        if (separator <= 0) then
+            call resolve_name_at_node(arena, call_node_index, trim(name), &
+                binding, error_msg)
+            return
+        end if
+
+        base_name = trim(name(:separator - 1))
+        call resolve_name_at_node(arena, call_node_index, base_name, binding, &
+            error_msg)
+        if (.not. binding%found) return
+        declaration = query_declaration(arena, binding%declaration_node_index)
+        if (.not. declaration%found) return
+        type_name = declared_type_name(declaration%type_name)
+        remaining = trim(name(separator + 1:))
+        start = 1
+        do
+            separator = index(remaining(start:), '%')
+            if (separator <= 0) then
+                component_name = trim(remaining(start:))
+            else
+                component_name = trim(remaining(start:start + separator - 2))
+            end if
+            if (len_trim(component_name) == 0) then
+                call set_empty(type_name)
+                return
+            end if
+            derived_index = find_derived_type_by_name(arena, type_name)
+            if (derived_index <= 0) then
+                call set_empty(type_name)
+                return
+            end if
+            derived = query_derived_type(arena, derived_index)
+            component_index = find_component_declaration(arena, derived, &
+                component_name)
+            if (component_index <= 0) then
+                call set_empty(type_name)
+                return
+            end if
+            component_declaration = query_declaration(arena, component_index)
+            if (.not. component_declaration%found) then
+                call set_empty(type_name)
+                return
+            end if
+            component_type = declared_type_name(component_declaration%type_name)
+            type_name = component_type
+            if (separator <= 0) exit
+            start = start + separator
+            if (start > len(remaining)) then
+                call set_empty(type_name)
+                return
+            end if
+        end do
+    end subroutine resolve_receiver_designator
+
+    integer function find_component_declaration(arena, derived, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_query_t), intent(in) :: derived
+        character(len=*), intent(in) :: name
+        type(declaration_query_t) :: declaration
+        integer :: i, candidate
+
+        index = 0
+        do i = 1, size(derived%component_indices)
+            candidate = derived%component_indices(i)
+            declaration = query_declaration(arena, candidate)
+            if (.not. declaration%found) cycle
+            if (same_name(declaration%name, name)) then
+                index = candidate
+                return
+            end if
+        end do
+    end function find_component_declaration
 
     function declared_type_name(source) result(name)
         character(len=*), intent(in) :: source
