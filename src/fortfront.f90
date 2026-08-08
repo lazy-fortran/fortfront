@@ -83,6 +83,8 @@ module fortfront
         OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL, &
         ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, storage_query_t, &
         ownership_event_query_t, component_path_query_t, &
+        associate_selector_query_t, query_associate_selector, &
+        query_associate_selectors, &
         polymorphic_allocation_query_t, &
         POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE, &
         POLYMORPHIC_SOURCE_POLYMORPHIC, &

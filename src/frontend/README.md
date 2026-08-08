@@ -236,6 +236,19 @@ end subroutine
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
+- **ASSOCIATE selector query**: `query_associate_selectors` returns one
+  `associate_selector_query_t` per association. The record identifies the
+  ASSOCIATE node, association ordinal, selector expression, storage
+  declaration, base node, and component path. It also reports resolved
+  semantic type kind, declared and known dynamic type names, array-element
+  rank, alias status, pointer and polymorphic boundaries, and aggregate
+  read/write use in the construct body. `query_associate_selector` accepts
+  an ASSOCIATE node plus an optional ordinal or a selector expression node.
+  Direct component and array-element designators are aliases only when their
+  storage identity resolves. Expressions have no storage identity and are
+  read-only. Pointer targets, polymorphic dynamic types, unresolved selector
+  storage, and ambiguous call accesses set explicit boundary flags and do not
+  receive a guessed target or dynamic type.
 - **Type-bound dispatch signatures**: `query_type_bound_call` preserves the
   existing dispatch target type and implementation arrays and adds parallel
   implementation procedure node indices, effective PASS names, positions,

@@ -267,6 +267,29 @@ case. Factories, dynamic polymorphic sources, repeated acquisition, and
 aliases remain explicit unknown or refusal facts rather than being guessed;
 use `source_classification` and the corresponding `is_*` flags to branch.
 
+## ASSOCIATE selector facts
+
+`query_associate_selectors(arena, associate_node_index)` returns facts for the
+selector expressions in one ASSOCIATE construct. Each
+`associate_selector_query_t` carries the selector expression index, association
+name and ordinal, storage declaration identity, base node, component path, and
+semantic type fields. `selector_storage` retains the existing storage facts,
+while `selector_path` retains ordered component and component-declaration
+indices.
+
+The query is bounded at the construct body. `has_read_reference` and
+`has_write_reference` describe direct uses of the association name. A call use
+sets `has_ambiguous_access` and `is_alias_boundary`, because a downstream
+transformer cannot infer the callee's dummy intent from this query. Direct
+component and array-element designators set `is_alias`; pointer and
+polymorphic selectors additionally set `is_alias_boundary` and leave dynamic
+type facts unresolved. A non-designator expression has no storage identity and
+is reported as `is_read_only`.
+
+See `examples/f90/associate_selector_facts.f90` and
+`test/api/test_associate_selector_facts.f90` for the GNU API contract and its
+independent expected-facts oracle.
+
 ## See Also
 
 - `examples/` - Additional code samples
