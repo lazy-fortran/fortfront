@@ -193,7 +193,10 @@ end subroutine
   for chained `%` access, plus the resolved component declaration indices,
   base and result rank, terminal storage class, and explicit
   `is_array_element`, `is_array_section`, `is_concrete_derived`,
-  `is_allocatable`, `is_pointer`, and polymorphism facts. A fully indexed
+  `is_abstract_type`, `is_allocatable`, `is_pointer`, and polymorphism facts.
+  `is_abstract_type` identifies the declared terminal derived type, including
+  through a `class(base_t)` declaration; it does not claim a runtime dynamic
+  type. A fully indexed
   designator such as `items(i,j)%payload` sets `is_array_element`. A
   non-strided section whose range AST facts are available, such as
   `items(:, :)%payload`, sets `is_array_section` instead and retains its
