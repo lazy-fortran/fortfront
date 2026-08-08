@@ -113,9 +113,11 @@ module frontend_compiler_queries
     public :: POLYMORPHIC_SOURCE_POLYMORPHIC
     public :: storage_query_t, ownership_event_query_t, component_path_query_t
     public :: polymorphic_allocation_query_t
+    public :: associate_selector_query_t
     public :: binding_resolution_query_t, global_reference_query_t
     public :: query_storage, query_ownership_events, query_component_path
     public :: query_polymorphic_allocation
+    public :: query_associate_selector, query_associate_selectors
     public :: query_type_binding_resolution, query_active_global_references
     public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
     public :: query_type_binding_hierarchy
@@ -357,6 +359,49 @@ module frontend_compiler_queries
         integer, allocatable :: component_node_indices(:)
         integer, allocatable :: component_declaration_indices(:)
     end type component_path_query_t
+
+    ! Bounded facts for one ASSOCIATE selector. FOUND means that the
+    ! association record exists, not that the selector has a statically
+    ! usable storage identity. Expressions, unresolved names, pointer
+    ! targets, polymorphic dynamic types, and ambiguous body accesses retain
+    ! explicit boundary flags instead of being guessed.
+    type :: associate_selector_query_t
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_selector_designator = .false.
+        logical :: is_storage_resolved = .false.
+        logical :: is_alias = .false.
+        logical :: is_alias_boundary = .false.
+        logical :: is_pointer = .false.
+        logical :: is_allocatable = .false.
+        logical :: is_polymorphic = .false.
+        logical :: is_unlimited_polymorphic = .false.
+        logical :: is_dynamic_type_known = .false.
+        logical :: is_read_only = .false.
+        logical :: is_writeable = .false.
+        logical :: has_read_reference = .false.
+        logical :: has_write_reference = .false.
+        logical :: has_ambiguous_access = .false.
+        integer :: associate_node_index = 0
+        integer :: association_index = 0
+        integer :: selector_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: storage_identity_node_index = 0
+        integer :: base_node_index = 0
+        integer :: selector_access_kind = ACCESS_READ
+        integer :: association_access_kind = 0
+        integer :: declared_type_kind = 0
+        integer :: declared_kind_value = 0
+        integer :: declared_rank = -1
+        integer :: dynamic_type_index = 0
+        character(len=:), allocatable :: associate_name
+        character(len=:), allocatable :: selector_declared_type
+        character(len=:), allocatable :: selector_dynamic_type
+        type(storage_query_t) :: selector_storage
+        type(component_path_query_t) :: selector_path
+    end type associate_selector_query_t
 
     ! One deliberately bounded fact for a polymorphic ALLOCATE target.  FOUND
     ! means that the allocation target is a directly resolved polymorphic
@@ -3331,14 +3376,21 @@ contains
         allocate (character(len=0) :: value)
     end subroutine set_empty
 
-    recursive function query_storage(arena, node_index) result(query)
+    recursive function query_storage(arena, node_index, &
+            allow_associate_selector) result(query)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        logical, intent(in), optional :: allow_associate_selector
         type(storage_query_t) :: query
         type(declaration_query_t) :: declaration
         type(component_access_query_t) :: component
         integer :: i
-        logical :: common_state
+        logical :: common_state, allow_selector
+
+        allow_selector = .false.
+        if (present(allow_associate_selector)) then
+            allow_selector = allow_associate_selector
+        end if
 
         call set_empty(query%name)
         call set_empty(query%type_name)
@@ -3347,7 +3399,7 @@ contains
         if (.not. declaration%found) then
             component = query_component_access(arena, node_index)
             if (component%found) call query_component_storage(arena, node_index, &
-                component, query)
+                component, query, allow_selector)
             return
         end if
 
@@ -3451,11 +3503,13 @@ contains
         end if
     end function is_derived_type_spec
 
-    subroutine query_component_storage(arena, node_index, component, query)
+    subroutine query_component_storage(arena, node_index, component, query, &
+            allow_associate_selector)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(component_access_query_t), intent(in) :: component
         type(storage_query_t), intent(out) :: query
+        logical, intent(in) :: allow_associate_selector
         type(declaration_binding_t) :: binding
         type(declaration_query_t) :: base_declaration, component_declaration
         type(storage_query_t) :: base_storage
@@ -3468,7 +3522,8 @@ contains
         integer :: fallback_index
 
         query%node_index = node_index
-        if (is_associate_selector_node(arena, node_index)) return
+        if (.not. allow_associate_selector .and. &
+                is_associate_selector_node(arena, node_index)) return
         base_declaration = query_declaration(arena, component%base_node_index)
         base_component = query_component_access(arena, component%base_node_index)
         base_is_array_element = is_array_element_node(arena, &
@@ -3479,9 +3534,11 @@ contains
             base_is_array_section
         if (base_declaration%found) then
             base_type = base_declaration%type_name
-            base_storage = query_storage(arena, base_declaration%node_index)
+            base_storage = query_storage(arena, base_declaration%node_index, &
+                allow_associate_selector)
         else if (base_component%found) then
-            base_storage = query_storage(arena, component%base_node_index)
+            base_storage = query_storage(arena, component%base_node_index, &
+                allow_associate_selector)
             if (.not. base_storage%found) return
             base_type = base_storage%type_name
             base_is_array_element = base_storage%is_array_element
@@ -3491,7 +3548,8 @@ contains
                 component%base_node_index, base_declaration)
             if (.not. base_declaration%found) return
             base_type = base_declaration%type_name
-            base_storage = query_storage(arena, base_declaration%node_index)
+            base_storage = query_storage(arena, base_declaration%node_index, &
+                allow_associate_selector)
         else
             call resolve_identifier_binding(arena, component%base_node_index, &
                 binding, error_msg)
@@ -3526,7 +3584,8 @@ contains
             end if
             if (.not. base_declaration%found) return
             base_type = base_declaration%type_name
-            base_storage = query_storage(arena, base_declaration%node_index)
+            base_storage = query_storage(arena, base_declaration%node_index, &
+                allow_associate_selector)
         end if
         if (.not. base_storage%found) return
 
@@ -3905,14 +3964,22 @@ contains
         end do
     end function query_ownership_events
 
-    function query_component_path(arena, node_index) result(query)
+    function query_component_path(arena, node_index, &
+            allow_associate_selector) result(query)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        logical, intent(in), optional :: allow_associate_selector
         type(component_path_query_t) :: query
         integer, allocatable :: indices(:)
         character(len=:), allocatable :: names(:)
         type(storage_query_t) :: storage, base_storage, segment_storage
         integer :: i
+        logical :: allow_selector
+
+        allow_selector = .false.
+        if (present(allow_associate_selector)) then
+            allow_selector = allow_associate_selector
+        end if
 
         allocate (character(len=1) :: query%component_names(0))
         allocate (query%component_node_indices(0))
@@ -3921,7 +3988,7 @@ contains
         call collect_component_path(arena, node_index, names, indices, &
             query%base_node_index)
         if (size(indices) == 0) return
-        storage = query_storage(arena, node_index)
+        storage = query_storage(arena, node_index, allow_selector)
         if (.not. storage%found) return
         if (.not. storage%is_component) return
         query%found = .true.
@@ -3931,7 +3998,7 @@ contains
         deallocate (query%component_declaration_indices)
         allocate (query%component_declaration_indices(size(indices)))
         do i = 1, size(indices)
-            segment_storage = query_storage(arena, indices(i))
+            segment_storage = query_storage(arena, indices(i), allow_selector)
             if (.not. segment_storage%found) then
                 query%found = .false.
                 deallocate (query%component_declaration_indices)
@@ -3952,11 +4019,363 @@ contains
         query%is_pointer = storage%is_pointer
         query%is_polymorphic = storage%is_polymorphic
         query%is_unlimited_polymorphic = storage%is_unlimited_polymorphic
-        base_storage = query_designator_storage(arena, query%base_node_index)
+        base_storage = query_designator_storage(arena, query%base_node_index, &
+            allow_selector)
         if (base_storage%found) then
             query%base_storage_class = base_storage%storage_class
         end if
     end function query_component_path
+
+    function query_associate_selector(arena, node_index, association_index) &
+            result(query)
+        !! Return bounded facts for one ASSOCIATE association.
+        !!
+        !! NODE_INDEX may be an ASSOCIATE node with an optional association
+        !! ordinal, or the selector expression itself.  The latter form is
+        !! useful to a transformer walking expression nodes.  A selector
+        !! expression is evaluated in the enclosing scope.  Storage facts
+        !! are enabled only for this query, so the existing conservative
+        !! query_storage behavior for associate-name aliases is unchanged.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(in), optional :: association_index
+        type(associate_selector_query_t) :: query
+        integer :: associate_index, selected_index
+
+        call initialize_associate_selector_query(query)
+        if (.not. arena%has_node_at(node_index)) return
+
+        associate_index = 0
+        selected_index = 0
+        select type (node => arena%entries(node_index)%node)
+            type is (associate_node)
+            associate_index = node_index
+            selected_index = 1
+            if (present(association_index)) selected_index = association_index
+        class default
+            call find_associate_selector(arena, node_index, associate_index, &
+                selected_index)
+        end select
+        if (associate_index <= 0 .or. selected_index <= 0) return
+        call populate_associate_selector_query(arena, associate_index, &
+            selected_index, query)
+    end function query_associate_selector
+
+    function query_associate_selectors(arena, associate_node_index) result(queries)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: associate_node_index
+        type(associate_selector_query_t), allocatable :: queries(:)
+        integer :: i, count
+
+        allocate (queries(0))
+        if (.not. arena%has_node_at(associate_node_index)) return
+        select type (node => arena%entries(associate_node_index)%node)
+            type is (associate_node)
+            if (.not. allocated(node%associations)) return
+            count = size(node%associations)
+            if (count <= 0) return
+            deallocate (queries)
+            allocate (queries(count))
+            do i = 1, count
+                call initialize_associate_selector_query(queries(i))
+                call populate_associate_selector_query(arena, &
+                    associate_node_index, i, queries(i))
+            end do
+        class default
+        end select
+    end function query_associate_selectors
+
+    subroutine initialize_associate_selector_query(query)
+        type(associate_selector_query_t), intent(out) :: query
+
+        call set_empty(query%associate_name)
+        call set_empty(query%selector_declared_type)
+        call set_empty(query%selector_dynamic_type)
+        call set_empty(query%selector_storage%name)
+        call set_empty(query%selector_storage%type_name)
+        call initialize_component_path_query(query%selector_path)
+    end subroutine initialize_associate_selector_query
+
+    subroutine find_associate_selector(arena, node_index, associate_index, &
+            association_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: associate_index, association_index
+        integer :: current, i, guard
+
+        associate_index = 0
+        association_index = 0
+        current = node_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            select type (node => arena%entries(current)%node)
+                type is (associate_node)
+                if (allocated(node%associations)) then
+                    do i = 1, size(node%associations)
+                        if (node%associations(i)%expr_index <= 0) cycle
+                        if (node_is_in_scope(arena, node_index, &
+                                node%associations(i)%expr_index)) then
+                            associate_index = current
+                            association_index = i
+                            return
+                        end if
+                    end do
+                end if
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) exit
+        end do
+    end subroutine find_associate_selector
+
+    subroutine populate_associate_selector_query(arena, associate_index, &
+            association_index, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: associate_index, association_index
+        type(associate_selector_query_t), intent(out) :: query
+        type(resolved_type_query_t) :: resolved
+        type(associate_node) :: node
+        integer :: selector_index, designator_rank_value
+
+        call initialize_associate_selector_query(query)
+        query%associate_node_index = associate_index
+        query%association_index = association_index
+        if (.not. arena%has_node_at(associate_index)) return
+        select type (arena_node => arena%entries(associate_index)%node)
+            type is (associate_node)
+            node = arena_node
+        class default
+            return
+        end select
+        if (.not. allocated(node%associations)) return
+        if (association_index > size(node%associations)) return
+
+        query%found = .true.
+        if (allocated(node%associations(association_index)%name)) then
+            query%associate_name = node%associations(association_index)%name
+        end if
+        selector_index = node%associations(association_index)%expr_index
+        query%selector_node_index = selector_index
+        if (selector_index <= 0 .or. .not. arena%has_node_at(selector_index)) then
+            query%is_unresolved = .true.
+            query%is_ambiguous = .true.
+            query%is_alias_boundary = .true.
+            return
+        end if
+
+        resolved = query_resolved_type(arena, selector_index)
+        if (resolved%found) then
+            query%declared_type_kind = resolved%type_kind
+            query%declared_kind_value = resolved%kind_value
+            query%declared_rank = resolved%rank
+            if (len_trim(resolved%derived_type_name) > 0) then
+                query%selector_declared_type = resolved%derived_type_name
+            end if
+        end if
+
+        query%selector_path = query_component_path(arena, selector_index, .true.)
+        query%selector_storage = query_designator_storage(arena, selector_index, &
+            .true.)
+        if (query%selector_storage%found) then
+            query%is_storage_resolved = .true.
+            query%selector_storage%node_index = selector_index
+            query%selector_declaration_index = &
+                query%selector_storage%declaration_index
+            query%storage_identity_node_index = &
+                query%selector_storage%declaration_index
+            query%selector_declared_type = query%selector_storage%type_name
+            query%is_pointer = query%selector_storage%is_pointer
+            query%is_allocatable = query%selector_storage%is_allocatable
+            query%is_polymorphic = query%selector_storage%is_polymorphic
+            query%is_unlimited_polymorphic = &
+                query%selector_storage%is_unlimited_polymorphic
+        end if
+
+        query%is_selector_designator = query%selector_path%found .or. &
+            is_selector_array_designator(arena, selector_index, &
+                query%selector_storage%found)
+        if (query%selector_path%found) then
+            query%base_node_index = query%selector_path%base_node_index
+        else if (query%is_selector_designator) then
+            query%base_node_index = selector_index
+        end if
+        if (query%is_selector_designator .and. query%selector_storage%found) then
+            designator_rank_value = designator_rank(arena, selector_index)
+            if (designator_rank_value >= 0) then
+                query%selector_storage%rank = designator_rank_value
+                query%declared_rank = designator_rank_value
+            end if
+            if (is_array_designator_node(arena, selector_index)) then
+                query%selector_storage%is_array_element = &
+                    is_array_element_node(arena, selector_index)
+                query%selector_storage%is_array_section = &
+                    is_array_section_node(arena, selector_index)
+            end if
+        end if
+
+        query%is_alias = query%is_selector_designator .and. &
+            query%is_storage_resolved
+        query%is_ambiguous = query%is_pointer .or. query%is_polymorphic
+        query%is_unresolved = .not. resolved%found .or. &
+            (query%is_selector_designator .and. .not. query%is_storage_resolved)
+        query%is_resolved = resolved%found .and. &
+            (.not. query%is_selector_designator .or. query%is_storage_resolved)
+
+        if (query%is_resolved .and. .not. query%is_pointer .and. &
+                .not. query%is_polymorphic) then
+            query%is_dynamic_type_known = .true.
+            query%selector_dynamic_type = query%selector_declared_type
+            if (len_trim(resolved%derived_type_name) > 0) then
+                query%selector_dynamic_type = resolved%derived_type_name
+            end if
+            if (len_trim(query%selector_dynamic_type) > 0) then
+                query%dynamic_type_index = find_derived_type_by_name(arena, &
+                    derived_type_name_from_spec(query%selector_dynamic_type))
+            end if
+        end if
+
+        query%is_alias_boundary = query%is_alias .and. &
+            (query%is_pointer .or. query%is_polymorphic .or. &
+             query%is_unresolved .or. query%is_ambiguous)
+        query%is_read_only = .not. query%is_selector_designator .or. &
+            query%is_pointer .or. query%is_polymorphic .or. query%is_ambiguous
+        query%is_writeable = query%is_selector_designator .and. &
+            query%is_storage_resolved .and. .not. query%is_read_only
+        call collect_associate_access(arena, query)
+    end subroutine populate_associate_selector_query
+
+    logical function is_selector_array_designator(arena, node_index, found) &
+            result(is_designator)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical, intent(in) :: found
+
+        is_designator = found .and. is_array_designator_node(arena, node_index)
+    end function is_selector_array_designator
+
+    subroutine collect_associate_access(arena, query)
+        type(ast_arena_t), intent(in) :: arena
+        type(associate_selector_query_t), intent(inout) :: query
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_message
+        integer :: i, access_kind
+        logical :: ambiguous
+
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (.not. is_associate_reference_node(arena, i)) cycle
+            if (query%selector_node_index > 0) then
+                if (node_is_in_scope(arena, i, query%selector_node_index)) cycle
+            end if
+            call resolve_identifier_binding(arena, i, binding, error_message)
+            if (.not. binding%found) cycle
+            if (binding%binding_kind /= BINDING_ASSOCIATE_NAME) cycle
+            if (binding%declaration_node_index /= query%associate_node_index) cycle
+            if (binding%declaration_entity_index /= query%association_index) cycle
+            call associate_reference_access(arena, i, query%associate_node_index, &
+                access_kind, ambiguous)
+            if (ambiguous) then
+                query%has_ambiguous_access = .true.
+                query%is_ambiguous = .true.
+            end if
+            select case (access_kind)
+            case (ACCESS_WRITE)
+                query%has_write_reference = .true.
+            case (ACCESS_READ_WRITE)
+                query%has_read_reference = .true.
+                query%has_write_reference = .true.
+            case default
+                query%has_read_reference = .true.
+            end select
+        end do
+        if (query%has_read_reference .and. query%has_write_reference) then
+            query%association_access_kind = ACCESS_READ_WRITE
+        else if (query%has_write_reference) then
+            query%association_access_kind = ACCESS_WRITE
+        else if (query%has_read_reference) then
+            query%association_access_kind = ACCESS_READ
+        end if
+        if (query%has_ambiguous_access) then
+            query%association_access_kind = ACCESS_READ_WRITE
+            query%is_alias_boundary = .true.
+        end if
+        if (query%is_ambiguous) query%is_writeable = .false.
+    end subroutine collect_associate_access
+
+    logical function is_associate_reference_node(arena, node_index) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        found = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (identifier_node)
+            found = .true.
+            type is (call_or_subscript_node)
+            found = .true.
+        class default
+        end select
+    end function is_associate_reference_node
+
+    subroutine associate_reference_access(arena, reference_index, associate_index, &
+            access_kind, ambiguous)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: reference_index, associate_index
+        integer, intent(out) :: access_kind
+        logical, intent(out) :: ambiguous
+        integer :: current
+
+        access_kind = ACCESS_READ
+        ambiguous = .false.
+        current = arena%entries(reference_index)%parent_index
+        do while (current > 0 .and. arena%has_node_at(current))
+            if (current == associate_index) return
+            select type (node => arena%entries(current)%node)
+                type is (assignment_node)
+                if (node_is_in_scope(arena, reference_index, node%target_index)) then
+                    access_kind = ACCESS_WRITE
+                else if (node_is_in_scope(arena, reference_index, node%value_index)) then
+                    access_kind = ACCESS_READ
+                end if
+                return
+                type is (pointer_assignment_node)
+                if (node_is_in_scope(arena, reference_index, node%pointer_index)) then
+                    access_kind = ACCESS_WRITE
+                else if (node_is_in_scope(arena, reference_index, node%target_index)) then
+                    access_kind = ACCESS_READ
+                end if
+                ambiguous = .true.
+                return
+                type is (subroutine_call_node)
+                access_kind = ACCESS_READ_WRITE
+                ambiguous = .true.
+                return
+                type is (call_or_subscript_node)
+                if (current /= reference_index) then
+                    access_kind = ACCESS_READ_WRITE
+                    ambiguous = .true.
+                    return
+                end if
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+        end do
+    end subroutine associate_reference_access
+
+    subroutine set_associate_access_kind(query)
+        type(associate_selector_query_t), intent(inout) :: query
+
+        if (query%has_read_reference .and. query%has_write_reference) then
+            query%association_access_kind = ACCESS_READ_WRITE
+        else if (query%has_write_reference) then
+            query%association_access_kind = ACCESS_WRITE
+        else if (query%has_read_reference) then
+            query%association_access_kind = ACCESS_READ
+        else
+            query%association_access_kind = 0
+        end if
+    end subroutine set_associate_access_kind
 
     function query_polymorphic_allocation(arena, allocation_node_index) result(query)
         !! Return the bounded SOURCE= fact for one polymorphic allocation.
@@ -4145,16 +4564,23 @@ contains
         same = left_storage%declaration_index == right_storage%declaration_index
     end function same_allocation_owner
 
-    function query_designator_storage(arena, node_index) result(query)
+    function query_designator_storage(arena, node_index, &
+            allow_associate_selector) result(query)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        logical, intent(in), optional :: allow_associate_selector
         type(storage_query_t) :: query
         type(declaration_query_t) :: declaration
         type(declaration_binding_t) :: binding
         character(len=:), allocatable :: error_msg, name
         integer :: i, fallback_index, scope_index
+        logical :: allow_selector
 
-        query = query_storage(arena, node_index)
+        allow_selector = .false.
+        if (present(allow_associate_selector)) then
+            allow_selector = allow_associate_selector
+        end if
+        query = query_storage(arena, node_index, allow_selector)
         if (query%found) return
         call identifier_name_at(arena, node_index, name)
         if (len_trim(name) > 0) then
@@ -4173,20 +4599,21 @@ contains
                 end if
             end do
             if (fallback_index > 0) then
-                query = query_storage(arena, fallback_index)
+                query = query_storage(arena, fallback_index, allow_selector)
                 if (query%found) return
             end if
         end if
         call resolve_identifier_binding(arena, node_index, binding, error_msg)
         if (binding%found) then
             if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
-            query = query_storage(arena, binding%declaration_node_index)
+            query = query_storage(arena, binding%declaration_node_index, &
+                allow_selector)
             if (query%found) return
         end if
         if (.not. is_array_designator_node(arena, node_index)) return
         call resolve_array_element_declaration(arena, node_index, declaration)
         if (.not. declaration%found) return
-        query = query_storage(arena, declaration%node_index)
+        query = query_storage(arena, declaration%node_index, allow_selector)
     end function query_designator_storage
 
     function query_polymorphic_owner_storage(arena, node_index) result(query)
