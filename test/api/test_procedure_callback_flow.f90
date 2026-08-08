@@ -52,6 +52,21 @@ program test_procedure_callback_flow
     end do
     call require(found == 1, 'independent callback flow oracle found wrong count')
 
+    call read_example('examples/f90/procedure_callback_flow_loop.f90', source)
+    call compile_frontend_from_string(source, result, options)
+    call require(result%success(), 'loop callback flow fixture was rejected')
+
+    found = 0
+    do i = 1, result%arena%size
+        query = query_procedure_callback_flow(result%arena, i)
+        if (query%is_refused .and. query%has_loop) then
+            found = found + 1
+            call require(.not. query%found .and. query%is_unresolved, &
+                'loop callback flow exposed a target proof')
+        end if
+    end do
+    call require(found == 2, 'loop callback flow lost its refusal boundary')
+
     query = query_procedure_callback_flow(result%arena, -1)
     call require(.not. query%found .and. .not. query%is_unresolved, &
         'invalid node received callback flow facts')

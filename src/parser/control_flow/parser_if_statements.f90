@@ -2,6 +2,8 @@ module parser_if_statements_module
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_WHITESPACE, TK_NEWLINE, TK_EOF
     use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_do_constructs_module, only: parse_do_loop
+    use parser_statement_detection_module, only: extend_do_statement_end
     use parser_expressions_module, only: parse_range
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use ast_arena_modern, only: ast_arena_t
@@ -227,6 +229,10 @@ contains
             if (body_parser%is_at_end()) exit
             stmt_start = body_parser%current_token
             stmt_end = find_if_body_line_end(body_tokens, stmt_start)
+            if (is_do_statement_start(body_tokens, stmt_start)) then
+                stmt_end = extend_do_statement_end(body_tokens, stmt_start, &
+                    stmt_end)
+            end if
             call parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
                 arena, body_indices, count, capacity, diagnostic_sink)
             body_parser%current_token = stmt_end + 1
@@ -277,6 +283,16 @@ contains
         end do
     end function find_if_body_line_end
 
+    logical function is_do_statement_start(body_tokens, stmt_start) result(is_do)
+        type(token_t), intent(in) :: body_tokens(:)
+        integer, intent(in) :: stmt_start
+
+        is_do = .false.
+        if (stmt_start < 1 .or. stmt_start > size(body_tokens)) return
+        is_do = body_tokens(stmt_start)%kind == TK_KEYWORD .and. &
+            to_lower(trim(body_tokens(stmt_start)%text)) == 'do'
+    end function is_do_statement_start
+
     subroutine parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
             arena, body_indices, count, capacity, diagnostic_sink)
         type(token_t), intent(in) :: body_tokens(:)
@@ -292,6 +308,7 @@ contains
         integer :: stmt_index
         integer, allocatable :: temp_indices(:)
 
+        stmt_index = 0
         stmt_size = stmt_end - stmt_start + 1
         if (stmt_size <= 0) return
 
@@ -302,26 +319,46 @@ contains
         line_tokens(stmt_size + 1)%line = body_tokens(stmt_start)%line
         line_tokens(stmt_size + 1)%column = body_tokens(stmt_start)%column
 
-        line_parser = create_parser_state(line_tokens, diagnostic_sink)
-        call skip_if_body_line_padding(line_parser)
+        if (is_do_statement_start(line_tokens, 1)) then
+            stmt_index = parse_do_statement_tokens(line_tokens, arena, &
+                diagnostic_sink)
+        else
+            line_parser = create_parser_state(line_tokens, diagnostic_sink)
+            call skip_if_body_line_padding(line_parser)
 
-        if (.not. line_parser%is_at_end()) then
-            stmt_index = parse_statement_in_if_block(line_parser, arena, &
-                line_parser%peek())
-            if (stmt_index > 0) then
-                ! Grow array if needed
-                if (count >= capacity) then
-                    capacity = capacity * 2
-                    allocate(temp_indices(capacity))
-                    temp_indices(1:count) = body_indices(1:count)
-                    call move_alloc(temp_indices, body_indices)
-                end if
-
-                count = count + 1
-                body_indices(count) = stmt_index
+            if (.not. line_parser%is_at_end()) then
+                stmt_index = parse_statement_in_if_block(line_parser, arena, &
+                    line_parser%peek())
             end if
         end if
+        if (stmt_index > 0) then
+            ! Grow array if needed
+            if (count >= capacity) then
+                capacity = capacity * 2
+                allocate(temp_indices(capacity))
+                temp_indices(1:count) = body_indices(1:count)
+                call move_alloc(temp_indices, body_indices)
+            end if
+
+            count = count + 1
+            body_indices(count) = stmt_index
+        end if
     end subroutine parse_if_body_line_efficient
+
+    integer function parse_do_statement_tokens(stmt_tokens, arena, &
+            diagnostic_sink) result(do_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(error_collection_t), target, intent(inout), optional :: diagnostic_sink
+        type(parser_state_t) :: do_parser
+
+        if (present(diagnostic_sink)) then
+            do_parser = create_parser_state(stmt_tokens, diagnostic_sink)
+        else
+            do_parser = create_parser_state(stmt_tokens)
+        end if
+        do_index = parse_do_loop(do_parser, arena)
+    end function parse_do_statement_tokens
 
     subroutine skip_if_body_line_padding(line_parser)
         type(parser_state_t), intent(inout) :: line_parser

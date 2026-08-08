@@ -324,7 +324,10 @@ end subroutine
   records. `is_unresolved` and `is_refused` distinguish an incomplete proof.
   explicit flags cover loops, nested or missing branches, reassignment,
   `NULL()`/`NULLIFY`, generic or ambiguous targets, incompatible signatures,
-  and calls inside an arm. No callback target is guessed. The alias
+  and calls inside an arm. Multi-line counted, concurrent, and `DO WHILE`
+  constructs inside either arm are retained by the procedure parser and set
+  `has_loop`/`is_refused` before any callback target is exposed. No callback
+  target is guessed. The alias
   `query_procedure_pointer_callback_flow` exposes the same contract.
 
 ## Dependencies
