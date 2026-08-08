@@ -180,10 +180,15 @@ end subroutine
   pointer, target, contiguous, SAVE, module, and COMMON storage facts.
   `query_ownership_events` reports `ALLOCATE`, `DEALLOCATE`, `MOVE_ALLOC`,
   pointer-assignment, `NULLIFY`, and whole-allocatable assignment nodes with
-  their operand indices. Ownership events retain `owner_path`, `source_path`,
-  and `destination_path` component-path facts; `is_potential_automatic_reallocation`
-  marks whole-allocatable assignments and `is_explicit_ownership_transfer`
-  marks `MOVE_ALLOC`.
+  their operand indices. Allocation events expose explicit shape-expression
+  indices, rank when resolved, and the existing `SOURCE=`/`MOLD=` expression
+  indices. Assignment events expose `lhs_owner_path` and `rhs_owner_path`,
+  resolved `lhs_rank`/`rhs_rank`, and the
+  `OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE` /
+  `OWNERSHIP_REALLOCATION_POTENTIAL` classifications. The older
+  `owner_path`, `source_path`, and `destination_path` fields remain aliases
+  for compatibility; unresolved ranks are `-1` and absent expression lists
+  are empty.
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and

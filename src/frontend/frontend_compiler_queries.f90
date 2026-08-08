@@ -103,6 +103,8 @@ module frontend_compiler_queries
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
     public :: OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC
     public :: OWNERSHIP_EVENT_NULLIFY, OWNERSHIP_EVENT_ASSIGNMENT
+    public :: OWNERSHIP_ASSIGNMENT_NONE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
+    public :: OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL
     public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
     public :: storage_query_t, ownership_event_query_t, component_path_query_t
     public :: binding_resolution_query_t, global_reference_query_t
@@ -126,6 +128,11 @@ module frontend_compiler_queries
     integer, parameter :: OWNERSHIP_EVENT_MOVE_ALLOC = 4
     integer, parameter :: OWNERSHIP_EVENT_NULLIFY = 5
     integer, parameter :: OWNERSHIP_EVENT_ASSIGNMENT = 6
+
+    integer, parameter :: OWNERSHIP_ASSIGNMENT_NONE = 0
+    integer, parameter :: OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE = 1
+    integer, parameter :: OWNERSHIP_REALLOCATION_NONE = 0
+    integer, parameter :: OWNERSHIP_REALLOCATION_POTENTIAL = 1
 
     integer, parameter :: ACCESS_READ = 1
     integer, parameter :: ACCESS_WRITE = 2
@@ -330,11 +337,21 @@ module frontend_compiler_queries
         ! ALLOCATE SOURCE=/MOLD= expression indices, when present.
         integer :: source_expr_index = 0
         integer :: mold_expr_index = 0
+        ! ALLOCATE shape expressions, when explicit bounds are present.
+        integer, allocatable :: shape_expr_indices(:)
+        integer :: rank = -1
         ! Paths retain the existing component-path representation, including
         ! the base node for a plain identifier or array reference.
         type(component_path_query_t) :: owner_path
         type(component_path_query_t) :: source_path
         type(component_path_query_t) :: destination_path
+        ! Assignment-specific names make the ownership direction explicit.
+        type(component_path_query_t) :: lhs_owner_path
+        type(component_path_query_t) :: rhs_owner_path
+        integer :: lhs_rank = -1
+        integer :: rhs_rank = -1
+        integer :: assignment_kind = OWNERSHIP_ASSIGNMENT_NONE
+        integer :: reallocation_kind = OWNERSHIP_REALLOCATION_NONE
         logical :: is_potential_automatic_reallocation = .false.
         logical :: is_explicit_ownership_transfer = .false.
     end type ownership_event_query_t
@@ -4610,20 +4627,28 @@ contains
         type(ownership_event_query_t) :: event
 
         allocate (event%object_indices(0))
+        allocate (event%shape_expr_indices(0))
         call initialize_component_path_query(event%owner_path)
         call initialize_component_path_query(event%source_path)
         call initialize_component_path_query(event%destination_path)
+        call initialize_component_path_query(event%lhs_owner_path)
+        call initialize_component_path_query(event%rhs_owner_path)
         event%found = .true.
         event%node_index = index
         select type (node => arena%entries(index)%node)
             type is (allocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_ALLOCATE
             call copy_integer_array(node%var_indices, event%object_indices)
+            call copy_integer_array(node%shape_indices, event%shape_expr_indices)
             event%source_expr_index = node%source_expr_index
             event%mold_expr_index = node%mold_expr_index
             if (allocated(node%var_indices)) then
                 if (size(node%var_indices) > 0) event%owner_path = &
                     ownership_path(arena, node%var_indices(1))
+            end if
+            if (allocated(node%var_indices)) then
+                if (size(node%var_indices) > 0) event%rank = &
+                    expression_rank(arena, node%var_indices(1))
             end if
             if (node%source_expr_index > 0) then
                 event%source_path = ownership_path(arena, &
@@ -4655,14 +4680,24 @@ contains
                         node%arg_indices(1))
                     event%destination_path = ownership_path(arena, &
                         node%arg_indices(2))
+                    event%rhs_owner_path = event%source_path
+                    event%lhs_owner_path = event%destination_path
+                    event%rhs_rank = expression_rank(arena, node%arg_indices(1))
+                    event%lhs_rank = expression_rank(arena, node%arg_indices(2))
                 end if
             end if
             type is (assignment_node)
             event%event_kind = OWNERSHIP_EVENT_ASSIGNMENT
+            event%assignment_kind = OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
+            event%reallocation_kind = OWNERSHIP_REALLOCATION_POTENTIAL
             event%is_potential_automatic_reallocation = .true.
             event%source_path = ownership_path(arena, node%value_index)
             event%destination_path = ownership_path(arena, node%target_index)
             event%owner_path = event%destination_path
+            event%rhs_owner_path = event%source_path
+            event%lhs_owner_path = event%destination_path
+            event%rhs_rank = expression_rank(arena, node%value_index)
+            event%lhs_rank = expression_rank(arena, node%target_index)
         class default
         end select
     end function ownership_event
@@ -4677,6 +4712,16 @@ contains
         path%node_index = node_index
         if (path%base_node_index == 0) path%base_node_index = node_index
     end function ownership_path
+
+    integer function expression_rank(arena, node_index) result(rank)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(resolved_type_query_t) :: resolved
+
+        rank = -1
+        resolved = query_resolved_type(arena, node_index)
+        if (resolved%found) rank = resolved%rank
+    end function expression_rank
 
     logical function node_is_in_scope(arena, node_index, scope_index)
         type(ast_arena_t), intent(in) :: arena
