@@ -304,6 +304,17 @@ end subroutine
   can compare ordered formal metadata without re-walking the AST. External
   targets remain identity-only when their interface is unavailable. This is a
   bounded identity/signature query, not general callback analysis or AD policy.
+- **Branch-merged procedure-pointer callback flow**:
+  `query_procedure_callback_flow` accepts only a direct pointer call after one
+  same-scope `IF/ELSE`: each arm must contain exactly one direct assignment to
+  the declared pointer, and both targets must be directly resolved internal
+  procedures with matching ordered signatures. The result preserves the
+  pointer/call identity, IF arm and merge boundaries, and source-ordered target
+  records. `is_unresolved` and `is_refused` distinguish an incomplete proof;
+  explicit flags cover loops, nested or missing branches, reassignment,
+  `NULL()`/`NULLIFY`, generic or ambiguous targets, incompatible signatures,
+  and calls inside an arm. No callback target is guessed. The alias
+  `query_procedure_pointer_callback_flow` exposes the same contract.
 
 ## Dependencies
 
