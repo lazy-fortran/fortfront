@@ -262,7 +262,15 @@ end subroutine
   an external declaration binding, `NULL()`, and an unresolved target. A
   non-identifier target (other than `NULL()`) remains unresolved, and the
   query does not infer flow-sensitive callback state, generic dispatch, or
-  any AD policy.
+  any AD policy. For an internal procedure target, `signature` exposes a
+  bounded `procedure_signature_query_t`: the ordered `dummies` array and
+  `dummy_count`, plus result category/type-kind/kind/rank facts for functions.
+  Each `procedure_dummy_query_t` carries its name, category, type-kind,
+  kind, rank, intent, and OPTIONAL/VALUE flags. Consumers must check the
+  corresponding `*_known` or `has_intent` flag before using a value. Rank 0
+  is scalar; `rank=-1` means that rank was not proved. External, generic,
+  ambiguous, NULL, and unresolved targets leave `signature%found` false rather
+  than manufacturing an interface.
 - **SELECT RANK arm query**: `query_control_statement` now returns one
   `select_rank_arm_query_t` per explicit, `RANK (*)`, or `RANK DEFAULT` arm.
   Each record preserves the selector and declaration identity, selected rank,
@@ -281,8 +289,11 @@ end subroutine
   and pointer occurrence share that node index). `found=.false.` with
   `is_unresolved=.true.` is returned when that proof is unavailable, including
   branch-local assignments, reassignment or `NULLIFY`, `NULL()`, and other
-  flow-sensitive cases; generic calls are not callback facts. This is a
-  bounded identity query, not general callback analysis or AD policy.
+  flow-sensitive cases; generic calls are not callback facts. Resolved calls
+  carry the same `signature` record as `query_procedure_target`, so a backend
+  can compare ordered formal metadata without re-walking the AST. External
+  targets remain identity-only when their interface is unavailable. This is a
+  bounded identity/signature query, not general callback analysis or AD policy.
 
 ## Dependencies
 
