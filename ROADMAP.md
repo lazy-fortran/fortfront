@@ -1,6 +1,6 @@
 # FortFront roadmap
 
-Snapshot: 2026-08-07. FortFront owns lexing, parsing, semantic resolution,
+Snapshot: 2026-08-08. FortFront owns lexing, parsing, semantic resolution,
 typed public queries, and diagnostics for the ffc pipeline. It remains
 backend-neutral.
 
@@ -45,6 +45,17 @@ The current source-discovery audit found no remaining FortFront self-source
 parse/semantic drops. GNU and NVIDIA `nvfortran` 26.5 cold builds cover the
 381-target lane; the downstream FortAD nvfortran gate still needs a fresh run
 against this revision and is not evidence of a FortFront failure until then.
+
+### Concrete runtime dispatch targets (2026-08-08)
+
+`query_type_binding_resolution` and `query_type_bound_call` now exclude
+abstract descendants from their dispatch-target arrays, even when an abstract
+intermediate type supplies a concrete inherited or overridden binding. The
+arrays therefore remain safe for consumers such as FortAD that lower them as
+instantiable runtime arms. The regression oracle is
+`test/api/test_abstract_dispatch_target_query.f90`; it requires a concrete
+leaf to retain the inherited implementation while the abstract intermediate
+is absent.
 
 ### CI evidence and #2980/procedure-name tranches (2026-08-07)
 
