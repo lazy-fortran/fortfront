@@ -279,6 +279,16 @@ end subroutine
   selectors, unresolved dynamic ownership, and unsupported selector forms set
   explicit boundary flags and refusal reasons; the query does not invent an AD
   lowering model.
+- **SELECT TYPE arm query**: `query_control_statement` also returns one
+  `select_type_arm_query_t` per `TYPE IS`, `CLASS IS`, or `CLASS DEFAULT` arm.
+  Each record preserves selector identity, one-based arm ordinal, arm kind,
+  source location, and body entry/exit boundaries. Derived guard identities and
+  the selector's declared derived identity are reported only when they resolve;
+  intrinsic guards, ambiguous or unresolved names, non-polymorphic selectors,
+  and guards outside the selector's `EXTENDS` hierarchy carry explicit
+  `is_intrinsic`, `is_ambiguous`, `is_unresolved`, `is_invalid`, or
+  `is_out_of_hierarchy` flags and a refusal reason. No runtime type or guard
+  relationship is guessed.
 - **Bounded procedure-pointer call target query**:
   `query_procedure_call_target` reports a complete fact only for a direct
   call through a declared procedure pointer with exactly one unconditional,
