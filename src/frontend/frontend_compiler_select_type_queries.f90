@@ -88,6 +88,41 @@ module frontend_compiler_select_type_queries
         type(storage_query_t) :: terminal_storage
     end type select_type_component_query_t
 
+    type, public :: select_type_component_binding_query_t
+        !! Effective binding facts for a derived component in a narrowed arm.
+        !!
+        !! The component path is resolved first, then its declared concrete
+        !! type is used for the local EXTENDS hierarchy query.  This reports
+        !! inherited implementations without treating a polymorphic,
+        !! pointer, or allocatable component as having a static target.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_inherited = .false.
+        logical :: is_deferred = .false.
+        logical :: is_generic = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_abstract_type = .false.
+        logical :: is_pointer_boundary = .false.
+        logical :: is_allocatable_boundary = .false.
+        logical :: is_polymorphic_boundary = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: component_node_index = 0
+        integer :: component_type_index = 0
+        integer :: declaring_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: implementation_node_index = 0
+        character(len=:), allocatable :: component_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: declaring_type_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: refusal_reason
+        type(select_type_component_query_t) :: component
+        type(binding_hierarchy_query_t) :: hierarchy
+    end type select_type_component_binding_query_t
+
     type, public :: select_type_dispatch_query_t
         !! Facts for one direct type-bound CALL in one concrete SELECT TYPE arm.
         !!
@@ -157,7 +192,7 @@ module frontend_compiler_select_type_queries
     end type select_type_dispatch_query_t
 
     public :: query_select_type_branch, query_select_type_component_path, &
-        query_select_type_dispatch
+        query_select_type_component_binding, query_select_type_dispatch
 
 contains
 
@@ -374,6 +409,132 @@ contains
         call finalize_component_path(query, arm, component_node_index)
     end function query_select_type_component_path
 
+    function query_select_type_component_binding(arena, arm_node_index, &
+            component_node_index, binding_name) result(query)
+        !! Resolve one effective binding on a narrowed component path.
+        !!
+        !! This composes the existing component-path facts with the local
+        !! binding hierarchy of the terminal component type.  It deliberately
+        !! does not perform generic argument matching or runtime dispatch.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        integer, intent(in) :: component_node_index
+        character(len=*), intent(in) :: binding_name
+        type(select_type_component_binding_query_t) :: query
+        type(derived_type_query_t) :: component_type
+        character(len=:), allocatable :: type_name
+
+        call initialize_component_binding_query(query, arm_node_index, &
+            component_node_index, binding_name)
+        query%component = query_select_type_component_path(arena, &
+            arm_node_index, component_node_index)
+        query%select_type_node_index = query%component%select_type_node_index
+        query%arm_node_index = arm_node_index
+        query%component_node_index = component_node_index
+        query%is_pointer_boundary = query%component%terminal_storage%is_pointer
+        query%is_allocatable_boundary = &
+            query%component%terminal_storage%is_allocatable
+        query%is_polymorphic_boundary = &
+            query%component%terminal_storage%is_polymorphic
+
+        if (query%component%is_refused .or. &
+                .not. query%component%is_resolved) then
+            call refuse_component_binding(query, &
+                component_refusal(query%component))
+            return
+        end if
+        if (len_trim(binding_name) == 0) then
+            call refuse_component_binding(query, &
+                'component binding name is unresolved')
+            return
+        end if
+        if (query%is_pointer_boundary) then
+            call refuse_component_binding(query, &
+                'pointer component is a dynamic storage boundary')
+            return
+        end if
+        if (query%is_allocatable_boundary) then
+            call refuse_component_binding(query, &
+                'allocatable component is an ownership boundary')
+            return
+        end if
+        if (query%is_polymorphic_boundary) then
+            call refuse_component_binding(query, &
+                'polymorphic component has no static binding target')
+            return
+        end if
+        if (.not. query%component%terminal_storage%is_derived .or. &
+                .not. query%component%terminal_storage%is_concrete_derived) then
+            call refuse_component_binding(query, &
+                'component terminal type is not a concrete derived type')
+            return
+        end if
+
+        type_name = declared_type_name(query%component%terminal_storage%type_name)
+        query%component_type_name = type_name
+        query%component_type_index = find_derived_type_by_name_local(arena, &
+            type_name)
+        if (query%component_type_index <= 0) then
+            call refuse_component_binding(query, &
+                'component terminal derived type is unresolved')
+            return
+        end if
+
+        component_type = query_derived_type(arena, query%component_type_index)
+        if (.not. component_type%found) then
+            call refuse_component_binding(query, &
+                'component terminal derived declaration is unresolved')
+            return
+        end if
+        query%is_abstract_type = contains_word(component_type%attribute_clause, &
+            'abstract')
+        if (query%is_abstract_type) then
+            call refuse_component_binding(query, &
+                'abstract component type has no concrete binding storage')
+            return
+        end if
+        query%hierarchy = query_type_binding_hierarchy(arena, &
+            query%component_type_index, binding_name)
+        if (.not. query%hierarchy%found) then
+            call refuse_component_binding(query, &
+                'component binding is unresolved')
+            return
+        end if
+
+        query%is_inherited = query%hierarchy%is_inherited
+        query%is_deferred = query%hierarchy%is_deferred
+        query%is_generic = query%hierarchy%is_generic
+        query%is_ambiguous = query%hierarchy%is_ambiguous
+        query%declaring_type_index = query%hierarchy%declaring_type_index
+        query%binding_node_index = query%hierarchy%binding_node_index
+        query%implementation_node_index = &
+            query%hierarchy%implementation_node_index
+        query%declaring_type_name = query%hierarchy%declaring_type_name
+        query%binding_name = query%hierarchy%binding_name
+        query%implementation = query%hierarchy%implementation
+
+        if (query%is_generic .or. query%is_ambiguous) then
+            call refuse_component_binding(query, &
+                'generic or ambiguous component binding is not selected')
+            return
+        end if
+        if (query%is_deferred) then
+            call refuse_component_binding(query, &
+                'deferred component binding has no implementation')
+            return
+        end if
+        if (.not. query%hierarchy%is_resolved .or. &
+                query%implementation_node_index <= 0 .or. &
+                len_trim(query%implementation) == 0) then
+            call refuse_component_binding(query, &
+                'component binding implementation is unresolved')
+            return
+        end if
+
+        query%found = .true.
+        query%is_resolved = .true.
+    end function query_select_type_component_binding
+
     subroutine initialize_component_query(query, arm_node_index, component_node_index)
         type(select_type_component_query_t), intent(out) :: query
         integer, intent(in) :: arm_node_index, component_node_index
@@ -388,6 +549,22 @@ contains
         call initialize_component_path(query%component_path)
         call initialize_storage(query%terminal_storage)
     end subroutine initialize_component_query
+
+    subroutine initialize_component_binding_query(query, arm_node_index, &
+            component_node_index, binding_name)
+        type(select_type_component_binding_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index, component_node_index
+        character(len=*), intent(in) :: binding_name
+
+        query%arm_node_index = arm_node_index
+        query%component_node_index = component_node_index
+        call set_empty(query%component_type_name)
+        call set_empty(query%binding_name)
+        query%binding_name = trim(binding_name)
+        call set_empty(query%declaring_type_name)
+        call set_empty(query%implementation)
+        call set_empty(query%refusal_reason)
+    end subroutine initialize_component_binding_query
 
     subroutine initialize_component_path(path)
         type(component_path_query_t), intent(out) :: path
@@ -414,6 +591,29 @@ contains
             query%refusal_reason = trim(reason)
         end if
     end subroutine refuse_component
+
+    subroutine refuse_component_binding(query, reason)
+        type(select_type_component_binding_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_component_binding
+
+    function component_refusal(component) result(reason)
+        type(select_type_component_query_t), intent(in) :: component
+        character(len=:), allocatable :: reason
+
+        if (allocated(component%refusal_reason) .and. &
+                len_trim(component%refusal_reason) > 0) then
+            reason = component%refusal_reason
+        else
+            reason = 'SELECT TYPE component path is unresolved'
+        end if
+    end function component_refusal
 
     integer function find_select_type_arm(control, arm_node_index) result(position)
         type(control_statement_query_t), intent(in) :: control
