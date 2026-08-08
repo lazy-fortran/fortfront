@@ -160,8 +160,17 @@ end subroutine
   function or subroutine call into formal-parameter order. Each
   `call_argument_query_t` preserves the original actual node and its value
   expression, reports whether the actual was supplied positionally or by
-  keyword, and marks omitted optional dummies. Unresolved procedures,
-  ambiguous generic calls, array accesses, and invalid argument lists return
+  keyword, marks omitted optional dummies, and carries the formal intent,
+  value/pointer/allocatable/target attributes, semantic type/kind/rank, and
+  the resolved actual type/storage facts. `has_type_mismatch` and
+  `has_unknown_argument_types` are explicit boundaries; the query does not
+  invent conversions. At the call level, `has_global_mutable_state`,
+  `has_unresolved_alias`, `has_procedure_callback`, and `is_refused` make
+  calls that are not closed over ordinary differentiable storage explicit.
+  A mapping may still be `found` when one of these flags is set, so FortAD
+  can report the reason instead of silently differentiating global state,
+  aliases, or an unresolved callback. Unresolved procedures, ambiguous
+  generic calls, array accesses, and invalid argument lists return
   `found=.false.` rather than guessing.
 - **Generic candidate query**: `query_generic_call` enumerates the concrete
   procedures in a same-arena named generic interface and exposes each formal's
