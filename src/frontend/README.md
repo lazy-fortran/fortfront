@@ -239,6 +239,12 @@ end subroutine
   Explicit `CALL` statements with an indexed receiver, such as
   `call values(i)%run()`, retain the full receiver designator while resolving
   storage through its declared array object; no receiver AST node is invented.
+  For an explicit `CALL` with a nested component receiver, such as
+  `call outer%inner%apply()`, `receiver_path` now exposes the semantically
+  resolved component names and declaration identities even when the parser
+  retains only source text. Its component AST indices remain zero and its
+  rank/section flags remain unknown (`-1`/false); consumers must use the
+  receiver's actual expression AST, when available, for shape facts.
   For expression-form calls, `receiver_path` preserves the receiver's
   component names and AST nodes (for example the `inner` component in
   `outer%inner%method`). Explicit `CALL` statements retain the exact nested
