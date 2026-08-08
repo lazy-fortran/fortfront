@@ -326,6 +326,15 @@ end subroutine
   Intrinsic, ambiguous, unresolved, and unsupported relations remain
   `is_refused` with `match_kind=SELECT_TYPE_MATCH_UNKNOWN`; no concrete runtime
   type is invented.
+- **SELECT TYPE component-path query**:
+  `query_select_type_component_path(arena, arm_node_index,
+  component_node_index)` maps a direct component access in a resolved branch
+  body to ordered component declaration and terminal storage facts, including
+  when the root is a `SELECT TYPE (alias => selector)` associate. It requires
+  a concrete guard and refuses `CLASS DEFAULT`, accesses from a different or
+  nested SELECT TYPE arm, unknown components, and pointer, allocatable, or
+  polymorphic intermediate storage; no alias ownership or dynamic type is
+  inferred.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
   composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or

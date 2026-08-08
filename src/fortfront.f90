@@ -115,6 +115,7 @@ module fortfront
         select_type_branch_query_t, query_select_type_branch, &
         SELECT_TYPE_MATCH_UNKNOWN, SELECT_TYPE_MATCH_EXACT, &
         SELECT_TYPE_MATCH_EXTENSION, SELECT_TYPE_MATCH_DEFAULT, &
+        select_type_component_query_t, query_select_type_component_path, &
         select_type_dispatch_query_t, query_select_type_dispatch
     use frontend_compiler_resolution, only: declaration_binding_t, &
         get_scope_bindings, resolve_name_in_scope, &
