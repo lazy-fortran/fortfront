@@ -6,7 +6,7 @@ module frontend_compiler_queries
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
         call_or_subscript_node, pointer_assignment_node, assignment_node
-    use ast_nodes_control, only: if_node, do_loop_node
+    use ast_nodes_control, only: if_node, do_loop_node, do_while_node
     use ast_nodes_associate, only: associate_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
@@ -1426,6 +1426,7 @@ contains
         logical :: is_call
 
         call initialize_procedure_callback_flow_query(query)
+        if_statement = 0
         if (.not. arena%has_node_at(node_index)) return
         call get_call_parts(arena, node_index, call_name, scope_indices, is_call)
         if (.not. is_call .or. len_trim(call_name) == 0) return
@@ -1535,6 +1536,8 @@ contains
             select type (node => arena%entries(i)%node)
                 type is (do_loop_node)
                 query%has_loop = .true.
+                type is (do_while_node)
+                query%has_loop = .true.
             class default
             end select
         end do
@@ -1561,6 +1564,8 @@ contains
                 type is (if_node)
                 query%has_nested_branch = .true.
                 type is (do_loop_node)
+                query%has_loop = .true.
+                type is (do_while_node)
                 query%has_loop = .true.
                 type is (nullify_node)
                 if (nullify_touches_pointer(arena, i, declaration_index, &
