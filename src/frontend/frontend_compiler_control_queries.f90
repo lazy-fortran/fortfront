@@ -6,7 +6,7 @@ module frontend_compiler_control_queries
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_identifier_binding
     use ast_nodes_associate, only: associate_node, block_construct_node
-    use ast_nodes_core, only: identifier_node
+    use ast_nodes_core, only: identifier_node, pointer_assignment_node
     use ast_nodes_conditional, only: select_type_node, type_guard_block_node, &
         select_rank_node, rank_block_node
     use ast_nodes_array, only: where_node, where_stmt_node
@@ -93,6 +93,10 @@ module frontend_compiler_control_queries
         logical :: is_class_default = .false.
         integer :: arm_kind = 0
         logical :: is_selector_resolved = .false.
+        ! SELECT TYPE (alias => selector) keeps the parser's pointer-assignment
+        ! node as SELECTOR_NODE_INDEX.  These fields expose the source-backed
+        ! alias relation without manufacturing a declaration or shape fact.
+        logical :: is_selector_associate = .false.
         logical :: is_declared_type_resolved = .false.
         logical :: is_concrete_type_resolved = .false.
         logical :: is_intrinsic = .false.
@@ -105,6 +109,8 @@ module frontend_compiler_control_queries
         integer :: arm_node_index = 0
         integer :: arm_ordinal = 0
         integer :: selector_node_index = 0
+        integer :: selector_expression_node_index = 0
+        integer :: selector_associate_node_index = 0
         integer :: selector_declaration_index = 0
         integer :: type_name_node_index = 0
         integer :: declared_type_index = 0
@@ -114,6 +120,7 @@ module frontend_compiler_control_queries
         integer :: body_entry_node_index = 0
         integer :: body_exit_node_index = 0
         character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: selector_associate_name
         character(len=:), allocatable :: declared_type_name
         character(len=:), allocatable :: concrete_type_name
         character(len=:), allocatable :: refusal_reason
@@ -421,10 +428,35 @@ contains
         type(select_type_arm_query_t), intent(inout) :: query
         type(declaration_binding_t) :: binding
         character(len=:), allocatable :: error_message
+        integer :: expression_index
+        integer :: associate_index
+        character(len=:), allocatable :: associate_name
 
         call set_empty(query%selector_name)
+        call set_empty(query%selector_associate_name)
         if (.not. query%has_selector) return
-        call resolve_identifier_binding(arena, selector_index, binding, error_message)
+        expression_index = selector_index
+        associate_index = 0
+        associate_name = ""
+        if (arena%has_node_at(selector_index)) then
+            select type (selector => arena%entries(selector_index)%node)
+                type is (pointer_assignment_node)
+                query%is_selector_associate = .true.
+                associate_index = selector%pointer_index
+                expression_index = selector%target_index
+                if (associate_index > 0 .and. arena%has_node_at(associate_index)) then
+                    call get_identifier_name(arena, associate_index, associate_name, &
+                        error_message)
+                    if (len_trim(associate_name) > 0) then
+                        query%selector_associate_node_index = associate_index
+                        query%selector_associate_name = trim(associate_name)
+                    end if
+                end if
+            class default
+            end select
+        end if
+        query%selector_expression_node_index = expression_index
+        call resolve_identifier_binding(arena, expression_index, binding, error_message)
         if (binding%declaration_node_index <= 0) then
             query%is_unresolved = .true.
             return
