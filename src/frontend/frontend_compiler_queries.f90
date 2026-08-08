@@ -349,6 +349,13 @@ module frontend_compiler_queries
         character(len=:), allocatable :: generic_names(:)
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
+        character(len=:), allocatable :: dispatch_target_pass_names(:)
+        integer, allocatable :: dispatch_target_pass_positions(:)
+        character(len=:), allocatable :: dispatch_target_passed_object_types(:)
+        ! These arrays are parallel to the existing target arrays. A false
+        ! flag means the implementation was found but its passed-object
+        ! declaration was not available to this arena query.
+        logical, allocatable :: dispatch_target_signature_resolved(:)
     end type binding_resolution_query_t
 
     type :: binding_hierarchy_entry_t
@@ -440,6 +447,11 @@ module frontend_compiler_queries
         type(component_path_query_t) :: receiver_path
         integer, allocatable :: dispatch_target_type_indices(:)
         character(len=:), allocatable :: dispatch_target_implementations(:)
+        character(len=:), allocatable :: dispatch_target_pass_names(:)
+        integer, allocatable :: dispatch_target_pass_positions(:)
+        character(len=:), allocatable :: dispatch_target_passed_object_types(:)
+        ! Parallel to the existing target type and implementation arrays.
+        logical, allocatable :: dispatch_target_signature_resolved(:)
     end type type_bound_call_query_t
 
     type :: global_reference_query_t
@@ -3601,6 +3613,14 @@ contains
                 resolution%dispatch_target_type_indices
             query%dispatch_target_implementations = &
                 resolution%dispatch_target_implementations
+            query%dispatch_target_pass_names = &
+                resolution%dispatch_target_pass_names
+            query%dispatch_target_pass_positions = &
+                resolution%dispatch_target_pass_positions
+            query%dispatch_target_passed_object_types = &
+                resolution%dispatch_target_passed_object_types
+            query%dispatch_target_signature_resolved = &
+                resolution%dispatch_target_signature_resolved
         end if
         query%is_resolved = .not. query%is_generic .and. &
             .not. query%is_ambiguous .and. .not. query%is_deferred .and. &
@@ -3647,7 +3667,7 @@ contains
                 end do
             end if
             if (len_trim(target%implementation) == 0) cycle
-            call append_dispatch_target(query, target_type, target%implementation)
+            call append_dispatch_target(arena, query, target_type, target)
         end do
     end function query_type_binding_resolution
 
@@ -3947,6 +3967,10 @@ contains
         call initialize_component_path_query(query%receiver_path)
         allocate (query%dispatch_target_type_indices(0))
         allocate (character(len=1) :: query%dispatch_target_implementations(0))
+        allocate (character(len=1) :: query%dispatch_target_pass_names(0))
+        allocate (query%dispatch_target_pass_positions(0))
+        allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
+        allocate (query%dispatch_target_signature_resolved(0))
     end subroutine initialize_type_bound_call_query
 
     subroutine initialize_component_path_query(query)
@@ -4213,6 +4237,10 @@ contains
         allocate (character(len=1) :: query%generic_names(0))
         allocate (query%dispatch_target_type_indices(0))
         allocate (character(len=1) :: query%dispatch_target_implementations(0))
+        allocate (character(len=1) :: query%dispatch_target_pass_names(0))
+        allocate (query%dispatch_target_pass_positions(0))
+        allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
+        allocate (query%dispatch_target_signature_resolved(0))
     end subroutine initialize_binding_resolution
 
     recursive subroutine resolve_binding_base(arena, type_index, name, query)
@@ -4258,25 +4286,167 @@ contains
             'abstract')
     end subroutine resolve_binding_base
 
-    subroutine append_dispatch_target(query, type_index, implementation)
+    subroutine append_dispatch_target(arena, query, type_index, target)
+        type(ast_arena_t), intent(in) :: arena
         type(binding_resolution_query_t), intent(inout) :: query
         integer, intent(in) :: type_index
-        character(len=*), intent(in) :: implementation
+        type(binding_resolution_query_t), intent(in) :: target
         integer, allocatable :: int_tmp(:)
+        logical, allocatable :: logical_tmp(:)
         character(len=:), allocatable :: char_tmp(:)
-        integer :: n, width
+        character(len=:), allocatable :: pass_name, passed_object_type
+        integer :: n, width, pass_position
+        logical :: signature_resolved
+
+        call resolve_dispatch_signature(arena, target%implementation, &
+            target%pass_arg, target%pass_name, pass_name, pass_position, &
+            passed_object_type, signature_resolved)
 
         n = size(query%dispatch_target_type_indices)
         allocate (int_tmp(n + 1))
         if (n > 0) int_tmp(:n) = query%dispatch_target_type_indices
         int_tmp(n + 1) = type_index
         call move_alloc(int_tmp, query%dispatch_target_type_indices)
-        width = max(1, len_trim(implementation))
+        width = max(1, len_trim(target%implementation))
         allocate (character(len=width) :: char_tmp(n + 1))
         if (n > 0) char_tmp(:n) = query%dispatch_target_implementations
-        char_tmp(n + 1) = trim(implementation)
+        char_tmp(n + 1) = trim(target%implementation)
         call move_alloc(char_tmp, query%dispatch_target_implementations)
+
+        call append_dispatch_character(query%dispatch_target_pass_names, &
+            pass_name)
+        call append_dispatch_integer(query%dispatch_target_pass_positions, &
+            pass_position)
+        call append_dispatch_character( &
+            query%dispatch_target_passed_object_types, passed_object_type)
+        allocate (logical_tmp(n + 1))
+        if (n > 0) logical_tmp(:n) = query%dispatch_target_signature_resolved
+        logical_tmp(n + 1) = signature_resolved
+        call move_alloc(logical_tmp, query%dispatch_target_signature_resolved)
     end subroutine append_dispatch_target
+
+    subroutine resolve_dispatch_signature(arena, implementation, pass_arg, &
+            binding_pass_name, pass_name, pass_position, passed_object_type, &
+            signature_resolved)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: implementation
+        logical, intent(in) :: pass_arg
+        character(len=*), intent(in) :: binding_pass_name
+        character(len=:), allocatable, intent(out) :: pass_name
+        integer, intent(out) :: pass_position
+        character(len=:), allocatable, intent(out) :: passed_object_type
+        logical, intent(out) :: signature_resolved
+        integer :: procedure_index, i, pass_index
+        type(declaration_query_t) :: formal
+
+        call set_empty(pass_name)
+        pass_position = 0
+        call set_empty(passed_object_type)
+        signature_resolved = .false.
+        if (.not. pass_arg) then
+            signature_resolved = .true.
+            return
+        end if
+
+        procedure_index = find_procedure_definition(arena, implementation)
+        if (procedure_index <= 0) return
+        pass_index = 0
+        select type (procedure => arena%entries(procedure_index)%node)
+            type is (function_def_node)
+            if (.not. allocated(procedure%param_indices)) return
+            do i = 1, size(procedure%param_indices)
+                formal = query_declaration(arena, procedure%param_indices(i))
+                if (.not. formal%found) cycle
+                if (len_trim(binding_pass_name) > 0) then
+                    if (.not. same_name(formal%name, binding_pass_name)) cycle
+                else if (i /= 1) then
+                    cycle
+                end if
+                pass_index = i
+                exit
+            end do
+            type is (subroutine_def_node)
+            if (.not. allocated(procedure%param_indices)) return
+            do i = 1, size(procedure%param_indices)
+                formal = query_declaration(arena, procedure%param_indices(i))
+                if (.not. formal%found) cycle
+                if (len_trim(binding_pass_name) > 0) then
+                    if (.not. same_name(formal%name, binding_pass_name)) cycle
+                else if (i /= 1) then
+                    cycle
+                end if
+                pass_index = i
+                exit
+            end do
+            class default
+            return
+        end select
+
+        if (pass_index <= 0) return
+        select type (procedure => arena%entries(procedure_index)%node)
+            type is (function_def_node)
+            formal = query_declaration(arena, procedure%param_indices(pass_index))
+            type is (subroutine_def_node)
+            formal = query_declaration(arena, procedure%param_indices(pass_index))
+        end select
+        if (.not. formal%found) return
+        pass_name = formal%name
+        pass_position = pass_index
+        passed_object_type = formal%type_name
+        signature_resolved = len_trim(passed_object_type) > 0
+    end subroutine resolve_dispatch_signature
+
+    integer function find_procedure_definition(arena, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        index = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (function_def_node)
+                if (allocated(node%name) .and. same_name(node%name, name)) then
+                    index = i
+                    return
+                end if
+                type is (subroutine_def_node)
+                if (allocated(node%name) .and. same_name(node%name, name)) then
+                    index = i
+                    return
+                end if
+            class default
+            end select
+        end do
+    end function find_procedure_definition
+
+    subroutine append_dispatch_character(values, value)
+        character(len=:), allocatable, intent(inout) :: values(:)
+        character(len=*), intent(in) :: value
+        character(len=:), allocatable :: grown(:)
+        integer :: n, width
+
+        n = size(values)
+        width = max(1, len_trim(value))
+        if (n > 0) width = max(width, len(values))
+        allocate (character(len=width) :: grown(n + 1))
+        if (n > 0) grown(:n) = values
+        grown(n + 1) = trim(value)
+        call move_alloc(grown, values)
+    end subroutine append_dispatch_character
+
+    subroutine append_dispatch_integer(values, value)
+        integer, allocatable, intent(inout) :: values(:)
+        integer, intent(in) :: value
+        integer, allocatable :: grown(:)
+        integer :: n
+
+        n = size(values)
+        allocate (grown(n + 1))
+        if (n > 0) grown(:n) = values
+        grown(n + 1) = value
+        call move_alloc(grown, values)
+    end subroutine append_dispatch_integer
 
     logical function binding_matches(binding, name)
         type(type_binding_query_t), intent(in) :: binding

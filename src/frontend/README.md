@@ -200,6 +200,11 @@ end subroutine
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
+- **Type-bound dispatch signatures**: `query_type_bound_call` preserves the
+  existing dispatch target type and implementation arrays and adds parallel
+  effective PASS names, positions, passed-object declared types, and a
+  signature-resolved flag for each concrete target. Refused generic or
+  unresolved calls expose no target facts.
 - **Procedure-pointer target query**: `query_procedure_target` reports one
   direct `=>` assignment whose left side is a declared procedure pointer. It
   preserves the assignment, pointer declaration, target expression, and
