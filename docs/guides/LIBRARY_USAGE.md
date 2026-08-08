@@ -237,6 +237,19 @@ ambiguous, and out-of-hierarchy cases are explicit refusals with
 `SELECT_TYPE_MATCH_UNKNOWN`; consumers must not infer a concrete runtime type
 from them.
 
+## SELECT TYPE component paths
+
+`query_select_type_component_path(arena, arm_node_index, component_node_index)`
+maps a component access in a resolved `SELECT TYPE` arm to ordered component
+declaration and terminal storage facts. This is the bounded query for a branch
+associate such as `typed%payload`: the path is rooted in the arm's narrowed
+concrete type even though the ordinary component query conservatively refuses
+the associate name. The result is resolved only for a direct arm-body access
+whose intermediate components are scalar, non-polymorphic, non-pointer, and
+non-allocatable. `CLASS DEFAULT`, accesses from a different or nested
+`SELECT TYPE` arm, unknown components, and ownership or dynamic-type
+boundaries are explicit refusals.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the

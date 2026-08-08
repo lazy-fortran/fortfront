@@ -8,7 +8,9 @@ module frontend_compiler_select_type_queries
         query_type_bound_call, binding_hierarchy_query_t, &
         query_type_binding_hierarchy, procedure_signature_query_t, &
         query_procedure_signature, derived_type_query_t, query_derived_type, &
-        storage_query_t
+        storage_query_t, component_path_query_t, component_access_query_t, &
+        query_component_access, query_component_path, query_declaration, &
+        query_storage, get_identifier_name, declaration_query_t
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -55,6 +57,36 @@ module frontend_compiler_select_type_queries
         character(len=:), allocatable :: declared_type_name
         character(len=:), allocatable :: refusal_reason
     end type select_type_branch_query_t
+
+    type, public :: select_type_component_query_t
+        !! Bounded component/storage facts for one component path in a
+        !! resolved SELECT TYPE arm.  This is the bridge for a branch
+        !! associate such as ``select type (typed => value); type is(child_t);
+        !! typed%payload``: the ordinary component query intentionally does
+        !! not invent storage for the associate name.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_selector_associate = .false.
+        logical :: is_direct_selector = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: arm_ordinal = 0
+        integer :: component_node_index = 0
+        integer :: selector_node_index = 0
+        integer :: selector_expression_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: concrete_type_index = 0
+        integer :: terminal_declaration_index = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: selector_associate_name
+        character(len=:), allocatable :: guard_type_name
+        character(len=:), allocatable :: refusal_reason
+        type(component_path_query_t) :: selector_path
+        type(component_path_query_t) :: component_path
+        type(storage_query_t) :: terminal_storage
+    end type select_type_component_query_t
 
     type, public :: select_type_dispatch_query_t
         !! Facts for one direct type-bound CALL in one concrete SELECT TYPE arm.
@@ -124,7 +156,8 @@ module frontend_compiler_select_type_queries
         type(procedure_signature_query_t) :: signature
     end type select_type_dispatch_query_t
 
-    public :: query_select_type_branch, query_select_type_dispatch
+    public :: query_select_type_branch, query_select_type_component_path, &
+        query_select_type_dispatch
 
 contains
 
@@ -170,6 +203,441 @@ contains
         call refuse_branch(query, &
             'node is not a SELECT TYPE arm of an enclosing construct')
     end function query_select_type_branch
+
+    function query_select_type_component_path(arena, arm_node_index, &
+            component_node_index) result(query)
+        !! Return storage facts for a component path under one SELECT TYPE arm.
+        !!
+        !! A direct selector uses the ordinary component-path query.  A branch
+        !! associate is resolved only when the guard has a concrete derived
+        !! type and every component segment is a scalar, non-polymorphic,
+        !! non-pointer, non-allocatable component.  This keeps the result
+        !! useful to a transformer without pretending that alias ownership or
+        !! dynamic intermediate components are static.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        integer, intent(in) :: component_node_index
+        type(select_type_component_query_t) :: query
+        type(control_statement_query_t) :: control
+        type(select_type_arm_query_t) :: arm
+        type(component_access_query_t) :: access
+        type(component_path_query_t) :: direct_path
+        type(declaration_query_t) :: terminal
+        character(len=:), allocatable :: root_name
+        character(len=:), allocatable :: names(:)
+        integer, allocatable :: nodes(:)
+        integer :: select_index, arm_position, current_type, i
+
+        call initialize_component_query(query, arm_node_index, &
+            component_node_index)
+        if (.not. arena%has_node_at(component_node_index)) then
+            call refuse_component(query, 'component node is absent')
+            return
+        end if
+        select_index = enclosing_select_type(arena, arm_node_index)
+        if (select_index <= 0) then
+            call refuse_component(query, &
+                'arm is not contained in a SELECT TYPE construct')
+            return
+        end if
+        query%select_type_node_index = select_index
+        control = query_control_statement(arena, select_index)
+        arm_position = find_select_type_arm(control, arm_node_index)
+        if (arm_position <= 0) then
+            call refuse_component(query, 'node is not a SELECT TYPE arm')
+            return
+        end if
+        arm = control%type_arms(arm_position)
+        query%arm_ordinal = arm%arm_ordinal
+        query%selector_node_index = arm%selector_node_index
+        query%selector_expression_node_index = &
+            arm%selector_expression_node_index
+        query%selector_declaration_index = arm%selector_declaration_index
+        query%selector_name = arm%selector_name
+        query%selector_associate_name = arm%selector_associate_name
+        query%is_selector_associate = arm%is_selector_associate
+        query%is_direct_selector = .not. arm%is_selector_associate
+        query%concrete_type_index = arm%concrete_type_index
+        query%guard_type_name = arm%concrete_type_name
+        query%selector_path = query_component_path(arena, &
+            arm%selector_expression_node_index, .true.)
+
+        if (.not. arm%is_selector_resolved .or. arm%is_invalid .or. &
+                arm%is_unresolved) then
+            call refuse_component(query, 'SELECT TYPE selector or guard is unresolved')
+            return
+        end if
+        if (arm%is_class_default) then
+            call refuse_component(query, &
+                'CLASS DEFAULT has no statically narrowed component type')
+            return
+        end if
+        if (.not. arm%is_concrete_type_resolved) then
+            call refuse_component(query, &
+                'SELECT TYPE guard has no concrete derived identity')
+            return
+        end if
+        if (.not. node_is_directly_in_arm(arena, arm_node_index, &
+                component_node_index)) then
+            call refuse_component(query, &
+                'component is outside the direct SELECT TYPE arm body')
+            return
+        end if
+
+        access = query_component_access(arena, component_node_index)
+        if (.not. access%found) then
+            call refuse_component(query, 'node is not a component access')
+            return
+        end if
+        call collect_component_segments(arena, component_node_index, names, nodes, &
+            root_name)
+        if (size(names) == 0) then
+            call refuse_component(query, 'component path is empty')
+            return
+        end if
+
+        if (.not. arm%is_selector_associate) then
+            if (.not. same_name(root_name, arm%selector_name)) then
+                call refuse_component(query, &
+                    'component path root is not the SELECT TYPE selector')
+                return
+            end if
+            direct_path = query_component_path(arena, component_node_index)
+            if (.not. direct_path%found) then
+                call refuse_component(query, &
+                    'direct selector component storage is unresolved')
+                return
+            end if
+            if (size(direct_path%component_declaration_indices) == 0) then
+                call refuse_component(query, &
+                    'direct selector component declaration is absent')
+                return
+            end if
+            query%component_path = direct_path
+            query%terminal_declaration_index = &
+                direct_path%component_declaration_indices(size( &
+                direct_path%component_declaration_indices))
+            query%terminal_storage = query_storage_for_component(arena, &
+                component_node_index, query%terminal_declaration_index)
+            if (.not. query%terminal_storage%found) then
+                call refuse_component(query, &
+                    'direct selector terminal storage is unresolved')
+                return
+            end if
+            query%found = .true.
+            query%is_resolved = .true.
+            return
+        end if
+
+        if (.not. same_name(root_name, arm%selector_associate_name)) then
+            call refuse_component(query, &
+                'component path root is not the SELECT TYPE associate')
+            return
+        end if
+
+        current_type = arm%concrete_type_index
+        do i = 1, size(names)
+            query%terminal_declaration_index = find_component_in_hierarchy(&
+                arena, current_type, names(i))
+            if (query%terminal_declaration_index <= 0) then
+                call refuse_component(query, &
+                    'component is absent from the narrowed type hierarchy')
+                return
+            end if
+            terminal = query_declaration(arena, query%terminal_declaration_index)
+            if (.not. terminal%found) then
+                call refuse_component(query, 'component declaration is unresolved')
+                return
+            end if
+            call append_component_path(query%component_path, names(i), nodes(i), &
+                query%terminal_declaration_index)
+            query%terminal_storage = query_storage_for_component(arena, nodes(i), &
+                query%terminal_declaration_index)
+            if (query%terminal_storage%is_pointer .or. &
+                    query%terminal_storage%is_allocatable .or. &
+                    query%terminal_storage%is_polymorphic) then
+                call refuse_component(query, &
+                    'pointer, allocatable, or polymorphic component is a storage boundary')
+                return
+            end if
+            if (i < size(names)) then
+                current_type = find_derived_type_by_name_local(arena, &
+                    declared_type_name(terminal%type_name))
+                if (current_type <= 0) then
+                    call refuse_component(query, &
+                        'intermediate component type is not a resolved derived type')
+                    return
+                end if
+            end if
+        end do
+
+        call finalize_component_path(query, arm, component_node_index)
+    end function query_select_type_component_path
+
+    subroutine initialize_component_query(query, arm_node_index, component_node_index)
+        type(select_type_component_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index, component_node_index
+
+        query%arm_node_index = arm_node_index
+        query%component_node_index = component_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%selector_associate_name)
+        call set_empty(query%guard_type_name)
+        call set_empty(query%refusal_reason)
+        call initialize_component_path(query%selector_path)
+        call initialize_component_path(query%component_path)
+        call initialize_storage(query%terminal_storage)
+    end subroutine initialize_component_query
+
+    subroutine initialize_component_path(path)
+        type(component_path_query_t), intent(out) :: path
+
+        allocate (character(len=0) :: path%component_names(0))
+        allocate (path%component_node_indices(0))
+        allocate (path%component_declaration_indices(0))
+    end subroutine initialize_component_path
+
+    subroutine initialize_storage(storage)
+        type(storage_query_t), intent(out) :: storage
+
+        call set_empty(storage%name)
+        call set_empty(storage%type_name)
+    end subroutine initialize_storage
+
+    subroutine refuse_component(query, reason)
+        type(select_type_component_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_component
+
+    integer function find_select_type_arm(control, arm_node_index) result(position)
+        type(control_statement_query_t), intent(in) :: control
+        integer, intent(in) :: arm_node_index
+        integer :: i
+
+        position = 0
+        if (.not. allocated(control%type_arms)) return
+        do i = 1, size(control%type_arms)
+            if (control%type_arms(i)%arm_node_index == arm_node_index) then
+                position = i
+                return
+            end if
+        end do
+    end function find_select_type_arm
+
+    logical function node_is_directly_in_arm(arena, arm_node_index, node_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index, node_index
+        integer :: current, guard
+
+        node_is_directly_in_arm = .false.
+        current = node_index
+        guard = 0
+        do while (current > 0)
+            if (.not. arena%has_node_at(current)) return
+            if (current == arm_node_index) then
+                node_is_directly_in_arm = .true.
+                return
+            end if
+            select type (node => arena%entries(current)%node)
+                type is (type_guard_block_node)
+                if (current /= arm_node_index) return
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function node_is_directly_in_arm
+
+    recursive subroutine collect_component_segments(arena, node_index, names, &
+            nodes, root_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: names(:)
+        integer, allocatable, intent(out) :: nodes(:)
+        character(len=:), allocatable, intent(out) :: root_name
+        type(component_access_query_t) :: access
+        character(len=:), allocatable :: prefix_names(:), identifier, error
+        integer, allocatable :: prefix_nodes(:)
+        integer :: width, i, count
+
+        access = query_component_access(arena, node_index)
+        if (.not. access%found) then
+            call get_identifier_name(arena, node_index, identifier, error)
+            root_name = trim(identifier)
+            allocate (character(len=0) :: names(0))
+            allocate (nodes(0))
+            return
+        end if
+        call collect_component_segments(arena, access%base_node_index, &
+            prefix_names, prefix_nodes, root_name)
+        count = size(prefix_names) + 1
+        width = max(1, len_trim(access%component_name))
+        if (size(prefix_names) > 0) width = max(width, len(prefix_names))
+        allocate (character(len=width) :: names(count))
+        allocate (nodes(count))
+        do i = 1, size(prefix_names)
+            names(i) = prefix_names(i)
+            nodes(i) = prefix_nodes(i)
+        end do
+        names(count) = trim(access%component_name)
+        nodes(count) = node_index
+    end subroutine collect_component_segments
+
+    integer function find_component_in_hierarchy(arena, type_index, name) &
+            result(component_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index
+        character(len=*), intent(in) :: name
+        type(derived_type_query_t) :: derived
+        type(declaration_query_t) :: declaration
+        integer :: current, parent, i, guard
+
+        component_index = 0
+        current = type_index
+        guard = 0
+        do while (current > 0)
+            derived = query_derived_type(arena, current)
+            if (.not. derived%found) return
+            if (allocated(derived%component_indices)) then
+                do i = 1, size(derived%component_indices)
+                    declaration = query_declaration(arena, &
+                        derived%component_indices(i))
+                    if (declaration%found .and. &
+                            same_name(declaration%name, name)) then
+                        component_index = declaration%node_index
+                        return
+                    end if
+                end do
+            end if
+            if (len_trim(derived%extends_parent) == 0) return
+            parent = find_derived_type_by_name_local(arena, derived%extends_parent)
+            if (parent <= 0) return
+            current = parent
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end function find_component_in_hierarchy
+
+    integer function find_derived_type_by_name_local(arena, name) result(index)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        type(derived_type_query_t) :: derived
+        integer :: i
+
+        index = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            derived = query_derived_type(arena, i)
+            if (derived%found .and. same_name(derived%name, name)) then
+                index = i
+                return
+            end if
+        end do
+    end function find_derived_type_by_name_local
+
+    function declared_type_name(type_spec) result(name)
+        character(len=*), intent(in) :: type_spec
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: lowered
+        integer :: left, right, prefix
+
+        name = trim(type_spec)
+        lowered = to_lower(name)
+        left = index(lowered, 'type(')
+        prefix = len('type(')
+        if (left /= 1) then
+            left = index(lowered, 'class(')
+            prefix = len('class(')
+        end if
+        if (left == 1) then
+            right = index(name, ')')
+            if (right > prefix) name = trim(name(prefix + 1:right - 1))
+        end if
+    end function declared_type_name
+
+    subroutine append_component_path(path, name, node_index, declaration_index)
+        type(component_path_query_t), intent(inout) :: path
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: node_index, declaration_index
+        character(len=:), allocatable :: names(:)
+        integer, allocatable :: nodes(:), declarations(:)
+        integer :: old_size, width, i
+
+        old_size = size(path%component_names)
+        width = max(1, len_trim(name))
+        if (old_size > 0) width = max(width, len(path%component_names))
+        allocate (character(len=width) :: names(old_size + 1))
+        allocate (nodes(old_size + 1), declarations(old_size + 1))
+        do i = 1, old_size
+            names(i) = path%component_names(i)
+            nodes(i) = path%component_node_indices(i)
+            declarations(i) = path%component_declaration_indices(i)
+        end do
+        names(old_size + 1) = trim(name)
+        nodes(old_size + 1) = node_index
+        declarations(old_size + 1) = declaration_index
+        call move_alloc(names, path%component_names)
+        call move_alloc(nodes, path%component_node_indices)
+        call move_alloc(declarations, path%component_declaration_indices)
+    end subroutine append_component_path
+
+    function query_storage_for_component(arena, node_index, declaration_index) &
+            result(storage)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, declaration_index
+        type(storage_query_t) :: storage
+
+        storage = query_storage(arena, declaration_index)
+        if (storage%found) then
+            storage%node_index = node_index
+            storage%is_component = .true.
+        end if
+    end function query_storage_for_component
+
+    subroutine finalize_component_path(query, arm, component_node_index)
+        type(select_type_component_query_t), intent(inout) :: query
+        type(select_type_arm_query_t), intent(in) :: arm
+        integer, intent(in) :: component_node_index
+
+        if (.not. query%terminal_storage%found) then
+            call refuse_component(query, 'terminal component storage is unresolved')
+            return
+        end if
+        query%component_path%found = .true.
+        query%component_path%node_index = component_node_index
+        query%component_path%base_node_index = &
+            arm%selector_expression_node_index
+        query%component_path%base_rank = 0
+        query%component_path%rank = query%terminal_storage%rank
+        query%component_path%storage_class = query%terminal_storage%storage_class
+        query%component_path%base_storage_class = &
+            arm%selector_storage%storage_class
+        query%component_path%is_array_element = &
+            query%terminal_storage%is_array_element
+        query%component_path%is_array_section = &
+            query%terminal_storage%is_array_section
+        query%component_path%is_derived = query%terminal_storage%is_derived
+        query%component_path%is_concrete_derived = &
+            query%terminal_storage%is_concrete_derived
+        query%component_path%is_abstract_type = &
+            query%terminal_storage%is_abstract_type
+        query%component_path%is_allocatable = &
+            query%terminal_storage%is_allocatable
+        query%component_path%is_pointer = query%terminal_storage%is_pointer
+        query%component_path%is_polymorphic = &
+            query%terminal_storage%is_polymorphic
+        query%component_path%is_unlimited_polymorphic = &
+            query%terminal_storage%is_unlimited_polymorphic
+        query%found = .true.
+        query%is_resolved = .true.
+    end subroutine finalize_component_path
 
     subroutine initialize_branch_query(query, arm_node_index)
         type(select_type_branch_query_t), intent(out) :: query
