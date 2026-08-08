@@ -335,6 +335,14 @@ end subroutine
   nested SELECT TYPE arm, unknown components, and pointer, allocatable, or
   polymorphic intermediate storage; no alias ownership or dynamic type is
   inferred.
+- **SELECT TYPE component-binding query**:
+  `query_select_type_component_binding(arena, arm_node_index,
+  component_node_index, binding_name)` composes a resolved narrowed component
+  path with the terminal component's effective `EXTENDS` binding. It reports
+  inherited concrete implementations and their declaring type, while refusing
+  unresolved, generic, ambiguous, or deferred bindings and pointer,
+  allocatable, polymorphic, non-derived, or abstract component boundaries. It
+  does not perform generic argument matching or runtime dispatch.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
   composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or

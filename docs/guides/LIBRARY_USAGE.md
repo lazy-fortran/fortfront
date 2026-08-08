@@ -250,6 +250,18 @@ non-allocatable. `CLASS DEFAULT`, accesses from a different or nested
 `SELECT TYPE` arm, unknown components, and ownership or dynamic-type
 boundaries are explicit refusals.
 
+## SELECT TYPE component bindings
+
+`query_select_type_component_binding(arena, arm_node_index,
+component_node_index, binding_name)` resolves the effective type-bound binding
+of the terminal type in a previously resolved narrowed component path. For
+example, a `typed%leaf` path whose `leaf_t` extends an implementation type can
+report the inherited concrete implementation and its declaring type. The
+query refuses unresolved, generic, ambiguous, or deferred bindings and
+pointer, allocatable, polymorphic, non-derived, or abstract component
+boundaries; it never guesses a runtime target or performs generic argument
+matching.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the
