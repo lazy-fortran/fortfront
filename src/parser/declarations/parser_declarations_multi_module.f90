@@ -19,9 +19,10 @@ module parser_declarations_multi_module
 
 contains
 
-    function parse_multi_declaration(parser, arena) result(decl_indices)
+    function parse_multi_declaration(parser, arena, force_individual) result(decl_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in), optional :: force_individual
         integer, allocatable :: decl_indices(:)
 
         type(type_specifier_t) :: type_spec
@@ -32,7 +33,11 @@ contains
         integer, allocatable :: init_indices(:)
         integer :: var_count
         logical :: has_any_initializer
+        logical :: split_individual
         integer :: idx_i, idx_val
+
+        split_individual = .false.
+        if (present(force_individual)) split_individual = force_individual
 
         type_spec = parse_type_specifier(parser, arena)
         if (.not. allocated(type_spec%type_name)) then
@@ -50,7 +55,8 @@ contains
             var_count, has_any_initializer)
         call finalize_multi_declaration( &
             arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
-            init_indices, var_count, has_any_initializer, decl_indices)
+            init_indices, var_count, has_any_initializer, decl_indices, &
+            split_individual)
 
         ! Set line numbers on created declaration nodes
         if (allocated(decl_indices)) then
@@ -277,7 +283,7 @@ contains
     subroutine finalize_multi_declaration(arena, type_spec, attr_info, &
             var_names, per_var_dims, has_dims, &
             init_indices, var_count, &
-            has_any_initializer, decl_indices)
+            has_any_initializer, decl_indices, force_individual)
         type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(in) :: type_spec
         type(declaration_attribute_info_t), intent(in) :: attr_info
@@ -288,6 +294,7 @@ contains
         integer, intent(in) :: var_count
         logical, intent(in) :: has_any_initializer
         integer, allocatable, intent(out) :: decl_indices(:)
+        logical, intent(in) :: force_individual
         integer :: decl_index
 
         if (var_count <= 0) then
@@ -295,8 +302,8 @@ contains
             return
         end if
 
-        if (requires_individual_declarations(has_dims, has_any_initializer, &
-            var_count)) then
+        if (force_individual .or. requires_individual_declarations( &
+            has_dims, has_any_initializer, var_count)) then
             call emit_individual_declarations( &
                 arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
                 init_indices, var_count, decl_indices)

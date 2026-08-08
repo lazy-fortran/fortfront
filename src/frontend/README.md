@@ -202,7 +202,11 @@ end subroutine
   component whose base is an `ASSOCIATE` name is unresolved (`found=.false.`)
   rather than guessed. Pointer components remain visible as `STORAGE_POINTER`
   and are never reported as owned. Existing storage and global-state fields
-  are preserved. For a directly resolved polymorphic allocatable target,
+  are preserved. Derived-type component declarations are parsed into one
+  declaration node per entity, including compound declarations and legacy
+  `TYPE name` headers, so `component_declaration_indices` and terminal
+  storage facts remain available for every component name.
+  For a directly resolved polymorphic allocatable target,
   `polymorphic_allocation` (or `query_polymorphic_allocation`) bundles the
   owner node/path, owner declaration index and declared `class(...)` type,
   source expression index/path, and the resolved concrete source type. Its

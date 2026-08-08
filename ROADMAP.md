@@ -57,6 +57,18 @@ instantiable runtime arms. The regression oracle is
 leaf to retain the inherited implementation while the abstract intermediate
 is absent.
 
+### Tapenade v290 derived-component metadata (2026-08-08)
+
+The derived-type collector now gives each component entity its own declaration
+identity, including a legal compound declaration such as
+`real(kind=8), dimension(mcell) :: a, b, c`. The general declaration parser
+continues to preserve multi-entity declarations; only the component-definition
+boundary expands them so `derived_type_query_t%component_indices` and
+`component_path_query_t%component_declaration_indices` retain `b` and `c`.
+The focused `test/api/test_tapenade_v290_component_metadata.f90` compiles the
+exact v290 source and the compound form with GNU Fortran, then checks the
+typed FortFront metadata and component paths.
+
 ### CI evidence and #2980/procedure-name tranches (2026-08-07)
 
 The procedure-name semantic boundary fix is merged as `c0a32743`. Its focused
