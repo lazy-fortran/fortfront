@@ -362,6 +362,17 @@ end subroutine
   signature. `is_resolved` is set only for one exact type/kind/rank match;
   ambiguous, zero-match, deferred, unresolved, dynamic, array, pointer, and
   allocatable cases remain explicit refusals with no selected implementation.
+- **SELECT TYPE component type-bound generic dispatch query**:
+  `query_select_type_component_generic_dispatch(arena, arm_node_index,
+  call_node_index)` is the downstream bridge for an explicit call such as
+  `CALL typed%leaf%choose(value)` in a concrete narrowed arm. It preserves the
+  source-backed component path and terminal static type, enumerates every
+  specific with implementation node/name, exact-match status, and ordered
+  signature facts, and copies the selected candidate and signature only when
+  exactly one specific matches the actual arguments by semantic type, kind,
+  and rank. Ambiguous, zero-match, deferred, unresolved, pointer,
+  allocatable, polymorphic, array, and dynamic paths remain explicit refusals;
+  no runtime implementation is guessed.
 - **Bounded procedure-pointer call target query**:
   `query_procedure_call_target` reports a complete fact only for a direct
   call through a declared procedure pointer with exactly one unconditional,
