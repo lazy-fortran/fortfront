@@ -174,11 +174,17 @@ end subroutine
   `found=.false.` rather than guessing.
 - **Passed-procedure mapping**: `query_procedure_actual_argument` joins one
   named procedure dummy from `query_call_arguments` to a direct same-arena
-  function or subroutine actual. Only that proven target receives its
-  procedure identity and `procedure_signature_query_t`; procedure pointers,
-  procedure dummies, branch/reassignment contexts, generic names, and
-  non-identifiers remain refusal-only facts with `is_unresolved` and explicit
-  context, reassignment, or ambiguity flags.
+  function or subroutine actual. It also resolves a procedure-pointer actual
+  when the pointer has exactly one unconditional, same-scope direct assignment
+  before the call and that assignment has a resolved target signature. The
+  result preserves the assignment and target node identities alongside the
+  target procedure and `procedure_signature_query_t`; `has_contextual_target`
+  remains true to show that the actual was a pointer. Branch-local targets,
+  reassignment, `NULL()`, unresolved targets, procedure dummies, generic names,
+  and non-identifiers remain refusal-only facts with `is_unresolved` and the
+  corresponding `has_branch_target`, `has_reassignment`, `has_null_target`,
+  `has_unresolved_target`, or ambiguity flag. No pointer state is inferred
+  across a branch or an assignment after the call.
 - **Generic candidate query**: `query_generic_call` enumerates the concrete
   procedures in a same-arena named generic interface and exposes each formal's
   semantic type category, exact kind, rank, and derived-type identity. A

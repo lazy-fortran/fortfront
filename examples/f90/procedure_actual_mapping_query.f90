@@ -23,6 +23,14 @@ contains
         call apply(callback, value)
     end subroutine pointer_context_case
 
+    subroutine null_pointer_case(value)
+        real, intent(inout) :: value
+        procedure(real), pointer :: callback
+
+        callback => null()
+        call apply(callback, value)
+    end subroutine null_pointer_case
+
     subroutine reassigned_case(value)
         real, intent(inout) :: value
         procedure(real), pointer :: callback

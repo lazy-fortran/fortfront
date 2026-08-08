@@ -9,7 +9,8 @@ program test_procedure_actual_mapping_query
     type(compiler_frontend_result_t) :: result
     type(procedure_actual_argument_query_t) :: query
     character(len=:), allocatable :: source, call_name, error_msg
-    integer :: i, direct_count, context_count, reassigned_count
+    integer :: i, direct_count, bounded_count, reassigned_count
+    integer :: branch_count, null_count, status
 
     call read_example('examples/f90/procedure_actual_mapping_query.f90', source)
     options = compiler_frontend_options_t()
@@ -20,8 +21,14 @@ program test_procedure_actual_mapping_query
         trim(result%diagnostic_text))
 
     direct_count = 0
-    context_count = 0
+    bounded_count = 0
     reassigned_count = 0
+    branch_count = 0
+    null_count = 0
+    call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
+        '-fsyntax-only examples/f90/procedure_actual_mapping_query.f90', &
+        wait=.true., exitstat=status)
+    call require(status == 0, 'GNU Fortran rejected the procedure mapping fixture')
     do i = 1, result%arena%size
         call get_subroutine_call_name(result%arena, i, call_name, error_msg)
         if (len_trim(error_msg) > 0 .or. trim(call_name) /= 'apply') cycle
@@ -51,27 +58,45 @@ program test_procedure_actual_mapping_query
                 query%signature%dummies(1)%rank == 0, &
                 'direct procedure signature facts are incomplete')
         case ('callback')
-            if (query%has_reassignment) then
+            if (query%is_resolved) then
+                bounded_count = bounded_count + 1
+                call require(query%has_contextual_target .and. &
+                    .not. query%is_refused .and. .not. query%is_unresolved, &
+                    'bounded procedure pointer target was not resolved')
+                call require(query%target_assignment_node_index > 0 .and. &
+                    query%target_node_index > 0 .and. &
+                    query%target_procedure_index > 0 .and. &
+                    trim(query%procedure_name) == 'increment' .and. &
+                    query%signature%found, &
+                    'bounded procedure pointer identity/signature is incomplete')
+            else if (query%has_null_target) then
+                null_count = null_count + 1
+                call require(query%is_refused .and. query%is_unresolved .and. &
+                    query%has_unresolved_target .and. .not. query%is_resolved, &
+                    'NULL procedure pointer target was not refused')
+            else if (query%has_branch_target) then
+                branch_count = branch_count + 1
+                call require(query%is_refused .and. query%is_unresolved .and. &
+                    query%has_ambiguous_target .and. .not. query%is_resolved, &
+                    'branch-local procedure pointer target was not refused')
+            else if (query%has_reassignment) then
                 reassigned_count = reassigned_count + 1
                 call require(query%is_refused .and. query%is_unresolved .and. &
                     query%has_contextual_target .and. &
                     query%has_ambiguous_target, &
                     'reassigned callback was not refused explicitly')
             else
-                context_count = context_count + 1
-                call require(query%is_refused .and. query%is_unresolved .and. &
-                    query%has_contextual_target .and. &
-                    .not. query%is_resolved .and. .not. query%signature%found, &
-                    'contextual callback target was guessed')
+                call require(.false., 'unclassified procedure pointer target')
             end if
         case default
             call require(.false., 'unexpected procedure actual name')
         end select
     end do
 
-    call require(direct_count == 1 .and. context_count == 1 .and. &
-        reassigned_count == 2, &
-        'direct, contextual, and reassigned callback boundaries are incomplete')
+    call require(direct_count == 1 .and. bounded_count == 1 .and. &
+        reassigned_count == 1 .and. branch_count == 1 .and. null_count == 1, &
+        'direct, bounded, reassigned, branch, or NULL callback boundaries '// &
+        'are incomplete')
 
     query = query_procedure_actual_argument(result%arena, -1, 'operation')
     call require(.not. query%found .and. .not. query%is_resolved, &
