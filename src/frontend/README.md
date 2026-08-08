@@ -202,7 +202,16 @@ end subroutine
   component whose base is an `ASSOCIATE` name is unresolved (`found=.false.`)
   rather than guessed; pointer components remain visible as `STORAGE_POINTER`
   and are never reported as owned. Existing storage and global-state fields
-  are preserved. `query_type_binding_resolution` resolves a binding
+  are preserved. For a directly resolved polymorphic allocatable target,
+  `polymorphic_allocation` (or `query_polymorphic_allocation`) bundles the
+  owner node/path, owner declaration index and declared `class(...)` type,
+  source expression index/path, and the resolved concrete source type. Its
+  `is_bounded` flag is true only for one scalar `SOURCE=` data designator
+  whose declared type is concrete. `source_classification` is one of
+  `POLYMORPHIC_SOURCE_CONCRETE`, `POLYMORPHIC_SOURCE_POLYMORPHIC`, or
+  `POLYMORPHIC_SOURCE_UNKNOWN`; factories, dynamic sources, repeated
+  acquisition, and alias paths remain unbounded and retain their explicit
+  refusal flags. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
   includes concrete dynamic target type indices and implementations.
   `query_type_binding_hierarchy` is the bounded alternative for one declared

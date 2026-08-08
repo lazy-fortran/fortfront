@@ -255,6 +255,18 @@ resolved real or complex operand kind. The query itself reads semantic metadata;
 it does not parse source text. If compiler options disable semantic analysis,
 exact type queries are unavailable.
 
+## Bounded polymorphic allocation facts
+
+Ownership events expose `event%polymorphic_allocation`; the same record is
+available directly through `query_polymorphic_allocation`. For a direct scalar
+`allocate(owner, source=concrete_child)`, it reports the owner node and
+component path, declaration indices, declared owner type (`class(base_t)` or
+`class(*)`), source expression index/path, resolved concrete source type, and
+`POLYMORPHIC_SOURCE_CONCRETE`. `is_bounded` is true only for this bounded
+case. Factories, dynamic polymorphic sources, repeated acquisition, and
+aliases remain explicit unknown or refusal facts rather than being guessed;
+use `source_classification` and the corresponding `is_*` flags to branch.
+
 ## See Also
 
 - `examples/` - Additional code samples
