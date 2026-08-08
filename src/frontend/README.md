@@ -316,6 +316,16 @@ end subroutine
   `is_intrinsic`, `is_ambiguous`, `is_unresolved`, `is_invalid`, or
   `is_out_of_hierarchy` flags and a refusal reason. No runtime type or guard
   relationship is guessed.
+- **SELECT TYPE branch type query**: `query_select_type_branch(arena,
+  arm_node_index)` exposes the narrowing predicate needed by a differentiation
+  backend. `SELECT_TYPE_MATCH_EXACT` means `TYPE IS` and an exact dynamic type;
+  `SELECT_TYPE_MATCH_EXTENSION` means `CLASS IS` and the named type or one of
+  its extensions; `SELECT_TYPE_MATCH_DEFAULT` is `CLASS DEFAULT`. The query
+  also reports whether the guard is the selector's declared type, an extension,
+  or an invalid base/out-of-hierarchy relation, plus abstract guard identity.
+  Intrinsic, ambiguous, unresolved, and unsupported relations remain
+  `is_refused` with `match_kind=SELECT_TYPE_MATCH_UNKNOWN`; no concrete runtime
+  type is invented.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
   composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or
