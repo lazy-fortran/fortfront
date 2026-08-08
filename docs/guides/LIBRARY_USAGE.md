@@ -279,6 +279,25 @@ and pointer or allocatable selector storage. Generic bindings are therefore
 supported only through an independently provable specific selection; no
 runtime target or implicit conversion is guessed.
 
+## SELECT TYPE component type-bound generic dispatch
+
+`query_select_type_component_generic_dispatch(arena, arm_node_index,
+call_node_index)` is the downstream bridge from a narrowed component path to a
+generic call. For an explicit call such as
+`CALL typed%leaf%choose(value)` in a concrete `SELECT TYPE (typed => object)`
+arm, `receiver_path` preserves the source-backed component names and
+declaration identities, while `component_type_name` identifies the terminal
+static type. `candidates` contains every same-arena specific with its
+implementation node/name, exact-match flag, and ordered `signature`; the
+selected candidate and signature are copied to the top-level result only when
+exactly one candidate matches the actual arguments by semantic type, kind, and
+rank.
+
+The query refuses ambiguous or zero-match generics, deferred or unresolved
+bindings, and component paths crossing pointer, allocatable, polymorphic,
+array, or dynamic storage boundaries. `is_refused` and `is_unresolved` remain
+set with a reason, and no runtime implementation is selected in those cases.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the

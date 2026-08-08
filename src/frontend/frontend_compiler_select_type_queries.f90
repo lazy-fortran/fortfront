@@ -242,9 +242,48 @@ module frontend_compiler_select_type_queries
         type(procedure_signature_query_t) :: signature
     end type select_type_generic_dispatch_query_t
 
+    type, public :: select_type_component_generic_dispatch_query_t
+        !! Exact type-bound generic resolution through one narrowed component.
+        !!
+        !! This is the downstream contract after component-path narrowing:
+        !! ``SELECT TYPE (typed => object); TYPE IS (container_t); CALL
+        !! typed%leaf%choose(value)``.  The terminal component must have one
+        !! statically known concrete derived type.  Candidates retain their
+        !! implementation and ordered signature facts; no dynamic component,
+        !! pointer, allocatable, deferred, or ambiguous target is guessed.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_generic_binding = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_deferred_binding = .false.
+        logical :: is_pointer_boundary = .false.
+        logical :: is_allocatable_boundary = .false.
+        logical :: is_polymorphic_boundary = .false.
+        logical :: is_dynamic_receiver = .false.
+        logical :: is_array_receiver = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: call_node_index = 0
+        integer :: component_type_index = 0
+        integer :: selected_candidate_index = 0
+        integer :: selected_procedure_node_index = 0
+        integer :: binding_node_index = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: receiver_name
+        character(len=:), allocatable :: component_type_name
+        character(len=:), allocatable :: generic_name
+        character(len=:), allocatable :: refusal_reason
+        type(component_path_query_t) :: receiver_path
+        type(select_type_generic_candidate_query_t), allocatable :: candidates(:)
+        type(procedure_signature_query_t) :: signature
+    end type select_type_component_generic_dispatch_query_t
+
     public :: query_select_type_branch, query_select_type_component_path, &
         query_select_type_component_binding, query_select_type_dispatch, &
-        query_select_type_generic_dispatch
+        query_select_type_generic_dispatch, &
+        query_select_type_component_generic_dispatch
 
 contains
 
@@ -1211,10 +1250,6 @@ contains
         type(binding_hierarchy_query_t) :: hierarchy
         type(type_binding_query_t) :: binding
         type(storage_query_t) :: selector_storage
-        type(declaration_binding_t) :: candidate_binding
-        character(len=:), allocatable :: error_msg
-        integer, allocatable :: actual_indices(:)
-        integer :: i, match_count, selected
 
         call initialize_generic_dispatch_query(query, arm_node_index, &
             call_node_index)
@@ -1306,13 +1341,28 @@ contains
             return
         end if
 
-        call generic_call_actuals(arena, call_node_index, actual_indices)
+        call resolve_generic_candidates(arena, call_node_index, binding, query)
+    end function query_select_type_generic_dispatch
+
+    subroutine resolve_generic_candidates(arena, call_node_index, binding, query)
+        !! Fill the exact candidate set shared by selector and component calls.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        type(type_binding_query_t), intent(in) :: binding
+        type(select_type_generic_dispatch_query_t), intent(inout) :: query
+        type(declaration_binding_t) :: candidate_binding
+        character(len=:), allocatable :: error_msg
+        integer, allocatable :: actual_indices(:)
+        integer :: i, match_count, selected
+
         if (.not. allocated(binding%generic_names) .or. &
                 size(binding%generic_names) == 0) then
             call refuse_generic_dispatch(query, &
                 'type-bound generic has no concrete specific names')
             return
         end if
+
+        call generic_call_actuals(arena, call_node_index, actual_indices)
         deallocate (query%candidates)
         allocate (query%candidates(size(binding%generic_names)))
         match_count = 0
@@ -1360,7 +1410,392 @@ contains
             query%signature = query%candidates(selected)%signature
             query%is_resolved = .true.
         end if
-    end function query_select_type_generic_dispatch
+    end subroutine resolve_generic_candidates
+
+    function query_select_type_component_generic_dispatch(arena, &
+            arm_node_index, call_node_index) result(query)
+        !! Resolve one type-bound generic call through a narrowed component.
+        !!
+        !! Unlike query_select_type_generic_dispatch, the receiver is a
+        !! component designator rooted in the narrowed SELECT TYPE selector.
+        !! The component path is source-backed for explicit CALL syntax, so no
+        !! synthetic AST receiver is created.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        integer, intent(in) :: call_node_index
+        type(select_type_component_generic_dispatch_query_t) :: query
+        type(control_statement_query_t) :: control
+        type(select_type_arm_query_t) :: arm
+        type(select_type_dispatch_query_t) :: direct_query
+        type(binding_hierarchy_query_t) :: hierarchy
+        type(type_binding_query_t) :: binding
+        type(select_type_generic_dispatch_query_t) :: generic_query
+        character(len=:), allocatable :: receiver_name, binding_name, reason
+        logical :: is_call
+        integer :: select_index, arm_position
+
+        call initialize_component_generic_dispatch_query(query, &
+            arm_node_index, call_node_index)
+        if (.not. arena%has_node_at(arm_node_index)) then
+            call refuse_component_generic_dispatch(query, &
+                'SELECT TYPE arm node is absent')
+            return
+        end if
+        if (.not. arena%has_node_at(call_node_index)) then
+            call refuse_component_generic_dispatch(query, &
+                'type-bound generic call node is absent')
+            return
+        end if
+
+        select_index = enclosing_select_type(arena, arm_node_index)
+        if (select_index <= 0) then
+            call refuse_component_generic_dispatch(query, &
+                'arm is not contained in a SELECT TYPE construct')
+            return
+        end if
+        query%select_type_node_index = select_index
+        control = query_control_statement(arena, select_index)
+        arm_position = find_select_type_arm(control, arm_node_index)
+        if (arm_position <= 0) then
+            call refuse_component_generic_dispatch(query, &
+                'node is not a SELECT TYPE arm')
+            return
+        end if
+        arm = control%type_arms(arm_position)
+        if (arm%is_selector_associate) then
+            query%selector_name = arm%selector_associate_name
+        else
+            query%selector_name = arm%selector_name
+        end if
+        if (arm%is_class_default) then
+            call refuse_component_generic_dispatch(query, &
+                'CLASS DEFAULT arm has no narrowed component type')
+            return
+        end if
+        if (arm%is_unresolved .or. arm%is_invalid .or. &
+                .not. arm%is_selector_resolved .or. &
+                .not. arm%is_concrete_type_resolved) then
+            call refuse_component_generic_dispatch(query, &
+                'SELECT TYPE selector or guard is unresolved')
+            return
+        end if
+
+        call initialize_query(direct_query, arm_node_index, call_node_index)
+        if (.not. direct_call_in_arm(arena, arm, call_node_index, direct_query)) then
+            call refuse_component_generic_dispatch(query, &
+                'generic component call is not the single direct arm statement')
+            return
+        end if
+        if (.not. is_explicit_call(arena, call_node_index)) then
+            query%is_dynamic_receiver = .true.
+            call refuse_component_generic_dispatch(query, &
+                'generic component call is not an explicit CALL statement')
+            return
+        end if
+
+        call component_call_parts(arena, call_node_index, receiver_name, &
+            binding_name, is_call)
+        if (.not. is_call) then
+            call refuse_component_generic_dispatch(query, &
+                'call receiver is not a component designator')
+            return
+        end if
+        query%receiver_name = receiver_name
+        query%generic_name = binding_name
+
+        call resolve_narrowed_component_receiver(arena, arm, receiver_name, &
+            query%receiver_path, query%component_type_index, &
+            query%component_type_name, query%is_pointer_boundary, &
+            query%is_allocatable_boundary, query%is_polymorphic_boundary, &
+            query%is_array_receiver, reason)
+        if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
+                query%is_polymorphic_boundary .or. query%is_array_receiver) then
+            call refuse_component_generic_dispatch(query, reason)
+            return
+        end if
+        if (.not. query%receiver_path%found .or. &
+                query%component_type_index <= 0) then
+            call refuse_component_generic_dispatch(query, reason)
+            return
+        end if
+
+        hierarchy = query_type_binding_hierarchy(arena, &
+            query%component_type_index, binding_name)
+        if (.not. hierarchy%found) then
+            call refuse_component_generic_dispatch(query, &
+                'narrowed component generic hierarchy is unresolved')
+            return
+        end if
+        query%binding_node_index = hierarchy%binding_node_index
+        binding = query_type_binding(arena, hierarchy%binding_node_index)
+        if (.not. binding%found) then
+            call refuse_component_generic_dispatch(query, &
+                'component generic interface declaration is unresolved')
+            return
+        end if
+        if (binding%is_deferred .or. hierarchy%is_deferred) then
+            query%is_deferred_binding = .true.
+            call refuse_component_generic_dispatch(query, &
+                'deferred component generic has no callable implementation')
+            return
+        end if
+        if (.not. binding%is_generic) then
+            call refuse_component_generic_dispatch(query, &
+                'narrowed component binding is not a generic interface')
+            return
+        end if
+        query%is_generic_binding = .true.
+
+        call initialize_generic_dispatch_query(generic_query, arm_node_index, &
+            call_node_index)
+        generic_query%select_type_node_index = select_index
+        generic_query%concrete_type_index = query%component_type_index
+        generic_query%generic_name = binding_name
+        generic_query%is_generic_binding = .true.
+        generic_query%is_pointer_boundary = query%is_pointer_boundary
+        generic_query%is_allocatable_boundary = query%is_allocatable_boundary
+        call resolve_generic_candidates(arena, call_node_index, binding, &
+            generic_query)
+
+        query%found = generic_query%found
+        query%is_resolved = generic_query%is_resolved
+        query%is_unresolved = generic_query%is_unresolved
+        query%is_refused = generic_query%is_refused
+        query%is_ambiguous = generic_query%is_ambiguous
+        query%selected_candidate_index = generic_query%selected_candidate_index
+        query%selected_procedure_node_index = &
+            generic_query%selected_procedure_node_index
+        query%candidates = generic_query%candidates
+        query%signature = generic_query%signature
+        if (allocated(generic_query%refusal_reason)) then
+            query%refusal_reason = generic_query%refusal_reason
+        end if
+    end function query_select_type_component_generic_dispatch
+
+    subroutine component_call_parts(arena, call_node_index, receiver_name, &
+            binding_name, is_call)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        character(len=:), allocatable, intent(out) :: receiver_name
+        character(len=:), allocatable, intent(out) :: binding_name
+        logical, intent(out) :: is_call
+        character(len=:), allocatable :: designator
+        integer :: separator
+
+        call set_empty(receiver_name)
+        call set_empty(binding_name)
+        is_call = .false.
+        if (.not. arena%has_node_at(call_node_index)) return
+        select type (node => arena%entries(call_node_index)%node)
+            type is (subroutine_call_node)
+            if (.not. allocated(node%name)) return
+            designator = trim(node%name)
+            separator = index(designator, '%', back=.true.)
+            if (separator <= 1) return
+            receiver_name = trim(designator(:separator - 1))
+            binding_name = trim(designator(separator + 1:))
+            if (index(receiver_name, '%') <= 0 .or. &
+                    len_trim(binding_name) == 0) then
+                call set_empty(receiver_name)
+                call set_empty(binding_name)
+                return
+            end if
+            is_call = .true.
+        class default
+        end select
+    end subroutine component_call_parts
+
+    subroutine resolve_narrowed_component_receiver(arena, arm, receiver_name, &
+            path, component_type_index, component_type_name, is_pointer, &
+            is_allocatable, is_polymorphic, is_array, refusal_reason)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_type_arm_query_t), intent(in) :: arm
+        character(len=*), intent(in) :: receiver_name
+        type(component_path_query_t), intent(out) :: path
+        integer, intent(out) :: component_type_index
+        character(len=:), allocatable, intent(out) :: component_type_name
+        logical, intent(out) :: is_pointer, is_allocatable, is_polymorphic, is_array
+        character(len=:), allocatable, intent(out) :: refusal_reason
+        type(declaration_query_t) :: declaration
+        type(storage_query_t) :: storage
+        character(len=:), allocatable :: root_name, remaining, segment, type_name
+        integer :: separator, start, next_separator, current_type, component_index
+        logical :: last_segment
+
+        call initialize_component_path(path)
+        component_type_index = 0
+        call set_empty(component_type_name)
+        call set_empty(refusal_reason)
+        is_pointer = .false.
+        is_allocatable = .false.
+        is_polymorphic = .false.
+        is_array = .false.
+        path%base_node_index = arm%selector_expression_node_index
+        path%base_storage_class = arm%selector_storage%storage_class
+        path%base_rank = arm%selector_storage%rank
+
+        if (arm%selector_storage%is_pointer) then
+            is_pointer = .true.
+            refusal_reason = 'SELECT TYPE selector is a pointer storage boundary'
+            return
+        end if
+        if (arm%selector_storage%is_allocatable) then
+            is_allocatable = .true.
+            refusal_reason = 'SELECT TYPE selector is an allocatable boundary'
+            return
+        end if
+        if (arm%selector_storage%rank > 0 .or. &
+                arm%selector_storage%is_array_element .or. &
+                arm%selector_storage%is_array_section) then
+            is_array = .true.
+            refusal_reason = 'narrowed component receiver is array-valued'
+            return
+        end if
+
+        separator = index(trim(receiver_name), '%')
+        if (separator <= 1) then
+            refusal_reason = 'component receiver path is absent'
+            return
+        end if
+        root_name = trim(receiver_name(:separator - 1))
+        if (arm%is_selector_associate) then
+            if (.not. same_name(root_name, arm%selector_associate_name)) then
+                refusal_reason = 'component receiver is not the SELECT TYPE associate'
+                return
+            end if
+        else if (.not. same_name(root_name, arm%selector_name)) then
+            refusal_reason = 'component receiver is not the SELECT TYPE selector'
+            return
+        end if
+
+        remaining = trim(receiver_name(separator + 1:))
+        current_type = arm%concrete_type_index
+        start = 1
+        do
+            next_separator = index(remaining(start:), '%')
+            last_segment = next_separator <= 0
+            if (last_segment) then
+                segment = trim(remaining(start:))
+            else
+                if (next_separator <= 1) then
+                    refusal_reason = 'component receiver path contains an empty segment'
+                    return
+                end if
+                segment = trim(remaining(start:start + next_separator - 2))
+            end if
+            if (len_trim(segment) == 0) then
+                refusal_reason = 'component receiver path contains an empty segment'
+                return
+            end if
+
+            component_index = find_component_in_hierarchy(arena, current_type, &
+                segment)
+            if (component_index <= 0) then
+                refusal_reason = 'component receiver is absent from the narrowed type hierarchy'
+                return
+            end if
+            declaration = query_declaration(arena, component_index)
+            if (.not. declaration%found) then
+                refusal_reason = 'component receiver declaration is unresolved'
+                return
+            end if
+            storage = query_storage(arena, component_index)
+            if (.not. storage%found) then
+                refusal_reason = 'component receiver storage is unresolved'
+                return
+            end if
+            call append_component_path(path, segment, 0, component_index)
+            if (storage%is_pointer) then
+                is_pointer = .true.
+                path%is_pointer = .true.
+                refusal_reason = 'pointer component is a dynamic storage boundary'
+                return
+            end if
+            if (storage%is_allocatable) then
+                is_allocatable = .true.
+                path%is_allocatable = .true.
+                refusal_reason = 'allocatable component is an ownership boundary'
+                return
+            end if
+            if (storage%is_polymorphic .or. storage%is_unlimited_polymorphic) then
+                is_polymorphic = .true.
+                path%is_polymorphic = .true.
+                refusal_reason = 'polymorphic component has no static binding target'
+                return
+            end if
+            if (storage%rank > 0 .or. storage%is_array_element .or. &
+                    storage%is_array_section) then
+                is_array = .true.
+                refusal_reason = 'component receiver is array-valued'
+                return
+            end if
+            if (.not. storage%is_derived .or. &
+                    .not. storage%is_concrete_derived) then
+                refusal_reason = 'component receiver type is not a concrete derived type'
+                return
+            end if
+
+            type_name = declared_type_name(declaration%type_name)
+            if (last_segment) then
+                component_type_name = type_name
+                component_type_index = find_derived_type_by_name_local(arena, &
+                    type_name)
+                if (component_type_index <= 0) then
+                    refusal_reason = 'component receiver type is unresolved'
+                    return
+                end if
+                exit
+            end if
+            current_type = find_derived_type_by_name_local(arena, type_name)
+            if (current_type <= 0) then
+                refusal_reason = 'intermediate component type is unresolved'
+                return
+            end if
+            start = start + next_separator
+            if (start > len(remaining)) then
+                refusal_reason = 'component receiver path is incomplete'
+                return
+            end if
+        end do
+
+        path%found = .true.
+        path%storage_class = storage%storage_class
+        path%rank = storage%rank
+        path%is_derived = storage%is_derived
+        path%is_concrete_derived = storage%is_concrete_derived
+        path%is_abstract_type = storage%is_abstract_type
+        path%is_allocatable = storage%is_allocatable
+        path%is_pointer = storage%is_pointer
+        path%is_polymorphic = storage%is_polymorphic
+        path%is_unlimited_polymorphic = storage%is_unlimited_polymorphic
+    end subroutine resolve_narrowed_component_receiver
+
+    subroutine initialize_component_generic_dispatch_query(query, &
+            arm_node_index, call_node_index)
+        type(select_type_component_generic_dispatch_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index, call_node_index
+
+        query%arm_node_index = arm_node_index
+        query%call_node_index = call_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%receiver_name)
+        call set_empty(query%component_type_name)
+        call set_empty(query%generic_name)
+        call set_empty(query%refusal_reason)
+        call initialize_component_path(query%receiver_path)
+        allocate (query%candidates(0))
+    end subroutine initialize_component_generic_dispatch_query
+
+    subroutine refuse_component_generic_dispatch(query, reason)
+        type(select_type_component_generic_dispatch_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_component_generic_dispatch
 
     subroutine initialize_generic_dispatch_query(query, arm_node_index, &
             call_node_index)
