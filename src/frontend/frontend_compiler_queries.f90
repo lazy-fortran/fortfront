@@ -351,6 +351,31 @@ module frontend_compiler_queries
         integer :: actual_value_node_index = 0
         integer :: formal_node_index = 0
         character(len=:), allocatable :: formal_name
+        character(len=:), allocatable :: formal_intent
+        character(len=:), allocatable :: formal_type_category
+        integer :: formal_type_kind = 0
+        integer :: formal_kind_value = 0
+        integer :: formal_rank = -1
+        logical :: formal_intent_known = .false.
+        logical :: formal_type_known = .false.
+        logical :: formal_kind_known = .false.
+        logical :: formal_rank_known = .false.
+        logical :: formal_is_value = .false.
+        logical :: formal_is_pointer = .false.
+        logical :: formal_is_allocatable = .false.
+        logical :: formal_is_target = .false.
+        integer :: actual_type_kind = 0
+        integer :: actual_kind_value = 0
+        integer :: actual_rank = -1
+        character(len=:), allocatable :: actual_derived_type_name
+        logical :: actual_type_known = .false.
+        logical :: actual_kind_known = .false.
+        logical :: actual_rank_known = .false.
+        logical :: actual_is_pointer = .false.
+        logical :: actual_is_allocatable = .false.
+        logical :: actual_is_target = .false.
+        logical :: type_compatibility_known = .false.
+        logical :: has_type_mismatch = .false.
         logical :: is_supplied = .false.
         logical :: is_keyword = .false.
         logical :: is_optional = .false.
@@ -362,6 +387,12 @@ module frontend_compiler_queries
         integer :: procedure_node_index = 0
         character(len=:), allocatable :: procedure_name
         character(len=:), allocatable :: procedure_kind
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_procedure_callback = .false.
+        logical :: has_unknown_argument_types = .false.
+        logical :: has_type_mismatch = .false.
+        logical :: is_refused = .false.
         type(call_argument_query_t), allocatable :: arguments(:)
     end type call_arguments_query_t
 
@@ -1647,6 +1678,14 @@ contains
         logical :: is_call, is_keyword, saw_keyword
         integer :: i, j, formal, next_formal, n_formal, actual_value
         type(declaration_query_t) :: formal_query
+        type(procedure_signature_query_t) :: signature
+        type(procedure_dummy_query_t) :: dummy
+        type(resolved_type_query_t) :: actual_type
+        type(storage_query_t) :: actual_storage
+        type(global_reference_query_t), allocatable :: global_refs(:)
+        type(declaration_binding_t) :: actual_binding
+        integer, allocatable :: seen_declarations(:)
+        integer :: actual_declaration_index
 
         call initialize_call_arguments_query(query)
         call get_call_parts(arena, call_node_index, call_name, actual_indices, &
@@ -1702,6 +1741,7 @@ contains
         if (allocated(query%arguments)) deallocate (query%arguments)
         allocate (query%arguments(n_formal))
         do i = 1, n_formal
+            call initialize_call_argument_query(query%arguments(i))
             formal_query = query_declaration(arena, &
                 procedure%parameter_indices(i))
             if (.not. formal_query%found) return
@@ -1719,12 +1759,177 @@ contains
             end if
         end do
 
+        ! Attach the semantic facts a differentiation backend needs at the
+        ! call boundary.  The mapping remains a useful fact even when the
+        ! call is refused for AD; the refusal flags prevent a consumer from
+        ! silently treating aliases, callbacks, or global state as pure.
+        call fill_procedure_signature(arena, binding%node_index, signature)
+        allocate (seen_declarations(n_formal), source=0)
+        do i = 1, n_formal
+            if (i <= signature%dummy_count) then
+                dummy = signature%dummies(i)
+                query%arguments(i)%formal_intent = dummy%intent
+                query%arguments(i)%formal_type_category = dummy%type_category
+                query%arguments(i)%formal_type_kind = dummy%type_kind
+                query%arguments(i)%formal_kind_value = dummy%kind_value
+                query%arguments(i)%formal_rank = dummy%rank
+                query%arguments(i)%formal_intent_known = dummy%has_intent
+                query%arguments(i)%formal_type_known = dummy%type_known
+                query%arguments(i)%formal_kind_known = dummy%kind_known
+                query%arguments(i)%formal_rank_known = dummy%rank_known
+                query%arguments(i)%formal_is_value = dummy%is_value
+            end if
+
+            formal_query = query_declaration(arena, &
+                query%arguments(i)%formal_node_index)
+            if (formal_query%found) then
+                query%arguments(i)%formal_is_pointer = formal_query%is_pointer
+                query%arguments(i)%formal_is_allocatable = &
+                    formal_query%is_allocatable
+                query%arguments(i)%formal_is_target = formal_query%is_target
+            end if
+            if (.not. query%arguments(i)%is_supplied) cycle
+
+            actual_type = query_resolved_type(arena, &
+                query%arguments(i)%actual_value_node_index)
+            query%arguments(i)%actual_type_known = actual_type%found
+            query%arguments(i)%actual_type_kind = actual_type%type_kind
+            query%arguments(i)%actual_kind_value = actual_type%kind_value
+            query%arguments(i)%actual_rank = actual_type%rank
+            query%arguments(i)%actual_kind_known = actual_type%kind_value > 0
+            query%arguments(i)%actual_rank_known = actual_type%rank >= 0
+            query%arguments(i)%actual_derived_type_name = &
+                actual_type%derived_type_name
+
+            actual_storage = query_storage(arena, &
+                query%arguments(i)%actual_value_node_index)
+            actual_declaration_index = 0
+            call resolve_identifier_binding(arena, &
+                query%arguments(i)%actual_value_node_index, actual_binding, &
+                error_msg)
+            if (actual_binding%found .and. &
+                    actual_binding%declaration_node_index > 0) then
+                actual_declaration_index = actual_binding%declaration_node_index
+                formal_query = query_declaration(arena, actual_declaration_index)
+                if (formal_query%found) then
+                    query%arguments(i)%actual_is_pointer = formal_query%is_pointer
+                    query%arguments(i)%actual_is_allocatable = &
+                        formal_query%is_allocatable
+                    query%arguments(i)%actual_is_target = formal_query%is_target
+                end if
+            end if
+            if (actual_storage%found) then
+                query%arguments(i)%actual_is_pointer = actual_storage%is_pointer
+                query%arguments(i)%actual_is_allocatable = &
+                    actual_storage%is_allocatable
+                query%arguments(i)%actual_is_target = actual_storage%is_target
+                if (actual_storage%declaration_index > 0) &
+                    actual_declaration_index = actual_storage%declaration_index
+                if (actual_storage%is_pointer .or. actual_storage%is_target .or. &
+                        actual_storage%is_allocatable) then
+                    query%has_unresolved_alias = .true.
+                end if
+            end if
+            if (actual_declaration_index > 0) then
+                do j = 1, i - 1
+                    if (seen_declarations(j) == actual_declaration_index) then
+                        query%has_unresolved_alias = .true.
+                    end if
+                end do
+                seen_declarations(i) = actual_declaration_index
+            end if
+            formal_query = query_declaration(arena, &
+                query%arguments(i)%formal_node_index)
+            if (query%arguments(i)%formal_is_pointer .or. &
+                    query%arguments(i)%formal_is_target .or. &
+                    query%arguments(i)%formal_is_allocatable) then
+                query%has_unresolved_alias = .true.
+            end if
+
+            if (is_procedure_dummy_declaration(formal_query)) then
+                query%has_procedure_callback = .true.
+            else if (query%arguments(i)%formal_type_known .and. &
+                    query%arguments(i)%actual_type_known) then
+                query%arguments(i)%type_compatibility_known = .true.
+                query%arguments(i)%has_type_mismatch = &
+                    .not. call_argument_types_match(query%arguments(i), &
+                    actual_type)
+                if (query%arguments(i)%has_type_mismatch) then
+                    query%has_type_mismatch = .true.
+                end if
+            else
+                query%has_unknown_argument_types = .true.
+            end if
+        end do
+
+        global_refs = query_active_global_references(arena, binding%node_index)
+        query%has_global_mutable_state = .false.
+        do j = 1, size(global_refs)
+            formal_query = query_declaration(arena, &
+                global_refs(j)%declaration_node_index)
+            if (formal_query%found .and. .not. formal_query%is_parameter) then
+                query%has_global_mutable_state = .true.
+                exit
+            end if
+        end do
+        query%is_refused = query%has_global_mutable_state .or. &
+            query%has_unresolved_alias .or. query%has_procedure_callback .or. &
+            query%has_unknown_argument_types .or. query%has_type_mismatch
+
         query%found = .true.
         query%call_node_index = call_node_index
         query%procedure_node_index = binding%node_index
         query%procedure_name = procedure%name
         query%procedure_kind = procedure%unit_kind
     end function query_call_arguments
+
+    subroutine initialize_call_argument_query(query)
+        type(call_argument_query_t), intent(out) :: query
+
+        call set_empty(query%formal_name)
+        call set_empty(query%formal_intent)
+        call set_empty(query%formal_type_category)
+        call set_empty(query%actual_derived_type_name)
+    end subroutine initialize_call_argument_query
+
+    logical function is_procedure_dummy_declaration(query) result(is_procedure)
+        type(declaration_query_t), intent(in) :: query
+        character(len=:), allocatable :: normalized
+
+        is_procedure = .false.
+        if (.not. query%found) return
+        normalized = remove_type_spec_spaces(lower_text(query%type_name))
+        is_procedure = index(normalized, 'procedure') == 1
+    end function is_procedure_dummy_declaration
+
+    logical function call_argument_types_match(argument, actual) result(matches)
+        type(call_argument_query_t), intent(in) :: argument
+        type(resolved_type_query_t), intent(in) :: actual
+        logical :: formal_is_derived, actual_is_derived
+        character(len=:), allocatable :: formal_derived_name
+
+        matches = argument%formal_type_known .and. actual%found
+        if (.not. matches) return
+        matches = argument%formal_type_kind == actual%type_kind .and. &
+            argument%formal_rank == actual%rank
+        if (.not. matches) return
+        formal_is_derived = index(lower_text(argument%formal_type_category), &
+            'type:') == 1 .or. index(lower_text(argument%formal_type_category), &
+            'class:') == 1
+        actual_is_derived = len_trim(actual%derived_type_name) > 0
+        if (formal_is_derived .or. actual_is_derived) then
+            formal_derived_name = argument%formal_type_category
+            if (index(formal_derived_name, ':') > 0) then
+                formal_derived_name = formal_derived_name(index( &
+                    formal_derived_name, ':') + 1:)
+            end if
+            matches = formal_is_derived .and. actual_is_derived .and. &
+                same_name(formal_derived_name, actual%derived_type_name)
+        end if
+        if (argument%formal_kind_known .and. argument%formal_kind_value > 0) then
+            matches = matches .and. argument%formal_kind_value == actual%kind_value
+        end if
+    end function call_argument_types_match
 
     function query_generic_call(arena, call_node_index) result(query)
         !! Enumerate and exactly match a same-arena named generic call.
