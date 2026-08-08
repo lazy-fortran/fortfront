@@ -3411,7 +3411,9 @@ contains
         logical :: base_is_array_element
         type(derived_type_query_t) :: derived
         character(len=:), allocatable :: base_type, derived_name, error_msg
-        integer :: derived_index, i, component_index
+        character(len=:), allocatable :: base_name
+        integer :: derived_index, i, component_index, scope_index
+        integer :: fallback_index
 
         query%node_index = node_index
         base_declaration = query_declaration(arena, component%base_node_index)
@@ -3434,10 +3436,34 @@ contains
         else
             call resolve_identifier_binding(arena, component%base_node_index, &
                 binding, error_msg)
-            if (.not. binding%found) return
-            if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
-            base_declaration = query_declaration(arena, &
-                binding%declaration_node_index)
+            if (binding%found) then
+                if (binding%binding_kind == BINDING_ASSOCIATE_NAME) return
+                base_declaration = query_declaration(arena, &
+                    binding%declaration_node_index)
+            else
+                ! Semantic callers normally resolve the identifier above. A
+                ! parse-only arena may not have lexical bindings yet; retain
+                ! the old scope-bounded declaration fallback so nested
+                ! component paths remain queryable without source-text guesses.
+                call identifier_name_at(arena, component%base_node_index, &
+                    base_name)
+                scope_index = find_enclosing_scope(arena, node_index)
+                fallback_index = 0
+                do i = 1, arena%size
+                    if (.not. arena%has_node_at(i)) cycle
+                    base_declaration = query_declaration(arena, i)
+                    if (.not. base_declaration%found) cycle
+                    if (.not. same_name(base_declaration%name, base_name)) cycle
+                    if (fallback_index == 0) fallback_index = i
+                    if (scope_index > 0 .and. node_is_in_scope(arena, i, &
+                        scope_index)) then
+                        fallback_index = i
+                        exit
+                    end if
+                end do
+                if (fallback_index == 0) return
+                base_declaration = query_declaration(arena, fallback_index)
+            end if
             if (.not. base_declaration%found) return
             base_type = base_declaration%type_name
             base_storage = query_storage(arena, base_declaration%node_index)
