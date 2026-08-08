@@ -354,6 +354,14 @@ end subroutine
   deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
   dynamic, array, and ownership-changing cases. The query requires the call
   to be the arm's sole direct statement and never invents a runtime target.
+- **SELECT TYPE type-bound generic dispatch query**:
+  `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
+  enumerates the specifics of a generic `CALL selector%generic(...)` after a
+  concrete `TYPE IS` or `CLASS IS` narrowing. Each candidate carries its
+  implementation node/name, exact-match status, and ordered procedure
+  signature. `is_resolved` is set only for one exact type/kind/rank match;
+  ambiguous, zero-match, deferred, unresolved, dynamic, array, pointer, and
+  allocatable cases remain explicit refusals with no selected implementation.
 - **Bounded procedure-pointer call target query**:
   `query_procedure_call_target` reports a complete fact only for a direct
   call through a declared procedure pointer with exactly one unconditional,

@@ -262,6 +262,23 @@ pointer, allocatable, polymorphic, non-derived, or abstract component
 boundaries; it never guesses a runtime target or performs generic argument
 matching.
 
+## SELECT TYPE type-bound generic dispatch
+
+`query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
+resolves a type-bound generic only after a concrete `TYPE IS` or `CLASS IS`
+guard has narrowed the receiver. It enumerates every same-arena specific in
+`candidates`, including its procedure node, implementation name, ordered
+`signature`, and exact-match flag. `is_resolved` is true only when exactly one
+specific matches every supplied actual by semantic type, kind, and rank; the
+selected candidate and signature are then copied to the top-level result.
+
+The query reports `is_ambiguous` for multiple exact specifics and retains
+`is_unresolved`/`is_refused` with a reason for zero matches, missing
+implementations, deferred or unresolved bindings, dynamic or array receivers,
+and pointer or allocatable selector storage. Generic bindings are therefore
+supported only through an independently provable specific selection; no
+runtime target or implicit conversion is guessed.
+
 ## Resolved Expression Type Query
 
 `compile_frontend_from_string` and `compile_frontend_from_file` annotate the
