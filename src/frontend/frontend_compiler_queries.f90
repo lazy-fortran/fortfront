@@ -104,6 +104,7 @@ module frontend_compiler_queries
     public :: query_procedure_callback_flow, query_procedure_pointer_callback_flow
     public :: procedure_call_target_query_t, query_procedure_call_target
     public :: procedure_dummy_query_t, procedure_signature_query_t
+    public :: query_procedure_signature
     public :: call_argument_query_t, call_arguments_query_t
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
@@ -1083,6 +1084,17 @@ contains
                 query%signature)
         end if
     end function query_procedure_target
+
+    function query_procedure_signature(arena, procedure_index) result(signature)
+        !! Return the ordered signature facts for one same-arena procedure.
+        !!
+        !! The result remains FOUND false for a missing or non-procedure node.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        type(procedure_signature_query_t) :: signature
+
+        call fill_procedure_signature(arena, procedure_index, signature)
+    end function query_procedure_signature
 
     subroutine fill_procedure_signature(arena, procedure_index, signature)
         type(ast_arena_t), intent(in) :: arena

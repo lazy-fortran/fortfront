@@ -111,6 +111,8 @@ module fortfront
         SELECT_TYPE_ARM_CLASS_DEFAULT, &
         SELECT_RANK_DISPATCH_EXPLICIT, SELECT_RANK_DISPATCH_ASSUMED_SIZE, &
         SELECT_RANK_DISPATCH_DEFAULT
+    use frontend_compiler_select_type_queries, only: &
+        select_type_dispatch_query_t, query_select_type_dispatch
     use frontend_compiler_resolution, only: declaration_binding_t, &
         get_scope_bindings, resolve_name_in_scope, &
         resolve_name_at_node, resolve_identifier_binding, &

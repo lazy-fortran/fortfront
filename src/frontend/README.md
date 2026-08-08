@@ -146,7 +146,7 @@ end subroutine
 - **Compiler**: `compile_frontend_from_string(source, result)` returns a
   `compiler_frontend_result_t` that owns the AST arena, root index, semantic
   context, token stream, diagnostics, and source text. The compiler API stops
-  after parsing and semantic analysis by default; it does not run standardization
+  after parsing and semantic analysis by default. It does not run standardization
   or Fortran code generation unless a separate caller invokes those APIs.
 - **Compiler queries**: `is_subroutine_call_statement`,
   `get_subroutine_call_name`, and `get_subroutine_call_arg_indices` expose
@@ -166,7 +166,7 @@ end subroutine
 - **Generic candidate query**: `query_generic_call` enumerates the concrete
   procedures in a same-arena named generic interface and exposes each formal's
   semantic type category, exact kind, rank, and derived-type identity. A
-  candidate is marked `is_match` only for a complete exact signature match;
+  candidate is marked `is_match` only for a complete exact signature match.
   `selected_procedure_node_index` is populated only when exactly one candidate
   matches. Conversions, extension-type compatibility, elemental expansion,
   and procedure-pointer dispatch remain explicit boundaries, so ambiguous or
@@ -174,7 +174,7 @@ end subroutine
 - **Resolved type query**: `query_resolved_type` returns the semantic intrinsic
   category, exact Fortran kind value, storage size in bits, rank, and
   derived-type identity for an analyzed expression. The compiler pipeline
-  resolves numeric and named kind selectors once after semantic analysis;
+  resolves numeric and named kind selectors once after semantic analysis.
   backend callers do not inspect literal or declaration spelling.
 - **Ownership and dispatch queries**: `query_storage` reports allocatable,
   pointer, target, contiguous, SAVE, module, and COMMON storage facts.
@@ -187,20 +187,20 @@ end subroutine
   `OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE` /
   `OWNERSHIP_REALLOCATION_POTENTIAL` classifications. The older
   `owner_path`, `source_path`, and `destination_path` fields remain aliases
-  for compatibility; unresolved ranks are `-1` and absent expression lists
+  for compatibility. Unresolved ranks are `-1` and absent expression lists
   are empty.
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access, plus the resolved component declaration indices,
   base and result rank, terminal storage class, and explicit
   `is_array_element`, `is_array_section`, `is_concrete_derived`,
   `is_allocatable`, `is_pointer`, and polymorphism facts. A fully indexed
-  designator such as `items(i,j)%payload` sets `is_array_element`; a
+  designator such as `items(i,j)%payload` sets `is_array_element`. A
   non-strided section whose range AST facts are available, such as
   `items(:, :)%payload`, sets `is_array_section` instead and retains its
   rank. `query_storage` exposes the same terminal facts
   for a component, together with its declaration identity and rank. A direct
   component whose base is an `ASSOCIATE` name is unresolved (`found=.false.`)
-  rather than guessed; pointer components remain visible as `STORAGE_POINTER`
+  rather than guessed. Pointer components remain visible as `STORAGE_POINTER`
   and are never reported as owned. Existing storage and global-state fields
   are preserved. For a directly resolved polymorphic allocatable target,
   `polymorphic_allocation` (or `query_polymorphic_allocation`) bundles the
@@ -209,7 +209,7 @@ end subroutine
   `is_bounded` flag is true only for one scalar `SOURCE=` data designator
   whose declared type is concrete. `source_classification` is one of
   `POLYMORPHIC_SOURCE_CONCRETE`, `POLYMORPHIC_SOURCE_POLYMORPHIC`, or
-  `POLYMORPHIC_SOURCE_UNKNOWN`; factories, dynamic sources, repeated
+  `POLYMORPHIC_SOURCE_UNKNOWN`. Factories, dynamic sources, repeated
   acquisition, and alias paths remain unbounded and retain their explicit
   refusal flags. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
@@ -229,7 +229,7 @@ end subroutine
   implementation, PASS, interface, and concrete descendant dispatch targets.
   For expression-form calls, `receiver_path` preserves the receiver's
   component names and AST nodes (for example the `inner` component in
-  `outer%inner%method`); explicit `CALL` statements retain the exact nested
+  `outer%inner%method`). Explicit `CALL` statements retain the exact nested
   designator in `receiver_name` when their syntax has no receiver AST node.
   Generic, ambiguous, deferred, and unresolved/refused cases remain marked
   without selecting a runtime procedure. Finally,
@@ -257,8 +257,8 @@ end subroutine
 - **Procedure-pointer target query**: `query_procedure_target` reports one
   direct `=>` assignment whose left side is a declared procedure pointer. It
   preserves the assignment, pointer declaration, target expression, and
-  lexical scope indices; reports the target procedure name and binding when
-  the resolver has one; and distinguishes a resolved internal procedure,
+  lexical scope indices, reports the target procedure name and binding when
+  the resolver has one, and distinguishes a resolved internal procedure,
   an external declaration binding, `NULL()`, and an unresolved target. A
   non-identifier target (other than `NULL()`) remains unresolved, and the
   query does not infer flow-sensitive callback state, generic dispatch, or
@@ -268,7 +268,7 @@ end subroutine
   Each `procedure_dummy_query_t` carries its name, category, type-kind,
   kind, rank, intent, and OPTIONAL/VALUE flags. Consumers must check the
   corresponding `*_known` or `has_intent` flag before using a value. Rank 0
-  is scalar; `rank=-1` means that rank was not proved. External, generic,
+  is scalar. `rank=-1` means that rank was not proved. External, generic,
   ambiguous, NULL, and unresolved targets leave `signature%found` false rather
   than manufacturing an interface.
 - **SELECT RANK arm query**: `query_control_statement` now returns one
@@ -277,18 +277,29 @@ end subroutine
   arm source location, body entry/exit nodes, and dispatch kind. Existing
   storage and component-path facts are reused where available. Pointer
   selectors, unresolved dynamic ownership, and unsupported selector forms set
-  explicit boundary flags and refusal reasons; the query does not invent an AD
+  explicit boundary flags and refusal reasons. The query does not invent an AD
   lowering model.
 - **SELECT TYPE arm query**: `query_control_statement` also returns one
   `select_type_arm_query_t` per `TYPE IS`, `CLASS IS`, or `CLASS DEFAULT` arm.
   Each record preserves selector identity, one-based arm ordinal, arm kind,
   source location, and body entry/exit boundaries. Derived guard identities and
-  the selector's declared derived identity are reported only when they resolve;
+  the selector's declared derived identity are reported only when they resolve.
   intrinsic guards, ambiguous or unresolved names, non-polymorphic selectors,
   and guards outside the selector's `EXTENDS` hierarchy carry explicit
   `is_intrinsic`, `is_ambiguous`, `is_unresolved`, `is_invalid`, or
   `is_out_of_hierarchy` flags and a refusal reason. No runtime type or guard
   relationship is guessed.
+- **Concrete SELECT TYPE dispatch query**:
+  `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
+  composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or
+  `CLASS IS` arm. It returns selector and guard identities, the concrete and
+  declaring types, inherited status, binding and implementation nodes, PASS or
+  NOPASS metadata, and the implementation's ordered `signature` facts. Arm
+  body and source boundaries remain available alongside the call location.
+  `is_refused` and `is_unresolved` retain explicit reasons for `CLASS DEFAULT`,
+  deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
+  dynamic, array, and ownership-changing cases. The query requires the call
+  to be the arm's sole direct statement and never invents a runtime target.
 - **Bounded procedure-pointer call target query**:
   `query_procedure_call_target` reports a complete fact only for a direct
   call through a declared procedure pointer with exactly one unconditional,
@@ -299,7 +310,7 @@ end subroutine
   and pointer occurrence share that node index). `found=.false.` with
   `is_unresolved=.true.` is returned when that proof is unavailable, including
   branch-local assignments, reassignment or `NULLIFY`, `NULL()`, and other
-  flow-sensitive cases; generic calls are not callback facts. Resolved calls
+  flow-sensitive cases. Generic calls are not callback facts. Resolved calls
   carry the same `signature` record as `query_procedure_target`, so a backend
   can compare ordered formal metadata without re-walking the AST. External
   targets remain identity-only when their interface is unavailable. This is a
@@ -310,7 +321,7 @@ end subroutine
   the declared pointer, and both targets must be directly resolved internal
   procedures with matching ordered signatures. The result preserves the
   pointer/call identity, IF arm and merge boundaries, and source-ordered target
-  records. `is_unresolved` and `is_refused` distinguish an incomplete proof;
+  records. `is_unresolved` and `is_refused` distinguish an incomplete proof.
   explicit flags cover loops, nested or missing branches, reassignment,
   `NULL()`/`NULLIFY`, generic or ambiguous targets, incompatible signatures,
   and calls inside an arm. No callback target is guessed. The alias
