@@ -349,7 +349,7 @@ contains
         column = token%column
 
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
             subroutine_name = token%text
             token = parser%consume()
             call consume_optional_inline_instantiations(parser, subroutine_name)
