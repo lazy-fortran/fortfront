@@ -504,6 +504,10 @@ end subroutine
   An inherited implementation is accepted when its passed-object type is an
   ancestor of the concrete guard type, while an unresolved hierarchy or
   ownership-changing selector returns no implementation target.
+  An abstract `CLASS IS` guard is not a concrete runtime target: it sets both
+  `is_abstract_guard` and `is_unresolved`, and leaves `implementation` and
+  `implementation_node_index` empty. Consumers must not reuse a statically
+  inherited binding from that guard as a callable dispatch target.
   `is_refused` and `is_unresolved` retain explicit reasons for `CLASS DEFAULT`,
   deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
   dynamic, array, and ownership-changing cases. Function references nested in

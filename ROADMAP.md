@@ -69,6 +69,16 @@ only: generic, ambiguous, unresolved, loop, ownership, and active global-state
 boundaries remain refusals and do not receive a guessed target. The independent
 GNU/API oracle is `test/api/test_abstract_dispatch_provenance_query.f90`.
 
+### Abstract SELECT TYPE target boundary (2026-08-09)
+
+`query_select_type_dispatch` now treats an abstract `CLASS IS` guard as an
+unresolved runtime hierarchy. It retains the structural guard/refusal facts
+but does not copy a statically inherited binding implementation into
+`implementation_node_index`, preventing consumers from calling one guessed
+target when concrete extensions may override it. Concrete leaves still retain
+their inherited implementation and declaring type. The independent GNU
+runtime/API oracle is `test/api/test_abstract_dispatch_runtime_boundary.f90`.
+
 ### Bounded passed-procedure pointer actuals (2026-08-09)
 
 `query_procedure_actual_argument` now composes the existing procedure-pointer

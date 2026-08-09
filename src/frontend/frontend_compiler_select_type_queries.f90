@@ -2292,7 +2292,8 @@ contains
             if (concrete%found) then
                 if (index(to_lower(concrete%attribute_clause), 'abstract') > 0) then
                     query%is_abstract_guard = .true.
-                    call refuse(query, 'abstract SELECT TYPE guard is not concrete')
+                    call refuse_unresolved(query, &
+                        'abstract SELECT TYPE guard has unresolved runtime type')
                 end if
             end if
         end if
@@ -2361,6 +2362,17 @@ contains
         if (hierarchy%is_ambiguous) then
             query%is_ambiguous_target = .true.
             call refuse_unresolved(query, 'type-bound target is ambiguous')
+        end if
+        ! An abstract CLASS IS guard names a hierarchy, not one runtime
+        ! implementation.  Retain binding/deferred metadata above, but do
+        ! not expose the guard type's static binding as a callable target.
+        if (query%is_abstract_guard) then
+            call set_empty(query%implementation)
+            query%implementation_node_index = 0
+            call set_empty(query%implementation_pass_name)
+            query%implementation_pass_position = 0
+            call set_empty(query%implementation_passed_object_type)
+            return
         end if
         if (.not. hierarchy%is_resolved .or. &
             len_trim(hierarchy%implementation) == 0 .or. &
