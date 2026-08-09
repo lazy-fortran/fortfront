@@ -318,6 +318,14 @@ end subroutine
   Generic, ambiguous, deferred, unresolved, alias, global-state, and
   control-flow boundaries remain explicit refusals; no runtime target is
   guessed.
+- **Owned-array CLASS IS generic/PASS dispatch query**:
+  `query_select_type_owned_array_generic_dispatch(arena, arm_node_index,
+  call_node_index)` resolves an exact generic call on an array element such as
+  `values(i)%choose(value)`. It maps the receiver to the owned selector's
+  storage declaration and exposes the unique selected specific, ordered
+  signature, and PASS position only for one exact type/kind/rank match.
+  Ambiguous, zero-match, deferred, non-element, global, alias, and
+  control-flow cases remain explicit refusals; no runtime target is guessed.
 - **ASSOCIATE selector query**: `query_associate_selectors` returns one
   `associate_selector_query_t` per association. The record identifies the
   ASSOCIATE node, association ordinal, selector expression, storage

@@ -277,6 +277,18 @@ See `examples/f90/owned_array_class_is_binding_identity.f90` and
 covering a deferred abstract binding, a direct implementation, an inherited
 implementation, and refusal boundaries.
 
+`query_select_type_owned_array_generic_dispatch(arena, arm_node_index,
+call_node_index)` resolves a type-bound generic called on an owned-array
+element such as `values(i)%choose(value)`. It maps the source receiver back to
+the selector's storage declaration, retains the array-element designator, and
+exposes candidates, the unique selected procedure, ordered signature, and
+default or named PASS position only for one exact type/kind/rank match.
+Ambiguous, zero-match, deferred, unresolved, non-element, global, alias, and
+control-flow cases remain explicit refusals. See
+`examples/f90/owned_array_class_is_generic_dispatch.f90` and
+`test/api/test_owned_array_class_is_generic_dispatch.f90` for the independent
+oracle.
+
 ## SELECT TYPE component paths
 
 `query_select_type_component_path(arena, arm_node_index, component_node_index)`
