@@ -1,6 +1,6 @@
 # FortFront roadmap
 
-Snapshot: 2026-08-08. FortFront owns lexing, parsing, semantic resolution,
+Snapshot: 2026-08-09. FortFront owns lexing, parsing, semantic resolution,
 typed public queries, and diagnostics for the ffc pipeline. It remains
 backend-neutral.
 
@@ -56,6 +56,18 @@ instantiable runtime arms. The regression oracle is
 `test/api/test_abstract_dispatch_target_query.f90`; it requires a concrete
 leaf to retain the inherited implementation while the abstract intermediate
 is absent.
+
+### Abstract dispatch provenance (2026-08-09)
+
+The concrete target arrays from `query_type_binding_resolution` and
+`query_type_bound_call` now expose parallel
+`dispatch_target_declaring_type_indices` and
+`dispatch_target_is_inherited` facts. A consumer can therefore distinguish a
+concrete leaf that overrides a deferred binding from one that inherits an
+implementation declared by an abstract intermediate type. This is provenance
+only: generic, ambiguous, unresolved, loop, ownership, and active global-state
+boundaries remain refusals and do not receive a guessed target. The independent
+GNU/API oracle is `test/api/test_abstract_dispatch_provenance_query.f90`.
 
 ### Bounded passed-procedure pointer actuals (2026-08-09)
 
