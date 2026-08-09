@@ -267,7 +267,21 @@ end subroutine
   `POLYMORPHIC_SOURCE_CONCRETE`, `POLYMORPHIC_SOURCE_POLYMORPHIC`, or
   `POLYMORPHIC_SOURCE_UNKNOWN`. Factories, dynamic sources, repeated
   acquisition, and alias paths remain unbounded and retain their explicit
-  refusal flags. `query_type_binding_resolution` resolves a binding
+  refusal flags. `query_polymorphic_assignment_into` and the compatibility
+  function `query_polymorphic_assignment` expose the
+  `ownership_event_query_t%polymorphic_assignment` record cover one
+  intrinsic assignment to a polymorphic allocatable derived object,
+  including a component such as `holder%item`. Exact source/destination
+  paths and declaration identities are retained. `is_replayable` and
+  `dynamic_type` are populated only when a concrete source is compatible with
+  the declared destination and no global state, alias, control-flow,
+  polymorphic-source, or type-mismatch boundary is present. The
+  `has_owned_components` fact follows nested and inherited derived types.
+  A polymorphic source remains visible but refused without a guessed dynamic
+  type. See `examples/f90/polymorphic_assignment_replay_facts.f90` and
+  `test/api/test_polymorphic_assignment_replay.f90` for the runtime-backed
+  semantic oracle; ownership events use the out-argument form for compiler
+  boundary safety. `query_type_binding_resolution` resolves a binding
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
   includes concrete dynamic target type indices, implementation names, and
   implementation procedure node indices.

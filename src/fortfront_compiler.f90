@@ -60,11 +60,14 @@ module fortfront_compiler
         OWNERSHIP_STATE_ALLOCATED, OWNERSHIP_STATE_SAME_AS_SOURCE, &
         ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, &
         storage_query_t, ownership_event_query_t, component_path_query_t, &
+        polymorphic_allocation_query_t, polymorphic_assignment_query_t, &
         associate_selector_query_t, query_associate_selector, &
         query_associate_selectors, &
         binding_resolution_query_t, global_reference_query_t, &
         binding_hierarchy_entry_t, binding_hierarchy_query_t, &
         query_storage, query_ownership_events, query_component_path, &
+        query_polymorphic_allocation, query_polymorphic_assignment, &
+        query_polymorphic_assignment_into, &
         query_type_binding_resolution, query_active_global_references, &
         query_type_binding_hierarchy, &
         type_bound_call_query_t, query_type_bound_call, &
