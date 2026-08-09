@@ -1,6 +1,7 @@
 module frontend_compiler_select_type_queries
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: assignment_node, identifier_node
+    use ast_nodes_core, only: assignment_node, identifier_node, &
+        call_or_subscript_node
     use ast_nodes_conditional, only: if_node, select_case_node, &
         select_rank_node, select_type_node, type_guard_block_node
     use ast_nodes_array, only: where_node
@@ -292,7 +293,9 @@ module frontend_compiler_select_type_queries
     end type select_type_component_dispatch_query_t
 
     type, public :: select_type_dispatch_query_t
-        !! Facts for one direct type-bound CALL in one concrete SELECT TYPE arm.
+        !! Facts for one direct type-bound invocation in one concrete SELECT
+        !! TYPE arm. The invocation may be a CALL statement or the sole
+        !! function reference on the right hand side of an assignment.
         !!
         !! FOUND means that the supplied arm and call form a direct structural
         !! match. IS_RESOLVED is narrower and requires a concrete implementation,
@@ -306,6 +309,7 @@ module frontend_compiler_select_type_queries
         logical :: is_type_is = .false.
         logical :: is_class_is = .false.
         logical :: is_class_default = .false.
+        logical :: is_function_reference = .false.
         logical :: is_abstract_guard = .false.
         logical :: is_deferred_binding = .false.
         logical :: is_generic_binding = .false.
@@ -2297,9 +2301,11 @@ contains
         if (.not. direct_call) then
             call refuse(query, 'call is not the single direct arm statement')
         end if
-        if (.not. is_explicit_call(arena, call_node_index)) then
+        if (.not. is_explicit_call(arena, call_node_index) .and. &
+                .not. query%is_function_reference) then
             query%is_dynamic_receiver = .true.
-            call refuse(query, 'call is not an explicit direct CALL statement')
+            call refuse(query, &
+                'invocation is not an explicit CALL or direct function reference')
         end if
 
         call_facts = query_type_bound_call(arena, call_node_index)
@@ -3805,6 +3811,7 @@ contains
         type(select_type_arm_query_t), intent(in) :: arm
         integer, intent(in) :: call_node_index
         type(select_type_dispatch_query_t), intent(inout) :: query
+        integer :: body_index
         integer :: parent_index
 
         is_direct = .false.
@@ -3813,14 +3820,42 @@ contains
             query%is_nested = .true.
             return
         end if
-        if (arm%body_node_indices(1) /= call_node_index) then
-            query%is_nested = .true.
-            return
-        end if
-        parent_index = arena%entries(call_node_index)%parent_index
-        if (parent_index /= arm%arm_node_index) then
-            query%is_nested = .true.
-            return
+        body_index = arm%body_node_indices(1)
+        if (body_index == call_node_index) then
+            parent_index = arena%entries(call_node_index)%parent_index
+            if (parent_index /= arm%arm_node_index) then
+                query%is_nested = .true.
+                return
+            end if
+        else
+            ! A function reference is accepted only when it is the complete
+            ! RHS of the arm's sole assignment.  In particular, do not infer
+            ! through arithmetic, nested calls, or an array subscript.
+            if (.not. arena%has_node_at(body_index)) return
+            select type (body => arena%entries(body_index)%node)
+                type is (assignment_node)
+                if (body%value_index /= call_node_index) return
+                if (.not. arena%has_node_at(call_node_index)) return
+                select type (call => arena%entries(call_node_index)%node)
+                    type is (call_or_subscript_node)
+                    if (call%is_array_access) return
+                    parent_index = arena%entries(call_node_index)%parent_index
+                    if (parent_index /= body_index) then
+                        query%is_nested = .true.
+                        return
+                    end if
+                    query%is_function_reference = .true.
+                class default
+                    return
+                end select
+                parent_index = arena%entries(body_index)%parent_index
+                if (parent_index /= arm%arm_node_index) then
+                    query%is_nested = .true.
+                    return
+                end if
+                class default
+                return
+            end select
         end if
         query%call_source_line = arena%entries(call_node_index)%node%line
         query%call_source_column = arena%entries(call_node_index)%node%column
