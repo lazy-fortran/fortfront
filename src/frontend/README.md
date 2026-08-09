@@ -535,6 +535,17 @@ end subroutine
   can compare ordered formal metadata without re-walking the AST. External
   targets remain identity-only when their interface is unavailable. This is a
   bounded identity/signature query, not general callback analysis or AD policy.
+- **Bounded procedure-pointer reassignment query**:
+  `query_procedure_reassignment_call` proves the deliberately narrow case of
+  exactly two unconditional, same-scope direct assignments followed by one
+  direct scalar call. Both targets must be same-arena scalar `REAL(8)`
+  functions with one `REAL(8), INTENT(IN)` argument and no active global
+  mutable state; the second target is the call's active target. The result
+  preserves both target facts and explicit refusal flags for branches, loops,
+  third or indirect mutations, `NULL()`/`NULLIFY`, aliases, unresolved
+  targets, multiple calls, and global state. This is a flow proof for a
+  backend that can lower the fixed target; it does not make general procedure
+  pointer state differentiable.
 - **Branch-merged procedure-pointer callback flow**:
   `query_procedure_callback_flow` accepts only a direct pointer call after one
   same-scope `IF/ELSE`: each arm must contain exactly one direct assignment to
