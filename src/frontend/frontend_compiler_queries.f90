@@ -1871,10 +1871,10 @@ contains
                 .not. query%has_global_mutable_state) then
                 if (index_precedes(scope_indices, assignments(1), call_statement) &
                     .and. index_precedes(scope_indices, assignments(2), &
-                        call_statement)) then
+                    call_statement)) then
                     if (reassignment_target_is_supported(query%first_target) &
                         .and. reassignment_target_is_supported( &
-                            query%second_target)) then
+                        query%second_target)) then
                         query%found = .true.
                         query%is_unresolved = .false.
                         query%is_refused = .false.
@@ -2477,7 +2477,7 @@ contains
                 query%arguments(i)%actual_value_node_index, actual_binding, &
                 error_msg)
             if (actual_binding%found .and. &
-                    actual_binding%declaration_node_index > 0) then
+                actual_binding%declaration_node_index > 0) then
                 actual_declaration_index = actual_binding%declaration_node_index
                 formal_query = query_declaration(arena, actual_declaration_index)
                 if (formal_query%found) then
@@ -2495,7 +2495,7 @@ contains
                 if (actual_storage%declaration_index > 0) &
                     actual_declaration_index = actual_storage%declaration_index
                 if (actual_storage%is_pointer .or. actual_storage%is_target .or. &
-                        actual_storage%is_allocatable) then
+                    actual_storage%is_allocatable) then
                     query%has_unresolved_alias = .true.
                 end if
             end if
@@ -2510,8 +2510,8 @@ contains
             formal_query = query_declaration(arena, &
                 query%arguments(i)%formal_node_index)
             if (query%arguments(i)%formal_is_pointer .or. &
-                    query%arguments(i)%formal_is_target .or. &
-                    query%arguments(i)%formal_is_allocatable) then
+                query%arguments(i)%formal_is_target .or. &
+                query%arguments(i)%formal_is_allocatable) then
                 query%has_unresolved_alias = .true.
             end if
 
@@ -2584,7 +2584,7 @@ contains
         if (.not. call_query%found) return
         do i = 1, size(call_query%arguments)
             if (.not. same_name(call_query%arguments(i)%formal_name, &
-                    formal_name)) cycle
+                formal_name)) cycle
             argument = call_query%arguments(i)
             formal_declaration = query_declaration(arena, &
                 argument%formal_node_index)
@@ -2677,9 +2677,9 @@ contains
                         call direct_scope_statement_for_node(arena, &
                             call_node_index, scope_index, call_statement)
                         if (mutation_count /= 1 .or. has_non_direct_mutation .or. &
-                                call_statement <= 0 .or. &
-                                .not. index_precedes(scope_indices, &
-                                assignment_index, call_statement)) then
+                            call_statement <= 0 .or. &
+                            .not. index_precedes(scope_indices, &
+                            assignment_index, call_statement)) then
                             query%has_ambiguous_target = .true.
                             query%has_unresolved_target = .true.
                             query%is_unresolved = .true.
@@ -2706,7 +2706,7 @@ contains
                             return
                         end if
                         if (.not. pointer_target%is_resolved .or. &
-                                .not. pointer_target%signature%found) then
+                            .not. pointer_target%signature%found) then
                             query%has_unresolved_target = .true.
                             query%is_unresolved = .true.
                             query%is_refused = .true.
@@ -3197,7 +3197,7 @@ contains
         candidate%has_global_mutable_state = candidate%has_global_mutable_state .or. &
             size(global_refs) > 0
         if (candidate%has_pointer_operand .or. &
-                candidate%has_global_mutable_state) candidate%is_match = .false.
+            candidate%has_global_mutable_state) candidate%is_match = .false.
 
         do i = 1, formal_count
             declaration = query_declaration(arena, procedure%parameter_indices(i))
@@ -3275,7 +3275,7 @@ contains
             operand%actual_rank == operand%formal_rank
         if (.not. matches) return
         if (len_trim(operand%actual_derived_type_name) > 0 .or. &
-                len_trim(operand%formal_derived_type_name) > 0) then
+            len_trim(operand%formal_derived_type_name) > 0) then
             matches = same_name(operand%actual_derived_type_name, &
                 operand%formal_derived_type_name)
         end if
@@ -3295,12 +3295,12 @@ contains
             select type (node => arena%entries(i)%node)
                 type is (interface_block_node)
                 if (.not. allocated(node%kind) .or. &
-                        .not. same_name(node%kind, 'operator')) cycle
+                    .not. same_name(node%kind, 'operator')) cycle
                 if (.not. allocated(node%operator)) cycle
                 if (normalize_generic_operator(node%operator) /= &
-                        normalize_generic_operator(operator_symbol)) cycle
+                    normalize_generic_operator(operator_symbol)) cycle
                 if (.not. operator_interface_visible(arena, i, &
-                        operator_node_index)) cycle
+                    operator_node_index)) cycle
                 call append_candidate_index(interface_indices, i)
             end select
         end do
@@ -3322,7 +3322,7 @@ contains
             return
         end if
         if (interface_scope > 0 .and. node_is_in_scope(arena, call_scope, &
-                interface_scope)) then
+            interface_scope)) then
             is_visible = .true.
             return
         end if
@@ -3336,11 +3336,11 @@ contains
             if (.not. allocated(module%name)) return
             module_name = module%name
             if (.not. module_operator_is_public(arena, module_index, &
-                    interface_index)) return
+                interface_index)) return
             current_scope = call_scope
             do while (current_scope > 0)
                 if (scope_uses_operator(arena, current_scope, module_name, &
-                        interface_index)) then
+                    interface_index)) then
                     is_visible = .true.
                     return
                 end if
@@ -3375,13 +3375,13 @@ contains
                 if (.not. allocated(use%only_list)) cycle
                 do j = 1, size(use%only_list)
                     if (operator_spec_matches(use%only_list(j)%s, &
-                            iface%operator)) then
+                        iface%operator)) then
                         is_used = .true.
                         return
                     end if
                     if (j < size(use%only_list)) then
                         if (operator_spec_matches(use%only_list(j + 1)%s, &
-                                iface%operator)) then
+                            iface%operator)) then
                             is_used = .true.
                             return
                         end if
@@ -3433,7 +3433,7 @@ contains
                 if (.not. allocated(visibility%names)) cycle
                 do j = 1, size(visibility%names)
                     if (.not. operator_spec_matches(visibility%names(j)%s, &
-                            iface%operator)) cycle
+                        iface%operator)) cycle
                     named = .true.
                     named_public = .not. visibility%is_private
                 end do
@@ -3871,7 +3871,7 @@ contains
             type is (identifier_node)
             if (allocated(node%name)) name = node%name
             call set_empty(error_msg)
-            class default
+        class default
             error_msg = 'AST node is not an identifier'
         end select
     end subroutine get_identifier_name
@@ -5880,7 +5880,7 @@ contains
                 has_loop = .true.
                 type is (do_while_node)
                 has_loop = .true.
-                class default
+            class default
             end select
             call get_call_parts(arena, i, name, ignored, is_call)
             if (is_call .and. same_name(name, pointer_name)) call_count = call_count + 1
@@ -6381,7 +6381,7 @@ contains
 
         query%node_index = node_index
         if (.not. allow_associate_selector .and. &
-                is_associate_selector_node(arena, node_index)) return
+            is_associate_selector_node(arena, node_index)) return
         base_declaration = query_declaration(arena, component%base_node_index)
         base_component = query_component_access(arena, component%base_node_index)
         base_is_array_element = is_array_element_node(arena, &
@@ -6850,7 +6850,7 @@ contains
 
         event = events(event_index)
         if (event%event_kind == OWNERSHIP_EVENT_ASSIGNMENT .and. &
-                event%polymorphic_assignment%found) then
+            event%polymorphic_assignment%found) then
             if (event%polymorphic_assignment%is_replayable) then
                 event%has_dynamic_type_boundary = .false.
                 call set_event_dynamic_type(event%source_dynamic_type, &
@@ -6869,7 +6869,7 @@ contains
             return
         end if
         if (event%event_kind == OWNERSHIP_EVENT_ASSIGNMENT .and. &
-                event%is_deep_assignment) then
+            event%is_deep_assignment) then
             event%has_dynamic_type_boundary = .true.
             event%is_source_dynamic_type_known = .false.
             event%is_destination_dynamic_type_known = .false.
@@ -6877,7 +6877,7 @@ contains
             return
         end if
         if (event%event_kind == OWNERSHIP_EVENT_ALLOCATE .and. &
-                event%polymorphic_allocation%found) then
+            event%polymorphic_allocation%found) then
             event%has_dynamic_type_boundary = .true.
             event%is_source_dynamic_type_known = .false.
             event%is_destination_dynamic_type_known = .false.
@@ -7013,7 +7013,7 @@ contains
         if (event%is_refused) return
         if (.not. event%destination_storage_resolved) return
         if (event%destination_path%is_array_element .or. &
-                event%destination_path%is_array_section) return
+            event%destination_path%is_array_section) return
         select case (event%event_kind)
         case (OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE)
             supported = .true.
@@ -7275,7 +7275,7 @@ contains
                     do i = 1, size(node%associations)
                         if (node%associations(i)%expr_index <= 0) cycle
                         if (node_is_in_scope(arena, node_index, &
-                                node%associations(i)%expr_index)) then
+                            node%associations(i)%expr_index)) then
                             associate_index = current
                             association_index = i
                             return
@@ -7355,7 +7355,7 @@ contains
 
         query%is_selector_designator = query%selector_path%found .or. &
             is_selector_array_designator(arena, selector_index, &
-                query%selector_storage%found)
+            query%selector_storage%found)
         if (query%selector_path%found) then
             query%base_node_index = query%selector_path%base_node_index
         else if (query%is_selector_designator) then
@@ -7384,7 +7384,7 @@ contains
             (.not. query%is_selector_designator .or. query%is_storage_resolved)
 
         if (query%is_resolved .and. .not. query%is_pointer .and. &
-                .not. query%is_polymorphic) then
+            .not. query%is_polymorphic) then
             query%is_dynamic_type_known = .true.
             query%selector_dynamic_type = query%selector_declared_type
             if (len_trim(resolved%derived_type_name) > 0) then
@@ -7398,7 +7398,7 @@ contains
 
         query%is_alias_boundary = query%is_alias .and. &
             (query%is_pointer .or. query%is_polymorphic .or. &
-             query%is_unresolved .or. query%is_ambiguous)
+            query%is_unresolved .or. query%is_ambiguous)
         query%is_read_only = .not. query%is_selector_designator .or. &
             query%is_pointer .or. query%is_polymorphic .or. query%is_ambiguous
         query%is_writeable = query%is_selector_designator .and. &
@@ -7687,8 +7687,8 @@ contains
             assignment%target_index)
         if (.not. source_storage%found .or. .not. destination_storage%found) return
         if (.not. destination_storage%is_allocatable .or. &
-                .not. destination_storage%is_polymorphic .or. &
-                .not. destination_storage%is_derived) return
+            .not. destination_storage%is_polymorphic .or. &
+            .not. destination_storage%is_derived) return
         if (.not. source_storage%is_derived) return
 
         query%found = .true.
@@ -9607,8 +9607,8 @@ contains
 
         storage = query_designator_storage(arena, node_index)
         unsafe_alias = is_associate_selector_node(arena, node_index)
-            unsafe_alias = unsafe_alias .or. path%is_array_element .or. &
-                path%is_array_section
+        unsafe_alias = unsafe_alias .or. path%is_array_element .or. &
+            path%is_array_section
         if (storage%found) then
             unsafe_alias = unsafe_alias .or. storage%is_pointer .or. &
                 storage%is_target
