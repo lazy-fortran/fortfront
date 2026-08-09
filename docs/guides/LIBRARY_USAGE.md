@@ -338,6 +338,23 @@ pointer, allocatable, polymorphic, non-derived, or abstract component
 boundaries; it never guesses a runtime target or performs generic argument
 matching.
 
+## SELECT TYPE component direct dispatch
+
+`query_select_type_component_dispatch(arena, arm_node_index, call_node_index)`
+resolves one explicit non-generic call such as
+`CALL typed%leaf%run(value)` in a concrete `SELECT TYPE` arm. The result keeps
+the source-backed component path and reports the terminal component type,
+inherited or local implementation, effective PASS metadata, and ordered
+procedure signature. It requires the call to be the arm's sole direct
+statement; generic bindings must use the generic-dispatch query instead.
+
+Pointer/TARGET aliases, allocatable or polymorphic components, array paths,
+mutable global state, unresolved bindings, nested calls, and ownership-changing
+selectors remain explicit `is_refused`/`is_unresolved` boundaries with no
+implementation target. See `examples/f90/select_type_component_dispatch.f90`
+and `test/api/test_select_type_component_dispatch.f90` for the independent
+oracle.
+
 ## SELECT TYPE type-bound generic dispatch
 
 `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`

@@ -129,6 +129,8 @@ module fortfront
         select_type_component_query_t, query_select_type_component_path, &
         select_type_component_binding_query_t, &
         query_select_type_component_binding, &
+        select_type_component_dispatch_query_t, &
+        query_select_type_component_dispatch, &
         select_type_dispatch_query_t, query_select_type_dispatch, &
         select_type_generic_candidate_query_t, &
         select_type_generic_dispatch_query_t, &

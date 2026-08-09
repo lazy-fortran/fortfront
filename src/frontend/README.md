@@ -427,6 +427,15 @@ end subroutine
   unresolved, generic, ambiguous, or deferred bindings and pointer,
   allocatable, polymorphic, non-derived, or abstract component boundaries. It
   does not perform generic argument matching or runtime dispatch.
+- **SELECT TYPE component direct-dispatch query**:
+  `query_select_type_component_dispatch(arena, arm_node_index, call_node_index)`
+  resolves one explicit non-generic `CALL` through a narrowed component path.
+  It preserves the source-backed receiver path and exposes the terminal
+  component type, inherited or local implementation, effective PASS metadata,
+  and ordered implementation signature only for a scalar concrete component
+  and a sole direct arm statement. Generic, nested, unresolved, pointer,
+  TARGET, allocatable, polymorphic, array, alias, mutable-global, and
+  ownership-changing cases remain explicit refusals without a guessed target.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
   composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or
