@@ -80,7 +80,7 @@ contains
 
     subroutine choose_named(value, self)
         integer, intent(in) :: value
-        type(named_pass_t), intent(inout) :: self
+        class(named_pass_t), intent(inout) :: self
 
         self%last_value = value
     end subroutine choose_named
