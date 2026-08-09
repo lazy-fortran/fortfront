@@ -323,7 +323,11 @@ end subroutine
   call_node_index)` resolves an exact generic call on an array element such as
   `values(i)%choose(value)`. It maps the receiver to the owned selector's
   storage declaration and exposes the unique selected specific, ordered
-  signature, and PASS position only for one exact type/kind/rank match.
+  signature, and PASS position only for one exact type/kind/rank match. PASS
+  metadata is resolved per specific: candidate records expose
+  `pass_metadata_resolved`, `pass_arg`, `pass_name`, and `pass_position`, while
+  `selected_pass_*` records identify the selected specific's effective PASS
+  mapping, including a named passed-object dummy that is not first.
   Ambiguous, zero-match, deferred, non-element, global, alias, and
   control-flow cases remain explicit refusals; no runtime target is guessed.
 - **ASSOCIATE selector query**: `query_associate_selectors` returns one

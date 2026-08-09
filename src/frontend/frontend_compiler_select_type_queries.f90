@@ -283,13 +283,20 @@ module frontend_compiler_select_type_queries
 
     type, public :: select_type_generic_candidate_query_t
         !! One exact type-bound generic specific considered at a call site.
+        !! For the owned-array generic query, the PASS fields below are the
+        !! specific binding's metadata, not the enclosing generic's defaults.
         logical :: found = .false.
         logical :: is_match = .false.
         logical :: has_unknown_types = .false.
+        logical :: pass_metadata_resolved = .false.
+        logical :: pass_arg = .true.
+        logical :: is_nopass = .false.
         integer :: procedure_node_index = 0
         integer :: implementation_node_index = 0
+        integer :: pass_position = 0
         character(len=:), allocatable :: procedure_name
         character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: pass_name
         type(procedure_signature_query_t) :: signature
     end type select_type_generic_candidate_query_t
 
@@ -384,6 +391,11 @@ module frontend_compiler_select_type_queries
         logical :: is_array_section_receiver = .false.
         logical :: pass_arg = .true.
         logical :: is_nopass = .false.
+        ! PASS metadata on the generic binding itself is retained above;
+        ! selected_pass_* identifies the effective selected specific.
+        logical :: selected_pass_metadata_resolved = .false.
+        logical :: selected_pass_arg = .true.
+        logical :: selected_is_nopass = .false.
         logical :: has_global_mutable_state = .false.
         logical :: has_unresolved_alias = .false.
         logical :: has_control_flow_boundary = .false.
@@ -399,12 +411,14 @@ module frontend_compiler_select_type_queries
         integer :: selected_candidate_index = 0
         integer :: selected_procedure_node_index = 0
         integer :: pass_position = 0
+        integer :: selected_pass_position = 0
         character(len=:), allocatable :: selector_name
         character(len=:), allocatable :: receiver_name
         character(len=:), allocatable :: declared_type_name
         character(len=:), allocatable :: dynamic_type_name
         character(len=:), allocatable :: generic_name
         character(len=:), allocatable :: pass_name
+        character(len=:), allocatable :: selected_pass_name
         character(len=:), allocatable :: refusal_reason
         type(storage_query_t) :: receiver_storage
         type(select_type_owned_array_query_t) :: owned_array
@@ -2319,6 +2333,7 @@ contains
         call set_empty(query%dynamic_type_name)
         call set_empty(query%generic_name)
         call set_empty(query%pass_name)
+        call set_empty(query%selected_pass_name)
         call set_empty(query%refusal_reason)
         call initialize_storage(query%receiver_storage)
         allocate (query%candidates(0))
@@ -2354,6 +2369,7 @@ contains
         type(declaration_binding_t) :: candidate_binding
         character(len=:), allocatable :: error_msg
         integer, allocatable :: actual_indices(:)
+        type(binding_hierarchy_query_t) :: specific_hierarchy
         integer :: i, match_count, selected
 
         if (.not. allocated(binding%generic_names) .or. &
@@ -2388,8 +2404,33 @@ contains
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
+            specific_hierarchy = query_type_binding_hierarchy(arena, &
+                query%dynamic_type_index, binding%generic_names(i))
+            if (.not. specific_hierarchy%found) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
+            query%candidates(i)%pass_metadata_resolved = .true.
+            query%candidates(i)%pass_arg = specific_hierarchy%pass_arg
+            query%candidates(i)%is_nopass = .not. specific_hierarchy%pass_arg
+            query%candidates(i)%pass_name = specific_hierarchy%pass_name
+            if (.not. query%candidates(i)%pass_arg) then
+                query%candidates(i)%pass_position = 0
+            else if (len_trim(query%candidates(i)%pass_name) == 0) then
+                query%candidates(i)%pass_position = 1
+            else
+                query%candidates(i)%pass_position = find_signature_dummy( &
+                    query%candidates(i)%signature, &
+                    query%candidates(i)%pass_name)
+            end if
+            if (query%candidates(i)%pass_arg .and. &
+                    query%candidates(i)%pass_position <= 0) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
             call match_generic_candidate(arena, actual_indices, &
-                query%candidates(i), binding%pass_arg, binding%pass_name)
+                query%candidates(i), query%candidates(i)%pass_arg, &
+                query%candidates(i)%pass_name)
             if (query%candidates(i)%is_match) then
                 match_count = match_count + 1
                 selected = i
@@ -2409,6 +2450,13 @@ contains
             query%selected_procedure_node_index = &
                 query%candidates(selected)%procedure_node_index
             query%signature = query%candidates(selected)%signature
+            query%selected_pass_metadata_resolved = &
+                query%candidates(selected)%pass_metadata_resolved
+            query%selected_pass_arg = query%candidates(selected)%pass_arg
+            query%selected_is_nopass = query%candidates(selected)%is_nopass
+            query%selected_pass_position = &
+                query%candidates(selected)%pass_position
+            query%selected_pass_name = query%candidates(selected)%pass_name
             query%is_resolved = .true.
         end if
     end subroutine resolve_owned_array_generic_candidates
