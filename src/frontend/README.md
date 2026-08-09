@@ -244,6 +244,12 @@ end subroutine
   through `EXTENDS`, records inherited/deferred/generic/PASS facts, and
   includes concrete dynamic target type indices, implementation names, and
   implementation procedure node indices.
+  Its dispatch-target arrays also carry parallel
+  `dispatch_target_declaring_type_indices` and
+  `dispatch_target_is_inherited` facts. These identify the effective binding
+  declaration when a concrete leaf inherits an implementation through an
+  abstract intermediate type; they do not add a target or resolve a deferred,
+  generic, ambiguous, unresolved, loop, ownership, or global-state case.
   `query_type_binding_hierarchy` is the bounded alternative for one declared
   type: it reports the local-to-parent chain and effective binding metadata,
   without scanning descendants or guessing an ambiguous, deferred, or

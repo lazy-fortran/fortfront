@@ -657,6 +657,11 @@ module frontend_compiler_queries
         ! flag means the implementation was found but its passed-object
         ! declaration was not available to this arena query.
         logical, allocatable :: dispatch_target_signature_resolved(:)
+        ! These arrays identify where the effective binding was declared.
+        ! They are useful when a concrete leaf inherits an implementation
+        ! through an abstract intermediate type.
+        integer, allocatable :: dispatch_target_declaring_type_indices(:)
+        logical, allocatable :: dispatch_target_is_inherited(:)
     end type binding_resolution_query_t
 
     type :: binding_hierarchy_entry_t
@@ -768,6 +773,9 @@ module frontend_compiler_queries
         character(len=:), allocatable :: dispatch_target_passed_object_types(:)
         ! Parallel to the existing target type and implementation arrays.
         logical, allocatable :: dispatch_target_signature_resolved(:)
+        ! Parallel provenance facts for the effective binding declaration.
+        integer, allocatable :: dispatch_target_declaring_type_indices(:)
+        logical, allocatable :: dispatch_target_is_inherited(:)
     end type type_bound_call_query_t
 
     type :: global_reference_query_t
@@ -5889,6 +5897,10 @@ contains
                 resolution%dispatch_target_passed_object_types
             query%dispatch_target_signature_resolved = &
                 resolution%dispatch_target_signature_resolved
+            query%dispatch_target_declaring_type_indices = &
+                resolution%dispatch_target_declaring_type_indices
+            query%dispatch_target_is_inherited = &
+                resolution%dispatch_target_is_inherited
         end if
         query%is_resolved = .not. query%is_generic .and. &
             .not. query%is_ambiguous .and. .not. query%is_deferred .and. &
@@ -6392,6 +6404,8 @@ contains
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
         allocate (query%dispatch_target_signature_resolved(0))
+        allocate (query%dispatch_target_declaring_type_indices(0))
+        allocate (query%dispatch_target_is_inherited(0))
     end subroutine initialize_type_bound_call_query
 
     subroutine initialize_component_path_query(query)
@@ -6704,6 +6718,8 @@ contains
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
         allocate (query%dispatch_target_signature_resolved(0))
+        allocate (query%dispatch_target_declaring_type_indices(0))
+        allocate (query%dispatch_target_is_inherited(0))
     end subroutine initialize_binding_resolution
 
     recursive subroutine resolve_binding_base(arena, type_index, name, query)
@@ -6793,6 +6809,17 @@ contains
         if (n > 0) logical_tmp(:n) = query%dispatch_target_signature_resolved
         logical_tmp(n + 1) = signature_resolved
         call move_alloc(logical_tmp, query%dispatch_target_signature_resolved)
+
+        allocate (int_tmp(n + 1))
+        if (n > 0) int_tmp(:n) = &
+            query%dispatch_target_declaring_type_indices
+        int_tmp(n + 1) = target%declaring_type_index
+        call move_alloc(int_tmp, query%dispatch_target_declaring_type_indices)
+
+        allocate (logical_tmp(n + 1))
+        if (n > 0) logical_tmp(:n) = query%dispatch_target_is_inherited
+        logical_tmp(n + 1) = target%is_inherited
+        call move_alloc(logical_tmp, query%dispatch_target_is_inherited)
     end subroutine append_dispatch_target
 
     subroutine resolve_dispatch_signature(arena, implementation, pass_arg, &
