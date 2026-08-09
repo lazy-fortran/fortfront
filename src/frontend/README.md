@@ -414,9 +414,10 @@ end subroutine
   `NULLIFY` precede the observation without nested mutation; the result then
   carries the assignment/nullify node identities and `is_associated` value.
   Reassignment, branch-local or indirect mutation, global mutable state,
+  aliases (including host-associated and procedure-pointer dummy bindings),
   invalid arity, component pointers, non-procedure pointers, and unresolved
   targets remain explicit `is_refused`/`is_unresolved` facts through the
-  corresponding boundary flags.
+  corresponding boundary flags; `has_alias` identifies the alias boundary.
   The two-argument `ASSOCIATED` form is recognized but refusal-only, so a
   consumer never guesses target identity. See
   `examples/f90/procedure_pointer_association_query.f90` and

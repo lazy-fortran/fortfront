@@ -33,7 +33,7 @@ module frontend_compiler_queries
         get_scope_statement_indices, &
         find_host_scope, resolve_name_in_scope, BINDING_FUNCTION, &
         BINDING_SUBROUTINE, BINDING_GENERIC_INTERFACE, BINDING_DECLARATION, &
-        BINDING_ASSOCIATE_NAME
+        BINDING_ASSOCIATE_NAME, ASSOCIATION_DIRECT
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
     use semantic_procedure_signature, only: type_category
@@ -406,8 +406,8 @@ module frontend_compiler_queries
         !! for a direct NULLIFY of one procedure pointer, or for a unary
         !! ASSOCIATED test whose state is fixed by one direct assignment and
         !! at most one direct NULLIFY before the test.  Branch-local,
-        !! reassigned, indirect, ambiguous, and otherwise flow-sensitive
-        !! callbacks remain explicit refusal facts.
+        !! reassigned, aliased, indirect, ambiguous, and otherwise
+        !! flow-sensitive callbacks remain explicit refusal facts.
         logical :: found = .false.
         logical :: is_associated_test = .false.
         logical :: is_nullify = .false.
@@ -419,6 +419,7 @@ module frontend_compiler_queries
         logical :: has_second_argument = .false.
         logical :: has_multiple_pointers = .false.
         logical :: has_non_identifier_pointer = .false.
+        logical :: has_alias = .false.
         logical :: has_non_procedure_pointer = .false.
         logical :: has_reassignment = .false.
         logical :: has_null_assignment = .false.
@@ -2134,6 +2135,12 @@ contains
             return
         end select
 
+        if (.not. arena%has_node_at(query%pointer_node_index)) then
+            query%has_non_identifier_pointer = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
         if (.not. is_identifier_at(arena, query%pointer_node_index)) then
             query%has_non_identifier_pointer = .true.
             query%is_refused = .true.
@@ -2166,6 +2173,7 @@ contains
             return
         end if
         if (pointer_binding%binding_kind /= BINDING_DECLARATION) then
+            query%has_alias = pointer_binding%binding_kind == BINDING_ASSOCIATE_NAME
             query%has_flow_sensitive_state = .true.
             query%is_refused = .true.
             query%is_unresolved = .true.
@@ -2189,6 +2197,14 @@ contains
             query%is_unresolved = .true.
             return
         end if
+        if (pointer_binding%association /= ASSOCIATION_DIRECT .or. &
+            is_procedure_pointer_dummy(arena, query%scope_node_index, &
+            pointer_binding%declaration_node_index)) then
+            query%has_alias = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
 
         if (.not. is_associated_node) then
             query%state_known = .true.
@@ -2206,10 +2222,13 @@ contains
             return
         end if
         if (is_pointer_state_control_statement(arena, observation_statement)) then
-            query%has_control_flow_boundary = .true.
-            query%is_refused = .true.
-            query%is_unresolved = .true.
-            return
+            if (.not. is_pointer_state_condition_observation(arena, node_index, &
+                observation_statement)) then
+                query%has_control_flow_boundary = .true.
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
         end if
 
         call get_scope_statement_indices(arena, query%scope_node_index, &
@@ -5219,6 +5238,32 @@ contains
         end select
     end function is_pointer_state_control_statement
 
+    logical function is_pointer_state_condition_observation(arena, node_index, &
+            control_index) result(is_condition)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, control_index
+        integer :: i
+
+        is_condition = .false.
+        if (.not. arena%has_node_at(control_index)) return
+        select type (control => arena%entries(control_index)%node)
+            type is (if_node)
+            if (control%condition_index > 0) then
+                is_condition = node_is_descendant_of(arena, node_index, &
+                    [control%condition_index])
+            end if
+            if (is_condition) return
+            if (.not. allocated(control%elseif_blocks)) return
+            do i = 1, size(control%elseif_blocks)
+                if (control%elseif_blocks(i)%condition_index <= 0) cycle
+                is_condition = node_is_descendant_of(arena, node_index, &
+                    [control%elseif_blocks(i)%condition_index])
+                if (is_condition) return
+            end do
+        class default
+        end select
+    end function is_pointer_state_condition_observation
+
     subroutine scan_pointer_state_mutations_before(arena, scope_index, &
             declaration_index, pointer_name, scope_indices, observation_statement, &
             assignment_count, assignment_index, nullify_count, nullify_index, &
@@ -5650,6 +5695,53 @@ contains
         is_pointer = index(normalized, 'procedure') == 1
     end function is_procedure_pointer_declaration
 
+    logical function is_procedure_pointer_dummy(arena, scope_index, &
+            declaration_index) result(is_dummy)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index, declaration_index
+        type(declaration_query_t) :: declaration
+        character(len=:), allocatable :: parameter_name
+        integer :: i
+
+        is_dummy = .false.
+        if (.not. arena%has_node_at(scope_index)) return
+        declaration = query_declaration(arena, declaration_index)
+        if (.not. declaration%found) return
+        select type (scope => arena%entries(scope_index)%node)
+            type is (function_def_node)
+            if (allocated(scope%param_indices)) then
+                do i = 1, size(scope%param_indices)
+                    if (scope%param_indices(i) == declaration_index) then
+                        is_dummy = .true.
+                        return
+                    end if
+                    call procedure_target_name_at(arena, &
+                        scope%param_indices(i), parameter_name)
+                    if (same_name(parameter_name, declaration%name)) then
+                        is_dummy = .true.
+                        return
+                    end if
+                end do
+            end if
+            type is (subroutine_def_node)
+            if (allocated(scope%param_indices)) then
+                do i = 1, size(scope%param_indices)
+                    if (scope%param_indices(i) == declaration_index) then
+                        is_dummy = .true.
+                        return
+                    end if
+                    call procedure_target_name_at(arena, &
+                        scope%param_indices(i), parameter_name)
+                    if (same_name(parameter_name, declaration%name)) then
+                        is_dummy = .true.
+                        return
+                    end if
+                end do
+            end if
+        class default
+        end select
+    end function is_procedure_pointer_dummy
+
     subroutine procedure_target_name_at(arena, node_index, name)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -5659,6 +5751,8 @@ contains
         if (.not. arena%has_node_at(node_index)) return
         select type (node => arena%entries(node_index)%node)
             type is (identifier_node)
+            if (allocated(node%name)) name = node%name
+            type is (parameter_declaration_node)
             if (allocated(node%name)) name = node%name
             type is (call_or_subscript_node)
             if (allocated(node%name)) name = node%name
