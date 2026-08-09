@@ -119,6 +119,8 @@ module frontend_compiler_queries
     public :: OWNERSHIP_ASSIGNMENT_NONE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
     public :: OWNERSHIP_ASSIGNMENT_DEEP_DERIVED
     public :: OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL
+    public :: OWNERSHIP_STATE_UNKNOWN, OWNERSHIP_STATE_UNALLOCATED
+    public :: OWNERSHIP_STATE_ALLOCATED, OWNERSHIP_STATE_SAME_AS_SOURCE
     public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
     public :: POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE
     public :: POLYMORPHIC_SOURCE_POLYMORPHIC
@@ -154,6 +156,11 @@ module frontend_compiler_queries
     integer, parameter :: OWNERSHIP_ASSIGNMENT_DEEP_DERIVED = 2
     integer, parameter :: OWNERSHIP_REALLOCATION_NONE = 0
     integer, parameter :: OWNERSHIP_REALLOCATION_POTENTIAL = 1
+
+    integer, parameter :: OWNERSHIP_STATE_UNKNOWN = 0
+    integer, parameter :: OWNERSHIP_STATE_UNALLOCATED = 1
+    integer, parameter :: OWNERSHIP_STATE_ALLOCATED = 2
+    integer, parameter :: OWNERSHIP_STATE_SAME_AS_SOURCE = 3
 
     integer, parameter :: ACCESS_READ = 1
     integer, parameter :: ACCESS_WRITE = 2
@@ -605,6 +612,8 @@ module frontend_compiler_queries
     type :: ownership_event_query_t
         logical :: found = .false.
         integer :: node_index = 0
+        ! One-based source order among ownership events in the queried scope.
+        integer :: sequence_index = 0
         integer :: event_kind = 0
         integer, allocatable :: object_indices(:)
         integer :: source_index = 0
@@ -628,12 +637,20 @@ module frontend_compiler_queries
         integer :: rhs_rank = -1
         integer :: assignment_kind = OWNERSHIP_ASSIGNMENT_NONE
         integer :: reallocation_kind = OWNERSHIP_REALLOCATION_NONE
+        ! Deterministic allocation-state effects. UNKNOWN means that the
+        ! source alone does not prove a runtime state.
+        integer :: owner_state_before = OWNERSHIP_STATE_UNKNOWN
+        integer :: owner_state_after = OWNERSHIP_STATE_UNKNOWN
+        integer :: source_state_after = OWNERSHIP_STATE_UNKNOWN
+        integer :: destination_state_after = OWNERSHIP_STATE_UNKNOWN
         logical :: is_deep_assignment = .false.
         logical :: has_owned_components = .false.
         logical :: has_global_mutable_state = .false.
         logical :: has_unresolved_alias = .false.
         logical :: is_refused = .false.
         logical :: is_potential_automatic_reallocation = .false.
+        logical :: has_implicit_destination_deallocation = .false.
+        logical :: has_potential_implicit_reallocation = .false.
         logical :: is_explicit_ownership_transfer = .false.
     end type ownership_event_query_t
 
@@ -5130,6 +5147,7 @@ contains
             if (.not. is_ownership_event(arena, i)) cycle
             count = count + 1
             events(count) = ownership_event(arena, i)
+            events(count)%sequence_index = count
         end do
     end function query_ownership_events
 
@@ -7267,6 +7285,8 @@ contains
         select type (node => arena%entries(index)%node)
             type is (allocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_ALLOCATE
+            event%owner_state_before = OWNERSHIP_STATE_UNALLOCATED
+            event%owner_state_after = OWNERSHIP_STATE_ALLOCATED
             call copy_integer_array(node%var_indices, event%object_indices)
             call copy_integer_array(node%shape_indices, event%shape_expr_indices)
             event%source_expr_index = node%source_expr_index
@@ -7286,6 +7306,8 @@ contains
             event%polymorphic_allocation = query_polymorphic_allocation(arena, index)
             type is (deallocate_statement_node)
             event%event_kind = OWNERSHIP_EVENT_DEALLOCATE
+            event%owner_state_before = OWNERSHIP_STATE_ALLOCATED
+            event%owner_state_after = OWNERSHIP_STATE_UNALLOCATED
             call copy_integer_array(node%var_indices, event%object_indices)
             if (allocated(node%var_indices)) then
                 if (size(node%var_indices) > 0) event%owner_path = &
@@ -7304,6 +7326,9 @@ contains
             if (allocated(node%arg_indices)) then
                 event%object_indices = node%arg_indices
                 if (size(node%arg_indices) >= 2) then
+                    event%source_state_after = OWNERSHIP_STATE_UNALLOCATED
+                    event%destination_state_after = OWNERSHIP_STATE_SAME_AS_SOURCE
+                    event%has_implicit_destination_deallocation = .true.
                     event%source_index = node%arg_indices(1)
                     event%target_index = node%arg_indices(2)
                     event%source_path = ownership_path(arena, &
@@ -7329,6 +7354,8 @@ contains
                 event%assignment_kind = OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
                 event%reallocation_kind = OWNERSHIP_REALLOCATION_POTENTIAL
                 event%is_potential_automatic_reallocation = .true.
+                event%owner_state_after = OWNERSHIP_STATE_ALLOCATED
+                event%has_potential_implicit_reallocation = .true.
             else if (is_deep) then
                 event%assignment_kind = OWNERSHIP_ASSIGNMENT_DEEP_DERIVED
             end if
