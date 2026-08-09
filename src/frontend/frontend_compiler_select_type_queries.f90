@@ -17,7 +17,8 @@ module frontend_compiler_select_type_queries
         query_component_access, query_component_path, query_declaration, &
         query_storage, get_identifier_name, declaration_query_t, &
         query_type_binding, type_binding_query_t, STORAGE_BORROWED, &
-        STORAGE_OWNED, query_type_binding_hierarchy
+        STORAGE_OWNED, STORAGE_LOCAL, query_active_global_references, &
+        global_reference_query_t, query_type_binding_hierarchy
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_name_at_node, BINDING_ASSOCIATE_NAME, BINDING_FUNCTION, &
         BINDING_SUBROUTINE
@@ -371,6 +372,7 @@ module frontend_compiler_select_type_queries
         logical :: found = .false.
         logical :: is_match = .false.
         logical :: has_unknown_types = .false.
+        logical :: has_global_mutable_state = .false.
         logical :: pass_metadata_resolved = .false.
         logical :: pass_arg = .true.
         logical :: is_nopass = .false.
@@ -382,6 +384,49 @@ module frontend_compiler_select_type_queries
         character(len=:), allocatable :: pass_name
         type(procedure_signature_query_t) :: signature
     end type select_type_generic_candidate_query_t
+
+    type, public :: type_bound_generic_dispatch_query_t
+        !! Exact generic dispatch for one statically typed scalar receiver.
+        !!
+        !! The selected specific is source-resolved only when exactly one
+        !! candidate matches the supplied actuals.  PASS metadata is taken
+        !! from that specific's effective inherited binding, not copied from
+        !! the enclosing generic interface.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_generic_binding = .false.
+        logical :: is_ambiguous = .false.
+        logical :: is_deferred_binding = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_dynamic_receiver = .false.
+        logical :: has_pointer_boundary = .false.
+        logical :: has_allocatable_boundary = .false.
+        logical :: has_array_receiver = .false.
+        logical :: has_unsupported_ownership = .false.
+        logical :: pass_arg = .true.
+        logical :: is_nopass = .false.
+        integer :: call_node_index = 0
+        integer :: receiver_node_index = 0
+        integer :: receiver_declaration_index = 0
+        integer :: declared_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: selected_candidate_index = 0
+        integer :: selected_procedure_node_index = 0
+        integer :: pass_position = 0
+        integer :: selected_pass_position = 0
+        character(len=:), allocatable :: receiver_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: generic_name
+        character(len=:), allocatable :: pass_name
+        character(len=:), allocatable :: selected_pass_name
+        character(len=:), allocatable :: refusal_reason
+        type(storage_query_t) :: receiver_storage
+        type(select_type_generic_candidate_query_t), allocatable :: candidates(:)
+        type(procedure_signature_query_t) :: signature
+    end type type_bound_generic_dispatch_query_t
 
     type, public :: select_type_generic_dispatch_query_t
         !! Exact type-bound generic resolution for one narrowed SELECT TYPE arm.
@@ -566,6 +611,7 @@ module frontend_compiler_select_type_queries
         query_select_type_component_binding, query_select_type_dispatch, &
         query_select_type_component_dispatch, &
         query_select_type_generic_dispatch, &
+        query_type_bound_generic_dispatch, &
         query_select_type_component_generic_dispatch, &
         query_select_type_owned_array_generic_dispatch, &
         query_select_type_owned_array_dispatch
@@ -2509,6 +2555,292 @@ contains
         call resolve_generic_candidates(arena, call_node_index, binding, query)
     end function query_select_type_generic_dispatch
 
+    function query_type_bound_generic_dispatch(arena, call_node_index) &
+            result(query)
+        !! Resolve one type-bound generic call on a static scalar receiver.
+        !!
+        !! This is the ordinary-receiver counterpart to the narrowed
+        !! SELECT TYPE generic query.  A CLASS, pointer, allocatable, target,
+        !! component, array, global, or otherwise owned receiver remains an
+        !! explicit boundary because its runtime target is not one static
+        !! generic-specific fact.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        type(type_bound_generic_dispatch_query_t) :: query
+        type(type_bound_call_query_t) :: call_facts
+        type(type_binding_query_t) :: binding
+        type(binding_hierarchy_query_t) :: hierarchy
+        integer :: receiver_storage_node
+
+        call initialize_type_bound_generic_dispatch_query(query, &
+            call_node_index)
+        if (.not. arena%has_node_at(call_node_index)) return
+
+        call_facts = query_type_bound_call(arena, call_node_index)
+        if (.not. call_facts%found .or. .not. call_facts%is_generic) return
+
+        query%found = .true.
+        query%receiver_node_index = call_facts%receiver_node_index
+        query%receiver_declaration_index = &
+            call_facts%receiver_declaration_index
+        query%receiver_name = call_facts%receiver_name
+        query%declared_type_index = call_facts%declared_type_index
+        query%declared_type_name = call_facts%declared_type_name
+        query%generic_name = call_facts%binding_name
+        query%binding_node_index = call_facts%binding_node_index
+
+        receiver_storage_node = query%receiver_node_index
+        if (receiver_storage_node <= 0) then
+            receiver_storage_node = query%receiver_declaration_index
+        end if
+        if (receiver_storage_node <= 0) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic receiver storage is unresolved')
+            return
+        end if
+        query%receiver_storage = query_storage(arena, receiver_storage_node)
+        if (.not. query%receiver_storage%found) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic receiver storage is unresolved')
+            return
+        end if
+
+        if (call_facts%receiver_path%found .or. &
+                query%receiver_storage%is_component .or. &
+                query%receiver_storage%is_target) then
+            query%has_unresolved_alias = .true.
+        end if
+        if (query%receiver_storage%is_pointer) then
+            query%has_pointer_boundary = .true.
+            query%has_unresolved_alias = .true.
+        end if
+        if (query%receiver_storage%is_allocatable) then
+            query%has_allocatable_boundary = .true.
+        end if
+        query%has_dynamic_receiver = query%receiver_storage%is_polymorphic .or. &
+            query%receiver_storage%is_unlimited_polymorphic
+        query%has_array_receiver = query%receiver_storage%rank > 0 .or. &
+            query%receiver_storage%is_array_element .or. &
+            query%receiver_storage%is_array_section
+        query%has_global_mutable_state = &
+            query%receiver_storage%is_module_state .or. &
+            query%receiver_storage%is_save_state .or. &
+            query%receiver_storage%is_common_state
+        query%has_unsupported_ownership = &
+            query%receiver_storage%storage_class /= STORAGE_LOCAL .or. &
+            query%receiver_storage%is_component .or. &
+            query%receiver_storage%is_allocatable .or. &
+            query%receiver_storage%is_pointer
+
+        if (query%has_unresolved_alias .or. query%has_dynamic_receiver .or. &
+                query%has_pointer_boundary .or. &
+                query%has_allocatable_boundary .or. query%has_array_receiver .or. &
+                query%has_global_mutable_state .or. &
+                query%has_unsupported_ownership) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic receiver has an unsupported boundary')
+            return
+        end if
+
+        hierarchy = query_type_binding_hierarchy(arena, &
+            query%declared_type_index, query%generic_name)
+        if (.not. hierarchy%found) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic hierarchy is unresolved')
+            return
+        end if
+        query%binding_node_index = hierarchy%binding_node_index
+        binding = query_type_binding(arena, hierarchy%binding_node_index)
+        if (.not. binding%found) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic declaration is unresolved')
+            return
+        end if
+        query%is_generic_binding = binding%is_generic
+        query%is_deferred_binding = binding%is_deferred .or. hierarchy%is_deferred
+        query%pass_arg = binding%pass_arg
+        query%is_nopass = .not. query%pass_arg
+        query%pass_name = binding%pass_name
+        if (.not. query%pass_arg) then
+            query%pass_position = 0
+        else if (len_trim(query%pass_name) == 0) then
+            query%pass_position = 1
+        end if
+        if (query%is_deferred_binding) then
+            call refuse_type_bound_generic(query, &
+                'deferred type-bound generic has no callable target')
+            return
+        end if
+        if (.not. query%is_generic_binding) then
+            call refuse_type_bound_generic(query, &
+                'type-bound binding is not a generic interface')
+            return
+        end if
+
+        if (generic_call_has_alias_boundary(arena, call_node_index)) then
+            query%has_unresolved_alias = .true.
+            call refuse_type_bound_generic(query, &
+                'type-bound generic actual has an alias boundary')
+            return
+        end if
+
+        call resolve_type_bound_generic_candidates(arena, call_node_index, &
+            query%declared_type_index, binding, query)
+    end function query_type_bound_generic_dispatch
+
+    subroutine resolve_type_bound_generic_candidates(arena, call_node_index, &
+            declared_type_index, binding, query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index, declared_type_index
+        type(type_binding_query_t), intent(in) :: binding
+        type(type_bound_generic_dispatch_query_t), intent(inout) :: query
+        type(declaration_binding_t) :: candidate_binding
+        type(binding_hierarchy_query_t) :: specific_hierarchy
+        character(len=:), allocatable :: error_msg
+        integer, allocatable :: actual_indices(:)
+        integer :: i, match_count, selected
+
+        if (.not. allocated(binding%generic_names) .or. &
+                size(binding%generic_names) == 0) then
+            call refuse_type_bound_generic(query, &
+                'type-bound generic has no concrete specific names')
+            return
+        end if
+
+        call generic_call_actuals(arena, call_node_index, actual_indices)
+        deallocate (query%candidates)
+        allocate (query%candidates(size(binding%generic_names)))
+        match_count = 0
+        selected = 0
+        do i = 1, size(binding%generic_names)
+            query%candidates(i)%procedure_name = binding%generic_names(i)
+            call resolve_name_at_node(arena, call_node_index, &
+                binding%generic_names(i), candidate_binding, error_msg)
+            if (.not. candidate_binding%found .or. &
+                    (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
+                     candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
+            query%candidates(i)%procedure_node_index = candidate_binding%node_index
+            query%candidates(i)%implementation_node_index = candidate_binding%node_index
+            query%candidates(i)%implementation = binding%generic_names(i)
+            query%candidates(i)%signature = query_procedure_signature(arena, &
+                candidate_binding%node_index)
+            query%candidates(i)%found = query%candidates(i)%signature%found
+            if (.not. query%candidates(i)%found) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
+
+            specific_hierarchy = query_type_binding_hierarchy(arena, &
+                declared_type_index, binding%generic_names(i))
+            if (.not. specific_hierarchy%found .or. &
+                    specific_hierarchy%is_deferred .or. &
+                    specific_hierarchy%is_ambiguous) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
+            query%candidates(i)%pass_metadata_resolved = &
+                specific_hierarchy%implementation_signature_resolved
+            query%candidates(i)%pass_arg = specific_hierarchy%pass_arg
+            query%candidates(i)%is_nopass = .not. specific_hierarchy%pass_arg
+            query%candidates(i)%pass_name = specific_hierarchy%pass_name
+            if (.not. query%candidates(i)%pass_arg) then
+                query%candidates(i)%pass_position = 0
+            else if (len_trim(query%candidates(i)%pass_name) == 0) then
+                query%candidates(i)%pass_position = 1
+            else
+                query%candidates(i)%pass_position = find_signature_dummy( &
+                    query%candidates(i)%signature, &
+                    query%candidates(i)%pass_name)
+            end if
+            if ((query%candidates(i)%pass_arg .and. &
+                    query%candidates(i)%pass_position <= 0) .or. &
+                    .not. query%candidates(i)%pass_metadata_resolved) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
+
+            call match_generic_candidate(arena, actual_indices, &
+                query%candidates(i), query%candidates(i)%pass_arg, &
+                query%candidates(i)%pass_name)
+            if (.not. query%candidates(i)%is_match) cycle
+            query%candidates(i)%has_global_mutable_state = &
+                procedure_has_global_mutable_state(arena, &
+                candidate_binding%node_index)
+            match_count = match_count + 1
+            selected = i
+        end do
+
+        if (match_count > 1) then
+            query%is_ambiguous = .true.
+            call refuse_type_bound_generic(query, &
+                'more than one type-bound generic specific matches exactly')
+        else if (match_count == 0) then
+            call refuse_type_bound_generic(query, &
+                'no type-bound generic specific matches exactly')
+        else if (query%candidates(selected)%has_global_mutable_state) then
+            query%has_global_mutable_state = .true.
+            call refuse_type_bound_generic(query, &
+                'selected type-bound generic has active global state')
+        else
+            query%selected_candidate_index = selected
+            query%selected_procedure_node_index = &
+                query%candidates(selected)%procedure_node_index
+            query%signature = query%candidates(selected)%signature
+            query%selected_pass_position = query%candidates(selected)%pass_position
+            query%selected_pass_name = query%candidates(selected)%pass_name
+            query%is_resolved = .true.
+        end if
+    end subroutine resolve_type_bound_generic_candidates
+
+    logical function generic_call_has_alias_boundary(arena, call_node_index) &
+            result(has_alias)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_node_index
+        integer, allocatable :: actual_indices(:)
+        type(storage_query_t) :: storage
+        character(len=:), allocatable :: keyword
+        integer :: i, actual_value
+        logical :: is_keyword
+
+        has_alias = .false.
+        call generic_call_actuals(arena, call_node_index, actual_indices)
+        do i = 1, size(actual_indices)
+            call generic_actual_info(arena, actual_indices(i), keyword, &
+                actual_value, is_keyword)
+            if (actual_value <= 0) cycle
+            storage = query_storage(arena, actual_value)
+            if (.not. storage%found) cycle
+            if (storage%is_pointer .or. storage%is_target .or. &
+                    storage%is_allocatable .or. storage%is_component) then
+                has_alias = .true.
+                return
+            end if
+        end do
+    end function generic_call_has_alias_boundary
+
+    logical function procedure_has_global_mutable_state(arena, procedure_index) &
+            result(has_global)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        type(global_reference_query_t), allocatable :: references(:)
+        type(declaration_query_t) :: declaration
+        integer :: i
+
+        has_global = .false.
+        references = query_active_global_references(arena, procedure_index)
+        do i = 1, size(references)
+            declaration = query_declaration(arena, &
+                references(i)%declaration_node_index)
+            if (declaration%found .and. .not. declaration%is_parameter) then
+                has_global = .true.
+                return
+            end if
+        end do
+    end function procedure_has_global_mutable_state
+
     subroutine resolve_generic_candidates(arena, call_node_index, binding, query)
         !! Fill the exact candidate set shared by selector and component calls.
         type(ast_arena_t), intent(in) :: arena
@@ -3266,6 +3598,33 @@ contains
         call set_empty(query%refusal_reason)
         allocate (query%candidates(0))
     end subroutine initialize_generic_dispatch_query
+
+    subroutine initialize_type_bound_generic_dispatch_query(query, &
+            call_node_index)
+        type(type_bound_generic_dispatch_query_t), intent(out) :: query
+        integer, intent(in) :: call_node_index
+
+        query%call_node_index = call_node_index
+        call set_empty(query%receiver_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%generic_name)
+        call set_empty(query%pass_name)
+        call set_empty(query%selected_pass_name)
+        call set_empty(query%refusal_reason)
+        call initialize_storage(query%receiver_storage)
+        allocate (query%candidates(0))
+    end subroutine initialize_type_bound_generic_dispatch_query
+
+    subroutine refuse_type_bound_generic(query, reason)
+        type(type_bound_generic_dispatch_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_type_bound_generic
 
     subroutine initialize_owned_array_generic_query(query, arm_node_index, &
             call_node_index)

@@ -141,6 +141,8 @@ module fortfront
         select_type_generic_candidate_query_t, &
         select_type_generic_dispatch_query_t, &
         query_select_type_generic_dispatch, &
+        type_bound_generic_dispatch_query_t, &
+        query_type_bound_generic_dispatch, &
         select_type_component_generic_dispatch_query_t, &
         query_select_type_component_generic_dispatch
     use frontend_compiler_resolution, only: declaration_binding_t, &
