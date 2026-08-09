@@ -219,6 +219,13 @@ end subroutine
   source state, and `has_implicit_destination_deallocation` for the required
   destination-before-transfer step. These facts do not infer runtime state,
   aliases, or mutable global ownership.
+  Ownership events additionally expose direct whole-allocatable source and
+  destination declaration identities, storage classes, and bounded dynamic
+  type names before/after `MOVE_ALLOC` or allocatable reallocation. A concrete
+  array moved into `class(base_t)` retains its known dynamic type through a
+  straight-line sequence. Module/SAVE/COMMON state, pointer/TARGET,
+  component, array-element/section, ASSOCIATE, control-flow, and unresolved
+  paths remain explicit refusal or dynamic-type-boundary facts.
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access, plus the resolved component declaration indices,
   base and result rank, terminal storage class, and explicit
