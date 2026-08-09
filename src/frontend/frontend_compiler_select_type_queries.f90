@@ -1,7 +1,10 @@
 module frontend_compiler_select_type_queries
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
-    use ast_nodes_conditional, only: select_type_node, type_guard_block_node
+    use ast_nodes_conditional, only: if_node, select_case_node, &
+        select_rank_node, select_type_node, type_guard_block_node
+    use ast_nodes_array, only: where_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use ast_nodes_procedure, only: subroutine_call_node
     use frontend_compiler_control_queries, only: control_statement_query_t, &
         select_type_arm_query_t, query_control_statement, CONTROL_SELECT_TYPE
@@ -12,7 +15,8 @@ module frontend_compiler_select_type_queries
         storage_query_t, component_path_query_t, component_access_query_t, &
         query_component_access, query_component_path, query_declaration, &
         query_storage, get_identifier_name, declaration_query_t, &
-        query_type_binding, type_binding_query_t
+        query_type_binding, type_binding_query_t, STORAGE_BORROWED, &
+        STORAGE_OWNED
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_name_at_node, BINDING_FUNCTION, BINDING_SUBROUTINE
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
@@ -63,6 +67,42 @@ module frontend_compiler_select_type_queries
         character(len=:), allocatable :: declared_type_name
         character(len=:), allocatable :: refusal_reason
     end type select_type_branch_query_t
+
+    type, public :: select_type_owned_array_query_t
+        !! Bounded dynamic-type identity for one local owned polymorphic array.
+        !!
+        !! A resolved result proves that a direct CLASS IS arm narrows one
+        !! local allocatable array from its declared polymorphic type to the
+        !! concrete guard type.  The query deliberately does not follow an
+        !! associate or pointer alias, mutable global state, or a branch
+        !! nested in another control-flow construct.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_class_is = .false.
+        logical :: is_owned_array = .false.
+        logical :: is_declared_type_abstract = .false.
+        logical :: is_dynamic_type_concrete = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_control_flow_boundary = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: selector_node_index = 0
+        integer :: selector_expression_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: selector_rank = -1
+        integer :: selector_storage_class = 0
+        integer :: declared_type_index = 0
+        integer :: dynamic_type_index = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: selector_associate_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: dynamic_type_name
+        character(len=:), allocatable :: refusal_reason
+        type(storage_query_t) :: selector_storage
+    end type select_type_owned_array_query_t
 
     type, public :: select_type_component_query_t
         !! Bounded component/storage facts for one component path in a
@@ -281,12 +321,134 @@ module frontend_compiler_select_type_queries
         type(procedure_signature_query_t) :: signature
     end type select_type_component_generic_dispatch_query_t
 
-    public :: query_select_type_branch, query_select_type_component_path, &
+    public :: query_select_type_branch, query_select_type_owned_array, &
+        query_select_type_component_path, &
         query_select_type_component_binding, query_select_type_dispatch, &
         query_select_type_generic_dispatch, &
         query_select_type_component_generic_dispatch
 
 contains
+
+    function query_select_type_owned_array(arena, arm_node_index) result(query)
+        !! Return one bounded CLASS IS-to-owned-array dynamic identity fact.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        type(select_type_owned_array_query_t) :: query
+        type(select_type_branch_query_t) :: branch
+        type(control_statement_query_t) :: control
+        type(select_type_arm_query_t) :: arm
+        integer :: i
+
+        call initialize_owned_array_query(query, arm_node_index)
+        branch = query_select_type_branch(arena, arm_node_index)
+        query%found = branch%found
+        query%select_type_node_index = branch%select_type_node_index
+        query%arm_node_index = branch%arm_node_index
+        query%selector_node_index = branch%selector_node_index
+        query%selector_declaration_index = branch%selector_declaration_index
+        query%declared_type_index = branch%declared_type_index
+        query%dynamic_type_index = branch%concrete_type_index
+        query%selector_name = branch%selector_name
+        query%declared_type_name = branch%declared_type_name
+        query%dynamic_type_name = branch%guard_type_name
+        query%is_class_is = branch%is_class_is
+        if (.not. branch%found) then
+            call refuse_owned_array(query, 'SELECT TYPE arm identity is absent')
+            return
+        end if
+
+        if (.not. arena%has_node_at(branch%select_type_node_index)) then
+            call refuse_owned_array(query, 'SELECT TYPE construct identity is absent')
+            return
+        end if
+        control = query_control_statement(arena, branch%select_type_node_index)
+        do i = 1, size(control%type_arms)
+            if (control%type_arms(i)%arm_node_index /= arm_node_index) cycle
+            arm = control%type_arms(i)
+            exit
+        end do
+        if (arm%arm_node_index /= arm_node_index) then
+            call refuse_owned_array(query, 'SELECT TYPE arm storage facts are absent')
+            return
+        end if
+
+        query%selector_expression_node_index = arm%selector_expression_node_index
+        query%selector_associate_name = arm%selector_associate_name
+        query%selector_storage = arm%selector_storage
+        query%selector_rank = arm%selector_storage%rank
+        query%selector_storage_class = arm%selector_storage%storage_class
+        query%is_declared_type_abstract = arm%selector_storage%is_abstract_type
+
+        if (.not. branch%is_class_is) then
+            call refuse_owned_array(query, 'owned-array identity requires CLASS IS')
+            return
+        end if
+        if (arm%is_selector_associate) then
+            query%has_unresolved_alias = .true.
+            call refuse_owned_array(query, &
+                'SELECT TYPE associate selector is an alias boundary')
+            return
+        end if
+        if (arm%selector_storage%is_pointer .or. &
+            arm%selector_storage%is_target .or. &
+            arm%selector_storage%storage_class == STORAGE_BORROWED) then
+            query%has_unresolved_alias = .true.
+            call refuse_owned_array(query, &
+                'pointer, TARGET, or borrowed selector is an alias boundary')
+            return
+        end if
+        if (arm%selector_storage%is_module_state .or. &
+            arm%selector_storage%is_save_state .or. &
+            arm%selector_storage%is_common_state) then
+            query%has_global_mutable_state = .true.
+            call refuse_owned_array(query, &
+                'mutable global selector storage is outside the bounded query')
+            return
+        end if
+        if (owned_array_has_control_flow_boundary(arena, arm_node_index) .or. &
+            owned_array_body_has_control_flow(arena, arm)) then
+            query%has_control_flow_boundary = .true.
+            call refuse_owned_array(query, &
+                'SELECT TYPE arm is nested in a control-flow construct')
+            return
+        end if
+        if (.not. arm%selector_storage%found .or. &
+            .not. arm%selector_storage%is_allocatable) then
+            call refuse_owned_array(query, 'selector is not an allocatable array')
+            return
+        end if
+        if (arm%selector_storage%storage_class /= STORAGE_OWNED .or. &
+            arm%selector_storage%rank <= 0) then
+            call refuse_owned_array(query, 'selector is not a local owned array')
+            return
+        end if
+        if (.not. arm%selector_storage%is_polymorphic .or. &
+            arm%selector_storage%is_unlimited_polymorphic) then
+            call refuse_owned_array(query, &
+                'selector is not a bounded CLASS(base) array')
+            return
+        end if
+        if (.not. query%is_declared_type_abstract) then
+            call refuse_owned_array(query, &
+                'selector declared type is not abstract')
+            return
+        end if
+        if (.not. branch%is_resolved .or. branch%is_refused .or. &
+            branch%concrete_type_index <= 0) then
+            call refuse_owned_array(query, &
+                'CLASS IS guard does not provide a concrete dynamic identity')
+            return
+        end if
+        if (branch%is_guard_type_abstract) then
+            call refuse_owned_array(query, &
+                'abstract CLASS IS guard is not a concrete dynamic identity')
+            return
+        end if
+
+        query%is_owned_array = .true.
+        query%is_dynamic_type_concrete = .true.
+        query%is_resolved = .true.
+    end function query_select_type_owned_array
 
     function query_select_type_branch(arena, arm_node_index) result(query)
         !! Return the semantic type predicate represented by one SELECT TYPE arm.
@@ -2209,6 +2371,96 @@ contains
         query%is_unresolved = .true.
         call refuse(query, reason)
     end subroutine refuse_unresolved
+
+    subroutine initialize_owned_array_query(query, arm_node_index)
+        type(select_type_owned_array_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index
+
+        query%arm_node_index = arm_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%selector_associate_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%dynamic_type_name)
+        call set_empty(query%refusal_reason)
+        call initialize_storage(query%selector_storage)
+    end subroutine initialize_owned_array_query
+
+    subroutine refuse_owned_array(query, reason)
+        type(select_type_owned_array_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_owned_array
+
+    logical function owned_array_has_control_flow_boundary(arena, arm_index) &
+            result(has_boundary)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_index
+        integer :: current, guard
+
+        has_boundary = .false.
+        if (.not. arena%has_node_at(arm_index)) return
+        current = arena%entries(arm_index)%parent_index
+        guard = 0
+        do while (current > 0)
+            if (.not. arena%has_node_at(current)) exit
+            if (owned_array_is_control_flow_node(arena, current)) then
+                has_boundary = .true.
+                return
+            end if
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) exit
+        end do
+    end function owned_array_has_control_flow_boundary
+
+    logical function owned_array_body_has_control_flow(arena, arm) &
+            result(has_boundary)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_type_arm_query_t), intent(in) :: arm
+        integer :: i
+
+        has_boundary = .false.
+        if (.not. allocated(arm%body_node_indices)) return
+        do i = 1, size(arm%body_node_indices)
+            if (.not. arena%has_node_at(arm%body_node_indices(i))) cycle
+            if (owned_array_is_control_flow_node(arena, &
+                    arm%body_node_indices(i))) then
+                has_boundary = .true.
+                return
+            end if
+        end do
+    end function owned_array_body_has_control_flow
+
+    logical function owned_array_is_control_flow_node(arena, node_index) &
+            result(is_control_flow)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_control_flow = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (if_node)
+            is_control_flow = .true.
+            type is (do_loop_node)
+            is_control_flow = .true.
+            type is (do_while_node)
+            is_control_flow = .true.
+            type is (forall_node)
+            is_control_flow = .true.
+            type is (where_node)
+            is_control_flow = .true.
+            type is (select_case_node)
+            is_control_flow = .true.
+            type is (select_rank_node)
+            is_control_flow = .true.
+        class default
+        end select
+    end function owned_array_is_control_flow_node
 
     subroutine set_empty(value)
         character(len=:), allocatable, intent(out) :: value

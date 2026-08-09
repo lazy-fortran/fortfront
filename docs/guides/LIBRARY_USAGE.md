@@ -237,6 +237,30 @@ ambiguous, and out-of-hierarchy cases are explicit refusals with
 `SELECT_TYPE_MATCH_UNKNOWN`; consumers must not infer a concrete runtime type
 from them.
 
+## Owned-array CLASS IS dynamic identity
+
+`query_select_type_owned_array(arena, arm_node_index)` is the bounded bridge
+from a direct `CLASS IS` arm to an owned polymorphic array. A resolved result
+proves the exact mapping from the selector declaration's abstract
+`class(base_t), allocatable :: values(:)` storage to the concrete guard type,
+including the selector declaration identity, rank, storage class, declared
+type index/name, and dynamic type index/name. This is a source-order identity
+fact for consumers such as FortAD; it does not inspect runtime elements or
+infer a derivative.
+
+The query resolves only a direct `CLASS IS` arm over a local, allocatable,
+rank-positive `class(abstract_type)` array with `STORAGE_OWNED` storage and a
+concrete guard type. `TYPE IS`, `CLASS DEFAULT`, abstract guards, associate or
+pointer/TARGET aliases, borrowed dummies, module/SAVE/COMMON state, and arms
+containing or nested in control flow remain explicit refusals through
+`is_refused`, `is_unresolved`, and the corresponding alias, global-state, or
+control-flow flags. No dynamic identity fields are populated as a guess at
+those boundaries.
+
+See `examples/f90/owned_array_class_is_dynamic_identity.f90` and
+`test/api/test_owned_array_class_is_identity.f90` for the GNU syntax and
+independent expected-facts oracle.
+
 ## SELECT TYPE component paths
 
 `query_select_type_component_path(arena, arm_node_index, component_node_index)`
