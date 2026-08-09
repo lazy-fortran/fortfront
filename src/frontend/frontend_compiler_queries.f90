@@ -643,6 +643,22 @@ module frontend_compiler_queries
         integer :: owner_state_after = OWNERSHIP_STATE_UNKNOWN
         integer :: source_state_after = OWNERSHIP_STATE_UNKNOWN
         integer :: destination_state_after = OWNERSHIP_STATE_UNKNOWN
+        ! Direct whole-allocatable storage identity.  Dynamic type facts are
+        ! flow-sensitive only within a bounded source-order query; a false
+        ! known flag means that the frontend refuses to guess the runtime
+        ! type.
+        integer :: source_declaration_index = 0
+        integer :: destination_declaration_index = 0
+        integer :: source_storage_class = STORAGE_LOCAL
+        integer :: destination_storage_class = STORAGE_LOCAL
+        logical :: source_storage_resolved = .false.
+        logical :: destination_storage_resolved = .false.
+        logical :: source_is_polymorphic = .false.
+        logical :: destination_is_polymorphic = .false.
+        logical :: is_source_dynamic_type_known = .false.
+        logical :: is_destination_dynamic_type_known = .false.
+        character(len=:), allocatable :: source_dynamic_type
+        character(len=:), allocatable :: destination_dynamic_type
         logical :: is_deep_assignment = .false.
         logical :: has_owned_components = .false.
         logical :: has_global_mutable_state = .false.
@@ -652,7 +668,14 @@ module frontend_compiler_queries
         logical :: has_implicit_destination_deallocation = .false.
         logical :: has_potential_implicit_reallocation = .false.
         logical :: is_explicit_ownership_transfer = .false.
+        logical :: has_dynamic_type_boundary = .false.
     end type ownership_event_query_t
+
+    type :: ownership_dynamic_flow_t
+        integer :: declaration_index = 0
+        logical :: is_known = .false.
+        character(len=:), allocatable :: dynamic_type
+    end type ownership_dynamic_flow_t
 
     type :: binding_resolution_query_t
         logical :: found = .false.
@@ -5149,7 +5172,289 @@ contains
             events(count) = ownership_event(arena, i)
             events(count)%sequence_index = count
         end do
+        call annotate_ownership_identity(arena, events)
     end function query_ownership_events
+
+    subroutine annotate_ownership_identity(arena, events)
+        type(ast_arena_t), intent(in) :: arena
+        type(ownership_event_query_t), intent(inout) :: events(:)
+        type(ownership_dynamic_flow_t), allocatable :: flow(:)
+        integer :: i, flow_count
+
+        allocate (flow(0))
+        flow_count = 0
+        do i = 1, size(events)
+            call annotate_ownership_event(arena, events, i, flow, flow_count)
+        end do
+    end subroutine annotate_ownership_identity
+
+    subroutine annotate_ownership_event(arena, events, event_index, flow, &
+            flow_count)
+        type(ast_arena_t), intent(in) :: arena
+        type(ownership_event_query_t), intent(inout) :: events(:)
+        integer, intent(in) :: event_index
+        type(ownership_dynamic_flow_t), allocatable, intent(inout) :: flow(:)
+        integer, intent(inout) :: flow_count
+        type(ownership_event_query_t) :: event
+        logical :: source_known, destination_known
+        character(len=:), allocatable :: source_type, destination_type
+
+        event = events(event_index)
+        if (event%event_kind == OWNERSHIP_EVENT_ASSIGNMENT .and. &
+                event%is_deep_assignment) then
+            event%has_dynamic_type_boundary = .true.
+            event%is_source_dynamic_type_known = .false.
+            event%is_destination_dynamic_type_known = .false.
+            events(event_index) = event
+            return
+        end if
+        if (event%event_kind == OWNERSHIP_EVENT_ALLOCATE .and. &
+                event%polymorphic_allocation%found) then
+            event%has_dynamic_type_boundary = .true.
+            event%is_source_dynamic_type_known = .false.
+            event%is_destination_dynamic_type_known = .false.
+            events(event_index) = event
+            return
+        end if
+        if (.not. ownership_identity_supported(event)) then
+            event%has_dynamic_type_boundary = .true.
+            event%is_source_dynamic_type_known = .false.
+            event%is_destination_dynamic_type_known = .false.
+            events(event_index) = event
+            return
+        end if
+        source_known = event%is_source_dynamic_type_known
+        destination_known = event%is_destination_dynamic_type_known
+        call set_empty(source_type)
+        if (allocated(event%source_dynamic_type)) source_type = &
+            event%source_dynamic_type
+        call set_empty(destination_type)
+        if (allocated(event%destination_dynamic_type)) destination_type = &
+            event%destination_dynamic_type
+        if (.not. allocated(source_type)) source_known = .false.
+        if (source_known) then
+            if (len_trim(source_type) == 0) source_known = .false.
+        end if
+        if (.not. allocated(destination_type)) destination_known = .false.
+        if (destination_known) then
+            if (len_trim(destination_type) == 0) destination_known = .false.
+        end if
+        if (ownership_event_has_control_boundary(arena, event%node_index)) then
+            event%has_dynamic_type_boundary = .true.
+            flow_count = 0
+            deallocate (flow)
+            allocate (flow(0))
+        end if
+
+        if (event%source_declaration_index > 0) then
+            call get_flow_type(flow, flow_count, event%source_declaration_index, &
+                source_known, source_type)
+        end if
+        select case (event%event_kind)
+        case (OWNERSHIP_EVENT_ALLOCATE)
+            if (.not. destination_known .and. source_known .and. &
+                .not. event%has_dynamic_type_boundary) then
+                destination_known = .true.
+                destination_type = source_type
+            end if
+            call set_event_dynamic_type(event%source_dynamic_type, source_type, &
+                source_known)
+            call set_event_dynamic_type(event%destination_dynamic_type, &
+                destination_type, destination_known)
+            event%is_source_dynamic_type_known = source_known
+            event%is_destination_dynamic_type_known = destination_known
+            if (event%destination_declaration_index > 0 .and. &
+                .not. event%has_dynamic_type_boundary) then
+                call set_flow_type(flow, flow_count, &
+                    event%destination_declaration_index, destination_known, &
+                    destination_type)
+            end if
+        case (OWNERSHIP_EVENT_DEALLOCATE)
+            call set_event_dynamic_type(event%destination_dynamic_type, '', .false.)
+            event%is_destination_dynamic_type_known = .false.
+            if (event%destination_declaration_index > 0) then
+                call set_flow_type(flow, flow_count, &
+                    event%destination_declaration_index, .false., '')
+            end if
+        case (OWNERSHIP_EVENT_MOVE_ALLOC)
+            if (.not. source_known) event%has_dynamic_type_boundary = &
+                event%source_storage_resolved .and. &
+                event%source_storage_class /= STORAGE_POINTER .and. &
+                event%source_storage_class /= STORAGE_MODULE .and. &
+                event%source_storage_class /= STORAGE_SAVE .and. &
+                event%source_storage_class /= STORAGE_COMMON
+            if (event%is_refused) event%has_dynamic_type_boundary = .true.
+            if (event%destination_storage_resolved .and. &
+                .not. event%is_refused .and. &
+                .not. event%has_dynamic_type_boundary) then
+                destination_known = source_known
+                destination_type = source_type
+            else if (.not. destination_known) then
+                destination_known = .false.
+                call set_empty(destination_type)
+            end if
+            call set_event_dynamic_type(event%source_dynamic_type, source_type, &
+                source_known)
+            call set_event_dynamic_type(event%destination_dynamic_type, &
+                destination_type, destination_known)
+            event%is_source_dynamic_type_known = source_known
+            event%is_destination_dynamic_type_known = destination_known
+            if (.not. event%is_refused) then
+                if (event%source_declaration_index > 0) then
+                    call set_flow_type(flow, flow_count, &
+                        event%source_declaration_index, .false., '')
+                end if
+                if (event%destination_declaration_index > 0) then
+                    call set_flow_type(flow, flow_count, &
+                        event%destination_declaration_index, destination_known, &
+                        destination_type)
+                end if
+            end if
+        case (OWNERSHIP_EVENT_ASSIGNMENT)
+            if (event%destination_storage_resolved .and. &
+                event%destination_declaration_index > 0 .and. &
+                .not. event%is_refused .and. &
+                .not. event%has_dynamic_type_boundary) then
+                if (event%destination_storage_class /= STORAGE_POINTER .and. &
+                    event%destination_storage_class /= STORAGE_MODULE .and. &
+                    event%destination_storage_class /= STORAGE_SAVE .and. &
+                    event%destination_storage_class /= STORAGE_COMMON) then
+                    if (event%destination_is_polymorphic) then
+                        destination_known = source_known
+                        destination_type = source_type
+                    end if
+                    call set_flow_type(flow, flow_count, &
+                        event%destination_declaration_index, destination_known, &
+                        destination_type)
+                end if
+            end if
+            call set_event_dynamic_type(event%source_dynamic_type, source_type, &
+                source_known)
+            call set_event_dynamic_type(event%destination_dynamic_type, &
+                destination_type, destination_known)
+            event%is_source_dynamic_type_known = source_known
+            event%is_destination_dynamic_type_known = destination_known
+        end select
+        events(event_index) = event
+    end subroutine annotate_ownership_event
+
+    logical function ownership_identity_supported(event) result(supported)
+        type(ownership_event_query_t), intent(in) :: event
+
+        supported = .false.
+        if (event%is_refused) return
+        if (.not. event%destination_storage_resolved) return
+        if (event%destination_path%is_array_element .or. &
+                event%destination_path%is_array_section) return
+        select case (event%event_kind)
+        case (OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE)
+            supported = .true.
+        case (OWNERSHIP_EVENT_MOVE_ALLOC)
+            supported = event%source_storage_resolved .and. &
+                .not. event%source_path%is_array_element .and. &
+                .not. event%source_path%is_array_section
+        case (OWNERSHIP_EVENT_ASSIGNMENT)
+            supported = event%assignment_kind == &
+                OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
+        end select
+    end function ownership_identity_supported
+
+    logical function ownership_event_has_control_boundary(arena, node_index) &
+            result(has_boundary)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current, guard
+
+        has_boundary = .false.
+        current = node_index
+        guard = 0
+        do while (current > 0 .and. arena%has_node_at(current))
+            select type (node => arena%entries(current)%node)
+                type is (if_node)
+                has_boundary = .true.
+                return
+                type is (do_loop_node)
+                has_boundary = .true.
+                return
+                type is (do_while_node)
+                has_boundary = .true.
+                return
+                type is (select_case_node)
+                has_boundary = .true.
+                return
+                type is (select_type_node)
+                has_boundary = .true.
+                return
+                type is (type_guard_block_node)
+                has_boundary = .true.
+                return
+            class default
+            end select
+            current = arena%entries(current)%parent_index
+            guard = guard + 1
+            if (guard > arena%size) exit
+        end do
+    end function ownership_event_has_control_boundary
+
+    subroutine get_flow_type(flow, flow_count, declaration_index, is_known, type_name)
+        type(ownership_dynamic_flow_t), intent(in) :: flow(:)
+        integer, intent(in) :: flow_count, declaration_index
+        logical, intent(out) :: is_known
+        character(len=:), allocatable, intent(out) :: type_name
+        integer :: i
+
+        do i = 1, flow_count
+            if (flow(i)%declaration_index /= declaration_index) cycle
+            is_known = flow(i)%is_known
+            call set_empty(type_name)
+            if (is_known .and. allocated(flow(i)%dynamic_type)) then
+                type_name = flow(i)%dynamic_type
+            end if
+            return
+        end do
+    end subroutine get_flow_type
+
+    subroutine set_flow_type(flow, flow_count, declaration_index, is_known, &
+            type_name)
+        type(ownership_dynamic_flow_t), allocatable, intent(inout) :: flow(:)
+        integer, intent(inout) :: flow_count
+        integer, intent(in) :: declaration_index
+        logical, intent(in) :: is_known
+        character(len=*), intent(in) :: type_name
+        type(ownership_dynamic_flow_t), allocatable :: grown(:)
+        integer :: i
+
+        if (declaration_index <= 0) return
+        do i = 1, flow_count
+            if (flow(i)%declaration_index /= declaration_index) cycle
+            flow(i)%is_known = is_known
+            call set_empty(flow(i)%dynamic_type)
+            if (is_known) flow(i)%dynamic_type = type_name
+            return
+        end do
+        allocate (grown(flow_count + 1))
+        if (flow_count > 0) grown(1:flow_count) = flow
+        grown(flow_count + 1)%declaration_index = declaration_index
+        grown(flow_count + 1)%is_known = is_known
+        call set_empty(grown(flow_count + 1)%dynamic_type)
+        if (is_known) grown(flow_count + 1)%dynamic_type = type_name
+        call move_alloc(grown, flow)
+        flow_count = flow_count + 1
+    end subroutine set_flow_type
+
+    subroutine set_event_dynamic_type(value, type_name, is_known)
+        character(len=:), allocatable, intent(inout) :: value
+        character(len=*), intent(in) :: type_name
+        logical, intent(in) :: is_known
+
+        if (allocated(value)) deallocate (value)
+        if (is_known) then
+            allocate (character(len=len(type_name)) :: value)
+            value = type_name
+        else
+            allocate (character(len=0) :: value)
+        end if
+    end subroutine set_event_dynamic_type
 
     function query_component_path(arena, node_index, &
             allow_associate_selector) result(query)
@@ -7280,6 +7585,8 @@ contains
         call initialize_component_path_query(event%lhs_owner_path)
         call initialize_component_path_query(event%rhs_owner_path)
         call initialize_polymorphic_allocation_query(event%polymorphic_allocation)
+        call set_empty(event%source_dynamic_type)
+        call set_empty(event%destination_dynamic_type)
         event%found = .true.
         event%node_index = index
         select type (node => arena%entries(index)%node)
@@ -7368,7 +7675,98 @@ contains
             event%lhs_rank = expression_rank(arena, node%target_index)
         class default
         end select
+        call populate_ownership_event_storage(arena, event)
     end function ownership_event
+
+    subroutine populate_ownership_event_storage(arena, event)
+        type(ast_arena_t), intent(in) :: arena
+        type(ownership_event_query_t), intent(inout) :: event
+        integer :: source_index, destination_index
+
+        source_index = event%source_index
+        destination_index = event%target_index
+        if (source_index <= 0) source_index = event%source_path%node_index
+        if (destination_index <= 0) destination_index = &
+            event%destination_path%node_index
+        if (event%event_kind == OWNERSHIP_EVENT_ALLOCATE .or. &
+            event%event_kind == OWNERSHIP_EVENT_DEALLOCATE) then
+            destination_index = event%owner_path%node_index
+        end if
+        if (event%source_expr_index > 0 .and. source_index <= 0) then
+            source_index = event%source_expr_index
+        end if
+
+        if (source_index > 0) call populate_ownership_operand(arena, event, &
+            source_index, event%source_path, .true.)
+        if (destination_index > 0) call populate_ownership_operand(arena, event, &
+            destination_index, event%destination_path, .false.)
+        event%is_refused = event%is_refused .or. &
+            event%has_global_mutable_state .or. event%has_unresolved_alias
+    end subroutine populate_ownership_event_storage
+
+    subroutine populate_ownership_operand(arena, event, node_index, path, &
+            is_source)
+        type(ast_arena_t), intent(in) :: arena
+        type(ownership_event_query_t), intent(inout) :: event
+        integer, intent(in) :: node_index
+        type(component_path_query_t), intent(in) :: path
+        logical, intent(in) :: is_source
+        type(storage_query_t) :: storage
+        type(declaration_query_t) :: declaration
+        logical :: unsafe_alias
+        character(len=:), allocatable :: dynamic_type
+
+        storage = query_designator_storage(arena, node_index)
+        unsafe_alias = is_associate_selector_node(arena, node_index)
+            unsafe_alias = unsafe_alias .or. path%is_array_element .or. &
+                path%is_array_section
+        if (storage%found) then
+            unsafe_alias = unsafe_alias .or. storage%is_pointer .or. &
+                storage%is_target
+            if (storage%is_component) event%has_dynamic_type_boundary = .true.
+            if (storage_has_global_state(storage)) then
+                event%has_global_mutable_state = .true.
+            end if
+            dynamic_type = ''
+            declaration = query_declaration(arena, storage%declaration_index)
+            if (storage%is_polymorphic .or. (declaration%found .and. &
+                is_polymorphic_type_spec(declaration%type_name))) then
+                dynamic_type = ''
+            else if (storage%is_concrete_derived .or. &
+                    (declaration%found .and. &
+                    is_derived_type_spec(declaration%type_name))) then
+                if (declaration%found) then
+                    dynamic_type = derived_type_name_from_spec(declaration%type_name)
+                else
+                    dynamic_type = derived_type_name_from_spec(storage%type_name)
+                end if
+            end if
+            if (is_source) then
+                event%source_declaration_index = storage%declaration_index
+                event%source_storage_class = storage%storage_class
+                event%source_storage_resolved = .true.
+                event%source_is_polymorphic = storage%is_polymorphic
+                call set_event_dynamic_type(event%source_dynamic_type, &
+                    dynamic_type, len_trim(dynamic_type) > 0)
+                event%is_source_dynamic_type_known = len_trim(dynamic_type) > 0
+                event%has_unresolved_alias = event%has_unresolved_alias .or. &
+                    unsafe_alias
+            else
+                event%destination_declaration_index = &
+                    storage%declaration_index
+                event%destination_storage_class = storage%storage_class
+                event%destination_storage_resolved = .true.
+                event%destination_is_polymorphic = storage%is_polymorphic
+                call set_event_dynamic_type(event%destination_dynamic_type, &
+                    dynamic_type, len_trim(dynamic_type) > 0)
+                event%is_destination_dynamic_type_known = len_trim(dynamic_type) > 0
+                event%has_unresolved_alias = event%has_unresolved_alias .or. &
+                    unsafe_alias
+            end if
+        else if (event%event_kind == OWNERSHIP_EVENT_MOVE_ALLOC) then
+            event%has_unresolved_alias = .true.
+        end if
+    end subroutine populate_ownership_operand
 
     function ownership_path(arena, node_index) result(path)
         type(ast_arena_t), intent(in) :: arena

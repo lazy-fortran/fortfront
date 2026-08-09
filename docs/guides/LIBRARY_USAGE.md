@@ -399,6 +399,29 @@ See `examples/f90/ownership_event_sequence_facts.f90` and
 `test/api/test_ownership_event_sequence.f90` for the independent sequence
 oracle.
 
+## Bounded ownership storage and dynamic-type identity
+
+Ownership events also expose `source_declaration_index` and
+`destination_declaration_index`, their resolved storage classes, and
+`is_source_dynamic_type_known` / `is_destination_dynamic_type_known` with the
+corresponding dynamic type names. For a direct whole-allocatable sequence,
+these facts preserve the concrete type through `MOVE_ALLOC` and allocatable
+reallocation even when the destination is declared `class(base_t)`; the
+destination declaration identity is the storage owner after the transfer.
+Array rank remains available through the existing `lhs_rank` and `rhs_rank`
+facts.
+
+This is a bounded source-order fact, not a runtime alias analysis. Module,
+`SAVE`, and `COMMON` state, pointer or `TARGET` operands, component and
+array-section/element paths, `ASSOCIATE` selectors, control-flow boundaries,
+and unresolved operands set `is_refused` or `has_dynamic_type_boundary` and do
+not receive a guessed destination type. A false dynamic-type-known flag is
+therefore an explicit boundary for downstream ownership/lifetime consumers.
+
+See `examples/f90/ownership_dynamic_identity_facts.f90` and
+`test/api/test_ownership_dynamic_identity.f90` for the GNU fixture and
+independent expected-facts oracle.
+
 ## ASSOCIATE selector facts
 
 `query_associate_selectors(arena, associate_node_index)` returns facts for the
