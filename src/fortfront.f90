@@ -82,6 +82,8 @@ module fortfront
         OWNERSHIP_ASSIGNMENT_NONE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE, &
         OWNERSHIP_ASSIGNMENT_DEEP_DERIVED, &
         OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL, &
+        OWNERSHIP_STATE_UNKNOWN, OWNERSHIP_STATE_UNALLOCATED, &
+        OWNERSHIP_STATE_ALLOCATED, OWNERSHIP_STATE_SAME_AS_SOURCE, &
         ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE, storage_query_t, &
         ownership_event_query_t, component_path_query_t, &
         associate_selector_query_t, query_associate_selector, &

@@ -377,6 +377,28 @@ See `examples/f90/ownership_deep_assignment_facts.f90` and
 `test/api/test_ownership_deep_assignment.f90` for the GNU syntax and
 independent expected-facts oracle.
 
+## Ownership event sequence facts
+
+`query_ownership_events` returns events in source order within the queried
+scope. Each record's one-based `sequence_index` is stable for that result and
+can be used to preserve ownership sequencing without relying on arena node
+numbers. `ALLOCATE` has an unallocated owner precondition and an allocated
+owner postcondition; `DEALLOCATE` has the inverse. An allocatable assignment
+has an allocated owner postcondition and
+`has_potential_implicit_reallocation=.true.` because automatic deallocation
+and reallocation occur before assignment when required.
+
+`MOVE_ALLOC(source, destination)` is an explicit transfer: the source is
+unallocated afterward, the destination has the source's allocation state, and
+`has_implicit_destination_deallocation=.true.` records that an allocated
+destination is deallocated before the transfer. These are sequencing facts,
+not runtime allocation-state guesses. The query adds no ownership for
+pointer, `TARGET`, `ASSOCIATE`, mutable global, or unresolved alias paths.
+
+See `examples/f90/ownership_event_sequence_facts.f90` and
+`test/api/test_ownership_event_sequence.f90` for the independent sequence
+oracle.
+
 ## ASSOCIATE selector facts
 
 `query_associate_selectors(arena, associate_node_index)` returns facts for the

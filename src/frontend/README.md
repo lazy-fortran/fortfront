@@ -211,6 +211,14 @@ end subroutine
   `owner_path`, `source_path`, and `destination_path` fields remain aliases
   for compatibility. Unresolved ranks are `-1` and absent expression lists
   are empty.
+  Events are returned in source order within the queried scope and carry a
+  one-based `sequence_index`. `ALLOCATE` and `DEALLOCATE` expose owner
+  pre/post allocation states. An allocatable assignment exposes an allocated
+  owner post-state plus `has_potential_implicit_reallocation`. `MOVE_ALLOC`
+  exposes an unallocated source post-state, a destination state equal to the
+  source state, and `has_implicit_destination_deallocation` for the required
+  destination-before-transfer step. These facts do not infer runtime state,
+  aliases, or mutable global ownership.
   `query_component_path` returns the ordered component names and AST indices
   for chained `%` access, plus the resolved component declaration indices,
   base and result rank, terminal storage class, and explicit
