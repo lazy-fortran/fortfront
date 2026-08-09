@@ -120,6 +120,8 @@ module fortfront
         select_type_owned_array_query_t, query_select_type_owned_array, &
         select_type_owned_array_binding_query_t, &
         query_select_type_owned_array_binding, &
+        select_type_owned_array_generic_dispatch_query_t, &
+        query_select_type_owned_array_generic_dispatch, &
         SELECT_TYPE_MATCH_UNKNOWN, SELECT_TYPE_MATCH_EXACT, &
         SELECT_TYPE_MATCH_EXTENSION, SELECT_TYPE_MATCH_DEFAULT, &
         select_type_component_query_t, query_select_type_component_path, &
