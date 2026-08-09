@@ -111,11 +111,14 @@ The result preserves the pointer declaration, lexical scope, and source
 assignment/nullify identities for downstream consumers.
 
 Reassignment, branch-local or indirect mutation, global mutable state,
-control-flow observations, component and non-procedure pointers, invalid
-intrinsic arity, unresolved targets, and two-argument `ASSOCIATED` remain
-explicit refusal facts. The independent GNU runtime/API oracle is
-`test/api/test_procedure_pointer_state_query.f90`, backed by
-`examples/f90/procedure_pointer_association_query.f90`.
+control-flow observations, aliases (including host-associated and
+procedure-pointer dummy bindings), component and non-procedure pointers,
+invalid intrinsic arity, unresolved targets, and two-argument `ASSOCIATED`
+remain explicit refusal facts. The independent GNU runtime/API oracles are
+`test/api/test_procedure_pointer_state_query.f90` and
+`test/api/test_procedure_pointer_state_boundaries.f90`, backed by
+`examples/f90/procedure_pointer_association_query.f90` and
+`examples/f90/procedure_pointer_state_boundaries.f90`.
 
 ### Tapenade v290 derived-component metadata (2026-08-08)
 

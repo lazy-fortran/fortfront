@@ -224,11 +224,13 @@ most one direct `NULLIFY` before the observation and no nested mutation; its
 safe for a backend to consume.
 
 The query is deliberately refusal-first. Reassignment, branch-local or
-indirect mutation, global mutable state, control-flow observations, unresolved
+indirect mutation, aliases (including host-associated and procedure-pointer
+dummy bindings), global mutable state, control-flow observations, unresolved
 targets, component pointers, non-procedure pointers, invalid arity, and the
 two-argument `ASSOCIATED` form set `is_refused`/`is_unresolved` and the
-corresponding boundary flags. `found` means that the source operation was
-recognized; a consumer must also require `state_known` before using the state.
+corresponding boundary flags. `has_alias` identifies the alias boundary.
+`found` means that the source operation was recognized; a consumer must also
+require `state_known` before using the state.
 See
 `examples/f90/procedure_pointer_association_query.f90` and
 `test/api/test_procedure_pointer_state_query.f90` for the GNU runtime and
