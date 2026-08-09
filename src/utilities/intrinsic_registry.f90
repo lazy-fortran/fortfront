@@ -165,7 +165,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 61
+        integer, parameter :: NUM_INTRINSICS = 62
         integer :: i
 
         if (registry_initialized) return
@@ -508,6 +508,13 @@ contains
             arg_types="allocatable", &
             description="Check if allocatable variable is "// &
             "allocated")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="associated", return_type="logical", &
+            arg_types="pointer", &
+            description="Check if a pointer or procedure pointer is "// &
+            "associated")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &

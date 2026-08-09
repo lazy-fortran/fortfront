@@ -100,6 +100,23 @@ unresolved and refused; `has_reassignment` is reserved for two or more
 assignments and is no longer asserted for a missing target. The independent
 API oracle is `test/api/test_procedure_callback_missing_assignment.f90`.
 
+### P8.6 bounded ASSOCIATED/NULLIFY state facts (2026-08-09)
+
+`query_procedure_pointer_state` now recognizes unary
+`ASSOCIATED(procedure_pointer)` and single-pointer `NULLIFY` operations. It
+proves a known association state only from one direct same-scope pointer
+assignment and at most one direct `NULLIFY` before the observation, without a
+nested mutation. Direct `NULLIFY` is itself a known disassociation transition.
+The result preserves the pointer declaration, lexical scope, and source
+assignment/nullify identities for downstream consumers.
+
+Reassignment, branch-local or indirect mutation, global mutable state,
+control-flow observations, component and non-procedure pointers, invalid
+intrinsic arity, unresolved targets, and two-argument `ASSOCIATED` remain
+explicit refusal facts. The independent GNU runtime/API oracle is
+`test/api/test_procedure_pointer_state_query.f90`, backed by
+`examples/f90/procedure_pointer_association_query.f90`.
+
 ### Tapenade v290 derived-component metadata (2026-08-08)
 
 The derived-type collector now gives each component entity its own declaration
