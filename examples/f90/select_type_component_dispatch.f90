@@ -24,6 +24,8 @@ module select_type_component_dispatch
 
     type, extends(dispatch_base_t) :: container_t
         type(component_leaf_t) :: leaf
+        type(component_leaf_t) :: leaf_section(6)
+        type(component_leaf_t) :: leaf_matrix(2, 2)
         type(generic_leaf_t) :: generic
         type(component_leaf_t), pointer :: pointer_leaf
         type(component_leaf_t), allocatable :: allocatable_leaf
@@ -50,6 +52,46 @@ contains
             call typed%leaf%run(amount)
         end select
     end subroutine inspect_supported
+
+    subroutine inspect_section(object, amount)
+        class(dispatch_base_t), intent(inout) :: object
+        integer, intent(in) :: amount
+
+        select type (typed => object)
+            type is (container_t)
+            call typed%leaf_section(2:4)%run(amount)
+        end select
+    end subroutine inspect_section
+
+    subroutine inspect_stride(object, amount)
+        class(dispatch_base_t), intent(inout) :: object
+        integer, intent(in) :: amount
+
+        select type (typed => object)
+            type is (container_t)
+            call typed%leaf_section(2:4:2)%run(amount)
+        end select
+    end subroutine inspect_stride
+
+    subroutine inspect_dynamic(object, amount, lower, upper)
+        class(dispatch_base_t), intent(inout) :: object
+        integer, intent(in) :: amount, lower, upper
+
+        select type (typed => object)
+            type is (container_t)
+            call typed%leaf_section(lower:upper)%run(amount)
+        end select
+    end subroutine inspect_dynamic
+
+    subroutine inspect_rank2(object, amount)
+        class(dispatch_base_t), intent(inout) :: object
+        integer, intent(in) :: amount
+
+        select type (typed => object)
+            type is (container_t)
+            call typed%leaf_matrix(1:2, 1:2)%run(amount)
+        end select
+    end subroutine inspect_rank2
 
     subroutine inspect_generic(object, amount)
         class(dispatch_base_t), intent(inout) :: object

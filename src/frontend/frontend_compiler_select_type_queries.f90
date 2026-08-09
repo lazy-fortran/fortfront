@@ -219,10 +219,13 @@ module frontend_compiler_select_type_queries
         !! This is the call-site counterpart to
         !! ``query_select_type_component_binding``.  It is deliberately
         !! limited to one explicit CALL that is the sole direct statement of
-        !! a concrete SELECT TYPE arm.  The receiver path must end in a
-        !! scalar, concrete, non-pointer, non-allocatable component, so a
-        !! transformer receives a static implementation and ordered
-        !! signature without guessing through an ownership or alias edge.
+        !! a concrete SELECT TYPE arm.  The receiver path normally ends in a
+        !! scalar, concrete, non-pointer, non-allocatable component.  The
+        !! bounded array extension also admits exactly one rank-one component
+        !! section with literal lower/upper bounds and unit stride.  The
+        !! section facts retain the source bounds; all other array forms stay
+        !! explicit refusals without guessing through an ownership or alias
+        !! edge.
         logical :: found = .false.
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
@@ -236,6 +239,9 @@ module frontend_compiler_select_type_queries
         logical :: is_ambiguous_target = .false.
         logical :: is_nested = .false.
         logical :: is_array_receiver = .false.
+        logical :: is_array_section_receiver = .false.
+        logical :: is_contiguous_array_section = .false.
+        logical :: is_literal_array_section = .false.
         logical :: is_pointer_boundary = .false.
         logical :: is_allocatable_boundary = .false.
         logical :: is_polymorphic_boundary = .false.
@@ -260,6 +266,10 @@ module frontend_compiler_select_type_queries
         integer :: implementation_node_index = 0
         integer :: receiver_node_index = 0
         integer :: call_node_index = 0
+        integer :: array_section_rank = 0
+        integer :: array_section_lower_bound = 0
+        integer :: array_section_upper_bound = 0
+        integer :: array_section_stride = 0
         integer :: arm_source_line = 0
         integer :: arm_source_column = 0
         integer :: call_source_line = 0
@@ -1571,20 +1581,30 @@ contains
             return
         end if
 
-        call resolve_narrowed_component_receiver(arena, arm, receiver_name, &
-            query%receiver_path, query%component_type_index, &
-            query%component_type_name, query%is_pointer_boundary, &
-            query%is_allocatable_boundary, query%is_polymorphic_boundary, &
-            query%is_array_receiver, reason)
+        if (receiver_has_subscript(receiver_name)) then
+            query%is_array_receiver = .true.
+            call resolve_narrowed_component_section_receiver(arena, arm, &
+                receiver_name, query%receiver_path, query%component_type_index, &
+                query%component_type_name, query, reason)
+        else
+            call resolve_narrowed_component_receiver(arena, arm, receiver_name, &
+                query%receiver_path, query%component_type_index, &
+                query%component_type_name, query%is_pointer_boundary, &
+                query%is_allocatable_boundary, query%is_polymorphic_boundary, &
+                query%is_array_receiver, reason)
+        end if
         if (query%is_pointer_boundary) query%has_unresolved_alias = .true.
         if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
-            query%is_polymorphic_boundary .or. query%is_array_receiver) then
+            query%is_polymorphic_boundary .or. &
+            (query%is_array_receiver .and. &
+                .not. query%is_array_section_receiver)) then
             if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
                 query%is_polymorphic_boundary) query%is_ownership_changing = &
                 query%is_allocatable_boundary .or. query%is_polymorphic_boundary
             call refuse_component_dispatch(query, reason)
             return
         end if
+        if (query%is_refused) return
         if (.not. query%receiver_path%found .or. &
             query%component_type_index <= 0) then
             call refuse_component_dispatch(query, reason)
@@ -2731,6 +2751,297 @@ contains
         class default
         end select
     end subroutine component_call_parts
+
+    logical function receiver_has_subscript(receiver) result(has_subscript)
+        character(len=*), intent(in) :: receiver
+
+        has_subscript = index(trim(receiver), '(') > 0
+    end function receiver_has_subscript
+
+    subroutine resolve_narrowed_component_section_receiver(arena, arm, &
+            receiver_name, path, component_type_index, component_type_name, &
+            query, refusal_reason)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_type_arm_query_t), intent(in) :: arm
+        character(len=*), intent(in) :: receiver_name
+        type(component_path_query_t), intent(out) :: path
+        integer, intent(out) :: component_type_index
+        character(len=:), allocatable, intent(out) :: component_type_name
+        type(select_type_component_dispatch_query_t), intent(inout) :: query
+        character(len=:), allocatable, intent(out) :: refusal_reason
+        type(declaration_query_t) :: declaration
+        type(storage_query_t) :: storage
+        character(len=:), allocatable :: designator, prefix, root_name
+        character(len=:), allocatable :: remaining, segment, type_name
+        integer :: open_paren, close_paren, separator, start, next_separator
+        integer :: current_type, component_index
+        logical :: last_segment
+
+        call initialize_component_path(path)
+        component_type_index = 0
+        call set_empty(component_type_name)
+        call set_empty(refusal_reason)
+        query%is_array_section_receiver = .true.
+        query%is_array_receiver = .true.
+        path%base_node_index = arm%selector_expression_node_index
+        path%base_storage_class = arm%selector_storage%storage_class
+        path%base_rank = arm%selector_storage%rank
+
+        designator = trim(receiver_name)
+        open_paren = index(designator, '(')
+        close_paren = index(designator, ')', back=.true.)
+        if (open_paren <= 0 .or. close_paren <= open_paren .or. &
+                close_paren /= len_trim(designator)) then
+            refusal_reason = 'component array section designator is malformed'
+            return
+        end if
+        if (index(designator(open_paren + 1:close_paren - 1), '(') > 0 .or. &
+                index(designator(open_paren + 1:close_paren - 1), ')') > 0) then
+            refusal_reason = 'component array section bounds are unresolved'
+            return
+        end if
+        call parse_component_array_section_bounds( &
+            designator(open_paren + 1:close_paren - 1), query, &
+            refusal_reason)
+        if (len_trim(refusal_reason) > 0) return
+
+        prefix = trim(designator(:open_paren - 1))
+        if (index(prefix, '(') > 0 .or. index(prefix, ')') > 0) then
+            refusal_reason = 'component array section has more than one subscript'
+            return
+        end if
+        separator = index(prefix, '%')
+        if (separator <= 1) then
+            refusal_reason = 'component array section path is absent'
+            return
+        end if
+        root_name = trim(prefix(:separator - 1))
+        if (arm%is_selector_associate) then
+            if (.not. same_name(root_name, arm%selector_associate_name)) then
+                refusal_reason = 'component receiver is not the SELECT TYPE associate'
+                return
+            end if
+        else if (.not. same_name(root_name, arm%selector_name)) then
+            refusal_reason = 'component receiver is not the SELECT TYPE selector'
+            return
+        end if
+
+        remaining = trim(prefix(separator + 1:))
+        current_type = arm%concrete_type_index
+        start = 1
+        do
+            next_separator = index(remaining(start:), '%')
+            last_segment = next_separator <= 0
+            if (last_segment) then
+                segment = trim(remaining(start:))
+            else
+                if (next_separator <= 1) then
+                    refusal_reason = 'component receiver path contains an empty segment'
+                    return
+                end if
+                segment = trim(remaining(start:start + next_separator - 2))
+            end if
+            if (len_trim(segment) == 0) then
+                refusal_reason = 'component receiver path contains an empty segment'
+                return
+            end if
+
+            component_index = find_component_in_hierarchy(arena, current_type, &
+                segment)
+            if (component_index <= 0) then
+                refusal_reason = 'component receiver is absent from the narrowed type hierarchy'
+                return
+            end if
+            declaration = query_declaration(arena, component_index)
+            if (.not. declaration%found) then
+                refusal_reason = 'component receiver declaration is unresolved'
+                return
+            end if
+            storage = query_storage(arena, component_index)
+            if (.not. storage%found) then
+                refusal_reason = 'component receiver storage is unresolved'
+                return
+            end if
+            call append_component_path(path, segment, 0, component_index)
+            if (storage%is_pointer .or. storage%is_target) then
+                query%is_pointer_boundary = .true.
+                query%has_unresolved_alias = .true.
+                refusal_reason = 'pointer or TARGET component is an alias boundary'
+                return
+            end if
+            if (storage%is_allocatable) then
+                query%is_allocatable_boundary = .true.
+                query%is_ownership_changing = .true.
+                refusal_reason = 'allocatable component is an ownership boundary'
+                return
+            end if
+            if (storage%is_polymorphic .or. storage%is_unlimited_polymorphic) then
+                query%is_polymorphic_boundary = .true.
+                query%is_ownership_changing = .true.
+                refusal_reason = 'polymorphic component has no static binding target'
+                return
+            end if
+
+            type_name = declared_type_name(declaration%type_name)
+            if (last_segment) then
+                if (storage%rank /= 1 .or. storage%is_array_element .or. &
+                        storage%is_array_section) then
+                    refusal_reason = 'component array section requires a rank-one array component'
+                    return
+                end if
+                if (.not. storage%is_derived .or. &
+                        .not. storage%is_concrete_derived) then
+                    refusal_reason = 'component array section element type is not concrete'
+                    return
+                end if
+                component_type_name = type_name
+                component_type_index = find_derived_type_by_name_local(arena, &
+                    type_name)
+                if (component_type_index <= 0) then
+                    refusal_reason = 'component array section element type is unresolved'
+                    return
+                end if
+                exit
+            end if
+
+            if (storage%rank > 0 .or. storage%is_array_element .or. &
+                    storage%is_array_section) then
+                refusal_reason = 'intermediate component array is not supported'
+                return
+            end if
+            if (.not. storage%is_derived .or. &
+                    .not. storage%is_concrete_derived) then
+                refusal_reason = 'intermediate component type is not concrete'
+                return
+            end if
+            current_type = find_derived_type_by_name_local(arena, type_name)
+            if (current_type <= 0) then
+                refusal_reason = 'intermediate component type is unresolved'
+                return
+            end if
+            start = start + next_separator
+            if (start > len(remaining)) then
+                refusal_reason = 'component receiver path is incomplete'
+                return
+            end if
+        end do
+
+        path%found = .true.
+        path%storage_class = storage%storage_class
+        path%rank = 1
+        path%is_array_section = .true.
+        path%is_derived = storage%is_derived
+        path%is_concrete_derived = storage%is_concrete_derived
+        path%is_abstract_type = storage%is_abstract_type
+        path%is_allocatable = storage%is_allocatable
+        path%is_pointer = storage%is_pointer
+        path%is_polymorphic = storage%is_polymorphic
+        path%is_unlimited_polymorphic = storage%is_unlimited_polymorphic
+    end subroutine resolve_narrowed_component_section_receiver
+
+    subroutine parse_component_array_section_bounds(text, query, reason)
+        character(len=*), intent(in) :: text
+        type(select_type_component_dispatch_query_t), intent(inout) :: query
+        character(len=:), allocatable, intent(out) :: reason
+        character(len=:), allocatable :: lower_text, upper_text, stride_text
+        integer :: first_colon, second_colon, colon_count
+        integer :: lower, upper, stride
+        logical :: lower_ok, upper_ok, stride_ok
+
+        call set_empty(reason)
+        query%array_section_rank = 1 + count_text_character(text, ',')
+        query%array_section_lower_bound = 0
+        query%array_section_upper_bound = 0
+        query%array_section_stride = 1
+        query%is_literal_array_section = .false.
+        query%is_contiguous_array_section = .false.
+        if (query%array_section_rank /= 1) then
+            reason = 'only rank-one component array sections are supported'
+            return
+        end if
+
+        colon_count = count_text_character(text, ':')
+        if (colon_count < 1) then
+            reason = 'component array receiver is an array element, not a section'
+            return
+        end if
+        if (colon_count > 2) then
+            reason = 'component array section has an unresolved shape'
+            return
+        end if
+        first_colon = index(text, ':')
+        second_colon = 0
+        if (colon_count == 2) then
+            second_colon = index(text(first_colon + 1:), ':') + first_colon
+        end if
+        if (second_colon > 0) then
+            lower_text = trim(text(:first_colon - 1))
+            upper_text = trim(text(first_colon + 1:second_colon - 1))
+            stride_text = trim(text(second_colon + 1:))
+            if (len_trim(stride_text) == 0) then
+                reason = 'component array section stride is unresolved'
+                return
+            end if
+        else
+            lower_text = trim(text(:first_colon - 1))
+            upper_text = trim(text(first_colon + 1:))
+            stride_text = ''
+        end if
+
+        lower_ok = parse_integer_literal_text(lower_text, lower)
+        upper_ok = parse_integer_literal_text(upper_text, upper)
+        stride_ok = .true.
+        stride = 1
+        if (len_trim(stride_text) > 0) then
+            stride_ok = parse_integer_literal_text(stride_text, stride)
+        end if
+        if (.not. lower_ok .or. .not. upper_ok .or. .not. stride_ok) then
+            reason = 'component array section bounds must be integer literals'
+            return
+        end if
+
+        query%array_section_lower_bound = lower
+        query%array_section_upper_bound = upper
+        query%array_section_stride = stride
+        query%is_literal_array_section = .true.
+        if (stride /= 1) then
+            reason = 'component array section must have unit stride'
+            return
+        end if
+        query%is_contiguous_array_section = .true.
+    end subroutine parse_component_array_section_bounds
+
+    integer function count_text_character(text, wanted) result(count)
+        character(len=*), intent(in) :: text
+        character(len=1), intent(in) :: wanted
+        integer :: i
+
+        count = 0
+        do i = 1, len(text)
+            if (text(i:i) == wanted) count = count + 1
+        end do
+    end function count_text_character
+
+    logical function parse_integer_literal_text(text, value) result(is_literal)
+        character(len=*), intent(in) :: text
+        integer, intent(out) :: value
+        character(len=:), allocatable :: normalized, digits
+        integer :: first_digit, ios
+
+        value = 0
+        normalized = trim(adjustl(text))
+        is_literal = .false.
+        if (len_trim(normalized) == 0) return
+        first_digit = 1
+        if (normalized(1:1) == '+' .or. normalized(1:1) == '-') then
+            first_digit = 2
+        end if
+        if (first_digit > len(normalized)) return
+        digits = normalized(first_digit:)
+        if (verify(digits, '0123456789') /= 0) return
+        read (normalized, *, iostat=ios) value
+        is_literal = ios == 0
+    end function parse_integer_literal_text
 
     subroutine resolve_narrowed_component_receiver(arena, arm, receiver_name, &
             path, component_type_index, component_type_name, is_pointer, &
