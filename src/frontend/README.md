@@ -289,6 +289,7 @@ end subroutine
   control-flow-nested arms; `has_unresolved_alias`,
   `has_global_mutable_state`, and `has_control_flow_boundary` identify those
   boundaries without exposing a guessed dynamic type.
+
   Explicit `CALL` statements with an indexed receiver, such as
   `call values(i)%run()`, retain the full receiver designator while resolving
   storage through its declared array object; no receiver AST node is invented.
@@ -307,6 +308,16 @@ end subroutine
   `query_active_global_references` reports identifier references bound to
   module entities or COMMON members. These are facts, not AD policy: a
   consumer may deliberately reject active mutable global state.
+
+- **Owned-array CLASS IS binding identity query**:
+  `query_select_type_owned_array_binding(arena, arm_node_index, binding_name)`
+  composes the owned-array proof with the static binding hierarchy. Its
+  `declared_binding` preserves an abstract/deferred binding, while
+  `dynamic_binding` and the top-level implementation fields identify the
+  concrete local or inherited implementation only when it is source-resolved.
+  Generic, ambiguous, deferred, unresolved, alias, global-state, and
+  control-flow boundaries remain explicit refusals; no runtime target is
+  guessed.
 - **ASSOCIATE selector query**: `query_associate_selectors` returns one
   `associate_selector_query_t` per association. The record identifies the
   ASSOCIATE node, association ordinal, selector expression, storage

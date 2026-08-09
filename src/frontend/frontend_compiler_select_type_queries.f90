@@ -16,7 +16,7 @@ module frontend_compiler_select_type_queries
         query_component_access, query_component_path, query_declaration, &
         query_storage, get_identifier_name, declaration_query_t, &
         query_type_binding, type_binding_query_t, STORAGE_BORROWED, &
-        STORAGE_OWNED
+        STORAGE_OWNED, query_type_binding_hierarchy
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_name_at_node, BINDING_FUNCTION, BINDING_SUBROUTINE
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
@@ -103,6 +103,49 @@ module frontend_compiler_select_type_queries
         character(len=:), allocatable :: refusal_reason
         type(storage_query_t) :: selector_storage
     end type select_type_owned_array_query_t
+
+    type, public :: select_type_owned_array_binding_query_t
+        !! Bounded binding identity through one owned polymorphic array.
+        !!
+        !! The owned-array proof supplies the declared and narrowed dynamic
+        !! types.  The two hierarchy records retain both sides of the
+        !! abstract/deferred binding boundary: the declared binding may be
+        !! deferred, while the concrete guard type may expose one inherited
+        !! or local implementation.  No runtime dispatch or array-element
+        !! inspection is performed.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_owned_array = .false.
+        logical :: is_declared_binding_deferred = .false.
+        logical :: is_inherited = .false.
+        logical :: is_deferred_binding = .false.
+        logical :: is_generic_binding = .false.
+        logical :: is_ambiguous_binding = .false.
+        logical :: is_implementation_concrete = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_control_flow_boundary = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: declared_type_index = 0
+        integer :: dynamic_type_index = 0
+        integer :: declaring_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: implementation_node_index = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: dynamic_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: declaring_type_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: refusal_reason
+        type(select_type_owned_array_query_t) :: owned_array
+        type(binding_hierarchy_query_t) :: declared_binding
+        type(binding_hierarchy_query_t) :: dynamic_binding
+    end type select_type_owned_array_binding_query_t
 
     type, public :: select_type_component_query_t
         !! Bounded component/storage facts for one component path in a
@@ -322,6 +365,7 @@ module frontend_compiler_select_type_queries
     end type select_type_component_generic_dispatch_query_t
 
     public :: query_select_type_branch, query_select_type_owned_array, &
+        query_select_type_owned_array_binding, &
         query_select_type_component_path, &
         query_select_type_component_binding, query_select_type_dispatch, &
         query_select_type_generic_dispatch, &
@@ -449,6 +493,111 @@ contains
         query%is_dynamic_type_concrete = .true.
         query%is_resolved = .true.
     end function query_select_type_owned_array
+
+    function query_select_type_owned_array_binding(arena, arm_node_index, &
+            binding_name) result(query)
+        !! Resolve one binding from an owned polymorphic CLASS IS array.
+        !!
+        !! This is a storage-to-binding query, not a runtime dispatch query.
+        !! It reports the declared abstract binding separately from the
+        !! effective binding on the concrete CLASS IS guard.  A concrete,
+        !! non-generic implementation is required for IS_RESOLVED.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        character(len=*), intent(in) :: binding_name
+        type(select_type_owned_array_binding_query_t) :: query
+        type(binding_hierarchy_query_t) :: declared_binding
+        type(binding_hierarchy_query_t) :: dynamic_binding
+
+        call initialize_owned_array_binding_query(query, arm_node_index, &
+            binding_name)
+        query%owned_array = query_select_type_owned_array(arena, arm_node_index)
+        query%found = query%owned_array%found
+        query%is_owned_array = query%owned_array%is_owned_array
+        query%has_global_mutable_state = &
+            query%owned_array%has_global_mutable_state
+        query%has_unresolved_alias = query%owned_array%has_unresolved_alias
+        query%has_control_flow_boundary = &
+            query%owned_array%has_control_flow_boundary
+        query%select_type_node_index = &
+            query%owned_array%select_type_node_index
+        query%arm_node_index = query%owned_array%arm_node_index
+        query%selector_declaration_index = &
+            query%owned_array%selector_declaration_index
+        query%declared_type_index = query%owned_array%declared_type_index
+        query%dynamic_type_index = query%owned_array%dynamic_type_index
+        query%selector_name = query%owned_array%selector_name
+        query%declared_type_name = query%owned_array%declared_type_name
+        query%dynamic_type_name = query%owned_array%dynamic_type_name
+
+        if (.not. query%owned_array%is_resolved) then
+            call refuse_owned_array_binding(query, &
+                query%owned_array%refusal_reason)
+            return
+        end if
+        if (len_trim(binding_name) == 0) then
+            call refuse_owned_array_binding(query, &
+                'owned-array binding name is unresolved')
+            return
+        end if
+
+        declared_binding = query_type_binding_hierarchy(arena, &
+            query%declared_type_index, binding_name)
+        query%declared_binding = declared_binding
+        if (.not. declared_binding%found) then
+            call refuse_owned_array_binding(query, &
+                'declared owned-array binding is unresolved')
+            return
+        end if
+        query%is_declared_binding_deferred = declared_binding%is_deferred
+        if (declared_binding%is_generic .or. declared_binding%is_ambiguous) then
+            call refuse_owned_array_binding(query, &
+                'generic or ambiguous declared binding is not selected')
+            return
+        end if
+
+        dynamic_binding = query_type_binding_hierarchy(arena, &
+            query%dynamic_type_index, binding_name)
+        query%dynamic_binding = dynamic_binding
+        if (.not. dynamic_binding%found) then
+            call refuse_owned_array_binding(query, &
+                'CLASS IS dynamic binding is unresolved')
+            return
+        end if
+
+        query%is_inherited = dynamic_binding%is_inherited
+        query%is_deferred_binding = dynamic_binding%is_deferred
+        query%is_generic_binding = dynamic_binding%is_generic
+        query%is_ambiguous_binding = dynamic_binding%is_ambiguous
+        query%declaring_type_index = dynamic_binding%declaring_type_index
+        query%binding_node_index = dynamic_binding%binding_node_index
+        query%implementation_node_index = &
+            dynamic_binding%implementation_node_index
+        query%binding_name = dynamic_binding%binding_name
+        query%declaring_type_name = dynamic_binding%declaring_type_name
+        query%implementation = dynamic_binding%implementation
+
+        if (query%is_generic_binding .or. query%is_ambiguous_binding) then
+            call refuse_owned_array_binding(query, &
+                'generic or ambiguous owned-array binding is not selected')
+            return
+        end if
+        if (query%is_deferred_binding) then
+            call refuse_owned_array_binding(query, &
+                'deferred CLASS IS binding has no implementation target')
+            return
+        end if
+        if (.not. dynamic_binding%is_resolved .or. &
+                query%implementation_node_index <= 0 .or. &
+                len_trim(query%implementation) == 0) then
+            call refuse_owned_array_binding(query, &
+                'CLASS IS binding implementation is unresolved')
+            return
+        end if
+
+        query%is_implementation_concrete = .true.
+        query%is_resolved = .true.
+    end function query_select_type_owned_array_binding
 
     function query_select_type_branch(arena, arm_node_index) result(query)
         !! Return the semantic type predicate represented by one SELECT TYPE arm.
@@ -2385,6 +2534,23 @@ contains
         call initialize_storage(query%selector_storage)
     end subroutine initialize_owned_array_query
 
+    subroutine initialize_owned_array_binding_query(query, arm_node_index, &
+            binding_name)
+        type(select_type_owned_array_binding_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index
+        character(len=*), intent(in) :: binding_name
+
+        query%arm_node_index = arm_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%dynamic_type_name)
+        call set_empty(query%binding_name)
+        query%binding_name = trim(binding_name)
+        call set_empty(query%declaring_type_name)
+        call set_empty(query%implementation)
+        call set_empty(query%refusal_reason)
+    end subroutine initialize_owned_array_binding_query
+
     subroutine refuse_owned_array(query, reason)
         type(select_type_owned_array_query_t), intent(inout) :: query
         character(len=*), intent(in) :: reason
@@ -2395,6 +2561,17 @@ contains
             query%refusal_reason = trim(reason)
         end if
     end subroutine refuse_owned_array
+
+    subroutine refuse_owned_array_binding(query, reason)
+        type(select_type_owned_array_binding_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_owned_array_binding
 
     logical function owned_array_has_control_flow_boundary(arena, arm_index) &
             result(has_boundary)

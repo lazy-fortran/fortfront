@@ -261,6 +261,22 @@ See `examples/f90/owned_array_class_is_dynamic_identity.f90` and
 `test/api/test_owned_array_class_is_identity.f90` for the GNU syntax and
 independent expected-facts oracle.
 
+`query_select_type_owned_array_binding(arena, arm_node_index, binding_name)`
+extends that proof to one type-bound binding. The result keeps
+`declared_binding` (which can be the abstract type's deferred binding) and
+`dynamic_binding` (the concrete guard type's local or inherited implementation)
+separate. `is_resolved` is true only when the dynamic binding is non-generic,
+non-ambiguous, non-deferred, and has a source-resolved implementation procedure;
+`implementation_node_index`, `declaring_type_name`, and `is_inherited` identify
+that target for consumers such as FortAD. The owned-array refusal flags and
+storage boundaries are propagated unchanged, so aliases, globals, and
+control-flow-nested arms never receive a guessed binding target.
+
+See `examples/f90/owned_array_class_is_binding_identity.f90` and
+`test/api/test_owned_array_class_is_binding.f90` for an independent oracle
+covering a deferred abstract binding, a direct implementation, an inherited
+implementation, and refusal boundaries.
+
 ## SELECT TYPE component paths
 
 `query_select_type_component_path(arena, arm_node_index, component_node_index)`
