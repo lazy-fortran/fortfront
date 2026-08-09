@@ -912,6 +912,7 @@ module frontend_compiler_queries
         ! These arrays identify where the effective binding was declared.
         ! They are useful when a concrete leaf inherits an implementation
         ! through an abstract intermediate type.
+        integer, allocatable :: dispatch_target_binding_node_indices(:)
         integer, allocatable :: dispatch_target_declaring_type_indices(:)
         logical, allocatable :: dispatch_target_is_inherited(:)
         ! Parallel to the target provenance arrays.  This is the number of
@@ -1030,6 +1031,7 @@ module frontend_compiler_queries
         ! Parallel to the existing target type and implementation arrays.
         logical, allocatable :: dispatch_target_signature_resolved(:)
         ! Parallel provenance facts for the effective binding declaration.
+        integer, allocatable :: dispatch_target_binding_node_indices(:)
         integer, allocatable :: dispatch_target_declaring_type_indices(:)
         logical, allocatable :: dispatch_target_is_inherited(:)
         integer, allocatable :: dispatch_target_inheritance_depth(:)
@@ -8032,6 +8034,8 @@ contains
                 resolution%dispatch_target_implementations
             query%dispatch_target_implementation_node_indices = &
                 resolution%dispatch_target_implementation_node_indices
+            query%dispatch_target_binding_node_indices = &
+                resolution%dispatch_target_binding_node_indices
             query%dispatch_target_pass_names = &
                 resolution%dispatch_target_pass_names
             query%dispatch_target_pass_positions = &
@@ -8549,6 +8553,7 @@ contains
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
         allocate (query%dispatch_target_signature_resolved(0))
+        allocate (query%dispatch_target_binding_node_indices(0))
         allocate (query%dispatch_target_declaring_type_indices(0))
         allocate (query%dispatch_target_is_inherited(0))
         allocate (query%dispatch_target_inheritance_depth(0))
@@ -8864,6 +8869,7 @@ contains
         allocate (query%dispatch_target_pass_positions(0))
         allocate (character(len=1) :: query%dispatch_target_passed_object_types(0))
         allocate (query%dispatch_target_signature_resolved(0))
+        allocate (query%dispatch_target_binding_node_indices(0))
         allocate (query%dispatch_target_declaring_type_indices(0))
         allocate (query%dispatch_target_is_inherited(0))
         allocate (query%dispatch_target_inheritance_depth(0))
@@ -8956,6 +8962,12 @@ contains
         if (n > 0) logical_tmp(:n) = query%dispatch_target_signature_resolved
         logical_tmp(n + 1) = signature_resolved
         call move_alloc(logical_tmp, query%dispatch_target_signature_resolved)
+
+        allocate (int_tmp(n + 1))
+        if (n > 0) int_tmp(:n) = &
+            query%dispatch_target_binding_node_indices
+        int_tmp(n + 1) = target%binding_node_index
+        call move_alloc(int_tmp, query%dispatch_target_binding_node_indices)
 
         allocate (int_tmp(n + 1))
         if (n > 0) int_tmp(:n) = &
