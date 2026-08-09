@@ -299,6 +299,20 @@ describe the generic binding; consumers needing the callable specific should
 use `selected_pass_*`. Missing specific PASS metadata remains an unresolved
 candidate, and no target is selected through that boundary.
 
+`query_select_type_owned_array_dispatch(arena, arm_node_index,
+call_node_index)` is the direct-binding counterpart for an explicit call such
+as `values(i)%run(value)`. It maps the indexed receiver to the owned selector's
+storage declaration, then reports the concrete or inherited implementation,
+ordered implementation signature, and effective PASS dummy/position. The
+`receiver_storage` record intentionally remains the array owner; consumers use
+`is_array_element_receiver` to distinguish the scalar element designator from
+that owner. Generic bindings stay refused and must use the generic dispatch
+query. Global, alias, and control-flow-nested arms retain their refusal flags
+and never receive a guessed target.
+
+See `examples/f90/owned_array_class_is_dispatch.f90` and
+`test/api/test_owned_array_class_is_dispatch.f90` for the independent oracle.
+
 ## SELECT TYPE component paths
 
 `query_select_type_component_path(arena, arm_node_index, component_node_index)`
