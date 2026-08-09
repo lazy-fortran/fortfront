@@ -833,8 +833,8 @@ contains
             return
         end if
         if (.not. dynamic_binding%is_resolved .or. &
-                query%implementation_node_index <= 0 .or. &
-                len_trim(query%implementation) == 0) then
+            query%implementation_node_index <= 0 .or. &
+            len_trim(query%implementation) == 0) then
             call refuse_owned_array_binding(query, &
                 'CLASS IS binding implementation is unresolved')
             return
@@ -925,7 +925,7 @@ contains
             return
         end if
         if (.not. owned_array_element_receiver(query%receiver_name, &
-                query%selector_name)) then
+            query%selector_name)) then
             call refuse_owned_array_generic(query, &
                 'owned-array generic receiver is not a single array element')
             return
@@ -970,7 +970,7 @@ contains
         call resolve_owned_array_generic_candidates(arena, call_node_index, &
             binding, query)
         if (query%selected_candidate_index > 0 .and. &
-                len_trim(query%pass_name) > 0) then
+            len_trim(query%pass_name) > 0) then
             query%pass_position = find_signature_dummy( &
                 query%candidates(query%selected_candidate_index)%signature, &
                 query%pass_name)
@@ -1055,7 +1055,7 @@ contains
             return
         end if
         if (.not. owned_array_element_receiver(query%receiver_name, &
-                query%selector_name)) then
+            query%selector_name)) then
             call refuse_owned_array_dispatch(query, &
                 'owned-array receiver is not a single array element')
             return
@@ -1102,8 +1102,8 @@ contains
             return
         end if
         if (.not. hierarchy%is_resolved .or. &
-                query%implementation_node_index <= 0 .or. &
-                len_trim(query%implementation) == 0) then
+            query%implementation_node_index <= 0 .or. &
+            len_trim(query%implementation) == 0) then
             call refuse_owned_array_dispatch(query, &
                 'owned-array binding implementation is unresolved')
             return
@@ -1241,7 +1241,7 @@ contains
             arm%selector_expression_node_index, .true.)
 
         if (.not. arm%is_selector_resolved .or. arm%is_invalid .or. &
-                arm%is_unresolved) then
+            arm%is_unresolved) then
             call refuse_component(query, 'SELECT TYPE selector or guard is unresolved')
             return
         end if
@@ -1256,7 +1256,7 @@ contains
             return
         end if
         if (.not. node_is_directly_in_arm(arena, arm_node_index, &
-                component_node_index)) then
+            component_node_index)) then
             call refuse_component(query, &
                 'component is outside the direct SELECT TYPE arm body')
             return
@@ -1332,8 +1332,8 @@ contains
             query%terminal_storage = query_storage_for_component(arena, nodes(i), &
                 query%terminal_declaration_index)
             if (query%terminal_storage%is_pointer .or. &
-                    query%terminal_storage%is_allocatable .or. &
-                    query%terminal_storage%is_polymorphic) then
+                query%terminal_storage%is_allocatable .or. &
+                query%terminal_storage%is_polymorphic) then
                 call refuse_component(query, &
                     'pointer, allocatable, or polymorphic component is a storage boundary')
                 return
@@ -1381,7 +1381,7 @@ contains
             query%component%terminal_storage%is_polymorphic
 
         if (query%component%is_refused .or. &
-                .not. query%component%is_resolved) then
+            .not. query%component%is_resolved) then
             call refuse_component_binding(query, &
                 component_refusal(query%component))
             return
@@ -1407,7 +1407,7 @@ contains
             return
         end if
         if (.not. query%component%terminal_storage%is_derived .or. &
-                .not. query%component%terminal_storage%is_concrete_derived) then
+            .not. query%component%terminal_storage%is_concrete_derived) then
             call refuse_component_binding(query, &
                 'component terminal type is not a concrete derived type')
             return
@@ -1467,8 +1467,8 @@ contains
             return
         end if
         if (.not. query%hierarchy%is_resolved .or. &
-                query%implementation_node_index <= 0 .or. &
-                len_trim(query%implementation) == 0) then
+            query%implementation_node_index <= 0 .or. &
+            len_trim(query%implementation) == 0) then
             call refuse_component_binding(query, &
                 'component binding implementation is unresolved')
             return
@@ -1647,7 +1647,7 @@ contains
         if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
             query%is_polymorphic_boundary .or. &
             (query%is_array_receiver .and. &
-                .not. query%is_array_section_receiver)) then
+            .not. query%is_array_section_receiver)) then
             if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
                 query%is_polymorphic_boundary) query%is_ownership_changing = &
                 query%is_allocatable_boundary .or. query%is_polymorphic_boundary
@@ -1895,7 +1895,7 @@ contains
         character(len=:), allocatable :: reason
 
         if (allocated(component%refusal_reason) .and. &
-                len_trim(component%refusal_reason) > 0) then
+            len_trim(component%refusal_reason) > 0) then
             reason = component%refusal_reason
         else
             reason = 'SELECT TYPE component path is unresolved'
@@ -1997,7 +1997,7 @@ contains
                     declaration = query_declaration(arena, &
                         derived%component_indices(i))
                     if (declaration%found .and. &
-                            same_name(declaration%name, name)) then
+                        same_name(declaration%name, name)) then
                         component_index = declaration%node_index
                         return
                     end if
@@ -2198,10 +2198,10 @@ contains
             if (same_name(query%guard_type_name, query%declared_type_name)) then
                 query%is_guard_same_as_declared = .true.
             else if (type_extends(arena, query%concrete_type_index, &
-                query%declared_type_index)) then
+                    query%declared_type_index)) then
                 query%is_guard_extension_of_declared = .true.
             else if (type_extends(arena, query%declared_type_index, &
-                query%concrete_type_index)) then
+                    query%concrete_type_index)) then
                 query%is_guard_base_of_declared = .true.
             end if
         end if
@@ -2349,7 +2349,7 @@ contains
             call refuse(query, 'call is not the single direct arm statement')
         end if
         if (.not. is_explicit_call(arena, call_node_index) .and. &
-                .not. query%is_function_reference) then
+            .not. query%is_function_reference) then
             query%is_dynamic_receiver = .true.
             call refuse(query, &
                 'invocation is not an explicit CALL or direct function reference')
@@ -2509,7 +2509,7 @@ contains
 
         call_facts = query_type_bound_call(arena, call_node_index)
         if (len_trim(dispatch%binding_name) == 0 .and. &
-                .not. call_facts%found) then
+            .not. call_facts%found) then
             call refuse_generic_dispatch(query, &
                 'type-bound generic receiver or binding is unresolved')
             return
@@ -2606,8 +2606,8 @@ contains
         end if
 
         if (call_facts%receiver_path%found .or. &
-                query%receiver_storage%is_component .or. &
-                query%receiver_storage%is_target) then
+            query%receiver_storage%is_component .or. &
+            query%receiver_storage%is_target) then
             query%has_unresolved_alias = .true.
         end if
         if (query%receiver_storage%is_pointer) then
@@ -2632,10 +2632,10 @@ contains
             query%receiver_storage%is_pointer
 
         if (query%has_unresolved_alias .or. query%has_dynamic_receiver .or. &
-                query%has_pointer_boundary .or. &
-                query%has_allocatable_boundary .or. query%has_array_receiver .or. &
-                query%has_global_mutable_state .or. &
-                query%has_unsupported_ownership) then
+            query%has_pointer_boundary .or. &
+            query%has_allocatable_boundary .or. query%has_array_receiver .or. &
+            query%has_global_mutable_state .or. &
+            query%has_unsupported_ownership) then
             call refuse_type_bound_generic(query, &
                 'type-bound generic receiver has an unsupported boundary')
             return
@@ -2700,7 +2700,7 @@ contains
         logical :: pass_metadata_found
 
         if (.not. allocated(binding%generic_names) .or. &
-                size(binding%generic_names) == 0) then
+            size(binding%generic_names) == 0) then
             call refuse_type_bound_generic(query, &
                 'type-bound generic has no concrete specific names')
             return
@@ -2716,8 +2716,8 @@ contains
             call resolve_name_at_node(arena, call_node_index, &
                 binding%generic_names(i), candidate_binding, error_msg)
             if (.not. candidate_binding%found .or. &
-                    (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
-                     candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
+                (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
+                candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -2751,7 +2751,7 @@ contains
                     query%candidates(i)%pass_name)
             end if
             if (query%candidates(i)%pass_arg .and. &
-                    query%candidates(i)%pass_position <= 0) then
+                query%candidates(i)%pass_position <= 0) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -2846,7 +2846,7 @@ contains
             storage = query_storage(arena, actual_value)
             if (.not. storage%found) cycle
             if (storage%is_pointer .or. storage%is_target .or. &
-                    storage%is_allocatable .or. storage%is_component) then
+                storage%is_allocatable .or. storage%is_component) then
                 has_alias = .true.
                 return
             end if
@@ -2881,11 +2881,13 @@ contains
         type(select_type_generic_dispatch_query_t), intent(inout) :: query
         type(declaration_binding_t) :: candidate_binding
         character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: specific_pass_name
         integer, allocatable :: actual_indices(:)
-        integer :: i, match_count, selected
+        integer :: i, match_count, selected, specific_pass_position
+        logical :: specific_pass_arg, specific_pass_found
 
         if (.not. allocated(binding%generic_names) .or. &
-                size(binding%generic_names) == 0) then
+            size(binding%generic_names) == 0) then
             call refuse_generic_dispatch(query, &
                 'type-bound generic has no concrete specific names')
             return
@@ -2901,8 +2903,8 @@ contains
             call resolve_name_at_node(arena, call_node_index, &
                 binding%generic_names(i), candidate_binding, error_msg)
             if (.not. candidate_binding%found .or. &
-                    (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
-                     candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
+                (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
+                candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -2916,8 +2918,36 @@ contains
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
+            call resolve_specific_pass_metadata(arena, query%concrete_type_index, &
+                binding%generic_names(i), specific_pass_arg, specific_pass_name, &
+                specific_pass_found)
+            if (specific_pass_found) then
+                query%candidates(i)%pass_metadata_resolved = .true.
+                query%candidates(i)%pass_arg = specific_pass_arg
+                query%candidates(i)%is_nopass = .not. specific_pass_arg
+                query%candidates(i)%pass_name = specific_pass_name
+            else
+                query%candidates(i)%pass_metadata_resolved = .false.
+                query%candidates(i)%pass_arg = binding%pass_arg
+                query%candidates(i)%is_nopass = .not. binding%pass_arg
+                query%candidates(i)%pass_name = binding%pass_name
+            end if
+            if (.not. query%candidates(i)%pass_arg) then
+                specific_pass_position = 0
+            else if (len_trim(query%candidates(i)%pass_name) == 0) then
+                specific_pass_position = 1
+            else
+                specific_pass_position = find_signature_dummy( &
+                    query%candidates(i)%signature, query%candidates(i)%pass_name)
+            end if
+            query%candidates(i)%pass_position = specific_pass_position
+            if (query%candidates(i)%pass_arg .and. specific_pass_position <= 0) then
+                query%candidates(i)%has_unknown_types = .true.
+                cycle
+            end if
             call match_generic_candidate(arena, actual_indices, &
-                query%candidates(i), binding%pass_arg, binding%pass_name)
+                query%candidates(i), query%candidates(i)%pass_arg, &
+                query%candidates(i)%pass_name)
             if (query%candidates(i)%is_match) then
                 match_count = match_count + 1
                 selected = i
@@ -3002,8 +3032,8 @@ contains
             return
         end if
         if (arm%is_unresolved .or. arm%is_invalid .or. &
-                .not. arm%is_selector_resolved .or. &
-                .not. arm%is_concrete_type_resolved) then
+            .not. arm%is_selector_resolved .or. &
+            .not. arm%is_concrete_type_resolved) then
             call refuse_component_generic_dispatch(query, &
                 'SELECT TYPE selector or guard is unresolved')
             return
@@ -3038,12 +3068,12 @@ contains
             query%is_allocatable_boundary, query%is_polymorphic_boundary, &
             query%is_array_receiver, reason)
         if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
-                query%is_polymorphic_boundary .or. query%is_array_receiver) then
+            query%is_polymorphic_boundary .or. query%is_array_receiver) then
             call refuse_component_generic_dispatch(query, reason)
             return
         end if
         if (.not. query%receiver_path%found .or. &
-                query%component_type_index <= 0) then
+            query%component_type_index <= 0) then
             call refuse_component_generic_dispatch(query, reason)
             return
         end if
@@ -3124,7 +3154,7 @@ contains
             receiver_name = trim(designator(:separator - 1))
             binding_name = trim(designator(separator + 1:))
             if (index(receiver_name, '%') <= 0 .or. &
-                    len_trim(binding_name) == 0) then
+                len_trim(binding_name) == 0) then
                 call set_empty(receiver_name)
                 call set_empty(binding_name)
                 return
@@ -3173,12 +3203,12 @@ contains
         open_paren = index(designator, '(')
         close_paren = index(designator, ')', back=.true.)
         if (open_paren <= 0 .or. close_paren <= open_paren .or. &
-                close_paren /= len_trim(designator)) then
+            close_paren /= len_trim(designator)) then
             refusal_reason = 'component array section designator is malformed'
             return
         end if
         if (index(designator(open_paren + 1:close_paren - 1), '(') > 0 .or. &
-                index(designator(open_paren + 1:close_paren - 1), ')') > 0) then
+            index(designator(open_paren + 1:close_paren - 1), ')') > 0) then
             refusal_reason = 'component array section bounds are unresolved'
             return
         end if
@@ -3267,12 +3297,12 @@ contains
             type_name = declared_type_name(declaration%type_name)
             if (last_segment) then
                 if (storage%rank /= 1 .or. storage%is_array_element .or. &
-                        storage%is_array_section) then
+                    storage%is_array_section) then
                     refusal_reason = 'component array section requires a rank-one array component'
                     return
                 end if
                 if (.not. storage%is_derived .or. &
-                        .not. storage%is_concrete_derived) then
+                    .not. storage%is_concrete_derived) then
                     refusal_reason = 'component array section element type is not concrete'
                     return
                 end if
@@ -3287,12 +3317,12 @@ contains
             end if
 
             if (storage%rank > 0 .or. storage%is_array_element .or. &
-                    storage%is_array_section) then
+                storage%is_array_section) then
                 refusal_reason = 'intermediate component array is not supported'
                 return
             end if
             if (.not. storage%is_derived .or. &
-                    .not. storage%is_concrete_derived) then
+                .not. storage%is_concrete_derived) then
                 refusal_reason = 'intermediate component type is not concrete'
                 return
             end if
@@ -3465,8 +3495,8 @@ contains
             return
         end if
         if (arm%selector_storage%rank > 0 .or. &
-                arm%selector_storage%is_array_element .or. &
-                arm%selector_storage%is_array_section) then
+            arm%selector_storage%is_array_element .or. &
+            arm%selector_storage%is_array_section) then
             is_array = .true.
             refusal_reason = 'narrowed component receiver is array-valued'
             return
@@ -3544,13 +3574,13 @@ contains
                 return
             end if
             if (storage%rank > 0 .or. storage%is_array_element .or. &
-                    storage%is_array_section) then
+                storage%is_array_section) then
                 is_array = .true.
                 refusal_reason = 'component receiver is array-valued'
                 return
             end if
             if (.not. storage%is_derived .or. &
-                    .not. storage%is_concrete_derived) then
+                .not. storage%is_concrete_derived) then
                 refusal_reason = 'component receiver type is not a concrete derived type'
                 return
             end if
@@ -3764,7 +3794,7 @@ contains
         integer :: i, match_count, selected
 
         if (.not. allocated(binding%generic_names) .or. &
-                size(binding%generic_names) == 0) then
+            size(binding%generic_names) == 0) then
             call refuse_owned_array_generic(query, &
                 'owned-array generic has no concrete specific names')
             return
@@ -3780,8 +3810,8 @@ contains
             call resolve_name_at_node(arena, call_node_index, &
                 binding%generic_names(i), candidate_binding, error_msg)
             if (.not. candidate_binding%found .or. &
-                    (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
-                     candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
+                (candidate_binding%binding_kind /= BINDING_FUNCTION .and. &
+                candidate_binding%binding_kind /= BINDING_SUBROUTINE)) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -3815,7 +3845,7 @@ contains
                     query%candidates(i)%pass_name)
             end if
             if (query%candidates(i)%pass_arg .and. &
-                    query%candidates(i)%pass_position <= 0) then
+                query%candidates(i)%pass_position <= 0) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -3960,14 +3990,14 @@ contains
                 if (dummy == pass_position) dummy = 0
             else
                 do while (next_dummy <= candidate%signature%dummy_count .and. &
-                    (next_dummy == pass_position .or. supplied(next_dummy)))
+                        (next_dummy == pass_position .or. supplied(next_dummy)))
                     next_dummy = next_dummy + 1
                 end do
                 dummy = next_dummy
                 next_dummy = next_dummy + 1
             end if
             if (dummy <= 0 .or. dummy > candidate%signature%dummy_count .or. &
-                    supplied(dummy)) then
+                supplied(dummy)) then
                 valid = .false.
                 exit
             end if
@@ -3985,8 +4015,8 @@ contains
                 cycle
             end if
             if (.not. candidate%signature%dummies(i)%type_known .or. &
-                    .not. candidate%signature%dummies(i)%kind_known .or. &
-                    .not. candidate%signature%dummies(i)%rank_known) then
+                .not. candidate%signature%dummies(i)%kind_known .or. &
+                .not. candidate%signature%dummies(i)%rank_known) then
                 candidate%has_unknown_types = .true.
                 return
             end if
@@ -3996,10 +4026,10 @@ contains
                 return
             end if
             if (candidate%signature%dummies(i)%type_kind /= &
-                    actual_type%type_kind .or. &
-                    candidate%signature%dummies(i)%kind_value /= &
-                    actual_type%kind_value .or. &
-                    candidate%signature%dummies(i)%rank /= actual_type%rank) return
+                actual_type%type_kind .or. &
+                candidate%signature%dummies(i)%kind_value /= &
+                actual_type%kind_value .or. &
+                candidate%signature%dummies(i)%rank /= actual_type%rank) return
             formal_declaration = query_declaration(arena, &
                 candidate%signature%dummies(i)%node_index)
             formal_type = ''
@@ -4009,7 +4039,7 @@ contains
                 end if
             end if
             if (len_trim(formal_type) > 0 .or. &
-                    len_trim(actual_type%derived_type_name) > 0) then
+                len_trim(actual_type%derived_type_name) > 0) then
                 if (.not. same_name(formal_type, actual_type%derived_type_name)) &
                     return
             end if
@@ -4180,7 +4210,7 @@ contains
         passed_type_index = find_derived_type_by_name_local(arena, passed_type)
         passed_type_compatible = same_name(passed_type, concrete_name)
         if (.not. passed_type_compatible .and. passed_type_index > 0 .and. &
-                query%concrete_type_index > 0) then
+            query%concrete_type_index > 0) then
             passed_type_compatible = type_extends(arena, &
                 query%concrete_type_index, passed_type_index)
         end if
@@ -4256,7 +4286,7 @@ contains
                     query%is_nested = .true.
                     return
                 end if
-                class default
+            class default
                 return
             end select
         end if
@@ -4400,7 +4430,7 @@ contains
         do i = 1, size(arm%body_node_indices)
             if (.not. arena%has_node_at(arm%body_node_indices(i))) cycle
             if (owned_array_is_control_flow_node(arena, &
-                    arm%body_node_indices(i))) then
+                arm%body_node_indices(i))) then
                 has_boundary = .true.
                 return
             end if
