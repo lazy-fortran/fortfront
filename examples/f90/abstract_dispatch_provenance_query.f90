@@ -61,3 +61,13 @@ contains
     end subroutine choose_right
 
 end module abstract_dispatch_provenance_query
+
+program abstract_dispatch_provenance_runtime
+    use abstract_dispatch_provenance_query, only: leaf_t, invoke
+    implicit none
+
+    type(leaf_t) :: object
+
+    call invoke(object)
+    print *, 'PASS: abstract dispatch provenance runtime'
+end program abstract_dispatch_provenance_runtime

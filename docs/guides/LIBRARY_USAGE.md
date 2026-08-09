@@ -272,6 +272,16 @@ lowering strategy. See `examples/f90/select_rank_bounds.f90` and
 `test/api/test_select_rank_bounds.f90` for the independent GNU runtime/API
 oracle.
 
+## Concrete abstract binding target identity
+
+`query_type_binding_resolution` and `query_type_bound_call` keep
+`dispatch_target_binding_node_indices` parallel to each concrete target. This
+is the effective type-bound declaration node, so a consumer can connect a
+concrete implementation to an abstract or deferred binding contract without
+rebuilding the `EXTENDS` chain or matching procedure names. A zero or absent
+identity is not a target: generic, ambiguous, unresolved, deferred, alias,
+active-global-state, and unsupported-ownership cases remain refusals.
+
 ## SELECT TYPE associate selectors
 
 `query_control_statement` exposes `select_type_arm_query_t` records for each
@@ -493,6 +503,14 @@ implementation node/name, exact-match flag, and ordered `signature`; the
 selected candidate and signature are copied to the top-level result only when
 exactly one candidate matches the actual arguments by semantic type, kind, and
 rank.
+
+Each candidate also reports `pass_metadata_resolved`, `pass_arg`, `pass_name`,
+and `pass_position` from its effective inherited specific binding. This keeps
+`PASS(self)` at its actual dummy position rather than inheriting the enclosing
+generic's default. If the source publishes only a legacy generic procedure
+name, the candidate remains matchable for compatibility but its per-specific
+PASS fact stays false; consumers must not use that target as a callback without
+the flag.
 
 The query refuses ambiguous or zero-match generics, deferred or unresolved
 bindings, and component paths crossing pointer, allocatable, polymorphic,
