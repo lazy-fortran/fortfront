@@ -79,6 +79,18 @@ target when concrete extensions may override it. Concrete leaves still retain
 their inherited implementation and declaring type. The independent GNU
 runtime/API oracle is `test/api/test_abstract_dispatch_runtime_boundary.f90`.
 
+### SELECT RANK selector bounds identity (2026-08-09)
+
+`select_rank_arm_query_t` now preserves the source declaration's assumed-rank
+bounds node identity through `selector_bounds_node_indices` and marks it with
+`selector_is_assumed_rank`. `query_storage` reports an assumed-rank source as
+rank `-1`; only an explicit arm's `selected_rank` narrows rank, so consumers do
+not mistake the `(..)` declaration marker for a rank-one array. Existing
+pointer, polymorphic, unresolved, and ownership-sensitive selector refusals
+remain unchanged. The independent GNU runtime/API oracle is
+`test/api/test_select_rank_bounds.f90`, backed by
+`examples/f90/select_rank_bounds.f90`.
+
 ### Bounded passed-procedure pointer actuals (2026-08-09)
 
 `query_procedure_actual_argument` now composes the existing procedure-pointer

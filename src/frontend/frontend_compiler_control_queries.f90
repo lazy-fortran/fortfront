@@ -2,7 +2,8 @@ module frontend_compiler_control_queries
     use ast_arena_modern, only: ast_arena_t
     use frontend_compiler_queries, only: storage_query_t, component_path_query_t, &
         query_storage, query_component_path, get_identifier_name, &
-        derived_type_query_t, query_derived_type
+        declaration_query_t, query_declaration, array_bounds_query_t, &
+        query_array_bounds, derived_type_query_t, query_derived_type
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_identifier_binding
     use ast_nodes_associate, only: associate_node, block_construct_node
@@ -54,6 +55,8 @@ module frontend_compiler_control_queries
         logical :: is_assumed_size = .false.
         logical :: has_selector = .false.
         logical :: is_storage_resolved = .false.
+        logical :: selector_is_assumed_rank = .false.
+        logical :: selector_bounds_identity_known = .false.
         logical :: is_component_path_available = .false.
         logical :: is_pointer_selector = .false.
         logical :: is_polymorphic_selector = .false.
@@ -77,6 +80,7 @@ module frontend_compiler_control_queries
         character(len=:), allocatable :: selector_name
         character(len=:), allocatable :: refusal_reason
         integer, allocatable :: body_node_indices(:)
+        integer, allocatable :: selector_bounds_node_indices(:)
         type(storage_query_t) :: selector_storage
         type(component_path_query_t) :: selector_path
     end type select_rank_arm_query_t
@@ -602,8 +606,10 @@ contains
         type(rank_block_node) :: arm
         type(declaration_binding_t) :: binding
         type(storage_query_t) :: storage
+        type(declaration_query_t) :: declaration
+        type(array_bounds_query_t) :: bounds
         character(len=:), allocatable :: error_message
-        integer :: declaration_index
+        integer :: declaration_index, i
 
         call initialize_select_rank_arm_query(query)
         query%arm_node_index = arm_index
@@ -684,6 +690,20 @@ contains
             query%is_dynamic_type_known = storage%found .and. &
                 .not. query%is_pointer_selector .and. &
                 .not. query%is_polymorphic_selector
+            declaration = query_declaration(arena, declaration_index)
+            if (declaration%found .and. allocated(declaration%dimension_indices)) then
+                query%selector_bounds_node_indices = declaration%dimension_indices
+                query%selector_bounds_identity_known = &
+                    size(query%selector_bounds_node_indices) > 0
+                do i = 1, size(query%selector_bounds_node_indices)
+                    bounds = query_array_bounds(arena, &
+                        query%selector_bounds_node_indices(i))
+                    if (bounds%found .and. bounds%is_assumed_rank) then
+                        query%selector_is_assumed_rank = .true.
+                        exit
+                    end if
+                end do
+            end if
         else
             query%is_unresolved_selector = .true.
             query%is_unsupported_selector = .true.
@@ -708,6 +728,7 @@ contains
         call set_empty(query%selector_name)
         call set_empty(query%refusal_reason)
         allocate (query%body_node_indices(0))
+        allocate (query%selector_bounds_node_indices(0))
         call initialize_storage_query(query%selector_storage)
         call initialize_component_path_query(query%selector_path)
     end subroutine initialize_select_rank_arm_query
