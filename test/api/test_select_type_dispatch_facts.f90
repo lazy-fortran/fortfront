@@ -73,6 +73,14 @@ program test_select_type_dispatch_facts
                 saw_ownership = saw_ownership .or. &
                     dispatch%is_ownership_changing
                 saw_unresolved = saw_unresolved .or. dispatch%is_unresolved
+                if (dispatch%is_ambiguous_target .or. &
+                    dispatch%is_deferred_binding .or. &
+                    dispatch%is_ownership_changing) then
+                    call require(dispatch%is_refused .and. &
+                        .not. dispatch%is_resolved .and. &
+                        dispatch%implementation_node_index == 0, &
+                        'refused dispatch exposed an implementation target')
+                end if
                 call_count = call_count + 1
             end do
         end do

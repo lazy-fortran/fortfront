@@ -157,6 +157,7 @@ module frontend_compiler_select_type_queries
         logical :: is_selector_resolved = .false.
         logical :: is_binding_resolved = .false.
         logical :: is_signature_resolved = .false.
+        logical :: dispatch_boundary_known = .false.
         logical :: pass_arg = .true.
         logical :: is_nopass = .false.
         integer :: select_type_node_index = 0
@@ -1179,13 +1180,14 @@ contains
             .not. arm%is_selector_resolved) then
             call refuse_unresolved(query, 'SELECT TYPE selector identity is unresolved')
         end if
-
         query%found = direct_call .and. arm%found
         if (.not. query%found) then
             query%is_unresolved = .true.
             query%is_refused = .true.
             return
         end if
+        if (arm%is_unresolved .or. arm%is_invalid) return
+        if (query%is_ownership_changing) return
         if (query%is_class_default .or. &
             .not. arm%is_concrete_type_resolved .or. &
             len_trim(query%binding_name) == 0) return
@@ -1224,7 +1226,7 @@ contains
             call refuse_unresolved(query, &
                 'implementation procedure signature is unresolved')
         end if
-        call check_pass_compatibility(query, hierarchy)
+        call check_pass_compatibility(arena, query, hierarchy)
         if (.not. query%is_signature_resolved) return
         if (query%is_incompatible_pass) return
         if (query%is_refused .or. query%is_unresolved) return
@@ -2025,6 +2027,7 @@ contains
         query%arm_source_column = arm%source_column
         query%arm_entry_node_index = arm%body_entry_node_index
         query%arm_exit_node_index = arm%body_exit_node_index
+        query%dispatch_boundary_known = arm%dispatch_boundary_known
         query%selector_name = arm%selector_name
         query%guard_type_name = arm%concrete_type_name
         query%declared_type_name = arm%declared_type_name
@@ -2080,10 +2083,13 @@ contains
         end if
     end subroutine classify_receiver_storage
 
-    subroutine check_pass_compatibility(query, hierarchy)
+    subroutine check_pass_compatibility(arena, query, hierarchy)
+        type(ast_arena_t), intent(in) :: arena
         type(select_type_dispatch_query_t), intent(inout) :: query
         type(binding_hierarchy_query_t), intent(in) :: hierarchy
         character(len=:), allocatable :: passed_type, concrete_name
+        integer :: passed_type_index
+        logical :: passed_type_compatible
 
         if (.not. hierarchy%pass_arg) return
         if (.not. hierarchy%implementation_signature_resolved .or. &
@@ -2095,10 +2101,17 @@ contains
         passed_type = normalized_pass_type( &
             hierarchy%implementation_passed_object_type)
         concrete_name = to_lower(trim(query%concrete_type_name))
-        if (len_trim(passed_type) == 0 .or. &
-            .not. same_name(passed_type, concrete_name)) then
+        passed_type_index = find_derived_type_by_name_local(arena, passed_type)
+        passed_type_compatible = same_name(passed_type, concrete_name)
+        if (.not. passed_type_compatible .and. passed_type_index > 0 .and. &
+                query%concrete_type_index > 0) then
+            passed_type_compatible = type_extends(arena, &
+                query%concrete_type_index, passed_type_index)
+        end if
+        if (len_trim(passed_type) == 0 .or. .not. passed_type_compatible) then
             query%is_incompatible_pass = .true.
-            call refuse(query, 'implementation PASS type does not match guard')
+            call refuse(query, &
+                'implementation PASS type is outside guard hierarchy')
         end if
         if (query%implementation_pass_position > query%signature%dummy_count) then
             query%is_incompatible_pass = .true.

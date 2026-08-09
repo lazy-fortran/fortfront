@@ -377,7 +377,11 @@ end subroutine
   `CLASS IS` arm. It returns selector and guard identities, the concrete and
   declaring types, inherited status, binding and implementation nodes, PASS or
   NOPASS metadata, and the implementation's ordered `signature` facts. Arm
-  body and source boundaries remain available alongside the call location.
+  body and source boundaries remain available alongside the call location;
+  `dispatch_boundary_known` copies the existing SELECT TYPE arm boundary fact.
+  An inherited implementation is accepted when its passed-object type is an
+  ancestor of the concrete guard type, while an unresolved hierarchy or
+  ownership-changing selector returns no implementation target.
   `is_refused` and `is_unresolved` retain explicit reasons for `CLASS DEFAULT`,
   deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
   dynamic, array, and ownership-changing cases. The query requires the call
