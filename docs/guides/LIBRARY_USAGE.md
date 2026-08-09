@@ -483,6 +483,14 @@ guard has narrowed the receiver. It enumerates every same-arena specific in
 specific matches every supplied actual by semantic type, kind, and rank; the
 selected candidate and signature are then copied to the top-level result.
 
+The actual list is available for both an explicit `CALL` and a function
+reference represented by `call_or_subscript_node`. Consequently an expression
+such as `value = object%apply(x + 1)` can resolve when the specific signature
+proves a scalar `REAL(8)` dummy and result; `query_resolved_type` reports the
+same exact category, kind, and rank for the arithmetic actual. This is still
+an exact fact query: unknown kinds or ranks, implicit conversions, aliases,
+dynamic or ambiguous dispatch, and unsupported ownership remain refused.
+
 The query reports `is_ambiguous` for multiple exact specifics and retains
 `is_unresolved`/`is_refused` with a reason for zero matches, missing
 implementations, deferred or unresolved bindings, dynamic or array receivers,
@@ -556,7 +564,9 @@ The annotation covers literals, declaration and identifier references, unary
 and binary expressions, function results, intrinsic calls whose result kind is
 recorded, and component references whose declaration is visible in the arena.
 Mixed numeric expressions use Fortran category promotion while preserving the
-resolved real or complex operand kind. The query itself reads semantic metadata;
+resolved real or complex operand kind, including a scalar `REAL(8)` expression
+formed from a `REAL(8)` identifier and an integer literal. The query itself
+reads semantic metadata;
 it does not parse source text. If compiler options disable semantic analysis,
 exact type queries are unavailable.
 

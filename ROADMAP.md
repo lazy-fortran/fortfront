@@ -104,6 +104,19 @@ and ownership boundaries remain refusals. The independent GNU runtime/API
 oracle is `test/api/test_select_type_generic_pass_query.f90`, backed by
 `examples/f90/select_type_generic_pass_query.f90`.
 
+### SELECT TYPE generic function-reference facts (2026-08-09)
+
+`query_select_type_generic_dispatch` now collects actual arguments from both
+explicit `CALL` nodes and function-reference `call_or_subscript_node` nodes.
+This permits an exact type-bound generic function reference such as
+`value = object%apply(x + 1)` to select a specific whose scalar `REAL(8)`
+dummy and result facts are both resolved. The matcher still requires known
+semantic category, exact kind, and rank; it does not introduce conversions or
+guess through aliases, dynamic/ambiguous dispatch, unsupported kinds/ranks, or
+ownership and global-state boundaries. The independent GNU runtime/API oracle
+is `test/api/test_select_type_real8_expression_query.f90`, backed by
+`examples/f90/select_type_real8_expression_query.f90`.
+
 ### Abstract SELECT TYPE target boundary (2026-08-09)
 
 `query_select_type_dispatch` now treats an abstract `CLASS IS` guard as an
