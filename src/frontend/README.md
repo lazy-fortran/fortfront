@@ -406,6 +406,22 @@ end subroutine
   is scalar. `rank=-1` means that rank was not proved. External, generic,
   ambiguous, NULL, and unresolved targets leave `signature%found` false rather
   than manufacturing an interface.
+- **Bounded procedure-pointer state query**:
+  `query_procedure_pointer_state` recognizes unary `ASSOCIATED(pointer)` and
+  single-pointer `NULLIFY(pointer)` operations. A direct `NULLIFY` is a known
+  disassociation transition. A unary `ASSOCIATED` result is `state_known` only
+  when one direct same-scope pointer assignment and at most one direct
+  `NULLIFY` precede the observation without nested mutation; the result then
+  carries the assignment/nullify node identities and `is_associated` value.
+  Reassignment, branch-local or indirect mutation, global mutable state,
+  invalid arity, component pointers, non-procedure pointers, and unresolved
+  targets remain explicit `is_refused`/`is_unresolved` facts through the
+  corresponding boundary flags.
+  The two-argument `ASSOCIATED` form is recognized but refusal-only, so a
+  consumer never guesses target identity. See
+  `examples/f90/procedure_pointer_association_query.f90` and
+  `test/api/test_procedure_pointer_state_query.f90` for the GNU runtime and
+  expected-facts contract.
 - **SELECT RANK arm query**: `query_control_statement` now returns one
   `select_rank_arm_query_t` per explicit, `RANK (*)`, or `RANK DEFAULT` arm.
   Each record preserves the selector and declaration identity, selected rank,

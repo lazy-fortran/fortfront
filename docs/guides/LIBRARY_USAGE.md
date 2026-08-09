@@ -212,6 +212,28 @@ if (bounds%found) print *, bounds%lower_bound_node_index
 indices for explicit ranges. These read-only records are the stable boundary
 for consumers that simplify shapes or loop bounds.
 
+## Procedure-pointer ASSOCIATED and NULLIFY state
+
+`query_procedure_pointer_state(arena, node_index)` recognizes a unary
+`ASSOCIATED(pointer)` expression or a `NULLIFY(pointer)` statement when the
+operand resolves to a declared procedure pointer. A direct single-pointer
+`NULLIFY` is a known disassociation transition. The unary `ASSOCIATED` result
+sets `state_known` only for one direct same-scope pointer assignment, with at
+most one direct `NULLIFY` before the observation and no nested mutation; its
+`is_associated` value and source assignment/nullify node identities are then
+safe for a backend to consume.
+
+The query is deliberately refusal-first. Reassignment, branch-local or
+indirect mutation, global mutable state, control-flow observations, unresolved
+targets, component pointers, non-procedure pointers, invalid arity, and the
+two-argument `ASSOCIATED` form set `is_refused`/`is_unresolved` and the
+corresponding boundary flags. `found` means that the source operation was
+recognized; a consumer must also require `state_known` before using the state.
+See
+`examples/f90/procedure_pointer_association_query.f90` and
+`test/api/test_procedure_pointer_state_query.f90` for the GNU runtime and
+independent expected-facts oracle.
+
 ## SELECT TYPE associate selectors
 
 `query_control_statement` exposes `select_type_arm_query_t` records for each

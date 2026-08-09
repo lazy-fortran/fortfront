@@ -101,6 +101,7 @@ module frontend_compiler_queries
     public :: query_array_slice, query_array_bounds, query_range_expression, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify
+    public :: procedure_pointer_state_query_t, query_procedure_pointer_state
     public :: procedure_target_query_t, query_procedure_target
     public :: procedure_callback_target_query_t, procedure_callback_flow_query_t
     public :: query_procedure_callback_flow, query_procedure_pointer_callback_flow
@@ -397,6 +398,43 @@ module frontend_compiler_queries
         logical :: found = .false.
         integer, allocatable :: pointer_node_indices(:)
     end type nullify_query_t
+
+    type :: procedure_pointer_state_query_t
+        !! One bounded ASSOCIATED/NULLIFY fact for a procedure pointer.
+        !!
+        !! FOUND identifies the source operation.  STATE_KNOWN is set only
+        !! for a direct NULLIFY of one procedure pointer, or for a unary
+        !! ASSOCIATED test whose state is fixed by one direct assignment and
+        !! at most one direct NULLIFY before the test.  Branch-local,
+        !! reassigned, indirect, ambiguous, and otherwise flow-sensitive
+        !! callbacks remain explicit refusal facts.
+        logical :: found = .false.
+        logical :: is_associated_test = .false.
+        logical :: is_nullify = .false.
+        logical :: state_known = .false.
+        logical :: is_associated = .false.
+        logical :: is_refused = .false.
+        logical :: is_unresolved = .false.
+        logical :: has_invalid_arity = .false.
+        logical :: has_second_argument = .false.
+        logical :: has_multiple_pointers = .false.
+        logical :: has_non_identifier_pointer = .false.
+        logical :: has_non_procedure_pointer = .false.
+        logical :: has_reassignment = .false.
+        logical :: has_null_assignment = .false.
+        logical :: has_nullify = .false.
+        logical :: has_flow_sensitive_state = .false.
+        logical :: has_control_flow_boundary = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_target = .false.
+        integer :: observation_node_index = 0
+        integer :: pointer_node_index = 0
+        integer :: pointer_declaration_index = 0
+        integer :: assignment_node_index = 0
+        integer :: nullify_node_index = 0
+        integer :: scope_node_index = 0
+        character(len=:), allocatable :: pointer_name
+    end type procedure_pointer_state_query_t
 
     ! Resolved actual-to-formal call facts.  The result is ordered by the
     ! callee's formal parameter list, so an omitted optional dummy is present
@@ -2020,6 +2058,214 @@ contains
             end if
         end select
     end function query_nullify
+
+    function query_procedure_pointer_state(arena, node_index) result(query)
+        !! Return one bounded procedure-pointer ASSOCIATED/NULLIFY fact.
+        !!
+        !! ASSOCIATED is intentionally limited to its unary form.  The
+        !! associated state is proved only from one direct same-scope pointer
+        !! assignment, with at most one direct NULLIFY before the observation,
+        !! and no nested mutation.  This is a source-order fact, not a general
+        !! data-flow analysis.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_pointer_state_query_t) :: query
+        type(declaration_binding_t) :: pointer_binding
+        type(declaration_binding_t) :: operation_binding
+        type(declaration_query_t) :: pointer_declaration
+        type(procedure_target_query_t) :: target
+        type(storage_query_t) :: pointer_storage
+        character(len=:), allocatable :: error_msg, name
+        integer, allocatable :: scope_indices(:)
+        integer :: observation_statement
+        integer :: assignment_count, assignment_index
+        integer :: nullify_count, nullify_index
+        logical :: is_associated_node
+
+        call initialize_procedure_pointer_state_query(query)
+        if (.not. arena%has_node_at(node_index)) return
+
+        is_associated_node = .false.
+        select type (node => arena%entries(node_index)%node)
+            type is (call_or_subscript_node)
+            if (node%is_array_access) return
+            if (.not. allocated(node%name)) return
+            if (lower_text(trim(node%name)) /= 'associated') return
+            if (.not. node%is_intrinsic) return
+            call resolve_identifier_binding(arena, node_index, operation_binding, &
+                error_msg)
+            if (operation_binding%found) return
+            query%found = .true.
+            query%is_associated_test = .true.
+            query%observation_node_index = node_index
+            is_associated_node = .true.
+            if (.not. allocated(node%arg_indices)) then
+                query%has_invalid_arity = .true.
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
+            if (size(node%arg_indices) /= 1) then
+                query%has_invalid_arity = .true.
+                query%has_second_argument = size(node%arg_indices) > 1
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
+            query%pointer_node_index = node%arg_indices(1)
+            type is (nullify_node)
+            query%found = .true.
+            query%is_nullify = .true.
+            query%observation_node_index = node_index
+            if (.not. allocated(node%pointer_indices)) then
+                query%has_multiple_pointers = .true.
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
+            if (size(node%pointer_indices) /= 1) then
+                query%has_multiple_pointers = .true.
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
+            query%pointer_node_index = node%pointer_indices(1)
+        class default
+            return
+        end select
+
+        if (.not. is_identifier_at(arena, query%pointer_node_index)) then
+            query%has_non_identifier_pointer = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+
+        query%scope_node_index = find_enclosing_scope(arena, node_index)
+        if (query%scope_node_index <= 0) then
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        if (is_associated_node) then
+            call resolve_identifier_binding(arena, query%pointer_node_index, &
+                pointer_binding, error_msg)
+        else
+            call procedure_target_name_at(arena, query%pointer_node_index, name)
+            if (len_trim(name) == 0) then
+                query%is_refused = .true.
+                query%is_unresolved = .true.
+                return
+            end if
+            call resolve_name_in_scope(arena, query%scope_node_index, name, &
+                pointer_binding, error_msg)
+        end if
+        if (.not. pointer_binding%found) then
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        if (pointer_binding%binding_kind /= BINDING_DECLARATION) then
+            query%has_flow_sensitive_state = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        query%pointer_declaration_index = pointer_binding%declaration_node_index
+        query%pointer_name = pointer_binding%name
+        pointer_declaration = query_declaration(arena, &
+            query%pointer_declaration_index)
+        if (.not. is_procedure_pointer_declaration(pointer_declaration)) then
+            query%has_non_procedure_pointer = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        pointer_storage = query_storage(arena, query%pointer_declaration_index)
+        if (pointer_storage%is_module_state .or. pointer_storage%is_save_state .or. &
+            pointer_storage%is_common_state) then
+            query%has_global_mutable_state = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+
+        if (.not. is_associated_node) then
+            query%state_known = .true.
+            query%is_associated = .false.
+            query%is_unresolved = .false.
+            query%is_refused = .false.
+            return
+        end if
+
+        call direct_scope_statement_for_node(arena, node_index, &
+            query%scope_node_index, observation_statement)
+        if (observation_statement <= 0) then
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        if (is_pointer_state_control_statement(arena, observation_statement)) then
+            query%has_control_flow_boundary = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+
+        call get_scope_statement_indices(arena, query%scope_node_index, &
+            scope_indices)
+        call scan_pointer_state_mutations_before(arena, query%scope_node_index, &
+            query%pointer_declaration_index, query%pointer_name, scope_indices, &
+            observation_statement, assignment_count, assignment_index, &
+            nullify_count, nullify_index, query%has_flow_sensitive_state)
+        query%has_reassignment = assignment_count > 1
+        query%has_nullify = nullify_count > 0
+        if (assignment_count /= 1) then
+            query%has_flow_sensitive_state = .true.
+        end if
+        if (nullify_count > 1) then
+            query%has_flow_sensitive_state = .true.
+        end if
+        if (assignment_count /= 1 .or. nullify_count > 1 .or. &
+            query%has_flow_sensitive_state) then
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+
+        target = query_procedure_target(arena, assignment_index)
+        if (.not. target%found) then
+            query%has_unresolved_target = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+        query%assignment_node_index = assignment_index
+        if (target%is_null) then
+            query%has_null_assignment = .true.
+        else if (.not. target%is_resolved) then
+            query%has_unresolved_target = .true.
+            query%is_refused = .true.
+            query%is_unresolved = .true.
+            return
+        end if
+
+        if (nullify_count == 1) then
+            if (index_precedes(scope_indices, assignment_index, nullify_index)) then
+                query%nullify_node_index = nullify_index
+                query%state_known = .true.
+                query%is_associated = .false.
+            else
+                query%state_known = .true.
+                query%is_associated = .not. target%is_null
+            end if
+        else
+            query%state_known = .true.
+            query%is_associated = .not. target%is_null
+        end if
+        query%is_unresolved = .false.
+        query%is_refused = .false.
+    end function query_procedure_pointer_state
 
     function query_call_arguments(arena, call_node_index) result(query)
         !! Resolve a same-arena procedure call into formal-ordered bindings.
@@ -4879,6 +5125,12 @@ contains
         allocate (query%targets(0))
     end subroutine initialize_procedure_callback_flow_query
 
+    subroutine initialize_procedure_pointer_state_query(query)
+        type(procedure_pointer_state_query_t), intent(out) :: query
+
+        call set_empty(query%pointer_name)
+    end subroutine initialize_procedure_pointer_state_query
+
     logical function node_is_descendant_of(arena, node_index, roots) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index, roots(:)
@@ -4938,6 +5190,104 @@ contains
             end if
         end do
     end function nullify_touches_pointer
+
+    logical function is_pointer_state_control_statement(arena, node_index) &
+            result(is_control)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_control = .false.
+        if (.not. arena%has_node_at(node_index)) return
+        select type (node => arena%entries(node_index)%node)
+            type is (if_node)
+            is_control = .true.
+            type is (select_case_node)
+            is_control = .true.
+            type is (select_type_node)
+            is_control = .true.
+            type is (do_loop_node)
+            is_control = .true.
+            type is (do_while_node)
+            is_control = .true.
+            type is (forall_node)
+            is_control = .true.
+            type is (where_node)
+            is_control = .true.
+            type is (where_stmt_node)
+            is_control = .true.
+        class default
+        end select
+    end function is_pointer_state_control_statement
+
+    subroutine scan_pointer_state_mutations_before(arena, scope_index, &
+            declaration_index, pointer_name, scope_indices, observation_statement, &
+            assignment_count, assignment_index, nullify_count, nullify_index, &
+            has_non_direct_mutation)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index, declaration_index
+        character(len=*), intent(in) :: pointer_name
+        integer, intent(in) :: scope_indices(:), observation_statement
+        integer, intent(out) :: assignment_count, assignment_index
+        integer, intent(out) :: nullify_count, nullify_index
+        logical, intent(out) :: has_non_direct_mutation
+        type(pointer_assignment_query_t) :: assignment
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg, mutation_name
+        integer :: i, j, statement_index
+        logical :: matches
+
+        assignment_count = 0
+        assignment_index = 0
+        nullify_count = 0
+        nullify_index = 0
+        has_non_direct_mutation = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            call direct_scope_statement_for_node(arena, i, scope_index, &
+                statement_index)
+            if (statement_index <= 0) cycle
+            if (.not. index_precedes(scope_indices, statement_index, &
+                observation_statement)) cycle
+
+            select type (node => arena%entries(i)%node)
+                type is (pointer_assignment_node)
+                assignment = query_pointer_assignment(arena, i)
+                if (.not. assignment%found) cycle
+                call resolve_identifier_binding(arena, &
+                    assignment%pointer_node_index, binding, error_msg)
+                matches = .false.
+                if (binding%found) then
+                    if (binding%declaration_node_index == declaration_index) then
+                        matches = same_name(binding%name, pointer_name)
+                    end if
+                end if
+                if (.not. matches) cycle
+                assignment_count = assignment_count + 1
+                if (assignment_index == 0) assignment_index = i
+                if (.not. index_in_list(scope_indices, i)) then
+                    has_non_direct_mutation = .true.
+                end if
+                type is (nullify_node)
+                if (.not. allocated(node%pointer_indices)) cycle
+                do j = 1, size(node%pointer_indices)
+                    call procedure_target_name_at(arena, node%pointer_indices(j), &
+                        mutation_name)
+                    call resolve_name_in_scope(arena, scope_index, mutation_name, &
+                        binding, error_msg)
+                    if (.not. binding%found) cycle
+                    if (binding%declaration_node_index /= declaration_index) cycle
+                    if (.not. same_name(binding%name, pointer_name)) cycle
+                    nullify_count = nullify_count + 1
+                    nullify_index = i
+                    if (.not. index_in_list(scope_indices, i)) then
+                        has_non_direct_mutation = .true.
+                    end if
+                    exit
+                end do
+            class default
+            end select
+        end do
+    end subroutine scan_pointer_state_mutations_before
 
     subroutine detect_callback_branch_call(arena, body_indices, pointer_name, query)
         type(ast_arena_t), intent(in) :: arena
