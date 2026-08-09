@@ -78,6 +78,7 @@ module fortfront_compiler
         DIAGNOSTIC_CODE_PARSER, DIAGNOSTIC_CODE_SEMANTIC
     use frontend_compiler_io_queries
     use frontend_compiler_control_queries
+    use frontend_compiler_select_type_queries
     use frontend_compiler_branch_queries
     use frontend_compiler_node_queries, only: is_declaration_node, &
         is_derived_type_node, &

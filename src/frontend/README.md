@@ -279,6 +279,16 @@ end subroutine
   implementation, PASS, interface, and concrete descendant dispatch targets;
   abstract descendants are excluded even when they provide a concrete
   binding.
+  `query_select_type_owned_array(arena, arm_node_index)` provides the bounded
+  `CLASS IS` alternative for a local `STORAGE_OWNED` allocatable
+  `class(abstract_type)` array. A resolved result carries the selector
+  declaration identity, positive rank, abstract declared type, and exact
+  declared/dynamic type indices and names for the concrete guard type. It
+  refuses `TYPE IS`, `CLASS DEFAULT`, abstract guards, associate or
+  pointer/TARGET aliases, borrowed dummies, module/SAVE/COMMON state, and
+  control-flow-nested arms; `has_unresolved_alias`,
+  `has_global_mutable_state`, and `has_control_flow_boundary` identify those
+  boundaries without exposing a guessed dynamic type.
   Explicit `CALL` statements with an indexed receiver, such as
   `call values(i)%run()`, retain the full receiver designator while resolving
   storage through its declared array object; no receiver AST node is invented.
@@ -401,6 +411,17 @@ end subroutine
   deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
   dynamic, array, and ownership-changing cases. The query requires the call
   to be the arm's sole direct statement and never invents a runtime target.
+- **Owned-array CLASS IS dynamic identity query**:
+  `query_select_type_owned_array(arena, arm_node_index)` proves one direct
+  `CLASS IS` arm's exact mapping from a local `STORAGE_OWNED` allocatable
+  `class(abstract_type)` array to its concrete guard type. The result carries
+  selector declaration identity, positive rank, declared and dynamic type
+  indices/names, and the selector storage record. `TYPE IS`, `CLASS DEFAULT`,
+  abstract guards, associate or pointer/TARGET aliases, borrowed dummies,
+  module/SAVE/COMMON state, and control-flow-nested arms remain refusal-only
+  boundaries through `has_unresolved_alias`,
+  `has_global_mutable_state`, and `has_control_flow_boundary`; no dynamic
+  type is guessed for them.
 - **SELECT TYPE type-bound generic dispatch query**:
   `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
   enumerates the specifics of a generic `CALL selector%generic(...)` after a
