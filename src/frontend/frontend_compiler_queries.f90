@@ -117,6 +117,7 @@ module frontend_compiler_queries
     public :: OWNERSHIP_EVENT_POINTER_ASSIGN, OWNERSHIP_EVENT_MOVE_ALLOC
     public :: OWNERSHIP_EVENT_NULLIFY, OWNERSHIP_EVENT_ASSIGNMENT
     public :: OWNERSHIP_ASSIGNMENT_NONE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
+    public :: OWNERSHIP_ASSIGNMENT_DEEP_DERIVED
     public :: OWNERSHIP_REALLOCATION_NONE, OWNERSHIP_REALLOCATION_POTENTIAL
     public :: ACCESS_READ, ACCESS_WRITE, ACCESS_READ_WRITE
     public :: POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE
@@ -150,6 +151,7 @@ module frontend_compiler_queries
 
     integer, parameter :: OWNERSHIP_ASSIGNMENT_NONE = 0
     integer, parameter :: OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE = 1
+    integer, parameter :: OWNERSHIP_ASSIGNMENT_DEEP_DERIVED = 2
     integer, parameter :: OWNERSHIP_REALLOCATION_NONE = 0
     integer, parameter :: OWNERSHIP_REALLOCATION_POTENTIAL = 1
 
@@ -626,6 +628,11 @@ module frontend_compiler_queries
         integer :: rhs_rank = -1
         integer :: assignment_kind = OWNERSHIP_ASSIGNMENT_NONE
         integer :: reallocation_kind = OWNERSHIP_REALLOCATION_NONE
+        logical :: is_deep_assignment = .false.
+        logical :: has_owned_components = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: is_refused = .false.
         logical :: is_potential_automatic_reallocation = .false.
         logical :: is_explicit_ownership_transfer = .false.
     end type ownership_event_query_t
@@ -7092,7 +7099,8 @@ contains
             is_ownership_event = allocated(node%name) .and. &
                 same_name(node%name, 'move_alloc')
             type is (assignment_node)
-            is_ownership_event = is_potential_reallocation_assignment(arena, index)
+            is_ownership_event = is_potential_reallocation_assignment(arena, index) .or. &
+                is_deep_assignment_event(arena, index)
         class default
         end select
     end function is_ownership_event
@@ -7122,10 +7130,129 @@ contains
         end select
     end function is_potential_reallocation_assignment
 
+    logical function is_deep_assignment_event(arena, index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        logical :: has_owned_components, has_global_state, has_alias
+
+        call classify_deep_assignment(arena, index, is_deep_assignment_event, &
+            has_owned_components, has_global_state, has_alias)
+    end function is_deep_assignment_event
+
+    subroutine classify_deep_assignment(arena, index, is_deep, &
+            has_owned_components, has_global_state, has_alias)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        logical, intent(out) :: is_deep, has_owned_components
+        logical, intent(out) :: has_global_state, has_alias
+        type(storage_query_t) :: lhs_storage, rhs_storage
+        character(len=:), allocatable :: lhs_type, rhs_type
+
+        is_deep = .false.
+        has_owned_components = .false.
+        has_global_state = .false.
+        has_alias = .false.
+        if (.not. arena%has_node_at(index)) return
+        select type (node => arena%entries(index)%node)
+            type is (assignment_node)
+            if (node%is_keyword_argument) return
+            call assignment_operand_storage(arena, node%target_index, lhs_storage)
+            call assignment_operand_storage(arena, node%value_index, rhs_storage)
+            if (.not. lhs_storage%found .or. .not. rhs_storage%found) return
+            has_global_state = storage_has_global_state(lhs_storage) .or. &
+                storage_has_global_state(rhs_storage)
+            has_alias = assignment_operand_has_unsafe_alias(arena, &
+                node%target_index, lhs_storage) .or. &
+                assignment_operand_has_unsafe_alias(arena, node%value_index, &
+                rhs_storage)
+            if (lhs_storage%is_array_element .or. lhs_storage%is_array_section .or. &
+                rhs_storage%is_array_element .or. rhs_storage%is_array_section) return
+            if (.not. lhs_storage%is_concrete_derived .or. &
+                .not. rhs_storage%is_concrete_derived) return
+            lhs_type = derived_type_name_from_spec(lhs_storage%type_name)
+            rhs_type = derived_type_name_from_spec(rhs_storage%type_name)
+            if (len_trim(lhs_type) == 0 .or. .not. same_name(lhs_type, rhs_type)) return
+            has_owned_components = derived_type_has_owned_components(arena, &
+                find_derived_type_by_name(arena, lhs_type), 0)
+            is_deep = has_owned_components
+        class default
+        end select
+    end subroutine classify_deep_assignment
+
+    subroutine assignment_operand_storage(arena, node_index, storage)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t), intent(out) :: storage
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+
+        storage = query_storage(arena, node_index)
+        if (storage%found) return
+        call resolve_identifier_binding(arena, node_index, binding, error_msg)
+        if (binding%found) storage = query_storage(arena, &
+            binding%declaration_node_index)
+    end subroutine assignment_operand_storage
+
+    logical function storage_has_global_state(storage)
+        type(storage_query_t), intent(in) :: storage
+
+        storage_has_global_state = storage%found .and. &
+            (storage%is_module_state .or. storage%is_save_state .or. &
+            storage%is_common_state)
+    end function storage_has_global_state
+
+    logical function assignment_operand_has_unsafe_alias(arena, node_index, storage)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t), intent(in) :: storage
+
+        assignment_operand_has_unsafe_alias = is_associate_selector_node(arena, &
+            node_index) .or. storage%is_pointer .or. storage%is_target
+    end function assignment_operand_has_unsafe_alias
+
+    recursive logical function derived_type_has_owned_components(arena, &
+            type_index, depth) result(has_owned)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: type_index, depth
+        type(derived_type_query_t) :: derived
+        type(declaration_query_t) :: component
+        integer :: i, nested_index, parent_index
+        character(len=:), allocatable :: component_type
+
+        has_owned = .false.
+        if (depth > arena%size) return
+        derived = query_derived_type(arena, type_index)
+        if (.not. derived%found) return
+        do i = 1, size(derived%component_indices)
+            component = query_declaration(arena, derived%component_indices(i))
+            if (.not. component%found) cycle
+            if (component%is_allocatable) then
+                has_owned = .true.
+                return
+            end if
+            if (component%is_pointer .or. &
+                .not. is_derived_type_spec(component%type_name)) cycle
+            component_type = derived_type_name_from_spec(component%type_name)
+            nested_index = find_derived_type_by_name(arena, component_type)
+            if (nested_index > 0) then
+                if (derived_type_has_owned_components(arena, nested_index, &
+                    depth + 1)) then
+                    has_owned = .true.
+                    return
+                end if
+            end if
+        end do
+        if (len_trim(derived%extends_parent) == 0) return
+        parent_index = find_derived_type_by_name(arena, derived%extends_parent)
+        if (parent_index > 0) has_owned = &
+            derived_type_has_owned_components(arena, parent_index, depth + 1)
+    end function derived_type_has_owned_components
+
     function ownership_event(arena, index) result(event)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(ownership_event_query_t) :: event
+        logical :: is_deep, has_owned_components, has_global_state, has_alias
 
         allocate (event%object_indices(0))
         allocate (event%shape_expr_indices(0))
@@ -7190,10 +7317,21 @@ contains
                 end if
             end if
             type is (assignment_node)
+            call classify_deep_assignment(arena, index, is_deep, &
+                has_owned_components, has_global_state, has_alias)
             event%event_kind = OWNERSHIP_EVENT_ASSIGNMENT
-            event%assignment_kind = OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
-            event%reallocation_kind = OWNERSHIP_REALLOCATION_POTENTIAL
-            event%is_potential_automatic_reallocation = .true.
+            event%is_deep_assignment = is_deep
+            event%has_owned_components = has_owned_components
+            event%has_global_mutable_state = has_global_state
+            event%has_unresolved_alias = has_alias
+            event%is_refused = has_global_state .or. has_alias
+            if (is_potential_reallocation_assignment(arena, index)) then
+                event%assignment_kind = OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
+                event%reallocation_kind = OWNERSHIP_REALLOCATION_POTENTIAL
+                event%is_potential_automatic_reallocation = .true.
+            else if (is_deep) then
+                event%assignment_kind = OWNERSHIP_ASSIGNMENT_DEEP_DERIVED
+            end if
             event%source_path = ownership_path(arena, node%value_index)
             event%destination_path = ownership_path(arena, node%target_index)
             event%owner_path = event%destination_path

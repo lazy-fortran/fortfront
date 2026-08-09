@@ -353,6 +353,30 @@ case. Factories, dynamic polymorphic sources, repeated acquisition, and
 aliases remain explicit unknown or refusal facts rather than being guessed;
 use `source_classification` and the corresponding `is_*` flags to branch.
 
+## Deep derived assignment ownership facts
+
+`query_ownership_events(arena, scope_index)` includes intrinsic assignments of
+whole, statically concrete derived objects when the declared type owns an
+allocatable component, including one nested in another derived component or
+inherited from a parent type. Such an event has
+`is_deep_assignment=.true.`, `has_owned_components=.true.`, and
+`assignment_kind == OWNERSHIP_ASSIGNMENT_DEEP_DERIVED`. Its source and
+destination operand paths are available through `rhs_owner_path` and
+`lhs_owner_path`; `reallocation_kind` remains
+`OWNERSHIP_REALLOCATION_NONE` unless the destination itself is allocatable.
+
+The query does not guess across mutable global state or possible aliases.
+Assignments involving module, `SAVE`, or `COMMON` state set
+`has_global_mutable_state` and `is_refused`; pointer, `TARGET`, and
+`ASSOCIATE`-selector operands set `has_unresolved_alias` and `is_refused`.
+The event remains visible so a consumer can distinguish a known deep-copy
+operation from a transformation refusal. Polymorphic, array-section, and
+unresolved operands are not classified as deep assignments.
+
+See `examples/f90/ownership_deep_assignment_facts.f90` and
+`test/api/test_ownership_deep_assignment.f90` for the GNU syntax and
+independent expected-facts oracle.
+
 ## ASSOCIATE selector facts
 
 `query_associate_selectors(arena, associate_node_index)` returns facts for the
