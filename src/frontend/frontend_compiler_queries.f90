@@ -709,6 +709,10 @@ module frontend_compiler_queries
         ! through an abstract intermediate type.
         integer, allocatable :: dispatch_target_declaring_type_indices(:)
         logical, allocatable :: dispatch_target_is_inherited(:)
+        ! Parallel to the target provenance arrays.  This is the number of
+        ! EXTENDS links from the concrete target to the effective declaring
+        ! type; zero denotes a local implementation.
+        integer, allocatable :: dispatch_target_inheritance_depth(:)
     end type binding_resolution_query_t
 
     type :: binding_hierarchy_entry_t
@@ -823,6 +827,7 @@ module frontend_compiler_queries
         ! Parallel provenance facts for the effective binding declaration.
         integer, allocatable :: dispatch_target_declaring_type_indices(:)
         logical, allocatable :: dispatch_target_is_inherited(:)
+        integer, allocatable :: dispatch_target_inheritance_depth(:)
     end type type_bound_call_query_t
 
     type :: global_reference_query_t
@@ -6231,6 +6236,8 @@ contains
                 resolution%dispatch_target_declaring_type_indices
             query%dispatch_target_is_inherited = &
                 resolution%dispatch_target_is_inherited
+            query%dispatch_target_inheritance_depth = &
+                resolution%dispatch_target_inheritance_depth
         end if
         query%is_resolved = .not. query%is_generic .and. &
             .not. query%is_ambiguous .and. .not. query%is_deferred .and. &
@@ -6736,6 +6743,7 @@ contains
         allocate (query%dispatch_target_signature_resolved(0))
         allocate (query%dispatch_target_declaring_type_indices(0))
         allocate (query%dispatch_target_is_inherited(0))
+        allocate (query%dispatch_target_inheritance_depth(0))
     end subroutine initialize_type_bound_call_query
 
     subroutine initialize_component_path_query(query)
@@ -7050,6 +7058,7 @@ contains
         allocate (query%dispatch_target_signature_resolved(0))
         allocate (query%dispatch_target_declaring_type_indices(0))
         allocate (query%dispatch_target_is_inherited(0))
+        allocate (query%dispatch_target_inheritance_depth(0))
     end subroutine initialize_binding_resolution
 
     recursive subroutine resolve_binding_base(arena, type_index, name, query)
@@ -7150,7 +7159,56 @@ contains
         if (n > 0) logical_tmp(:n) = query%dispatch_target_is_inherited
         logical_tmp(n + 1) = target%is_inherited
         call move_alloc(logical_tmp, query%dispatch_target_is_inherited)
+
+        allocate (int_tmp(n + 1))
+        if (n > 0) int_tmp(:n) = query%dispatch_target_inheritance_depth
+        int_tmp(n + 1) = inheritance_distance(arena, type_index, &
+            target%declaring_type_index)
+        call move_alloc(int_tmp, query%dispatch_target_inheritance_depth)
     end subroutine append_dispatch_target
+
+    integer function inheritance_distance(arena, derived_type_index, &
+            declaring_type_index) result(distance)
+        !! Return the source-backed EXTENDS depth to an effective binding.
+        !!
+        !! A negative result means that the declaring type is not reachable
+        !! through the queried type's parent chain.  Dispatch targets are
+        !! appended only after normal binding resolution, so this should not
+        !! occur for a resolved target; retaining the sentinel keeps the
+        !! provenance explicit if the arena is incomplete.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: derived_type_index
+        integer, intent(in) :: declaring_type_index
+        type(derived_type_query_t) :: derived
+        integer :: current_index, parent_index
+
+        distance = -1
+        if (.not. arena%has_node_at(derived_type_index)) return
+        if (.not. arena%has_node_at(declaring_type_index)) return
+
+        current_index = derived_type_index
+        distance = 0
+        do
+            if (current_index == declaring_type_index) return
+            if (distance >= arena%size) then
+                distance = -1
+                return
+            end if
+            derived = query_derived_type(arena, current_index)
+            if (.not. derived%found) then
+                distance = -1
+                return
+            end if
+            parent_index = find_derived_type_by_name(arena, &
+                derived%extends_parent)
+            if (parent_index <= 0) then
+                distance = -1
+                return
+            end if
+            current_index = parent_index
+            distance = distance + 1
+        end do
+    end function inheritance_distance
 
     subroutine resolve_dispatch_signature(arena, implementation, pass_arg, &
             binding_pass_name, pass_name, pass_position, passed_object_type, &

@@ -263,8 +263,15 @@ end subroutine
   `dispatch_target_declaring_type_indices` and
   `dispatch_target_is_inherited` facts. These identify the effective binding
   declaration when a concrete leaf inherits an implementation through an
-  abstract intermediate type; they do not add a target or resolve a deferred,
-  generic, ambiguous, unresolved, loop, ownership, or global-state case.
+  abstract intermediate type. The parallel
+  `dispatch_target_inheritance_depth` gives the number of `EXTENDS` links from
+  each concrete target to that declaration (zero for a local implementation),
+  so consumers can distinguish one-level and deeper inherited contracts without
+  reconstructing the parent chain. These facts do not add a target or resolve
+  a deferred, generic, ambiguous, unresolved, loop, ownership, alias, or
+  global-state case. See
+  `examples/f90/abstract_dispatch_depth_query.f90` and
+  `test/api/test_abstract_dispatch_depth_query.f90` for an independent oracle.
   `query_type_binding_hierarchy` is the bounded alternative for one declared
   type: it reports the local-to-parent chain and effective binding metadata,
   without scanning descendants or guessing an ambiguous, deferred, or
