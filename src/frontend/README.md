@@ -475,19 +475,23 @@ end subroutine
   ownership-changing cases remain explicit refusals without a guessed target.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
-  composes one direct `CALL selector%binding(...)` in a concrete `TYPE IS` or
-  `CLASS IS` arm. It returns selector and guard identities, the concrete and
-  declaring types, inherited status, binding and implementation nodes, PASS or
-  NOPASS metadata, and the implementation's ordered `signature` facts. Arm
-  body and source boundaries remain available alongside the call location;
-  `dispatch_boundary_known` copies the existing SELECT TYPE arm boundary fact.
+  composes one direct `CALL selector%binding(...)` or one type-bound function
+  reference that is the complete right hand side of the arm's sole assignment
+  in a concrete `TYPE IS` or `CLASS IS` arm. The result marks the latter form
+  with `is_function_reference`. It returns selector and guard identities, the
+  concrete and declaring types, inherited status, binding and implementation
+  nodes, PASS or NOPASS metadata, and the implementation's ordered `signature`
+  facts. Arm body and source boundaries remain available alongside the call
+  location; `dispatch_boundary_known` copies the existing SELECT TYPE arm
+  boundary fact.
   An inherited implementation is accepted when its passed-object type is an
   ancestor of the concrete guard type, while an unresolved hierarchy or
   ownership-changing selector returns no implementation target.
   `is_refused` and `is_unresolved` retain explicit reasons for `CLASS DEFAULT`,
   deferred, generic, ambiguous, unresolved, incompatible-PASS, nested,
-  dynamic, array, and ownership-changing cases. The query requires the call
-  to be the arm's sole direct statement and never invents a runtime target.
+  dynamic, array, and ownership-changing cases. Function references nested in
+  arithmetic or another call, array subscripts, and unresolved dynamic
+  dispatch remain refusals; the query never invents a runtime target.
 - **Owned-array CLASS IS dynamic identity query**:
   `query_select_type_owned_array(arena, arm_node_index)` proves one direct
   `CLASS IS` arm's exact mapping from a local `STORAGE_OWNED` allocatable
