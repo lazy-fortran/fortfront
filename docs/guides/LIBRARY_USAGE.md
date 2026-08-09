@@ -289,6 +289,16 @@ control-flow cases remain explicit refusals. See
 `test/api/test_owned_array_class_is_generic_dispatch.f90` for the independent
 oracle.
 
+For an owned-array generic, PASS metadata is resolved per specific rather than
+copied from the generic binding. Each candidate reports
+`pass_metadata_resolved`, `pass_arg`, `pass_name`, and `pass_position`; the
+selected candidate's facts are repeated as `selected_pass_*`. This preserves a
+valid binding such as `PASS(self)` when the passed-object dummy is not the
+first procedure dummy. The existing top-level `pass_*` fields continue to
+describe the generic binding; consumers needing the callable specific should
+use `selected_pass_*`. Missing specific PASS metadata remains an unresolved
+candidate, and no target is selected through that boundary.
+
 ## SELECT TYPE component paths
 
 `query_select_type_component_path(arena, arm_node_index, component_node_index)`
