@@ -10,19 +10,16 @@ module type_bound_generic_dispatch_ambiguous
 
 contains
 
-    subroutine choose_left(value)
-        integer, intent(in) :: value
+    subroutine choose_left()
     end subroutine choose_left
 
-    subroutine choose_right(value)
-        integer, intent(in) :: value
+    subroutine choose_right()
     end subroutine choose_right
 
-    subroutine ambiguous_call(object, value)
+    subroutine ambiguous_call(object)
         type(ambiguous_t), intent(inout) :: object
-        integer, intent(in) :: value
 
-        call object%choose(value)
+        call object%choose()
     end subroutine ambiguous_call
 
 end module type_bound_generic_dispatch_ambiguous

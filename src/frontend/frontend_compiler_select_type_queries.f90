@@ -2627,7 +2627,6 @@ contains
             query%receiver_storage%is_save_state .or. &
             query%receiver_storage%is_common_state
         query%has_unsupported_ownership = &
-            query%receiver_storage%storage_class /= STORAGE_LOCAL .or. &
             query%receiver_storage%is_component .or. &
             query%receiver_storage%is_allocatable .or. &
             query%receiver_storage%is_pointer
@@ -2695,10 +2694,10 @@ contains
         type(type_binding_query_t), intent(in) :: binding
         type(type_bound_generic_dispatch_query_t), intent(inout) :: query
         type(declaration_binding_t) :: candidate_binding
-        type(binding_hierarchy_query_t) :: specific_hierarchy
         character(len=:), allocatable :: error_msg
         integer, allocatable :: actual_indices(:)
         integer :: i, match_count, selected
+        logical :: pass_metadata_found
 
         if (.not. allocated(binding%generic_names) .or. &
                 size(binding%generic_names) == 0) then
@@ -2733,19 +2732,15 @@ contains
                 cycle
             end if
 
-            specific_hierarchy = query_type_binding_hierarchy(arena, &
-                declared_type_index, binding%generic_names(i))
-            if (.not. specific_hierarchy%found .or. &
-                    specific_hierarchy%is_deferred .or. &
-                    specific_hierarchy%is_ambiguous) then
+            call resolve_specific_pass_metadata(arena, declared_type_index, &
+                binding%generic_names(i), query%candidates(i)%pass_arg, &
+                query%candidates(i)%pass_name, pass_metadata_found)
+            if (.not. pass_metadata_found) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
-            query%candidates(i)%pass_metadata_resolved = &
-                specific_hierarchy%implementation_signature_resolved
-            query%candidates(i)%pass_arg = specific_hierarchy%pass_arg
-            query%candidates(i)%is_nopass = .not. specific_hierarchy%pass_arg
-            query%candidates(i)%pass_name = specific_hierarchy%pass_name
+            query%candidates(i)%is_nopass = .not. query%candidates(i)%pass_arg
+            query%candidates(i)%pass_metadata_resolved = .true.
             if (.not. query%candidates(i)%pass_arg) then
                 query%candidates(i)%pass_position = 0
             else if (len_trim(query%candidates(i)%pass_name) == 0) then
@@ -2755,9 +2750,8 @@ contains
                     query%candidates(i)%signature, &
                     query%candidates(i)%pass_name)
             end if
-            if ((query%candidates(i)%pass_arg .and. &
-                    query%candidates(i)%pass_position <= 0) .or. &
-                    .not. query%candidates(i)%pass_metadata_resolved) then
+            if (query%candidates(i)%pass_arg .and. &
+                    query%candidates(i)%pass_position <= 0) then
                 query%candidates(i)%has_unknown_types = .true.
                 cycle
             end if
@@ -2794,6 +2788,44 @@ contains
             query%is_resolved = .true.
         end if
     end subroutine resolve_type_bound_generic_candidates
+
+    subroutine resolve_specific_pass_metadata(arena, derived_type_index, &
+            specific_name, pass_arg, pass_name, found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: derived_type_index
+        character(len=*), intent(in) :: specific_name
+        logical, intent(out) :: pass_arg, found
+        character(len=:), allocatable, intent(out) :: pass_name
+        type(derived_type_query_t) :: derived
+        type(type_binding_query_t) :: binding
+        integer :: current_index, parent_index, i, guard
+
+        pass_arg = .true.
+        found = .false.
+        call set_empty(pass_name)
+        current_index = derived_type_index
+        guard = 0
+        do while (current_index > 0 .and. arena%has_node_at(current_index))
+            derived = query_derived_type(arena, current_index)
+            if (.not. derived%found) return
+            do i = 1, size(derived%binding_indices)
+                binding = query_type_binding(arena, derived%binding_indices(i))
+                if (.not. binding%found .or. binding%is_generic) cycle
+                if (.not. same_name(binding%binding_name, specific_name)) cycle
+                if (binding%is_deferred) return
+                pass_arg = binding%pass_arg
+                pass_name = binding%pass_name
+                found = .true.
+                return
+            end do
+            parent_index = find_derived_type_by_name_local(arena, &
+                derived%extends_parent)
+            if (parent_index <= 0) return
+            current_index = parent_index
+            guard = guard + 1
+            if (guard > arena%size) return
+        end do
+    end subroutine resolve_specific_pass_metadata
 
     logical function generic_call_has_alias_boundary(arena, call_node_index) &
             result(has_alias)
