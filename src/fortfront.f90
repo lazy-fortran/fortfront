@@ -103,6 +103,8 @@ module fortfront
         procedure_callback_target_query_t, procedure_callback_flow_query_t, &
         query_procedure_callback_flow, query_procedure_pointer_callback_flow, &
         procedure_call_target_query_t, query_procedure_call_target, &
+        procedure_reassignment_call_query_t, query_procedure_reassignment_call, &
+        query_procedure_reassignment_call_into, &
         procedure_dummy_query_t, procedure_signature_query_t, &
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
         procedure_actual_argument_query_t, query_procedure_actual_argument, &

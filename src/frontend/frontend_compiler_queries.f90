@@ -6,7 +6,8 @@ module frontend_compiler_queries
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
         call_or_subscript_node, pointer_assignment_node, assignment_node
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node
+    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
+        forall_node, where_node, where_stmt_node
     use ast_nodes_associate, only: associate_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node
@@ -104,6 +105,9 @@ module frontend_compiler_queries
     public :: procedure_callback_target_query_t, procedure_callback_flow_query_t
     public :: query_procedure_callback_flow, query_procedure_pointer_callback_flow
     public :: procedure_call_target_query_t, query_procedure_call_target
+    public :: procedure_reassignment_call_query_t
+    public :: query_procedure_reassignment_call, &
+        query_procedure_reassignment_call_into
     public :: procedure_dummy_query_t, procedure_signature_query_t
     public :: query_procedure_signature
     public :: procedure_actual_argument_query_t
@@ -312,6 +316,38 @@ module frontend_compiler_queries
         logical :: has_reassignment = .false.
         type(procedure_signature_query_t) :: signature
     end type procedure_call_target_query_t
+
+    type :: procedure_reassignment_call_query_t
+        !! A deliberately narrow two-target procedure-pointer proof.
+        !!
+        !! FOUND means that CALL_NODE_INDEX is the only direct call through a
+        !! local procedure pointer in its scope, preceded by exactly two
+        !! direct same-scope assignments.  Both assignments resolve to fixed
+        !! same-arena scalar REAL(8) functions with the same one-argument
+        !! interface; the second target is the active call target.  All other
+        !! flow remains a refusal, including a third assignment, branches,
+        !! loops, NULL/NULLIFY, aliases, globals, and unresolved targets.
+        logical :: found = .false.
+        logical :: is_unresolved = .true.
+        logical :: is_refused = .false.
+        logical :: has_reassignment = .false.
+        logical :: has_branch = .false.
+        logical :: has_loop = .false.
+        logical :: has_null_assignment = .false.
+        logical :: has_nullify = .false.
+        logical :: has_alias = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_target = .false.
+        logical :: has_multiple_calls = .false.
+        integer :: call_node_index = 0
+        integer :: pointer_node_index = 0
+        integer :: pointer_declaration_index = 0
+        integer :: scope_node_index = 0
+        integer :: assignment_count = 0
+        character(len=:), allocatable :: pointer_name
+        type(procedure_target_query_t) :: first_target
+        type(procedure_target_query_t) :: second_target
+    end type procedure_reassignment_call_query_t
 
     type :: procedure_callback_target_query_t
         !! One ordered target in a branch-merged callback proof.
@@ -1667,6 +1703,112 @@ contains
         query%is_resolved = .true.
         query%is_unresolved = .false.
     end function query_procedure_call_target
+
+    function query_procedure_reassignment_call(arena, node_index) result(query)
+        !! Return the bounded two-target procedure-pointer proof.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_reassignment_call_query_t) :: query
+
+        call query_procedure_reassignment_call_into(arena, node_index, query)
+    end function query_procedure_reassignment_call
+
+    subroutine query_procedure_reassignment_call_into(arena, node_index, query)
+        !! Prove exactly two direct assignments followed by one direct call.
+        !!
+        !! This is intentionally separate from QUERY_PROCEDURE_CALL_TARGET:
+        !! its one-assignment contract and reassignment refusal remain stable
+        !! for existing consumers.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(procedure_reassignment_call_query_t), intent(out) :: query
+        type(declaration_binding_t) :: pointer_binding
+        type(declaration_query_t) :: pointer_declaration
+        character(len=:), allocatable :: call_name, error_msg
+        integer, allocatable :: scope_indices(:), assignments(:), ignored(:)
+        logical :: is_call, non_direct, has_nullify
+        integer :: call_statement, call_count
+        type(global_reference_query_t), allocatable :: globals(:)
+
+        call initialize_procedure_reassignment_call_query(query)
+        if (.not. arena%has_node_at(node_index)) return
+        call get_call_parts(arena, node_index, call_name, ignored, is_call)
+        if (.not. is_call .or. len_trim(call_name) == 0) return
+
+        query%call_node_index = node_index
+        query%pointer_node_index = node_index
+        query%scope_node_index = find_enclosing_scope(arena, node_index)
+        if (query%scope_node_index <= 0) return
+        call resolve_identifier_binding(arena, node_index, pointer_binding, &
+            error_msg)
+        if (.not. pointer_binding%found) return
+        pointer_declaration = query_declaration(arena, &
+            pointer_binding%declaration_node_index)
+        if (pointer_binding%binding_kind /= BINDING_DECLARATION .or. &
+            .not. is_procedure_pointer_declaration(pointer_declaration)) return
+        query%pointer_declaration_index = pointer_binding%declaration_node_index
+        query%pointer_name = pointer_binding%name
+
+        call get_scope_statement_indices(arena, query%scope_node_index, &
+            scope_indices)
+        call direct_scope_statement_for_node(arena, node_index, &
+            query%scope_node_index, call_statement)
+        if (call_statement <= 0) return
+        call collect_reassignment_mutations(arena, query%scope_node_index, &
+            query%pointer_declaration_index, query%pointer_name, &
+            scope_indices, assignments, non_direct, has_nullify)
+        query%assignment_count = size(assignments)
+        query%has_reassignment = query%assignment_count > 1
+        query%has_nullify = has_nullify
+        call scan_reassignment_flow(arena, query%scope_node_index, &
+            query%pointer_name, query%has_branch, query%has_loop, call_count)
+        query%has_multiple_calls = call_count > 1
+
+        if (size(assignments) == 2) then
+            query%first_target = query_procedure_target(arena, assignments(1))
+            query%second_target = query_procedure_target(arena, assignments(2))
+            if (query%first_target%is_null .or. query%second_target%is_null) then
+                query%has_null_assignment = .true.
+            end if
+            if (.not. query%first_target%is_resolved .or. &
+                .not. query%second_target%is_resolved) then
+                query%has_unresolved_target = .true.
+                query%has_alias = .not. query%has_null_assignment
+            end if
+            if (query%first_target%target_procedure_index > 0) then
+                globals = query_active_global_references(arena, &
+                    query%first_target%target_procedure_index)
+                if (size(globals) > 0) query%has_global_mutable_state = .true.
+            end if
+            if (query%second_target%target_procedure_index > 0) then
+                globals = query_active_global_references(arena, &
+                    query%second_target%target_procedure_index)
+                if (size(globals) > 0) query%has_global_mutable_state = .true.
+            end if
+        else if (size(assignments) > 0) then
+            query%has_unresolved_target = .true.
+        end if
+
+        if (size(assignments) == 2) then
+            if (.not. non_direct .and. .not. has_nullify .and. &
+                .not. query%has_branch .and. .not. query%has_loop .and. &
+                .not. query%has_multiple_calls .and. &
+                .not. query%has_global_mutable_state) then
+                if (index_precedes(scope_indices, assignments(1), call_statement) &
+                    .and. index_precedes(scope_indices, assignments(2), &
+                        call_statement)) then
+                    if (reassignment_target_is_supported(query%first_target) &
+                        .and. reassignment_target_is_supported( &
+                            query%second_target)) then
+                        query%found = .true.
+                        query%is_unresolved = .false.
+                        query%is_refused = .false.
+                    end if
+                end if
+            end if
+        end if
+        if (.not. query%found) query%is_refused = query%assignment_count > 0
+    end subroutine query_procedure_reassignment_call_into
 
     function query_procedure_callback_flow(arena, node_index) result(query)
         !! Prove one IF/ELSE procedure-pointer callback target set.
@@ -4722,6 +4864,14 @@ contains
         call initialize_procedure_signature_query(query%signature)
     end subroutine initialize_procedure_call_target_query
 
+    subroutine initialize_procedure_reassignment_call_query(query)
+        type(procedure_reassignment_call_query_t), intent(out) :: query
+
+        call set_empty(query%pointer_name)
+        call initialize_procedure_target_query(query%first_target)
+        call initialize_procedure_target_query(query%second_target)
+    end subroutine initialize_procedure_reassignment_call_query
+
     subroutine initialize_procedure_callback_flow_query(query)
         type(procedure_callback_flow_query_t), intent(out) :: query
 
@@ -4965,6 +5115,154 @@ contains
         end do
         has_reassignment = pointer_assignment_count > 1
     end subroutine find_pointer_mutations
+
+    subroutine collect_reassignment_mutations(arena, scope_index, &
+            declaration_index, pointer_name, scope_indices, assignments, &
+            has_non_direct_mutation, has_nullify)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index, declaration_index
+        character(len=*), intent(in) :: pointer_name
+        integer, intent(in) :: scope_indices(:)
+        integer, allocatable, intent(out) :: assignments(:)
+        logical, intent(out) :: has_non_direct_mutation, has_nullify
+        type(pointer_assignment_query_t) :: assignment
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg, mutation_name
+        integer :: i, j
+        logical :: matches
+
+        allocate (assignments(0))
+        has_non_direct_mutation = .false.
+        has_nullify = .false.
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (find_enclosing_scope(arena, i) /= scope_index) cycle
+            select type (node => arena%entries(i)%node)
+                type is (pointer_assignment_node)
+                assignment = query_pointer_assignment(arena, i)
+                if (.not. assignment%found) cycle
+                call resolve_identifier_binding(arena, assignment%pointer_node_index, &
+                    binding, error_msg)
+                matches = .false.
+                if (binding%found) then
+                    if (binding%declaration_node_index == declaration_index) then
+                        matches = same_name(binding%name, pointer_name)
+                    end if
+                end if
+                if (.not. matches) cycle
+                if (index_in_list(scope_indices, i)) then
+                    call append_reassignment_index(assignments, i)
+                else
+                    has_non_direct_mutation = .true.
+                end if
+                type is (nullify_node)
+                if (.not. allocated(node%pointer_indices)) cycle
+                do j = 1, size(node%pointer_indices)
+                    call procedure_target_name_at(arena, node%pointer_indices(j), &
+                        mutation_name)
+                    call resolve_name_in_scope(arena, scope_index, mutation_name, &
+                        binding, error_msg)
+                    if (binding%found) then
+                        if (binding%declaration_node_index == declaration_index) then
+                            if (same_name(binding%name, pointer_name)) then
+                                has_nullify = .true.
+                                exit
+                            end if
+                        end if
+                    end if
+                end do
+            class default
+            end select
+        end do
+    end subroutine collect_reassignment_mutations
+
+    subroutine scan_reassignment_flow(arena, scope_index, pointer_name, &
+            has_branch, has_loop, call_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        character(len=*), intent(in) :: pointer_name
+        logical, intent(out) :: has_branch, has_loop
+        integer, intent(out) :: call_count
+        character(len=:), allocatable :: name
+        integer, allocatable :: ignored(:)
+        logical :: is_call
+        integer :: i
+
+        has_branch = .false.
+        has_loop = .false.
+        call_count = 0
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            if (find_enclosing_scope(arena, i) /= scope_index) cycle
+            select type (node => arena%entries(i)%node)
+                type is (if_node)
+                has_branch = .true.
+                type is (select_case_node)
+                has_branch = .true.
+                type is (select_type_node)
+                has_branch = .true.
+                type is (where_node)
+                has_branch = .true.
+                type is (where_stmt_node)
+                has_branch = .true.
+                type is (forall_node)
+                has_branch = .true.
+                type is (do_loop_node)
+                has_loop = .true.
+                type is (do_while_node)
+                has_loop = .true.
+                class default
+            end select
+            call get_call_parts(arena, i, name, ignored, is_call)
+            if (is_call .and. same_name(name, pointer_name)) call_count = call_count + 1
+        end do
+    end subroutine scan_reassignment_flow
+
+    logical function reassignment_target_is_supported(target) result(supported)
+        type(procedure_target_query_t), intent(in) :: target
+        type(procedure_dummy_query_t) :: dummy
+
+        supported = .false.
+        if (.not. target%found) return
+        if (.not. target%is_resolved) return
+        if (target%binding_kind /= BINDING_FUNCTION) return
+        if (.not. target%signature%found) return
+        if (.not. target%signature%is_function) return
+        if (.not. target%signature%result_category_known) return
+        if (.not. same_name(target%signature%result_category, 'real')) return
+        if (.not. target%signature%result_kind_known) return
+        if (target%signature%result_kind_value /= 8) return
+        if (.not. target%signature%result_rank_known) return
+        if (target%signature%result_rank /= 0) return
+        if (target%signature%dummy_count /= 1) return
+        if (.not. allocated(target%signature%dummies)) return
+        if (size(target%signature%dummies) /= 1) return
+        dummy = target%signature%dummies(1)
+        if (.not. dummy%type_known) return
+        if (.not. dummy%category_known) return
+        if (.not. same_name(dummy%type_category, 'real')) return
+        if (.not. dummy%kind_known) return
+        if (dummy%kind_value /= 8) return
+        if (.not. dummy%rank_known) return
+        if (dummy%rank /= 0) return
+        if (.not. dummy%has_intent) return
+        if (.not. same_name(dummy%intent, 'in')) return
+        if (dummy%is_optional .or. dummy%is_value) return
+        supported = .true.
+    end function reassignment_target_is_supported
+
+    subroutine append_reassignment_index(values, value)
+        integer, allocatable, intent(inout) :: values(:)
+        integer, intent(in) :: value
+        integer, allocatable :: grown(:)
+        integer :: n
+
+        n = size(values)
+        allocate (grown(n + 1))
+        if (n > 0) grown(:n) = values
+        grown(n + 1) = value
+        call move_alloc(grown, values)
+    end subroutine append_reassignment_index
 
     logical function index_in_list(indices, value) result(found)
         integer, intent(in) :: indices(:), value
