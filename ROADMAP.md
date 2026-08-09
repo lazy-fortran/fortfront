@@ -104,6 +104,24 @@ names remain explicit refusals through dedicated boundary flags. The
 independent GNU syntax/API oracle is
 `test/api/test_procedure_actual_mapping_query.f90`.
 
+### Named formal procedure-interface facts (2026-08-09)
+
+`query_procedure_actual_argument` now joins a supplied direct or bounded
+procedure-pointer actual not only to its target signature but also to a
+resolvable same-arena named interface on the procedure dummy. The result
+preserves `formal_interface_name`, `formal_interface_node_index`, and
+`formal_signature`, and sets `is_interface_compatible` only when the known
+procedure characteristics agree. A known kind/rank/result/dummy mismatch is
+an explicit `has_incompatible_interface` refusal; `PROCEDURE()`/
+`PROCEDURE(*)` and unavailable external interfaces remain named
+`has_unresolved_interface` boundaries. This is an interface fact only:
+branch-sensitive pointer state, aliasing, mutable global state, and callback
+differentiation remain separate refusals owned by their existing queries and
+by FortAD. The independent GNU API/runtime oracle is
+`test/api/test_procedure_actual_interface_query.f90`, backed by
+`examples/f90/procedure_actual_interface_query.f90` and the expected-rejection
+fixture `examples/f90/procedure_actual_interface_mismatch.f90`.
+
 ### Procedure-pointer reassignment refusal fact (2026-08-09)
 
 `query_procedure_call_target` now exposes `has_reassignment` when its

@@ -212,6 +212,23 @@ if (bounds%found) print *, bounds%lower_bound_node_index
 indices for explicit ranges. These read-only records are the stable boundary
 for consumers that simplify shapes or loop bounds.
 
+## Procedure actual/formal interface facts
+
+`query_procedure_actual_argument(arena, call_node, formal_name)` joins a
+supplied procedure actual to one procedure dummy and preserves both target
+identity and signature. If the dummy names a visible same-arena interface,
+the result also exposes `formal_interface_name`,
+`formal_interface_node_index`, and `formal_signature`. A known mismatch sets
+`has_incompatible_interface`, `is_refused`, and `is_unresolved`; an unavailable
+`PROCEDURE()`/`PROCEDURE(*)` or external interface sets
+`has_unresolved_interface` instead of inventing formal characteristics.
+`is_interface_compatible` is the positive fact a callback consumer must
+require alongside `is_resolved`. Branch-local assignments, reassignment,
+`NULL()`, aliases, and mutable global state remain the existing explicit
+refusal boundaries. See
+`examples/f90/procedure_actual_interface_query.f90` and
+`test/api/test_procedure_actual_interface_query.f90`.
+
 ## Procedure-pointer ASSOCIATED and NULLIFY state
 
 `query_procedure_pointer_state(arena, node_index)` recognizes a unary
