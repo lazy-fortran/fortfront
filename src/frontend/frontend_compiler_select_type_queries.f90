@@ -18,7 +18,8 @@ module frontend_compiler_select_type_queries
         query_type_binding, type_binding_query_t, STORAGE_BORROWED, &
         STORAGE_OWNED, query_type_binding_hierarchy
     use frontend_compiler_resolution, only: declaration_binding_t, &
-        resolve_name_at_node, BINDING_FUNCTION, BINDING_SUBROUTINE
+        resolve_name_at_node, BINDING_ASSOCIATE_NAME, BINDING_FUNCTION, &
+        BINDING_SUBROUTINE
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
     use string_utils_mod, only: to_lower
@@ -211,6 +212,74 @@ module frontend_compiler_select_type_queries
         type(select_type_component_query_t) :: component
         type(binding_hierarchy_query_t) :: hierarchy
     end type select_type_component_binding_query_t
+
+    type, public :: select_type_component_dispatch_query_t
+        !! Direct non-generic binding facts through a narrowed component.
+        !!
+        !! This is the call-site counterpart to
+        !! ``query_select_type_component_binding``.  It is deliberately
+        !! limited to one explicit CALL that is the sole direct statement of
+        !! a concrete SELECT TYPE arm.  The receiver path must end in a
+        !! scalar, concrete, non-pointer, non-allocatable component, so a
+        !! transformer receives a static implementation and ordered
+        !! signature without guessing through an ownership or alias edge.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_type_is = .false.
+        logical :: is_class_is = .false.
+        logical :: is_class_default = .false.
+        logical :: is_inherited = .false.
+        logical :: is_deferred_binding = .false.
+        logical :: is_generic_binding = .false.
+        logical :: is_ambiguous_target = .false.
+        logical :: is_nested = .false.
+        logical :: is_array_receiver = .false.
+        logical :: is_pointer_boundary = .false.
+        logical :: is_allocatable_boundary = .false.
+        logical :: is_polymorphic_boundary = .false.
+        logical :: is_ownership_changing = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: is_selector_resolved = .false.
+        logical :: is_binding_resolved = .false.
+        logical :: is_signature_resolved = .false.
+        logical :: is_incompatible_pass = .false.
+        logical :: pass_arg = .true.
+        logical :: is_nopass = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: arm_ordinal = 0
+        integer :: selector_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: concrete_type_index = 0
+        integer :: component_type_index = 0
+        integer :: declaring_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: implementation_node_index = 0
+        integer :: receiver_node_index = 0
+        integer :: call_node_index = 0
+        integer :: arm_source_line = 0
+        integer :: arm_source_column = 0
+        integer :: call_source_line = 0
+        integer :: call_source_column = 0
+        integer :: implementation_pass_position = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: receiver_name
+        character(len=:), allocatable :: component_type_name
+        character(len=:), allocatable :: guard_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: declaring_type_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: pass_name
+        character(len=:), allocatable :: implementation_pass_name
+        character(len=:), allocatable :: implementation_passed_object_type
+        character(len=:), allocatable :: refusal_reason
+        type(component_path_query_t) :: receiver_path
+        type(binding_hierarchy_query_t) :: hierarchy
+        type(procedure_signature_query_t) :: signature
+    end type select_type_component_dispatch_query_t
 
     type, public :: select_type_dispatch_query_t
         !! Facts for one direct type-bound CALL in one concrete SELECT TYPE arm.
@@ -481,6 +550,7 @@ module frontend_compiler_select_type_queries
         query_select_type_owned_array_binding, &
         query_select_type_component_path, &
         query_select_type_component_binding, query_select_type_dispatch, &
+        query_select_type_component_dispatch, &
         query_select_type_generic_dispatch, &
         query_select_type_component_generic_dispatch, &
         query_select_type_owned_array_generic_dispatch, &
@@ -1348,6 +1418,308 @@ contains
         query%is_resolved = .true.
     end function query_select_type_component_binding
 
+    function query_select_type_component_dispatch(arena, arm_node_index, &
+            call_node_index) result(query)
+        !! Resolve one direct non-generic CALL through a narrowed component.
+        !!
+        !! The receiver is source-backed (for example ``typed%leaf``) because
+        !! explicit CALL syntax does not always retain a receiver AST node.
+        !! This query reports a target only after the narrowed component path,
+        !! static hierarchy, PASS metadata, and implementation signature all
+        !! resolve.  Generic, nested, aliased, global, pointer, allocatable,
+        !! polymorphic, array, and ownership-changing cases remain refusals.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        integer, intent(in) :: call_node_index
+        type(select_type_component_dispatch_query_t) :: query
+        type(control_statement_query_t) :: control
+        type(select_type_arm_query_t) :: arm
+        type(declaration_binding_t) :: selector_binding
+        type(binding_hierarchy_query_t) :: hierarchy
+        character(len=:), allocatable :: receiver_name, binding_name, reason
+        character(len=:), allocatable :: passed_type
+        integer :: select_index, arm_position, passed_type_index
+        logical :: arm_found, direct_call, is_call, compatible
+        character(len=:), allocatable :: selector_error
+
+        call initialize_component_dispatch_query(query, arm_node_index, &
+            call_node_index)
+        if (.not. arena%has_node_at(arm_node_index)) then
+            call refuse_component_dispatch(query, 'SELECT TYPE arm node is absent')
+            return
+        end if
+        if (.not. arena%has_node_at(call_node_index)) then
+            call refuse_component_dispatch(query, &
+                'type-bound component call node is absent')
+            return
+        end if
+
+        select_index = enclosing_select_type(arena, arm_node_index)
+        if (select_index <= 0) then
+            call refuse_component_dispatch(query, &
+                'arm is not contained in a SELECT TYPE construct')
+            return
+        end if
+        query%select_type_node_index = select_index
+        control = query_control_statement(arena, select_index)
+        arm_found = .false.
+        arm_position = find_select_type_arm(control, arm_node_index)
+        if (arm_position > 0) then
+            arm = control%type_arms(arm_position)
+            arm_found = .true.
+        end if
+        if (.not. arm_found) then
+            call refuse_component_dispatch(query, &
+                'node is not a SELECT TYPE arm')
+            return
+        end if
+
+        query%arm_ordinal = arm%arm_ordinal
+        query%selector_node_index = arm%selector_node_index
+        query%selector_declaration_index = arm%selector_declaration_index
+        query%concrete_type_index = arm%concrete_type_index
+        query%guard_type_name = arm%concrete_type_name
+        query%selector_name = arm%selector_name
+        query%is_selector_resolved = arm%is_selector_resolved
+        query%is_type_is = arm%is_type_is
+        query%is_class_is = arm%is_class_is
+        query%is_class_default = arm%is_class_default
+        query%arm_source_line = arm%source_line
+        query%arm_source_column = arm%source_column
+
+        if (arm%is_class_default) then
+            call refuse_component_dispatch(query, &
+                'CLASS DEFAULT has no narrowed component type')
+            return
+        end if
+        if (arm%is_selector_associate) then
+            call resolve_name_at_node(arena, arm%selector_expression_node_index, &
+                arm%selector_name, selector_binding, selector_error)
+            if (selector_binding%binding_kind == BINDING_ASSOCIATE_NAME) then
+                query%has_unresolved_alias = .true.
+                call refuse_component_dispatch(query, &
+                    'SELECT TYPE selector is an unresolved alias boundary')
+                return
+            end if
+        end if
+        if (arm%is_unresolved .or. arm%is_invalid .or. &
+            .not. arm%is_selector_resolved .or. &
+            .not. arm%is_concrete_type_resolved) then
+            call refuse_component_dispatch(query, &
+                'SELECT TYPE selector or guard is unresolved')
+            return
+        end if
+
+        direct_call = allocated(arm%body_node_indices) .and. &
+            size(arm%body_node_indices) == 1 .and. &
+            arm%body_node_indices(1) == call_node_index .and. &
+            arena%entries(call_node_index)%parent_index == arm_node_index
+        if (.not. direct_call) then
+            query%is_nested = .true.
+            call refuse_component_dispatch(query, &
+                'component call is not the single direct arm statement')
+            return
+        end if
+        query%call_source_line = arena%entries(call_node_index)%node%line
+        query%call_source_column = arena%entries(call_node_index)%node%column
+
+        if (.not. is_explicit_call(arena, call_node_index)) then
+            call refuse_component_dispatch(query, &
+                'component dispatch requires an explicit CALL statement')
+            return
+        end if
+        call component_call_parts(arena, call_node_index, receiver_name, &
+            binding_name, is_call)
+        if (.not. is_call .or. index(trim(receiver_name), '%') <= 0 .or. &
+            len_trim(binding_name) == 0) then
+            call refuse_component_dispatch(query, &
+                'component receiver or binding identity is unresolved')
+            return
+        end if
+        query%receiver_name = receiver_name
+        query%binding_name = binding_name
+
+        if (arm%selector_storage%is_module_state .or. &
+            arm%selector_storage%is_save_state .or. &
+            arm%selector_storage%is_common_state) then
+            query%has_global_mutable_state = .true.
+            query%is_ownership_changing = .true.
+            call refuse_component_dispatch(query, &
+                'mutable global selector storage is outside the bounded query')
+            return
+        end if
+        if (arm%selector_storage%is_pointer .or. &
+            arm%selector_storage%is_target) then
+            query%has_unresolved_alias = .true.
+            call refuse_component_dispatch(query, &
+                'pointer or TARGET selector is an alias boundary')
+            return
+        end if
+        if (arm%selector_storage%is_allocatable .or. &
+            arm%selector_storage%is_component) then
+            query%is_ownership_changing = .true.
+            call refuse_component_dispatch(query, &
+                'selector storage has an ownership-changing component edge')
+            return
+        end if
+        if (arm%selector_storage%rank > 0 .or. &
+            arm%selector_storage%is_array_element .or. &
+            arm%selector_storage%is_array_section) then
+            query%is_array_receiver = .true.
+            call refuse_component_dispatch(query, &
+                'narrowed component receiver is array-valued')
+            return
+        end if
+
+        call resolve_narrowed_component_receiver(arena, arm, receiver_name, &
+            query%receiver_path, query%component_type_index, &
+            query%component_type_name, query%is_pointer_boundary, &
+            query%is_allocatable_boundary, query%is_polymorphic_boundary, &
+            query%is_array_receiver, reason)
+        if (query%is_pointer_boundary) query%has_unresolved_alias = .true.
+        if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
+            query%is_polymorphic_boundary .or. query%is_array_receiver) then
+            if (query%is_pointer_boundary .or. query%is_allocatable_boundary .or. &
+                query%is_polymorphic_boundary) query%is_ownership_changing = &
+                query%is_allocatable_boundary .or. query%is_polymorphic_boundary
+            call refuse_component_dispatch(query, reason)
+            return
+        end if
+        if (.not. query%receiver_path%found .or. &
+            query%component_type_index <= 0) then
+            call refuse_component_dispatch(query, reason)
+            return
+        end if
+        call inspect_component_dispatch_path(arena, query%receiver_path, query)
+        if (query%has_global_mutable_state .or. query%has_unresolved_alias .or. &
+            query%is_ownership_changing) then
+            return
+        end if
+
+        query%found = .true.
+        hierarchy = query_type_binding_hierarchy(arena, &
+            query%component_type_index, binding_name)
+        query%hierarchy = hierarchy
+        if (.not. hierarchy%found) then
+            call refuse_component_dispatch(query, &
+                'component binding hierarchy is unresolved')
+            return
+        end if
+        query%declaring_type_index = hierarchy%declaring_type_index
+        query%binding_node_index = hierarchy%binding_node_index
+        query%implementation_node_index = hierarchy%implementation_node_index
+        query%declaring_type_name = hierarchy%declaring_type_name
+        query%implementation = hierarchy%implementation
+        query%pass_name = hierarchy%pass_name
+        query%implementation_pass_name = hierarchy%implementation_pass_name
+        query%implementation_pass_position = &
+            hierarchy%implementation_pass_position
+        query%implementation_passed_object_type = &
+            hierarchy%implementation_passed_object_type
+        query%is_inherited = hierarchy%is_inherited
+        query%is_deferred_binding = hierarchy%is_deferred
+        query%is_generic_binding = hierarchy%is_generic
+        query%is_ambiguous_target = hierarchy%is_ambiguous
+        query%pass_arg = hierarchy%pass_arg
+        query%is_nopass = .not. hierarchy%pass_arg
+
+        if (query%is_generic_binding .or. query%is_ambiguous_target) then
+            call refuse_component_dispatch(query, &
+                'generic or ambiguous component binding is not selected')
+            return
+        end if
+        if (query%is_deferred_binding) then
+            call refuse_component_dispatch(query, &
+                'deferred component binding has no implementation')
+            return
+        end if
+        if (.not. hierarchy%is_resolved .or. &
+            query%implementation_node_index <= 0 .or. &
+            len_trim(query%implementation) == 0) then
+            call refuse_component_dispatch(query, &
+                'component binding implementation is unresolved')
+            return
+        end if
+
+        query%signature = query_procedure_signature(arena, &
+            query%implementation_node_index)
+        query%is_signature_resolved = query%signature%found
+        if (.not. query%is_signature_resolved) then
+            call refuse_component_dispatch(query, &
+                'component implementation signature is unresolved')
+            return
+        end if
+        if (query%pass_arg) then
+            if (.not. hierarchy%implementation_signature_resolved .or. &
+                query%implementation_pass_position <= 0) then
+                query%is_incompatible_pass = .true.
+                call refuse_component_dispatch(query, &
+                    'component implementation PASS metadata is unresolved')
+                return
+            end if
+            passed_type = normalized_pass_type( &
+                query%implementation_passed_object_type)
+            passed_type_index = find_derived_type_by_name_local(arena, &
+                passed_type)
+            compatible = same_name(passed_type, query%component_type_name)
+            if (.not. compatible .and. passed_type_index > 0) then
+                compatible = type_extends(arena, query%component_type_index, &
+                    passed_type_index)
+            end if
+            if (len_trim(passed_type) == 0 .or. .not. compatible .or. &
+                query%implementation_pass_position > &
+                query%signature%dummy_count) then
+                query%is_incompatible_pass = .true.
+                call refuse_component_dispatch(query, &
+                    'component implementation PASS type is incompatible')
+                return
+            end if
+        end if
+
+        query%is_binding_resolved = .true.
+        query%is_resolved = .true.
+    end function query_select_type_component_dispatch
+
+    subroutine inspect_component_dispatch_path(arena, path, query)
+        type(ast_arena_t), intent(in) :: arena
+        type(component_path_query_t), intent(in) :: path
+        type(select_type_component_dispatch_query_t), intent(inout) :: query
+        type(storage_query_t) :: storage
+        integer :: i, declaration_index
+
+        if (.not. allocated(path%component_declaration_indices)) return
+        do i = 1, size(path%component_declaration_indices)
+            declaration_index = path%component_declaration_indices(i)
+            storage = query_storage(arena, declaration_index)
+            if (.not. storage%found) then
+                call refuse_component_dispatch(query, &
+                    'component path storage is unresolved')
+                return
+            end if
+            if (storage%is_module_state .or. storage%is_save_state .or. &
+                storage%is_common_state) then
+                query%has_global_mutable_state = .true.
+                call refuse_component_dispatch(query, &
+                    'mutable global component storage is outside the bounded query')
+                return
+            end if
+            if (storage%is_pointer .or. storage%is_target) then
+                query%has_unresolved_alias = .true.
+                call refuse_component_dispatch(query, &
+                    'pointer or TARGET component is an alias boundary')
+                return
+            end if
+            if (storage%is_allocatable .or. storage%is_polymorphic .or. &
+                storage%is_unlimited_polymorphic) then
+                query%is_ownership_changing = storage%is_allocatable .or. &
+                    storage%is_polymorphic .or. storage%is_unlimited_polymorphic
+                call refuse_component_dispatch(query, &
+                    'component path crosses a dynamic ownership boundary')
+                return
+            end if
+        end do
+    end subroutine inspect_component_dispatch_path
+
     subroutine initialize_component_query(query, arm_node_index, component_node_index)
         type(select_type_component_query_t), intent(out) :: query
         integer, intent(in) :: arm_node_index, component_node_index
@@ -1378,6 +1750,38 @@ contains
         call set_empty(query%implementation)
         call set_empty(query%refusal_reason)
     end subroutine initialize_component_binding_query
+
+    subroutine initialize_component_dispatch_query(query, arm_node_index, &
+            call_node_index)
+        type(select_type_component_dispatch_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index, call_node_index
+
+        query%arm_node_index = arm_node_index
+        query%call_node_index = call_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%receiver_name)
+        call set_empty(query%component_type_name)
+        call set_empty(query%guard_type_name)
+        call set_empty(query%binding_name)
+        call set_empty(query%declaring_type_name)
+        call set_empty(query%implementation)
+        call set_empty(query%pass_name)
+        call set_empty(query%implementation_pass_name)
+        call set_empty(query%implementation_passed_object_type)
+        call set_empty(query%refusal_reason)
+        call initialize_component_path(query%receiver_path)
+    end subroutine initialize_component_dispatch_query
+
+    subroutine refuse_component_dispatch(query, reason)
+        type(select_type_component_dispatch_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_component_dispatch
 
     subroutine initialize_component_path(path)
         type(component_path_query_t), intent(out) :: path
