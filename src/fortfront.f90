@@ -88,13 +88,14 @@ module fortfront
         ownership_event_query_t, component_path_query_t, &
         associate_selector_query_t, query_associate_selector, &
         query_associate_selectors, &
-        polymorphic_allocation_query_t, &
+        polymorphic_allocation_query_t, polymorphic_assignment_query_t, &
         POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE, &
         POLYMORPHIC_SOURCE_POLYMORPHIC, &
         binding_resolution_query_t, global_reference_query_t, query_storage, &
         binding_hierarchy_entry_t, binding_hierarchy_query_t, &
         query_ownership_events, query_component_path, &
-        query_polymorphic_allocation, &
+        query_polymorphic_allocation, query_polymorphic_assignment, &
+        query_polymorphic_assignment_into, &
         query_type_binding_resolution, query_active_global_references, &
         query_type_binding_hierarchy, &
         type_bound_call_query_t, query_type_bound_call, &

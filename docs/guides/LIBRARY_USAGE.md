@@ -501,6 +501,32 @@ See `examples/f90/ownership_deep_assignment_facts.f90` and
 `test/api/test_ownership_deep_assignment.f90` for the GNU syntax and
 independent expected-facts oracle.
 
+## Polymorphic allocatable assignment and replay facts
+
+`query_polymorphic_assignment_into(arena, assignment_node_index, query)` writes
+the bounded fact for an intrinsic assignment whose destination is a
+polymorphic allocatable derived object. The function form,
+`query_polymorphic_assignment`, remains a compatibility wrapper. The same
+record is attached to the corresponding `ownership_event_query_t` as
+`polymorphic_assignment`. It retains exact
+source/destination paths and declaration identities, reports recursively
+whether the concrete source type owns allocatable components, and sets
+`is_replayable` only when the source type is statically compatible with the
+declared destination type and no global state, alias, control-flow, or
+polymorphic-source boundary is present. For a replayable assignment,
+`dynamic_type` is the concrete source type and the ownership event carries the
+same type as its destination dynamic type. `class(*)` accepts any concrete
+source; extension-to-base assignment is checked through the existing type
+hierarchy. A polymorphic source or incompatible type remains an explicit
+refusal with no guessed dynamic type.
+
+See `examples/f90/polymorphic_assignment_replay_facts.f90` and
+`test/api/test_polymorphic_assignment_replay.f90` for a runtime-backed GNU
+semantic oracle that verifies both dynamic-type acquisition and deep-copy
+isolation of an allocatable component. The out-argument form is the supported
+choice across compiler/runtime boundaries because it avoids copying a result
+with nested allocatable query fields.
+
 ## Ownership event sequence facts
 
 `query_ownership_events` returns events in source order within the queried

@@ -129,11 +129,12 @@ module frontend_compiler_queries
     public :: POLYMORPHIC_SOURCE_UNKNOWN, POLYMORPHIC_SOURCE_CONCRETE
     public :: POLYMORPHIC_SOURCE_POLYMORPHIC
     public :: storage_query_t, ownership_event_query_t, component_path_query_t
-    public :: polymorphic_allocation_query_t
+    public :: polymorphic_allocation_query_t, polymorphic_assignment_query_t
     public :: associate_selector_query_t
     public :: binding_resolution_query_t, global_reference_query_t
     public :: query_storage, query_ownership_events, query_component_path
-    public :: query_polymorphic_allocation
+    public :: query_polymorphic_allocation, query_polymorphic_assignment, &
+        query_polymorphic_assignment_into
     public :: query_associate_selector, query_associate_selectors
     public :: query_type_binding_resolution, query_active_global_references
     public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
@@ -624,6 +625,38 @@ module frontend_compiler_queries
         integer, allocatable :: component_declaration_indices(:)
     end type component_path_query_t
 
+    ! Bounded facts for one intrinsic assignment whose destination is a
+    ! polymorphic allocatable derived object. FOUND identifies the exact
+    ! assignment shape and storage operands. IS_REPLAYABLE is stronger: a
+    ! concrete source type is statically compatible with the declared
+    ! polymorphic destination, and no mutable global state, alias, or control
+    ! flow boundary requires a runtime guess. The query intentionally does
+    ! not claim a dynamic type for a polymorphic source.
+    type :: polymorphic_assignment_query_t
+        logical :: found = .false.
+        logical :: is_replayable = .false.
+        logical :: is_refused = .false.
+        logical :: is_source_concrete = .false.
+        logical :: is_source_polymorphic = .false.
+        logical :: is_destination_polymorphic = .false.
+        logical :: is_dynamic_type_known = .false.
+        logical :: has_owned_components = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_control_flow_boundary = .false.
+        logical :: has_type_mismatch = .false.
+        integer :: assignment_node_index = 0
+        integer :: source_node_index = 0
+        integer :: destination_node_index = 0
+        integer :: source_declaration_index = 0
+        integer :: destination_declaration_index = 0
+        character(len=:), allocatable :: source_declared_type
+        character(len=:), allocatable :: destination_declared_type
+        character(len=:), allocatable :: dynamic_type
+        type(component_path_query_t) :: source_path
+        type(component_path_query_t) :: destination_path
+    end type polymorphic_assignment_query_t
+
     ! Bounded facts for one ASSOCIATE selector. FOUND means that the
     ! association record exists, not that the selector has a statically
     ! usable storage identity. Expressions, unresolved names, pointer
@@ -718,6 +751,7 @@ module frontend_compiler_queries
         type(component_path_query_t) :: lhs_owner_path
         type(component_path_query_t) :: rhs_owner_path
         type(polymorphic_allocation_query_t) :: polymorphic_allocation
+        type(polymorphic_assignment_query_t) :: polymorphic_assignment
         integer :: lhs_rank = -1
         integer :: rhs_rank = -1
         integer :: assignment_kind = OWNERSHIP_ASSIGNMENT_NONE
@@ -5780,6 +5814,25 @@ contains
 
         event = events(event_index)
         if (event%event_kind == OWNERSHIP_EVENT_ASSIGNMENT .and. &
+                event%polymorphic_assignment%found) then
+            if (event%polymorphic_assignment%is_replayable) then
+                event%has_dynamic_type_boundary = .false.
+                call set_event_dynamic_type(event%source_dynamic_type, &
+                    event%polymorphic_assignment%dynamic_type, .true.)
+                call set_event_dynamic_type(event%destination_dynamic_type, &
+                    event%polymorphic_assignment%dynamic_type, .true.)
+                event%is_source_dynamic_type_known = .true.
+                event%is_destination_dynamic_type_known = .true.
+            else
+                event%has_dynamic_type_boundary = .true.
+                event%is_destination_dynamic_type_known = .false.
+                call set_event_dynamic_type(event%destination_dynamic_type, '', &
+                    .false.)
+            end if
+            events(event_index) = event
+            return
+        end if
+        if (event%event_kind == OWNERSHIP_EVENT_ASSIGNMENT .and. &
                 event%is_deep_assignment) then
             event%has_dynamic_type_boundary = .true.
             event%is_source_dynamic_type_known = .false.
@@ -6547,6 +6600,153 @@ contains
             owner_storage%rank == 0 .and. source_storage%rank == 0 .and. &
             allocation%mold_expr_index == 0 .and. .not. has_type_spec
     end function query_polymorphic_allocation
+
+    function query_polymorphic_assignment(arena, assignment_node_index) &
+            result(query)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: assignment_node_index
+        type(polymorphic_assignment_query_t) :: query
+
+        ! Keep the function form for source compatibility. Consumers that
+        ! cross compiler/runtime boundaries should use the out-argument form.
+        call query_polymorphic_assignment_into(arena, assignment_node_index, query)
+    end function query_polymorphic_assignment
+
+    subroutine query_polymorphic_assignment_into(arena, assignment_node_index, query)
+        !! Return one bounded polymorphic allocatable-assignment fact.
+        !!
+        !! The source and destination are resolved through the existing
+        !! storage/component queries.  A concrete source may be assigned to
+        !! its declared polymorphic base (or CLASS(*)); in that case the
+        !! source type is the dynamic type that intrinsic assignment acquires
+        !! and copies.  Polymorphic sources, aliases, global state, control
+        !! flow, and incompatible declared types remain explicit boundaries.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: assignment_node_index
+        type(polymorphic_assignment_query_t), intent(out) :: query
+        type(storage_query_t) :: source_storage, destination_storage
+        type(assignment_node) :: assignment
+        character(len=:), allocatable :: source_type, destination_type
+        integer :: source_type_index, destination_type_index
+        logical :: compatible
+
+        call initialize_polymorphic_assignment_query(query)
+        if (.not. arena%has_node_at(assignment_node_index)) return
+        select type (node => arena%entries(assignment_node_index)%node)
+            type is (assignment_node)
+            assignment = node
+        class default
+            return
+        end select
+        if (assignment%is_keyword_argument) return
+
+        query%assignment_node_index = assignment_node_index
+        query%source_node_index = assignment%value_index
+        query%destination_node_index = assignment%target_index
+        query%source_path = ownership_path(arena, assignment%value_index)
+        query%destination_path = ownership_path(arena, assignment%target_index)
+        source_storage = assignment_operand_storage_query(arena, &
+            assignment%value_index)
+        destination_storage = assignment_operand_storage_query(arena, &
+            assignment%target_index)
+        if (.not. source_storage%found .or. .not. destination_storage%found) return
+        if (.not. destination_storage%is_allocatable .or. &
+                .not. destination_storage%is_polymorphic .or. &
+                .not. destination_storage%is_derived) return
+        if (.not. source_storage%is_derived) return
+
+        query%found = .true.
+        query%source_declaration_index = source_storage%declaration_index
+        query%destination_declaration_index = destination_storage%declaration_index
+        query%source_declared_type = source_storage%type_name
+        query%destination_declared_type = destination_storage%type_name
+        query%is_source_polymorphic = source_storage%is_polymorphic
+        query%is_source_concrete = source_storage%is_concrete_derived
+        query%is_destination_polymorphic = destination_storage%is_polymorphic
+        query%has_global_mutable_state = storage_has_global_state(source_storage) .or. &
+            storage_has_global_state(destination_storage)
+        query%has_unresolved_alias = polymorphic_assignment_has_alias(arena, &
+            assignment%value_index, query%source_path, source_storage) .or. &
+            polymorphic_assignment_has_alias(arena, assignment%target_index, &
+            query%destination_path, destination_storage)
+        query%has_control_flow_boundary = ownership_event_has_control_boundary( &
+            arena, assignment_node_index)
+
+        source_type = derived_type_name_from_spec(source_storage%type_name)
+        destination_type = derived_type_name_from_spec(destination_storage%type_name)
+        compatible = .false.
+        if (destination_storage%is_unlimited_polymorphic) then
+            compatible = .true.
+        else if (len_trim(source_type) > 0 .and. len_trim(destination_type) > 0) then
+            source_type_index = find_derived_type_by_name(arena, source_type)
+            destination_type_index = find_derived_type_by_name(arena, destination_type)
+            if (same_name(source_type, destination_type)) then
+                compatible = .true.
+            else if (source_type_index > 0 .and. destination_type_index > 0) then
+                compatible = type_extends(arena, source_type_index, &
+                    destination_type_index)
+            end if
+        end if
+        query%has_type_mismatch = .not. compatible
+
+        if (query%is_source_concrete .and. len_trim(source_type) > 0) then
+            source_type_index = find_derived_type_by_name(arena, source_type)
+            query%has_owned_components = derived_type_has_owned_components(arena, &
+                source_type_index, 0)
+            if (compatible) then
+                query%dynamic_type = source_type
+            end if
+        end if
+        query%is_dynamic_type_known = query%is_source_concrete .and. compatible .and. &
+            .not. query%has_global_mutable_state .and. &
+            .not. query%has_unresolved_alias .and. &
+            .not. query%has_control_flow_boundary
+        query%is_refused = query%is_source_polymorphic .or. &
+            query%has_type_mismatch .or. query%has_global_mutable_state .or. &
+            query%has_unresolved_alias .or. query%has_control_flow_boundary
+        query%is_replayable = query%is_dynamic_type_known .and. &
+            .not. query%is_refused
+    end subroutine query_polymorphic_assignment_into
+
+    subroutine initialize_polymorphic_assignment_query(query)
+        type(polymorphic_assignment_query_t), intent(out) :: query
+
+        call set_empty(query%source_declared_type)
+        call set_empty(query%destination_declared_type)
+        call set_empty(query%dynamic_type)
+        call initialize_component_path_query(query%source_path)
+        call initialize_component_path_query(query%destination_path)
+    end subroutine initialize_polymorphic_assignment_query
+
+    function assignment_operand_storage_query(arena, node_index) result(storage)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(storage_query_t) :: storage
+
+        storage = query_designator_storage(arena, node_index)
+    end function assignment_operand_storage_query
+
+    logical function polymorphic_assignment_has_alias(arena, node_index, path, &
+            storage) result(has_alias)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(component_path_query_t), intent(in) :: path
+        type(storage_query_t), intent(in) :: storage
+        type(storage_query_t) :: base_storage
+
+        has_alias = is_associate_selector_node(arena, node_index) .or. &
+            storage%is_pointer .or. storage%is_target
+        if (.not. path%found) return
+        if (path%base_node_index <= 0) return
+        if (path%base_node_index == node_index) return
+        base_storage = query_designator_storage(arena, path%base_node_index)
+        if (.not. base_storage%found) then
+            has_alias = .true.
+            return
+        end if
+        has_alias = has_alias .or. base_storage%is_pointer .or. &
+            base_storage%is_target .or. base_storage%is_polymorphic
+    end function polymorphic_assignment_has_alias
 
     subroutine initialize_polymorphic_allocation_query(query)
         type(polymorphic_allocation_query_t), intent(out) :: query
@@ -8217,6 +8417,7 @@ contains
         call initialize_component_path_query(event%lhs_owner_path)
         call initialize_component_path_query(event%rhs_owner_path)
         call initialize_polymorphic_allocation_query(event%polymorphic_allocation)
+        call initialize_polymorphic_assignment_query(event%polymorphic_assignment)
         call set_empty(event%source_dynamic_type)
         call set_empty(event%destination_dynamic_type)
         event%found = .true.
@@ -8284,11 +8485,21 @@ contains
             call classify_deep_assignment(arena, index, is_deep, &
                 has_owned_components, has_global_state, has_alias)
             event%event_kind = OWNERSHIP_EVENT_ASSIGNMENT
+            call query_polymorphic_assignment_into(arena, index, &
+                event%polymorphic_assignment)
             event%is_deep_assignment = is_deep
             event%has_owned_components = has_owned_components
             event%has_global_mutable_state = has_global_state
             event%has_unresolved_alias = has_alias
             event%is_refused = has_global_state .or. has_alias
+            if (event%polymorphic_assignment%found) then
+                event%has_global_mutable_state = event%has_global_mutable_state .or. &
+                    event%polymorphic_assignment%has_global_mutable_state
+                event%has_unresolved_alias = event%has_unresolved_alias .or. &
+                    event%polymorphic_assignment%has_unresolved_alias
+                event%is_refused = event%is_refused .or. &
+                    event%polymorphic_assignment%is_refused
+            end if
             if (is_potential_reallocation_assignment(arena, index)) then
                 event%assignment_kind = OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE
                 event%reallocation_kind = OWNERSHIP_REALLOCATION_POTENTIAL
