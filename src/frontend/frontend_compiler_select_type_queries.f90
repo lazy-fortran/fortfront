@@ -426,13 +426,65 @@ module frontend_compiler_select_type_queries
         type(procedure_signature_query_t) :: signature
     end type select_type_owned_array_generic_dispatch_query_t
 
+    type, public :: select_type_owned_array_dispatch_query_t
+        !! Direct non-generic binding dispatch through one owned polymorphic
+        !! array element.  The receiver storage remains the selector's array
+        !! owner; IS_ARRAY_ELEMENT_RECEIVER identifies the scalar designator
+        !! used for the call.
+        logical :: found = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_owned_array = .false.
+        logical :: is_inherited = .false.
+        logical :: is_generic_binding = .false.
+        logical :: is_deferred_binding = .false.
+        logical :: is_ambiguous_target = .false.
+        logical :: is_array_element_receiver = .false.
+        logical :: is_array_section_receiver = .false.
+        logical :: pass_arg = .true.
+        logical :: is_nopass = .false.
+        logical :: pass_metadata_resolved = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_unresolved_alias = .false.
+        logical :: has_control_flow_boundary = .false.
+        integer :: select_type_node_index = 0
+        integer :: arm_node_index = 0
+        integer :: call_node_index = 0
+        integer :: selector_declaration_index = 0
+        integer :: receiver_node_index = 0
+        integer :: receiver_declaration_index = 0
+        integer :: declared_type_index = 0
+        integer :: dynamic_type_index = 0
+        integer :: declaring_type_index = 0
+        integer :: binding_node_index = 0
+        integer :: implementation_node_index = 0
+        integer :: pass_position = 0
+        integer :: implementation_pass_position = 0
+        character(len=:), allocatable :: selector_name
+        character(len=:), allocatable :: receiver_name
+        character(len=:), allocatable :: declared_type_name
+        character(len=:), allocatable :: dynamic_type_name
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: declaring_type_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: pass_name
+        character(len=:), allocatable :: implementation_pass_name
+        character(len=:), allocatable :: implementation_passed_object_type
+        character(len=:), allocatable :: refusal_reason
+        type(storage_query_t) :: receiver_storage
+        type(select_type_owned_array_query_t) :: owned_array
+        type(procedure_signature_query_t) :: signature
+    end type select_type_owned_array_dispatch_query_t
+
     public :: query_select_type_branch, query_select_type_owned_array, &
         query_select_type_owned_array_binding, &
         query_select_type_component_path, &
         query_select_type_component_binding, query_select_type_dispatch, &
         query_select_type_generic_dispatch, &
         query_select_type_component_generic_dispatch, &
-        query_select_type_owned_array_generic_dispatch
+        query_select_type_owned_array_generic_dispatch, &
+        query_select_type_owned_array_dispatch
 
 contains
 
@@ -794,6 +846,168 @@ contains
                 query%pass_name)
         end if
     end function query_select_type_owned_array_generic_dispatch
+
+    function query_select_type_owned_array_dispatch(arena, arm_node_index, &
+            call_node_index) result(query)
+        !! Resolve one direct non-generic binding call on an owned-array element.
+        !!
+        !! This composes the owned-array CLASS IS proof with the effective
+        !! binding hierarchy.  It deliberately does not perform generic
+        !! argument matching: callers needing that fact use the generic
+        !! dispatch query above.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arm_node_index
+        integer, intent(in) :: call_node_index
+        type(select_type_owned_array_dispatch_query_t) :: query
+        type(type_bound_call_query_t) :: call_facts
+        type(binding_hierarchy_query_t) :: hierarchy
+        type(control_statement_query_t) :: control
+        type(select_type_arm_query_t) :: arm
+        integer :: i
+        logical :: arm_found, direct_call
+
+        call initialize_owned_array_dispatch_query(query, arm_node_index, &
+            call_node_index)
+        query%owned_array = query_select_type_owned_array(arena, arm_node_index)
+        call copy_owned_array_dispatch_identity(query)
+        if (.not. query%owned_array%is_resolved) then
+            call refuse_owned_array_dispatch(query, &
+                query%owned_array%refusal_reason)
+            return
+        end if
+        if (.not. arena%has_node_at(call_node_index)) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array type-bound call is absent')
+            return
+        end if
+
+        control = query_control_statement(arena, &
+            query%owned_array%select_type_node_index)
+        arm_found = .false.
+        if (allocated(control%type_arms)) then
+            do i = 1, size(control%type_arms)
+                if (control%type_arms(i)%arm_node_index /= arm_node_index) cycle
+                arm = control%type_arms(i)
+                arm_found = .true.
+                exit
+            end do
+        end if
+        if (.not. arm_found) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array CLASS IS arm facts are absent')
+            return
+        end if
+        direct_call = allocated(arm%body_node_indices) .and. &
+            size(arm%body_node_indices) == 1 .and. &
+            arm%body_node_indices(1) == call_node_index .and. &
+            arena%entries(call_node_index)%parent_index == arm_node_index
+        if (.not. direct_call) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array type-bound call is not a direct arm statement')
+            return
+        end if
+
+        call_facts = query_type_bound_call(arena, call_node_index)
+        if (.not. call_facts%found .or. len_trim(call_facts%binding_name) == 0) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array receiver or binding is unresolved')
+            return
+        end if
+        query%receiver_node_index = call_facts%receiver_node_index
+        query%receiver_name = call_facts%receiver_name
+        query%receiver_declaration_index = query%selector_declaration_index
+        query%receiver_storage = query%owned_array%selector_storage
+        query%binding_name = call_facts%binding_name
+        if (owned_array_receiver_is_section(query%receiver_name)) then
+            query%is_array_section_receiver = .true.
+            call refuse_owned_array_dispatch(query, &
+                'owned-array receiver is an array section')
+            return
+        end if
+        if (.not. owned_array_element_receiver(query%receiver_name, &
+                query%selector_name)) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array receiver is not a single array element')
+            return
+        end if
+        query%is_array_element_receiver = .true.
+
+        hierarchy = query_type_binding_hierarchy(arena, query%dynamic_type_index, &
+            query%binding_name)
+        if (.not. hierarchy%found) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding hierarchy is unresolved')
+            return
+        end if
+        query%declaring_type_index = hierarchy%declaring_type_index
+        query%binding_node_index = hierarchy%binding_node_index
+        query%implementation_node_index = hierarchy%implementation_node_index
+        query%declaring_type_name = hierarchy%declaring_type_name
+        query%implementation = hierarchy%implementation
+        query%pass_name = hierarchy%pass_name
+        query%implementation_pass_name = hierarchy%implementation_pass_name
+        query%implementation_pass_position = &
+            hierarchy%implementation_pass_position
+        query%implementation_passed_object_type = &
+            hierarchy%implementation_passed_object_type
+        query%is_inherited = hierarchy%is_inherited
+        query%is_generic_binding = hierarchy%is_generic
+        query%is_deferred_binding = hierarchy%is_deferred
+        query%is_ambiguous_target = hierarchy%is_ambiguous
+        query%pass_arg = hierarchy%pass_arg
+        query%is_nopass = .not. query%pass_arg
+        if (query%is_generic_binding) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding is a generic interface')
+            return
+        end if
+        if (query%is_deferred_binding) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding is deferred')
+            return
+        end if
+        if (query%is_ambiguous_target) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding target is ambiguous')
+            return
+        end if
+        if (.not. hierarchy%is_resolved .or. &
+                query%implementation_node_index <= 0 .or. &
+                len_trim(query%implementation) == 0) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding implementation is unresolved')
+            return
+        end if
+
+        query%signature = query_procedure_signature(arena, &
+            query%implementation_node_index)
+        if (.not. query%signature%found) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array implementation signature is unresolved')
+            return
+        end if
+        query%pass_metadata_resolved = hierarchy%implementation_signature_resolved
+        if (.not. query%pass_arg) then
+            query%pass_position = 0
+        else if (len_trim(query%pass_name) == 0) then
+            query%pass_position = 1
+        else
+            query%pass_position = find_signature_dummy(query%signature, &
+                query%pass_name)
+        end if
+        if (query%pass_arg .and. query%pass_position <= 0) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding PASS dummy is unresolved')
+            return
+        end if
+        if (.not. query%pass_metadata_resolved) then
+            call refuse_owned_array_dispatch(query, &
+                'owned-array binding PASS metadata is unresolved')
+            return
+        end if
+        query%found = .true.
+        query%is_resolved = .true.
+    end function query_select_type_owned_array_dispatch
 
     function query_select_type_branch(arena, arm_node_index) result(query)
         !! Return the semantic type predicate represented by one SELECT TYPE arm.
@@ -2338,6 +2552,59 @@ contains
         call initialize_storage(query%receiver_storage)
         allocate (query%candidates(0))
     end subroutine initialize_owned_array_generic_query
+
+    subroutine initialize_owned_array_dispatch_query(query, arm_node_index, &
+            call_node_index)
+        type(select_type_owned_array_dispatch_query_t), intent(out) :: query
+        integer, intent(in) :: arm_node_index, call_node_index
+
+        query%arm_node_index = arm_node_index
+        query%call_node_index = call_node_index
+        call set_empty(query%selector_name)
+        call set_empty(query%receiver_name)
+        call set_empty(query%declared_type_name)
+        call set_empty(query%dynamic_type_name)
+        call set_empty(query%binding_name)
+        call set_empty(query%declaring_type_name)
+        call set_empty(query%implementation)
+        call set_empty(query%pass_name)
+        call set_empty(query%implementation_pass_name)
+        call set_empty(query%implementation_passed_object_type)
+        call set_empty(query%refusal_reason)
+        call initialize_storage(query%receiver_storage)
+    end subroutine initialize_owned_array_dispatch_query
+
+    subroutine copy_owned_array_dispatch_identity(query)
+        type(select_type_owned_array_dispatch_query_t), intent(inout) :: query
+
+        query%found = query%owned_array%found
+        query%is_owned_array = query%owned_array%is_owned_array
+        query%has_global_mutable_state = &
+            query%owned_array%has_global_mutable_state
+        query%has_unresolved_alias = query%owned_array%has_unresolved_alias
+        query%has_control_flow_boundary = &
+            query%owned_array%has_control_flow_boundary
+        query%select_type_node_index = &
+            query%owned_array%select_type_node_index
+        query%selector_declaration_index = &
+            query%owned_array%selector_declaration_index
+        query%declared_type_index = query%owned_array%declared_type_index
+        query%dynamic_type_index = query%owned_array%dynamic_type_index
+        query%selector_name = query%owned_array%selector_name
+        query%declared_type_name = query%owned_array%declared_type_name
+        query%dynamic_type_name = query%owned_array%dynamic_type_name
+    end subroutine copy_owned_array_dispatch_identity
+
+    subroutine refuse_owned_array_dispatch(query, reason)
+        type(select_type_owned_array_dispatch_query_t), intent(inout) :: query
+        character(len=*), intent(in) :: reason
+
+        query%is_refused = .true.
+        query%is_unresolved = .true.
+        if (len_trim(query%refusal_reason) == 0) then
+            query%refusal_reason = trim(reason)
+        end if
+    end subroutine refuse_owned_array_dispatch
 
     subroutine copy_owned_array_generic_identity(query)
         type(select_type_owned_array_generic_dispatch_query_t), intent(inout) :: query

@@ -330,6 +330,14 @@ end subroutine
   mapping, including a named passed-object dummy that is not first.
   Ambiguous, zero-match, deferred, non-element, global, alias, and
   control-flow cases remain explicit refusals; no runtime target is guessed.
+- **Owned-array CLASS IS direct dispatch query**:
+  `query_select_type_owned_array_dispatch(arena, arm_node_index,
+  call_node_index)` resolves one explicit non-generic call on an indexed owned
+  array receiver. It maps the receiver to the selector's storage declaration
+  and exposes the concrete or inherited implementation, ordered signature,
+  and effective PASS metadata. `receiver_storage` describes the array owner;
+  `is_array_element_receiver` identifies the scalar designator. Generic,
+  global, alias, and control-flow cases remain explicit refusals.
 - **ASSOCIATE selector query**: `query_associate_selectors` returns one
   `associate_selector_query_t` per association. The record identifies the
   ASSOCIATE node, association ordinal, selector expression, storage
