@@ -501,7 +501,11 @@ module frontend_compiler_queries
         !! populated.  Procedure dummies, external/contextual names, generic
         !! names, and non-identifiers remain refusal-only facts.  Pointer
         !! targets retain explicit branch, NULL, reassignment, and unresolved
-        !! target flags; no flow-sensitive state is guessed.
+        !! target flags; no flow-sensitive state is guessed.  When the formal
+        !! names a same-arena procedure interface, FORMAL_SIGNATURE and the
+        !! interface identity are also exposed.  A known target/interface
+        !! mismatch is refused rather than silently treating the target
+        !! signature as the formal interface.
         logical :: found = .false.
         logical :: is_resolved = .false.
         logical :: is_unresolved = .false.
@@ -512,8 +516,12 @@ module frontend_compiler_queries
         logical :: has_branch_target = .false.
         logical :: has_null_target = .false.
         logical :: has_unresolved_target = .false.
+        logical :: has_incompatible_interface = .false.
+        logical :: has_unresolved_interface = .false.
+        logical :: is_interface_compatible = .false.
         integer :: call_node_index = 0
         integer :: formal_node_index = 0
+        integer :: formal_interface_node_index = 0
         integer :: actual_node_index = 0
         integer :: actual_value_node_index = 0
         integer :: target_assignment_node_index = 0
@@ -522,10 +530,12 @@ module frontend_compiler_queries
         integer :: target_declaration_index = 0
         integer :: target_binding_node_index = 0
         character(len=:), allocatable :: formal_name
+        character(len=:), allocatable :: formal_interface_name
         character(len=:), allocatable :: actual_name
         character(len=:), allocatable :: procedure_name
         character(len=:), allocatable :: procedure_kind
         type(procedure_signature_query_t) :: signature
+        type(procedure_signature_query_t) :: formal_signature
     end type procedure_actual_argument_query_t
 
     ! Exact generic-candidate facts for compiler consumers.  The query does
@@ -1586,11 +1596,34 @@ contains
             if (declaration%has_kind) then
                 signature%result_kind_value = declaration%kind_value
                 signature%result_kind_known = declaration%kind_value > 0
+            else
+                signature%result_kind_value = syntactic_kind_value(header_type)
+                signature%result_kind_known = signature%result_kind_value > 0
             end if
             call fill_syntactic_rank(declaration, signature%result_rank, &
                 signature%result_rank_known)
         end if
     end subroutine fill_procedure_result
+
+    integer function syntactic_kind_value(type_name) result(kind_value)
+        !! Recover only a literal kind value from a type header.  Named kind
+        !! parameters remain unknown rather than being guessed.
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: specification
+        integer :: open_pos, close_pos, equals_pos, io_status
+
+        kind_value = 0
+        open_pos = index(type_name, '(')
+        close_pos = index(type_name, ')', back=.true.)
+        if (open_pos <= 0 .or. close_pos <= open_pos + 1) return
+        specification = adjustl(trim(type_name(open_pos + 1:close_pos - 1)))
+        equals_pos = index(specification, '=')
+        if (equals_pos > 0) then
+            specification = adjustl(trim(specification(equals_pos + 1:)))
+        end if
+        read (specification, *, iostat=io_status) kind_value
+        if (io_status /= 0 .or. kind_value <= 0) kind_value = 0
+    end function syntactic_kind_value
 
     subroutine fill_syntactic_rank(declaration, rank, known)
         type(declaration_query_t), intent(in) :: declaration
@@ -2561,6 +2594,10 @@ contains
             query%formal_name = argument%formal_name
             query%actual_node_index = argument%actual_node_index
             query%actual_value_node_index = argument%actual_value_node_index
+            call resolve_formal_procedure_interface(arena, &
+                query%formal_node_index, query%formal_interface_name, &
+                query%formal_interface_node_index, query%formal_signature, &
+                query%has_unresolved_interface)
             if (.not. argument%is_supplied) then
                 query%is_unresolved = .true.
                 query%is_refused = .true.
@@ -2601,6 +2638,13 @@ contains
                 call fill_procedure_signature(arena, actual_binding%node_index, &
                     query%signature)
                 if (.not. query%signature%found) then
+                    query%is_unresolved = .true.
+                    query%is_refused = .true.
+                    return
+                end if
+                call check_actual_formal_interface(query)
+                if (query%has_incompatible_interface) then
+                    query%is_resolved = .false.
                     query%is_unresolved = .true.
                     query%is_refused = .true.
                     return
@@ -2674,6 +2718,13 @@ contains
                             pointer_target%binding_node_index
                         query%procedure_name = pointer_target%procedure_name
                         query%signature = pointer_target%signature
+                        call check_actual_formal_interface(query)
+                        if (query%has_incompatible_interface) then
+                            query%is_resolved = .false.
+                            query%is_unresolved = .true.
+                            query%is_refused = .true.
+                            return
+                        end if
                         query%is_resolved = .true.
                         query%is_unresolved = .false.
                         query%is_refused = .false.
@@ -2704,10 +2755,12 @@ contains
         type(procedure_actual_argument_query_t), intent(out) :: query
 
         call set_empty(query%formal_name)
+        call set_empty(query%formal_interface_name)
         call set_empty(query%actual_name)
         call set_empty(query%procedure_name)
         call set_empty(query%procedure_kind)
         call initialize_procedure_signature_query(query%signature)
+        call initialize_procedure_signature_query(query%formal_signature)
     end subroutine initialize_procedure_actual_argument_query
 
     logical function is_procedure_dummy_declaration(query) result(is_procedure)
@@ -2719,6 +2772,159 @@ contains
         normalized = remove_type_spec_spaces(lower_text(query%type_name))
         is_procedure = index(normalized, 'procedure') == 1
     end function is_procedure_dummy_declaration
+
+    subroutine resolve_formal_procedure_interface(arena, formal_node_index, &
+            interface_name, interface_node_index, signature, unresolved)
+        !! Resolve the named interface on one PROCEDURE dummy declaration.
+        !! An empty or unavailable interface is retained as an explicit
+        !! boundary; this helper never invents a signature for PROCEDURE() or
+        !! PROCEDURE(*).
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: formal_node_index
+        character(len=:), allocatable, intent(out) :: interface_name
+        integer, intent(out) :: interface_node_index
+        type(procedure_signature_query_t), intent(out) :: signature
+        logical, intent(out) :: unresolved
+        type(declaration_query_t) :: formal
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+
+        call set_empty(interface_name)
+        interface_node_index = 0
+        call initialize_procedure_signature_query(signature)
+        unresolved = .false.
+        formal = query_declaration(arena, formal_node_index)
+        if (.not. formal%found) then
+            unresolved = .true.
+            return
+        end if
+        if (.not. allocated(formal%type_name)) then
+            unresolved = .true.
+            return
+        end if
+        interface_name = procedure_interface_name_from_type(formal%type_name)
+        if (len_trim(interface_name) == 0) then
+            unresolved = .true.
+            return
+        end if
+
+        call resolve_name_at_node(arena, formal_node_index, interface_name, &
+            binding, error_msg)
+        if (.not. binding%found) then
+            call resolve_visible_abstract_interface(arena, formal_node_index, &
+                interface_name, binding)
+        end if
+        if (.not. binding%found .or. (binding%binding_kind /= BINDING_FUNCTION .and. &
+            binding%binding_kind /= BINDING_SUBROUTINE) .or. &
+            binding%node_index <= 0) then
+            unresolved = .true.
+            return
+        end if
+        interface_node_index = binding%node_index
+        call fill_procedure_signature(arena, interface_node_index, signature)
+        unresolved = .not. signature%found
+    end subroutine resolve_formal_procedure_interface
+
+    subroutine resolve_visible_abstract_interface(arena, reference_node_index, &
+            procedure_name, binding)
+        !! Resolve a named PROCEDURE(interface) target from a same-arena
+        !! ABSTRACT INTERFACE block.  The ordinary declaration resolver does
+        !! not publish interface procedures as lexical bindings, so keep this
+        !! narrow fallback structural and visibility-aware.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: reference_node_index
+        character(len=*), intent(in) :: procedure_name
+        type(declaration_binding_t), intent(out) :: binding
+        integer :: i, j, reference_scope, interface_scope, procedure_index
+
+        binding = declaration_binding_t()
+        reference_scope = find_enclosing_scope(arena, reference_node_index)
+        if (reference_scope <= 0) return
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (interface => arena%entries(i)%node)
+                type is (interface_block_node)
+                if (.not. interface%is_abstract) cycle
+                if (.not. allocated(interface%procedure_indices)) cycle
+                interface_scope = find_enclosing_scope(arena, i)
+                if (.not. interface_block_visible(arena, i, reference_scope, &
+                    interface_scope)) cycle
+                do j = 1, size(interface%procedure_indices)
+                    procedure_index = interface%procedure_indices(j)
+                    if (.not. arena%has_node_at(procedure_index)) cycle
+                    select type (procedure => arena%entries(procedure_index)%node)
+                        type is (function_def_node)
+                        if (.not. allocated(procedure%name)) cycle
+                        if (.not. same_name(procedure%name, procedure_name)) cycle
+                        call set_procedure_binding(binding, procedure%name, &
+                            procedure_index, reference_scope, BINDING_FUNCTION)
+                        return
+                        type is (subroutine_def_node)
+                        if (.not. allocated(procedure%name)) cycle
+                        if (.not. same_name(procedure%name, procedure_name)) cycle
+                        call set_procedure_binding(binding, procedure%name, &
+                            procedure_index, reference_scope, BINDING_SUBROUTINE)
+                        return
+                    end select
+                end do
+            end select
+        end do
+    end subroutine resolve_visible_abstract_interface
+
+    logical function interface_block_visible(arena, interface_index, &
+            reference_scope, interface_scope) result(is_visible)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: interface_index, reference_scope, interface_scope
+
+        is_visible = node_is_in_scope(arena, interface_index, reference_scope)
+        if (is_visible) return
+        is_visible = interface_scope > 0 .and. node_is_in_scope(arena, &
+            reference_scope, interface_scope)
+    end function interface_block_visible
+
+    subroutine set_procedure_binding(binding, name, node_index, scope_index, &
+            binding_kind)
+        type(declaration_binding_t), intent(out) :: binding
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: node_index, scope_index, binding_kind
+
+        binding = declaration_binding_t()
+        binding%found = .true.
+        binding%name = trim(name)
+        binding%node_index = node_index
+        binding%scope_node_index = scope_index
+        binding%binding_kind = binding_kind
+        binding%association = ASSOCIATION_DIRECT
+    end subroutine set_procedure_binding
+
+    subroutine check_actual_formal_interface(query)
+        type(procedure_actual_argument_query_t), intent(inout) :: query
+
+        query%is_interface_compatible = .false.
+        if (query%has_unresolved_interface) return
+        if (.not. query%formal_signature%found .or. .not. query%signature%found) return
+        query%is_interface_compatible = signatures_compatible( &
+            query%formal_signature, query%signature)
+        if (.not. query%is_interface_compatible) then
+            query%has_incompatible_interface = .true.
+        end if
+    end subroutine check_actual_formal_interface
+
+    function procedure_interface_name_from_type(type_text) result(interface_name)
+        character(len=*), intent(in) :: type_text
+        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: lowered
+        integer :: open_pos, close_pos
+
+        interface_name = ''
+        lowered = lower_text(trim(adjustl(type_text)))
+        if (index(lowered, 'procedure') /= 1) return
+        open_pos = index(lowered, '(')
+        close_pos = index(lowered, ')', back=.true.)
+        if (open_pos <= 0 .or. close_pos <= open_pos + 1) return
+        interface_name = trim(adjustl(lowered(open_pos + 1:close_pos - 1)))
+        if (interface_name == '*' .or. interface_name == '') interface_name = ''
+    end function procedure_interface_name_from_type
 
     logical function call_argument_types_match(argument, actual) result(matches)
         type(call_argument_query_t), intent(in) :: argument
@@ -3663,7 +3869,7 @@ contains
             type is (identifier_node)
             if (allocated(node%name)) name = node%name
             call set_empty(error_msg)
-        class default
+            class default
             error_msg = 'AST node is not an identifier'
         end select
     end subroutine get_identifier_name
@@ -5364,22 +5570,87 @@ contains
             first%dummy_count == second%dummy_count
         if (.not. compatible) return
         do i = 1, first%dummy_count
-            if (first%dummies(i)%type_known .neqv. second%dummies(i)%type_known) return
-            if (first%dummies(i)%type_known) then
-                if (first%dummies(i)%type_category /= second%dummies(i)%type_category) return
-                if (first%dummies(i)%type_kind /= second%dummies(i)%type_kind) return
+            if (first%dummies(i)%type_known .neqv. second%dummies(i)%type_known) then
+                compatible = .false.
+                return
             end if
-            if (first%dummies(i)%rank_known .neqv. second%dummies(i)%rank_known) return
-            if (first%dummies(i)%rank_known .and. first%dummies(i)%rank /= second%dummies(i)%rank) return
-            if (first%dummies(i)%is_optional .neqv. second%dummies(i)%is_optional) return
-            if (first%dummies(i)%is_value .neqv. second%dummies(i)%is_value) return
+            if (first%dummies(i)%type_known) then
+                if (.not. same_name(first%dummies(i)%type_category, &
+                    second%dummies(i)%type_category)) then
+                    compatible = .false.
+                    return
+                end if
+                if (first%dummies(i)%type_kind /= second%dummies(i)%type_kind) then
+                    compatible = .false.
+                    return
+                end if
+            end if
+            if (first%dummies(i)%kind_known .neqv. second%dummies(i)%kind_known) then
+                compatible = .false.
+                return
+            end if
+            if (first%dummies(i)%kind_known .and. &
+                first%dummies(i)%kind_value /= second%dummies(i)%kind_value) then
+                compatible = .false.
+                return
+            end if
+            if (first%dummies(i)%rank_known .neqv. second%dummies(i)%rank_known) then
+                compatible = .false.
+                return
+            end if
+            if (first%dummies(i)%rank_known .and. &
+                first%dummies(i)%rank /= second%dummies(i)%rank) then
+                compatible = .false.
+                return
+            end if
+            if (first%dummies(i)%has_intent .and. second%dummies(i)%has_intent) then
+                if (.not. same_name(first%dummies(i)%intent, &
+                    second%dummies(i)%intent)) then
+                    compatible = .false.
+                    return
+                end if
+            end if
+            if (first%dummies(i)%is_optional .neqv. second%dummies(i)%is_optional) then
+                compatible = .false.
+                return
+            end if
+            if (first%dummies(i)%is_value .neqv. second%dummies(i)%is_value) then
+                compatible = .false.
+                return
+            end if
         end do
         if (first%is_function) then
-            if (first%result_category_known .neqv. second%result_category_known) return
-            if (first%result_category_known .and. first%result_category /= second%result_category) return
-            if (first%result_type_kind /= second%result_type_kind) return
-            if (first%result_rank_known .neqv. second%result_rank_known) return
-            if (first%result_rank_known .and. first%result_rank /= second%result_rank) return
+            if (first%result_category_known .neqv. second%result_category_known) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_category_known .and. .not. same_name( &
+                first%result_category, second%result_category)) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_type_kind /= second%result_type_kind) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_kind_known .neqv. second%result_kind_known) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_kind_known .and. first%result_kind_value /= &
+                second%result_kind_value) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_rank_known .neqv. second%result_rank_known) then
+                compatible = .false.
+                return
+            end if
+            if (first%result_rank_known .and. &
+                first%result_rank /= second%result_rank) then
+                compatible = .false.
+                return
+            end if
         end if
     end function signatures_compatible
 

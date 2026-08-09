@@ -184,7 +184,15 @@ end subroutine
   and non-identifiers remain refusal-only facts with `is_unresolved` and the
   corresponding `has_branch_target`, `has_reassignment`, `has_null_target`,
   `has_unresolved_target`, or ambiguity flag. No pointer state is inferred
-  across a branch or an assignment after the call.
+  across a branch or an assignment after the call. When the dummy uses a
+  resolvable named same-arena interface, `formal_interface_name`,
+  `formal_interface_node_index`, and `formal_signature` preserve that
+  interface identity. `is_interface_compatible` is set only when the target
+  signature agrees with the known formal characteristics;
+  `has_incompatible_interface` is an explicit refusal for a known mismatch,
+  while `has_unresolved_interface` records `PROCEDURE()`/`PROCEDURE(*)` and
+  unavailable external-interface boundaries. Consumers must not substitute a
+  target signature for an unavailable formal interface.
 - **Generic candidate query**: `query_generic_call` enumerates the concrete
   procedures in a same-arena named generic interface and exposes each formal's
   semantic type category, exact kind, rank, and derived-type identity. A
