@@ -261,6 +261,23 @@ ambiguous, and out-of-hierarchy cases are explicit refusals with
 `SELECT_TYPE_MATCH_UNKNOWN`; consumers must not infer a concrete runtime type
 from them.
 
+## SELECT TYPE direct dispatch boundaries
+
+`query_select_type_dispatch(arena, arm_node_index, call_node_index)` resolves
+one direct type-bound call in a concrete `TYPE IS` or `CLASS IS` arm. For a
+concrete leaf, the result preserves the effective implementation and its
+declaring type, including an implementation inherited through an abstract
+intermediate or base type. `is_inherited` and `declaring_type_name` identify
+that provenance without requiring a consumer to rebuild the `EXTENDS` chain.
+
+An abstract `CLASS IS` guard remains a refusal because it matches a set of
+possible concrete extensions. Such a result sets `is_abstract_guard`,
+`is_unresolved`, and `is_refused`, and deliberately leaves
+`implementation_node_index` unset; FortFront never exposes the guard's static
+binding as a guessed runtime target. The focused GNU runtime/API oracle is
+`examples/f90/abstract_dispatch_runtime_boundary.f90` with
+`test/api/test_abstract_dispatch_runtime_boundary.f90`.
+
 ## Owned-array CLASS IS dynamic identity
 
 `query_select_type_owned_array(arena, arm_node_index)` is the bounded bridge
