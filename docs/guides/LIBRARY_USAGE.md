@@ -361,6 +361,31 @@ remain explicit `is_refused`/`is_unresolved` boundaries with no implementation
 target. See `examples/f90/select_type_component_dispatch.f90` and
 `test/api/test_select_type_component_dispatch.f90` for the independent oracle.
 
+## Defined-operator exact dispatch
+
+`query_defined_operator(arena, operator_node_index)` is the compiler-facing
+query for a user-defined unary or binary operator expression. It accepts the
+arena index of a `binary_op_node`, finds visible same-arena
+`INTERFACE OPERATOR(...)` blocks, and exposes one
+`defined_operator_candidate_query_t` per concrete specific. Each candidate's
+`operands` array preserves the actual/formal node identities and the semantic
+type category, exact kind, rank, and derived-type name on both sides.
+
+`is_resolved` and `selected_procedure_node_index` are set only when exactly one
+candidate has an exact operand signature. The query deliberately does not
+apply Fortran implicit conversion or extension-type compatibility. Ambiguous
+specifics, invalid arity, unknown or polymorphic types, pointer/TARGET
+operands, and mutable global state in either the operands or the selected
+procedure's body remain `is_refused`/`is_unresolved` facts through
+`is_ambiguous`, `has_conversion`, `has_unknown_types`,
+`has_pointer_operand`, `has_global_mutable_state`, and
+`has_invalid_arity`, with `refusal_reason` identifying the first boundary.
+This lets FortAD consume a concrete operator procedure without duplicating
+generic resolution while keeping unsupported state explicit. See
+`examples/f90/defined_operator_query.f90` and
+`test/api/test_defined_operator_query.f90` for the GNU-checked independent
+oracle.
+
 ## SELECT TYPE type-bound generic dispatch
 
 `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
