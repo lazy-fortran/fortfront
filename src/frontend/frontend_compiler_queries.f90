@@ -36,6 +36,7 @@ module frontend_compiler_queries
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
     use semantic_procedure_signature, only: type_category
+    use generic_spec_names, only: normalize_generic_operator
     use string_utils_mod, only: to_lower
     use type_system_unified, only: TDERIVED
     implicit none
@@ -111,6 +112,9 @@ module frontend_compiler_queries
     public :: query_call_arguments
     public :: generic_argument_query_t, generic_candidate_query_t, &
         generic_call_query_t, query_generic_call
+    public :: defined_operator_operand_query_t, &
+        defined_operator_candidate_query_t, defined_operator_query_t, &
+        query_defined_operator
     public :: STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER
     public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
@@ -488,6 +492,87 @@ module frontend_compiler_queries
         character(len=:), allocatable :: generic_name
         type(generic_candidate_query_t), allocatable :: candidates(:)
     end type generic_call_query_t
+
+    ! Exact facts for one actual/formal operand pair of a defined operator.
+    ! The actual and formal type metadata are intentionally parallel: a
+    ! consumer can distinguish an exact match from a known mismatch without
+    ! reimplementing generic resolution or guessing an implicit conversion.
+    type :: defined_operator_operand_query_t
+        logical :: found = .false.
+        integer :: actual_node_index = 0
+        integer :: formal_node_index = 0
+        logical :: actual_type_known = .false.
+        logical :: formal_type_known = .false.
+        integer :: actual_type_kind = 0
+        integer :: actual_kind_value = 0
+        integer :: actual_rank = -1
+        integer :: formal_type_kind = 0
+        integer :: formal_kind_value = 0
+        integer :: formal_rank = -1
+        character(len=:), allocatable :: actual_derived_type_name
+        character(len=:), allocatable :: formal_derived_type_name
+        logical :: actual_is_pointer = .false.
+        logical :: actual_is_target = .false.
+        logical :: actual_is_allocatable = .false.
+        logical :: actual_is_polymorphic = .false.
+        logical :: actual_has_global_mutable_state = .false.
+        logical :: formal_is_pointer = .false.
+        logical :: formal_is_target = .false.
+        logical :: formal_is_allocatable = .false.
+        logical :: formal_is_polymorphic = .false.
+        logical :: is_exact = .false.
+        logical :: has_conversion = .false.
+        logical :: has_unknown_type = .false.
+    end type defined_operator_operand_query_t
+
+    ! One concrete function candidate from an operator generic interface.
+    ! `is_match` is true only when arity, all operand type/kind/rank facts,
+    ! storage boundaries, and the candidate procedure body are exact and
+    ! statically safe for a backend consumer.
+    type :: defined_operator_candidate_query_t
+        logical :: found = .false.
+        integer :: interface_node_index = 0
+        integer :: procedure_node_index = 0
+        character(len=:), allocatable :: procedure_name
+        character(len=:), allocatable :: procedure_kind
+        logical :: is_match = .false.
+        logical :: has_conversion = .false.
+        logical :: has_unknown_types = .false.
+        logical :: has_pointer_operand = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_invalid_arity = .false.
+        type(defined_operator_operand_query_t), allocatable :: operands(:)
+    end type defined_operator_candidate_query_t
+
+    ! Same-arena exact resolution of a user-defined unary or binary operator.
+    ! `found` means that the operator expression and at least one visible
+    ! operator interface were identified. `is_resolved` is stronger: exactly
+    ! one candidate has an exact operand signature and no explicit refusal
+    ! boundary. No implicit conversion, dynamic polymorphism, pointer/TARGET
+    ! alias, or mutable global state is guessed by this query.
+    type :: defined_operator_query_t
+        logical :: found = .false.
+        logical :: is_defined_operator = .false.
+        logical :: is_unary = .false.
+        logical :: is_binary = .false.
+        logical :: is_resolved = .false.
+        logical :: is_unresolved = .false.
+        logical :: is_refused = .false.
+        logical :: is_ambiguous = .false.
+        logical :: has_exact_match = .false.
+        logical :: has_conversion = .false.
+        logical :: has_unknown_types = .false.
+        logical :: has_pointer_operand = .false.
+        logical :: has_global_mutable_state = .false.
+        logical :: has_invalid_arity = .false.
+        integer :: operator_node_index = 0
+        integer :: interface_node_index = 0
+        integer :: selected_procedure_node_index = 0
+        character(len=:), allocatable :: operator
+        character(len=:), allocatable :: refusal_reason
+        integer, allocatable :: interface_node_indices(:)
+        type(defined_operator_candidate_query_t), allocatable :: candidates(:)
+    end type defined_operator_query_t
 
     ! Normalized storage facts for compiler consumers.  The existing
     ! declaration query mirrors source attributes; this record additionally
@@ -2287,6 +2372,484 @@ contains
             end do
         end if
     end function query_generic_call
+
+    function query_defined_operator(arena, operator_node_index) result(query)
+        !! Resolve one same-arena user-defined unary or binary operator.
+        !!
+        !! The query walks visible INTERFACE OPERATOR(...) blocks, expands
+        !! their concrete procedures, and compares the actual operands with
+        !! the formal operands by semantic type, kind, rank, and derived-type
+        !! identity.  It never applies an implicit conversion or guesses a
+        !! dynamic/pointer target.  A unique exact candidate is selected only
+        !! when its operands and procedure body are outside the explicit
+        !! pointer/TARGET, polymorphic, and mutable-global boundaries.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: operator_node_index
+        type(defined_operator_query_t) :: query
+
+        character(len=:), allocatable :: operator_symbol
+        integer :: left_index, right_index, line, column
+        character(len=:), allocatable :: error_msg
+        integer, allocatable :: actual_indices(:), interface_indices(:)
+        integer, allocatable :: procedure_indices(:)
+        type(defined_operator_candidate_query_t) :: candidate
+        integer :: i, j, match_count
+
+        call initialize_defined_operator_query(query)
+        if (.not. arena%has_node_at(operator_node_index)) return
+        call get_binary_op_info(arena, operator_node_index, operator_symbol, &
+            left_index, right_index, line, column, error_msg)
+        if (len_trim(error_msg) > 0 .or. len_trim(operator_symbol) == 0) return
+
+        query%operator_node_index = operator_node_index
+        query%operator = normalize_generic_operator(operator_symbol)
+        if (left_index > 0 .and. right_index > 0) then
+            query%is_binary = .true.
+            allocate (actual_indices(2))
+            actual_indices = [left_index, right_index]
+        else if (left_index > 0 .or. right_index > 0) then
+            query%is_unary = .true.
+            allocate (actual_indices(1))
+            if (right_index > 0) then
+                actual_indices(1) = right_index
+            else
+                actual_indices(1) = left_index
+            end if
+        else
+            return
+        end if
+
+        call collect_visible_operator_interfaces(arena, operator_node_index, &
+            query%operator, interface_indices)
+        if (size(interface_indices) == 0) return
+
+        query%found = .true.
+        query%is_defined_operator = .true.
+        query%interface_node_indices = interface_indices
+        if (size(interface_indices) == 1) then
+            query%interface_node_index = interface_indices(1)
+        else
+            query%is_ambiguous = .true.
+        end if
+
+        do i = 1, size(interface_indices)
+            call collect_generic_candidate_indices(arena, interface_indices(i), &
+                procedure_indices)
+            do j = 1, size(procedure_indices)
+                call fill_defined_operator_candidate(arena, actual_indices, &
+                    interface_indices(i), procedure_indices(j), candidate)
+                call append_defined_operator_candidate(query%candidates, &
+                    candidate)
+            end do
+        end do
+
+        match_count = 0
+        do i = 1, size(query%candidates)
+            if (query%candidates(i)%has_conversion) query%has_conversion = .true.
+            if (query%candidates(i)%has_unknown_types) &
+                query%has_unknown_types = .true.
+            if (query%candidates(i)%has_pointer_operand) &
+                query%has_pointer_operand = .true.
+            if (query%candidates(i)%has_global_mutable_state) &
+                query%has_global_mutable_state = .true.
+            if (query%candidates(i)%has_invalid_arity) &
+                query%has_invalid_arity = .true.
+            if (query%candidates(i)%is_match) match_count = match_count + 1
+        end do
+
+        query%has_exact_match = match_count > 0
+        if (match_count > 1) query%is_ambiguous = .true.
+        if (match_count == 1 .and. .not. query%is_ambiguous) then
+            do i = 1, size(query%candidates)
+                if (.not. query%candidates(i)%is_match) cycle
+                query%selected_procedure_node_index = &
+                    query%candidates(i)%procedure_node_index
+                query%is_resolved = .true.
+                exit
+            end do
+        end if
+
+        if (.not. query%is_resolved) then
+            query%is_unresolved = .true.
+            query%is_refused = .true.
+            call set_defined_operator_refusal_reason(query)
+        end if
+    end function query_defined_operator
+
+    subroutine fill_defined_operator_candidate(arena, actual_indices, &
+            interface_index, procedure_index, candidate)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: actual_indices(:)
+        integer, intent(in) :: interface_index, procedure_index
+        type(defined_operator_candidate_query_t), intent(out) :: candidate
+        type(program_unit_query_t) :: procedure
+        type(declaration_query_t) :: declaration
+        type(storage_query_t) :: formal_storage
+        type(global_reference_query_t), allocatable :: global_refs(:)
+        integer :: actual_count, formal_count, operand_count, i
+
+        call initialize_defined_operator_candidate(candidate)
+        procedure = query_program_unit(arena, procedure_index)
+        if (.not. procedure%found) return
+        if (procedure%unit_kind /= 'function' .and. &
+            procedure%unit_kind /= 'subroutine') return
+
+        candidate%found = .true.
+        candidate%interface_node_index = interface_index
+        candidate%procedure_node_index = procedure_index
+        candidate%procedure_name = procedure%name
+        candidate%procedure_kind = procedure%unit_kind
+        actual_count = size(actual_indices)
+        formal_count = size(procedure%parameter_indices)
+        operand_count = max(actual_count, formal_count)
+        if (allocated(candidate%operands)) deallocate (candidate%operands)
+        allocate (candidate%operands(operand_count))
+        candidate%is_match = actual_count == formal_count
+        candidate%has_invalid_arity = .not. candidate%is_match
+
+        do i = 1, operand_count
+            call initialize_defined_operator_operand(candidate%operands(i))
+            if (i <= actual_count) candidate%operands(i)%actual_node_index = &
+                actual_indices(i)
+            if (i <= formal_count) candidate%operands(i)%formal_node_index = &
+                procedure%parameter_indices(i)
+            if (i > actual_count .or. i > formal_count) cycle
+            call fill_defined_operator_operand(arena, &
+                candidate%operands(i)%actual_node_index, &
+                candidate%operands(i)%formal_node_index, candidate%operands(i))
+            candidate%has_conversion = candidate%has_conversion .or. &
+                candidate%operands(i)%has_conversion
+            candidate%has_unknown_types = candidate%has_unknown_types .or. &
+                candidate%operands(i)%has_unknown_type
+            candidate%has_pointer_operand = candidate%has_pointer_operand .or. &
+                candidate%operands(i)%actual_is_pointer .or. &
+                candidate%operands(i)%actual_is_target .or. &
+                candidate%operands(i)%formal_is_pointer .or. &
+                candidate%operands(i)%formal_is_target
+            candidate%has_global_mutable_state = &
+                candidate%has_global_mutable_state .or. &
+                candidate%operands(i)%actual_has_global_mutable_state
+            if (.not. candidate%operands(i)%is_exact) candidate%is_match = .false.
+        end do
+
+        global_refs = query_active_global_references(arena, procedure_index)
+        candidate%has_global_mutable_state = candidate%has_global_mutable_state .or. &
+            size(global_refs) > 0
+        if (candidate%has_pointer_operand .or. &
+                candidate%has_global_mutable_state) candidate%is_match = .false.
+
+        do i = 1, formal_count
+            declaration = query_declaration(arena, procedure%parameter_indices(i))
+            formal_storage = query_designator_storage(arena, &
+                procedure%parameter_indices(i))
+            if (.not. declaration%found .or. .not. formal_storage%found) cycle
+            if (declaration%is_pointer .or. declaration%is_target) then
+                candidate%has_pointer_operand = .true.
+                candidate%is_match = .false.
+            end if
+        end do
+    end subroutine fill_defined_operator_candidate
+
+    subroutine fill_defined_operator_operand(arena, actual_index, formal_index, &
+            operand)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: actual_index, formal_index
+        type(defined_operator_operand_query_t), intent(inout) :: operand
+        type(resolved_type_query_t) :: actual_type, formal_type
+        type(storage_query_t) :: actual_storage, formal_storage
+
+        actual_type = query_resolved_type(arena, actual_index)
+        formal_type = query_resolved_type(arena, formal_index)
+        actual_storage = query_designator_storage(arena, actual_index)
+        formal_storage = query_designator_storage(arena, formal_index)
+        operand%found = actual_index > 0 .and. formal_index > 0
+        operand%actual_type_known = actual_type%found .and. &
+            .not. actual_storage%is_polymorphic
+        operand%formal_type_known = formal_type%found .and. &
+            .not. formal_storage%is_polymorphic
+        operand%actual_type_kind = actual_type%type_kind
+        operand%actual_kind_value = actual_type%kind_value
+        operand%actual_rank = actual_type%rank
+        operand%formal_type_kind = formal_type%type_kind
+        operand%formal_kind_value = formal_type%kind_value
+        operand%formal_rank = formal_type%rank
+        operand%actual_derived_type_name = actual_type%derived_type_name
+        operand%formal_derived_type_name = formal_type%derived_type_name
+        if (actual_storage%found) then
+            operand%actual_is_pointer = actual_storage%is_pointer
+            operand%actual_is_target = actual_storage%is_target
+            operand%actual_is_allocatable = actual_storage%is_allocatable
+            operand%actual_is_polymorphic = actual_storage%is_polymorphic
+            operand%actual_has_global_mutable_state = &
+                storage_has_global_state(actual_storage)
+        end if
+        if (formal_storage%found) then
+            operand%formal_is_pointer = formal_storage%is_pointer
+            operand%formal_is_target = formal_storage%is_target
+            operand%formal_is_allocatable = formal_storage%is_allocatable
+            operand%formal_is_polymorphic = formal_storage%is_polymorphic
+        end if
+
+        operand%has_unknown_type = .not. operand%actual_type_known .or. &
+            .not. operand%formal_type_known
+        if (operand%has_unknown_type) return
+        if (.not. defined_operator_types_match(operand)) then
+            operand%has_conversion = .true.
+            return
+        end if
+        operand%is_exact = .not. operand%actual_is_pointer .and. &
+            .not. operand%actual_is_target .and. &
+            .not. operand%formal_is_pointer .and. &
+            .not. operand%formal_is_target .and. &
+            .not. operand%actual_is_polymorphic .and. &
+            .not. operand%formal_is_polymorphic .and. &
+            .not. operand%actual_has_global_mutable_state
+    end subroutine fill_defined_operator_operand
+
+    logical function defined_operator_types_match(operand) result(matches)
+        type(defined_operator_operand_query_t), intent(in) :: operand
+
+        matches = operand%actual_type_kind == operand%formal_type_kind .and. &
+            operand%actual_kind_value == operand%formal_kind_value .and. &
+            operand%actual_rank == operand%formal_rank
+        if (.not. matches) return
+        if (len_trim(operand%actual_derived_type_name) > 0 .or. &
+                len_trim(operand%formal_derived_type_name) > 0) then
+            matches = same_name(operand%actual_derived_type_name, &
+                operand%formal_derived_type_name)
+        end if
+    end function defined_operator_types_match
+
+    subroutine collect_visible_operator_interfaces(arena, operator_node_index, &
+            operator_symbol, interface_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: operator_node_index
+        character(len=*), intent(in) :: operator_symbol
+        integer, allocatable, intent(out) :: interface_indices(:)
+        integer :: i
+
+        allocate (interface_indices(0))
+        do i = 1, arena%size
+            if (.not. arena%has_node_at(i)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (interface_block_node)
+                if (.not. allocated(node%kind) .or. &
+                        .not. same_name(node%kind, 'operator')) cycle
+                if (.not. allocated(node%operator)) cycle
+                if (normalize_generic_operator(node%operator) /= &
+                        normalize_generic_operator(operator_symbol)) cycle
+                if (.not. operator_interface_visible(arena, i, &
+                        operator_node_index)) cycle
+                call append_candidate_index(interface_indices, i)
+            end select
+        end do
+    end subroutine collect_visible_operator_interfaces
+
+    logical function operator_interface_visible(arena, interface_index, &
+            operator_node_index) result(is_visible)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: interface_index, operator_node_index
+        integer :: call_scope, interface_scope, module_index, current_scope
+        character(len=:), allocatable :: module_name
+
+        is_visible = .false.
+        call_scope = find_enclosing_scope(arena, operator_node_index)
+        interface_scope = find_enclosing_scope(arena, interface_index)
+        if (call_scope <= 0) return
+        if (node_is_in_scope(arena, interface_index, call_scope)) then
+            is_visible = .true.
+            return
+        end if
+        if (interface_scope > 0 .and. node_is_in_scope(arena, call_scope, &
+                interface_scope)) then
+            is_visible = .true.
+            return
+        end if
+
+        module_index = interface_scope
+        if (module_index <= 0) module_index = enclosing_module(arena, &
+            interface_index)
+        if (module_index <= 0) return
+        select type (module => arena%entries(module_index)%node)
+            type is (module_node)
+            if (.not. allocated(module%name)) return
+            module_name = module%name
+            if (.not. module_operator_is_public(arena, module_index, &
+                    interface_index)) return
+            current_scope = call_scope
+            do while (current_scope > 0)
+                if (scope_uses_operator(arena, current_scope, module_name, &
+                        interface_index)) then
+                    is_visible = .true.
+                    return
+                end if
+                current_scope = find_host_scope(arena, current_scope)
+            end do
+        class default
+        end select
+    end function operator_interface_visible
+
+    logical function scope_uses_operator(arena, scope_index, module_name, &
+            interface_index) result(is_used)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index, interface_index
+        character(len=*), intent(in) :: module_name
+        type(interface_query_t) :: iface
+        integer, allocatable :: statement_indices(:)
+        integer :: i, j
+
+        is_used = .false.
+        iface = query_interface(arena, interface_index)
+        call get_scope_statement_indices(arena, scope_index, statement_indices)
+        do i = 1, size(statement_indices)
+            if (.not. arena%has_node_at(statement_indices(i))) cycle
+            select type (use => arena%entries(statement_indices(i))%node)
+                type is (use_statement_node)
+                if (use%is_intrinsic .or. .not. allocated(use%module_name)) cycle
+                if (.not. same_name(use%module_name, module_name)) cycle
+                if (.not. use%has_only) then
+                    is_used = .true.
+                    return
+                end if
+                if (.not. allocated(use%only_list)) cycle
+                do j = 1, size(use%only_list)
+                    if (operator_spec_matches(use%only_list(j)%s, &
+                            iface%operator)) then
+                        is_used = .true.
+                        return
+                    end if
+                    if (j < size(use%only_list)) then
+                        if (operator_spec_matches(use%only_list(j + 1)%s, &
+                                iface%operator)) then
+                            is_used = .true.
+                            return
+                        end if
+                    end if
+                end do
+            end select
+        end do
+    end function scope_uses_operator
+
+    logical function operator_spec_matches(text, operator_symbol) result(matches)
+        character(len=*), intent(in) :: text, operator_symbol
+        character(len=:), allocatable :: lowered, wanted
+        integer :: open_pos, close_pos
+
+        matches = .false.
+        lowered = to_lower(trim(text))
+        if (len_trim(lowered) < len('operator()')) return
+        if (index(lowered, 'operator(') /= 1) return
+        open_pos = index(lowered, '(')
+        close_pos = len_trim(lowered)
+        if (close_pos <= open_pos .or. lowered(close_pos:close_pos) /= ')') return
+        wanted = normalize_generic_operator(lowered(open_pos + 1:close_pos - 1))
+        matches = wanted == normalize_generic_operator(operator_symbol)
+    end function operator_spec_matches
+
+    logical function module_operator_is_public(arena, module_index, &
+            interface_index) result(is_public)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: module_index, interface_index
+        integer, allocatable :: statement_indices(:)
+        type(interface_query_t) :: iface
+        logical :: default_public, named, named_public
+        integer :: i, j
+
+        is_public = .true.
+        iface = query_interface(arena, interface_index)
+        call get_scope_statement_indices(arena, module_index, statement_indices)
+        default_public = .true.
+        named = .false.
+        named_public = .false.
+        do i = 1, size(statement_indices)
+            if (.not. arena%has_node_at(statement_indices(i))) cycle
+            select type (visibility => arena%entries(statement_indices(i))%node)
+                type is (visibility_statement_node)
+                if (.not. visibility%has_list) then
+                    default_public = .not. visibility%is_private
+                    cycle
+                end if
+                if (.not. allocated(visibility%names)) cycle
+                do j = 1, size(visibility%names)
+                    if (.not. operator_spec_matches(visibility%names(j)%s, &
+                            iface%operator)) cycle
+                    named = .true.
+                    named_public = .not. visibility%is_private
+                end do
+            end select
+        end do
+        if (named) then
+            is_public = named_public
+        else
+            is_public = default_public
+        end if
+    end function module_operator_is_public
+
+    subroutine append_defined_operator_candidate(values, value)
+        type(defined_operator_candidate_query_t), allocatable, intent(inout) :: values(:)
+        type(defined_operator_candidate_query_t), intent(in) :: value
+        type(defined_operator_candidate_query_t), allocatable :: grown(:)
+        integer :: n
+
+        n = size(values)
+        allocate (grown(n + 1))
+        if (n > 0) grown(:n) = values
+        grown(n + 1) = value
+        call move_alloc(grown, values)
+    end subroutine append_defined_operator_candidate
+
+    subroutine initialize_defined_operator_query(query)
+        type(defined_operator_query_t), intent(out) :: query
+
+        call set_empty(query%operator)
+        call set_empty(query%refusal_reason)
+        if (allocated(query%interface_node_indices)) deallocate (query%interface_node_indices)
+        if (allocated(query%candidates)) deallocate (query%candidates)
+        allocate (query%interface_node_indices(0))
+        allocate (query%candidates(0))
+    end subroutine initialize_defined_operator_query
+
+    subroutine initialize_defined_operator_candidate(candidate)
+        type(defined_operator_candidate_query_t), intent(out) :: candidate
+
+        call set_empty(candidate%procedure_name)
+        call set_empty(candidate%procedure_kind)
+        if (allocated(candidate%operands)) deallocate (candidate%operands)
+        allocate (candidate%operands(0))
+    end subroutine initialize_defined_operator_candidate
+
+    subroutine initialize_defined_operator_operand(operand)
+        type(defined_operator_operand_query_t), intent(out) :: operand
+
+        if (allocated(operand%actual_derived_type_name)) then
+            deallocate (operand%actual_derived_type_name)
+        end if
+        if (allocated(operand%formal_derived_type_name)) then
+            deallocate (operand%formal_derived_type_name)
+        end if
+        call set_empty(operand%actual_derived_type_name)
+        call set_empty(operand%formal_derived_type_name)
+    end subroutine initialize_defined_operator_operand
+
+    subroutine set_defined_operator_refusal_reason(query)
+        type(defined_operator_query_t), intent(inout) :: query
+
+        if (query%is_ambiguous) then
+            query%refusal_reason = 'ambiguous defined operator candidates'
+        else if (query%has_pointer_operand) then
+            query%refusal_reason = 'pointer or TARGET operator operand'
+        else if (query%has_global_mutable_state) then
+            query%refusal_reason = 'mutable global state in operator'
+        else if (query%has_conversion) then
+            query%refusal_reason = 'defined operator requires conversion'
+        else if (query%has_unknown_types) then
+            query%refusal_reason = 'defined operator operand type is unknown'
+        else if (query%has_invalid_arity) then
+            query%refusal_reason = 'defined operator candidate has invalid arity'
+        else
+            query%refusal_reason = 'no exact defined operator candidate'
+        end if
+    end subroutine set_defined_operator_refusal_reason
 
     subroutine initialize_generic_call_query(query)
         type(generic_call_query_t), intent(out) :: query

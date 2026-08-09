@@ -193,6 +193,18 @@ end subroutine
   matches. Conversions, extension-type compatibility, elemental expansion,
   and procedure-pointer dispatch remain explicit boundaries, so ambiguous or
   unsupported generic calls are never guessed.
+- **Defined-operator query**: `query_defined_operator(arena, operator_node)
+  resolves a user-defined unary or binary `binary_op_node` through visible,
+  same-arena `INTERFACE OPERATOR(...)` blocks. Each
+  `defined_operator_candidate_query_t` records the actual/formal operand
+  type category, exact kind, rank, derived-type identity, and node indices.
+  `selected_procedure_node_index` is populated only for one exact candidate.
+  `is_ambiguous`, `has_conversion`, `has_unknown_types`,
+  `has_pointer_operand`, `has_global_mutable_state`, and
+  `has_invalid_arity` remain explicit refusal facts; no implicit conversion,
+  polymorphic dynamic target, pointer/TARGET alias, or mutable global state is
+  guessed. See `examples/f90/defined_operator_query.f90` and
+  `test/api/test_defined_operator_query.f90` for the independent API oracle.
 - **Resolved type query**: `query_resolved_type` returns the semantic intrinsic
   category, exact Fortran kind value, storage size in bits, rank, and
   derived-type identity for an analyzed expression. The compiler pipeline

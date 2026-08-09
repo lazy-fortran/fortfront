@@ -106,7 +106,9 @@ module fortfront
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
         procedure_actual_argument_query_t, query_procedure_actual_argument, &
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
-        query_generic_call
+        query_generic_call, defined_operator_operand_query_t, &
+        defined_operator_candidate_query_t, defined_operator_query_t, &
+        query_defined_operator
     use frontend_compiler_control_queries, only: control_statement_query_t, &
         select_rank_arm_query_t, select_type_arm_query_t, &
         query_control_statement, CONTROL_SELECT_RANK, CONTROL_SELECT_TYPE, &
