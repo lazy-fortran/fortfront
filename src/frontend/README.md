@@ -294,10 +294,11 @@ end subroutine
   includes concrete dynamic target type indices, implementation names, and
   implementation procedure node indices.
   Its dispatch-target arrays also carry parallel
-  `dispatch_target_declaring_type_indices` and
+  `dispatch_target_binding_node_indices`,
+  `dispatch_target_declaring_type_indices`, and
   `dispatch_target_is_inherited` facts. These identify the effective binding
-  declaration when a concrete leaf inherits an implementation through an
-  abstract intermediate type. The parallel
+  declaration node and declaring type when a concrete leaf inherits an
+  implementation through an abstract intermediate type. The parallel
   `dispatch_target_inheritance_depth` gives the number of `EXTENDS` links from
   each concrete target to that declaration (zero for a local implementation),
   so consumers can distinguish one-level and deeper inherited contracts without
@@ -540,8 +541,11 @@ end subroutine
   `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
   enumerates the specifics of a generic `CALL selector%generic(...)` after a
   concrete `TYPE IS` or `CLASS IS` narrowing. Each candidate carries its
-  implementation node/name, exact-match status, and ordered procedure
-  signature. `is_resolved` is set only for one exact type/kind/rank match;
+  implementation node/name, exact-match status, ordered procedure signature,
+  and effective per-specific PASS metadata (`pass_metadata_resolved`,
+  `pass_arg`, `pass_name`, and `pass_position`). The PASS fields follow an
+  inherited specific binding rather than copying the enclosing generic's
+  default. `is_resolved` is set only for one exact type/kind/rank match;
   ambiguous, zero-match, deferred, unresolved, dynamic, array, pointer, and
   allocatable cases remain explicit refusals with no selected implementation.
 - **SELECT TYPE component type-bound generic dispatch query**:

@@ -2,10 +2,10 @@ program test_abstract_dispatch_provenance_query
     use iso_fortran_env, only: error_unit
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, derived_type_query_t, &
+        INPUT_MODE_STANDARD, ast_arena_t, get_node_type_at, derived_type_query_t, &
         query_derived_type, binding_resolution_query_t, &
         query_type_binding_resolution, type_bound_call_query_t, &
-        query_type_bound_call
+        query_type_bound_call, type_binding_query_t, query_type_binding
     implicit none
 
     type(compiler_frontend_options_t) :: options
@@ -15,9 +15,12 @@ program test_abstract_dispatch_provenance_query
     type(type_bound_call_query_t) :: call_binding
     character(len=:), allocatable :: source
     character(len=:), allocatable :: syntax_command
-    integer :: syntax_status, syntax_exitstat
+    character(len=:), allocatable :: runtime_command
+    integer :: syntax_status, syntax_exitstat, runtime_status, runtime_exitstat
     integer :: i, root_index, middle_index, leaf_index, generic_index
-    integer :: target
+    integer :: target, middle_work_binding, leaf_run_binding
+    type(type_binding_query_t) :: binding_node
+    type(derived_type_query_t) :: middle_type, leaf_type
 
     call read_example('examples/f90/abstract_dispatch_provenance_query.f90', &
         source)
@@ -27,6 +30,19 @@ program test_abstract_dispatch_provenance_query
         exitstat=syntax_exitstat, cmdstat=syntax_status)
     call require(syntax_status == 0 .and. syntax_exitstat == 0, &
         'GNU Fortran rejected the abstract dispatch fixture')
+    runtime_command = 'gfortran -std=f2018 -pedantic -Wall -Wextra -o '// &
+        '/tmp/fortfront_abstract_dispatch_provenance '// &
+        'examples/f90/abstract_dispatch_provenance_query.f90'
+    call execute_command_line(runtime_command, wait=.true., &
+        exitstat=runtime_exitstat, cmdstat=runtime_status)
+    call require(runtime_status == 0 .and. runtime_exitstat == 0, &
+        'GNU Fortran could not link the abstract dispatch fixture')
+    call execute_command_line('/tmp/fortfront_abstract_dispatch_provenance', &
+        wait=.true., exitstat=runtime_exitstat, cmdstat=runtime_status)
+    call execute_command_line('rm -f /tmp/fortfront_abstract_dispatch_provenance', &
+        wait=.true.)
+    call require(runtime_status == 0 .and. runtime_exitstat == 0, &
+        'abstract dispatch runtime oracle failed')
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -58,6 +74,13 @@ program test_abstract_dispatch_provenance_query
         leaf_index > 0 .and. generic_index > 0, &
         'abstract provenance types are missing')
 
+    middle_type = query_derived_type(result%arena, middle_index)
+    leaf_type = query_derived_type(result%arena, leaf_index)
+    middle_work_binding = find_binding_node(result%arena, middle_type, 'work')
+    leaf_run_binding = find_binding_node(result%arena, leaf_type, 'run')
+    call require(middle_work_binding > 0 .and. leaf_run_binding > 0, &
+        'effective binding declaration nodes are missing')
+
     ! Independent oracle: the leaf is concrete, but its WORK implementation
     ! is declared by the abstract intermediate type.
     binding = query_type_binding_resolution(result%arena, root_index, 'work')
@@ -69,6 +92,9 @@ program test_abstract_dispatch_provenance_query
     call require(size(binding%dispatch_target_declaring_type_indices) == 1 .and. &
         binding%dispatch_target_declaring_type_indices(1) == middle_index, &
         'effective inherited binding declaration is wrong')
+    call require(size(binding%dispatch_target_binding_node_indices) == 1 .and. &
+        binding%dispatch_target_binding_node_indices(1) == middle_work_binding, &
+        'effective inherited binding node is wrong')
     call require(size(binding%dispatch_target_is_inherited) == 1 .and. &
         binding%dispatch_target_is_inherited(1), &
         'inherited dispatch provenance was not exposed')
@@ -82,6 +108,8 @@ program test_abstract_dispatch_provenance_query
     call require(binding%dispatch_target_declaring_type_indices(target) == &
         leaf_index .and. .not. binding%dispatch_target_is_inherited(target), &
         'leaf deferred implementation provenance is wrong')
+    call require(binding%dispatch_target_binding_node_indices(target) == &
+        leaf_run_binding, 'leaf deferred binding node is wrong')
 
     call_binding = query_type_bound_call(result%arena, 0)
     do i = 1, result%arena%size
@@ -95,6 +123,8 @@ program test_abstract_dispatch_provenance_query
             call require(call_binding%dispatch_target_declaring_type_indices(1) == &
                 middle_index .and. call_binding%dispatch_target_is_inherited(1), &
                 'type-bound WORK provenance was not copied')
+            call require(call_binding%dispatch_target_binding_node_indices(1) == &
+                middle_work_binding, 'type-bound WORK binding node was not copied')
             exit
         end if
     end do
@@ -108,6 +138,7 @@ program test_abstract_dispatch_provenance_query
     call require(binding%found .and. binding%is_generic, &
         'generic refusal was not reported')
     call require(size(binding%dispatch_target_type_indices) == 0 .and. &
+        size(binding%dispatch_target_binding_node_indices) == 0 .and. &
         size(binding%dispatch_target_declaring_type_indices) == 0 .and. &
         size(binding%dispatch_target_is_inherited) == 0, &
         'generic dispatch exposed a guessed target')
@@ -115,6 +146,7 @@ program test_abstract_dispatch_provenance_query
     binding = query_type_binding_resolution(result%arena, root_index, &
         'missing')
     call require(.not. binding%found .and. &
+        size(binding%dispatch_target_binding_node_indices) == 0 .and. &
         size(binding%dispatch_target_declaring_type_indices) == 0, &
         'unresolved binding exposed provenance')
 
@@ -136,6 +168,23 @@ contains
             end if
         end do
     end function find_target
+
+    integer function find_binding_node(arena, derived, name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_query_t), intent(in) :: derived
+        character(len=*), intent(in) :: name
+        type(type_binding_query_t) :: candidate
+        integer :: j
+
+        found = 0
+        do j = 1, size(derived%binding_indices)
+            candidate = query_type_binding(arena, derived%binding_indices(j))
+            if (candidate%found .and. trim(candidate%binding_name) == trim(name)) then
+                found = candidate%node_index
+                return
+            end if
+        end do
+    end function find_binding_node
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

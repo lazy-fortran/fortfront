@@ -69,6 +69,31 @@ only: generic, ambiguous, unresolved, loop, ownership, and active global-state
 boundaries remain refusals and do not receive a guessed target. The independent
 GNU/API oracle is `test/api/test_abstract_dispatch_provenance_query.f90`.
 
+### Concrete deferred binding target identity (2026-08-09)
+
+Dispatch target arrays now preserve the effective type-bound declaration node
+for each concrete target in `dispatch_target_binding_node_indices`. FortAD can
+therefore connect a concrete implementation to the abstract/deferred binding
+contract without rebuilding the `EXTENDS` chain or matching procedure names.
+The identity is parallel to the target, implementation, declaring-type, and
+inheritance facts; it does not create targets for generic, ambiguous,
+unresolved, deferred, alias, active-global-state, or unsupported-ownership
+cases. The independent GNU runtime/API oracle is
+`test/api/test_abstract_dispatch_provenance_query.f90`.
+
+### SELECT TYPE generic specific PASS metadata (2026-08-09)
+
+`query_select_type_generic_dispatch` now resolves PASS metadata per selected
+specific after a concrete `TYPE IS` or `CLASS IS` narrowing. Candidate records
+preserve inherited or named PASS dummy names and positions, so a consumer does
+not copy the generic binding's default passed-object position into a specific
+with `PASS(self)`. Legacy generic procedure names remain exact-match compatible
+but expose `pass_metadata_resolved=.false.` rather than inventing a binding.
+Pointer, allocatable, polymorphic, dynamic, ambiguous, deferred, unresolved,
+and ownership boundaries remain refusals. The independent GNU runtime/API
+oracle is `test/api/test_select_type_generic_pass_query.f90`, backed by
+`examples/f90/select_type_generic_pass_query.f90`.
+
 ### Abstract SELECT TYPE target boundary (2026-08-09)
 
 `query_select_type_dispatch` now treats an abstract `CLASS IS` guard as an
