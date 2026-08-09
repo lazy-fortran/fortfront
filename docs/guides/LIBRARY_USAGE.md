@@ -236,6 +236,25 @@ See
 `test/api/test_procedure_pointer_state_query.f90` for the GNU runtime and
 independent expected-facts oracle.
 
+## SELECT RANK selector rank and bounds
+
+`query_control_statement(arena, select_rank_node_index)` returns one
+`select_rank_arm_query_t` per arm. Each arm retains its explicit selected rank
+or default/assumed-size dispatch kind. For an assumed-rank selector, the
+source declaration's `selector_bounds_node_indices` are preserved and
+`selector_is_assumed_rank` is true. `selector_storage%rank` remains `-1`
+because the source rank is unknown until dispatch; the arm's `selected_rank`
+is the only rank fact narrowed by the construct. The existing
+`query_array_bounds` query can inspect each retained bounds node and reports
+the `(..)` marker without inventing lower, upper, or stride expressions.
+
+Pointer, polymorphic, unresolved, and ownership-sensitive selectors retain
+their existing refusal flags. This contract exposes parser/source and
+semantic identity facts only; it does not choose a differentiation or
+lowering strategy. See `examples/f90/select_rank_bounds.f90` and
+`test/api/test_select_rank_bounds.f90` for the independent GNU runtime/API
+oracle.
+
 ## SELECT TYPE associate selectors
 
 `query_control_statement` exposes `select_type_arm_query_t` records for each

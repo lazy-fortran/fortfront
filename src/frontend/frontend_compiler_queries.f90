@@ -673,6 +673,7 @@ module frontend_compiler_queries
         logical :: is_contiguous = .false.
         logical :: is_polymorphic = .false.
         logical :: is_unlimited_polymorphic = .false.
+        logical :: is_assumed_rank = .false.
         logical :: is_module_state = .false.
         logical :: is_save_state = .false.
         logical :: is_common_state = .false.
@@ -5952,6 +5953,8 @@ contains
         query%name = declaration%name
         query%type_name = declaration%type_name
         query%rank = declaration_rank(declaration)
+        query%is_assumed_rank = declaration_has_assumed_rank(arena, declaration)
+        if (query%is_assumed_rank) query%rank = -1
         query%is_allocatable = declaration%is_allocatable
         query%is_pointer = declaration%is_pointer
         query%is_target = declaration%is_target
@@ -6009,6 +6012,24 @@ contains
             end if
         end if
     end function declaration_rank
+
+    logical function declaration_has_assumed_rank(arena, declaration) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_query_t), intent(in) :: declaration
+        type(array_bounds_query_t) :: bounds
+        integer :: i
+
+        found = .false.
+        if (.not. declaration%found) return
+        if (.not. allocated(declaration%dimension_indices)) return
+        do i = 1, size(declaration%dimension_indices)
+            bounds = query_array_bounds(arena, declaration%dimension_indices(i))
+            if (bounds%found .and. bounds%is_assumed_rank) then
+                found = .true.
+                return
+            end if
+        end do
+    end function declaration_has_assumed_rank
 
     subroutine set_derived_storage_facts(arena, node_index, query)
         type(ast_arena_t), intent(in) :: arena

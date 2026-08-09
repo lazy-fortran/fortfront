@@ -427,10 +427,14 @@ end subroutine
   `select_rank_arm_query_t` per explicit, `RANK (*)`, or `RANK DEFAULT` arm.
   Each record preserves the selector and declaration identity, selected rank,
   arm source location, body entry/exit nodes, and dispatch kind. Existing
-  storage and component-path facts are reused where available. Pointer
-  selectors, unresolved dynamic ownership, and unsupported selector forms set
-  explicit boundary flags and refusal reasons. The query does not invent an AD
-  lowering model.
+  storage and component-path facts are reused where available. For an
+  assumed-rank selector, `selector_bounds_node_indices` preserves the
+  declaration's source bounds identity, `selector_is_assumed_rank` is true,
+  and `selector_storage%rank` remains `-1` until an arm narrows it through
+  `selected_rank`; `query_array_bounds` exposes the `(..)` marker without
+  manufacturing bounds expressions. Pointer selectors, unresolved dynamic
+  ownership, and unsupported selector forms set explicit boundary flags and
+  refusal reasons. The query does not invent an AD lowering model.
 - **SELECT TYPE arm query**: `query_control_statement` also returns one
   `select_type_arm_query_t` per `TYPE IS`, `CLASS IS`, or `CLASS DEFAULT` arm.
   Each record preserves selector identity, one-based arm ordinal, arm kind,
