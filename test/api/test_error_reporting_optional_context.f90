@@ -10,6 +10,7 @@ program test_error_reporting_optional_context
     type(error_context_t) :: context
     type(error_record_t) :: error
     character(len=:), allocatable :: formatted
+    character(len=:), allocatable :: long_message
     character(len=32) :: source_lines(2)
 
     token%kind = TK_IDENTIFIER
@@ -44,6 +45,20 @@ program test_error_reporting_optional_context
     call require(index(formatted, 'line 2592, column 12') > 0, &
         'long source location was truncated or rejected')
 
+    ! A recovered dependency can return a diagnostic much longer than the
+    ! formatter's historical fixed-width location record.  The full message
+    ! must survive alongside the extreme representable default-integer
+    ! location without an internal-write end-of-record failure.
+    long_message = 'dependency diagnostic: ' // repeat('x', 4096) // ' :end'
+    error%message = long_message
+    error%context = create_error_context(huge(0), huge(0))
+    formatted = format_error_message(error)
+    call require(index(formatted, trim(long_message)) > 0, &
+        'overlong diagnostic text was truncated')
+    call require(index(formatted, 'line ' // trim(adjustl(line_text(huge(0)))) // &
+        ', column ' // trim(adjustl(line_text(huge(0))))) > 0, &
+        'overlong diagnostic location was not preserved')
+
     print *, 'PASS: optional token error context contract'
 
 contains
@@ -57,5 +72,14 @@ contains
             error stop 1
         end if
     end subroutine require
+
+    function line_text(value) result(text)
+        integer, intent(in) :: value
+        character(len=:), allocatable :: text
+        character(len=64) :: buffer
+
+        write (buffer, '(I0)') value
+        text = trim(buffer)
+    end function line_text
 
 end program test_error_reporting_optional_context

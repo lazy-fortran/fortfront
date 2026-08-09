@@ -213,7 +213,8 @@ contains
         type(error_record_t), intent(in) :: error
         character(len=:), allocatable :: formatted
         character(len=20) :: severity_str
-        character(len=64) :: location_str
+        character(len=64) :: line_str, column_str
+        character(len=:), allocatable :: location_str
 
         ! Format severity
         select case (error%severity)
@@ -231,8 +232,12 @@ contains
 
         ! Format location if available
         if (error%context%line > 0) then
-            write (location_str, '("line ", I0, ", column ", I0)') error%context%line, &
-                error%context%column
+            ! Format each integer independently.  Writing both values directly
+            ! into one fixed-width internal record can end the record when a
+            ! recovered dependency supplies an unusually wide location.
+            write (line_str, '(I0)') error%context%line
+            write (column_str, '(I0)') error%context%column
+            location_str = "line " // trim(line_str) // ", column " // trim(column_str)
         else
             location_str = ""
         end if

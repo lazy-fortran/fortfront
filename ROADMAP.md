@@ -46,6 +46,16 @@ parse/semantic drops. GNU and NVIDIA `nvfortran` 26.5 cold builds cover the
 381-target lane; the downstream FortAD nvfortran gate still needs a fresh run
 against this revision and is not evidence of a FortFront failure until then.
 
+### Bounded recovered-source diagnostics (2026-08-09)
+
+`format_error_message` now formats line and column independently before
+assembling the location text. This keeps ordinary diagnostic text unchanged
+while preventing an internal formatted write from terminating with `End of
+record` when the dependency scanner recovers a diagnostic with an unusually
+wide location. The independent API oracle is
+`test/api/test_error_reporting_optional_context.f90`; it preserves a 4 KiB
+diagnostic and an extreme default-integer location.
+
 ### Concrete runtime dispatch targets (2026-08-08)
 
 `query_type_binding_resolution` and `query_type_bound_call` now exclude
