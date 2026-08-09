@@ -348,12 +348,18 @@ inherited or local implementation, effective PASS metadata, and ordered
 procedure signature. It requires the call to be the arm's sole direct
 statement; generic bindings must use the generic-dispatch query instead.
 
-Pointer/TARGET aliases, allocatable or polymorphic components, array paths,
-mutable global state, unresolved bindings, nested calls, and ownership-changing
-selectors remain explicit `is_refused`/`is_unresolved` boundaries with no
-implementation target. See `examples/f90/select_type_component_dispatch.f90`
-and `test/api/test_select_type_component_dispatch.f90` for the independent
-oracle.
+The bounded array extension also resolves exactly one contiguous rank-one
+component section with integer-literal lower and upper bounds and unit stride,
+for example `CALL typed%leaf_section(2:4)%run(value)`. The result sets
+`is_array_section_receiver`, `is_literal_array_section`, and
+`is_contiguous_array_section`, reports `array_section_rank` and the three
+`array_section_*` values, and retains the element type and inherited binding.
+Pointer/TARGET aliases, allocatable or polymorphic components, dynamic or
+non-unit-stride sections, higher-rank sections, array elements, mutable global
+state, unresolved bindings, nested calls, and ownership-changing selectors
+remain explicit `is_refused`/`is_unresolved` boundaries with no implementation
+target. See `examples/f90/select_type_component_dispatch.f90` and
+`test/api/test_select_type_component_dispatch.f90` for the independent oracle.
 
 ## SELECT TYPE type-bound generic dispatch
 

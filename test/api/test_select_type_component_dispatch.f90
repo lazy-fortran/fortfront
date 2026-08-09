@@ -15,6 +15,7 @@ program test_select_type_component_dispatch
     integer :: i, arm, select_index, call_count
     logical :: saw_supported, saw_generic, saw_pointer, saw_allocatable
     logical :: saw_global, saw_alias, saw_nested, saw_missing
+    logical :: saw_section, saw_stride, saw_dynamic, saw_rank2
 
     call read_example('examples/f90/select_type_component_dispatch.f90', source)
     options = compiler_frontend_options_t()
@@ -44,6 +45,10 @@ program test_select_type_component_dispatch
     saw_alias = .false.
     saw_nested = .false.
     saw_missing = .false.
+    saw_section = .false.
+    saw_stride = .false.
+    saw_dynamic = .false.
+    saw_rank2 = .false.
 
     do i = 1, result%arena%size
         if (.not. result%arena%has_node_at(i)) cycle
@@ -76,6 +81,55 @@ program test_select_type_component_dispatch
                 size(query%receiver_path%component_names) == 1 .and. &
                 trim(query%receiver_path%component_names(1)) == 'leaf', &
                 'component receiver path was not preserved')
+        case ('inspect_section')
+            saw_section = .true.
+            call require(query%found .and. query%is_resolved .and. &
+                .not. query%is_refused .and. .not. query%is_unresolved, &
+                'literal contiguous component section was not resolved')
+            call require(query%is_array_receiver .and. &
+                query%is_array_section_receiver .and. &
+                query%is_literal_array_section .and. &
+                query%is_contiguous_array_section .and. &
+                query%array_section_rank == 1 .and. &
+                query%array_section_lower_bound == 2 .and. &
+                query%array_section_upper_bound == 4 .and. &
+                query%array_section_stride == 1, &
+                'component section shape facts are incomplete')
+            call require(trim(query%receiver_name) == &
+                'typed%leaf_section(2:4)' .and. &
+                trim(query%component_type_name) == 'component_leaf_t' .and. &
+                trim(query%implementation) == 'mid_run' .and. &
+                query%is_inherited, 'component section dispatch identity is wrong')
+            call require(query%receiver_path%found, &
+                'component section receiver path was not preserved')
+            call require(size(query%receiver_path%component_names) == 1, &
+                'component section receiver path has the wrong length')
+            call require(trim(query%receiver_path%component_names(1)) == &
+                'leaf_section' .and. query%receiver_path%is_array_section .and. &
+                query%receiver_path%rank == 1, &
+                'component section path facts are incomplete')
+        case ('inspect_stride')
+            saw_stride = .true.
+            call require(query%is_refused .and. query%is_unresolved .and. &
+                query%is_array_section_receiver .and. &
+                query%is_literal_array_section .and. &
+                .not. query%is_contiguous_array_section .and. &
+                query%array_section_rank == 1 .and. &
+                query%array_section_stride == 2, &
+                'noncontiguous component section was not refused')
+        case ('inspect_dynamic')
+            saw_dynamic = .true.
+            call require(query%is_refused .and. query%is_unresolved .and. &
+                query%is_array_section_receiver .and. &
+                .not. query%is_literal_array_section .and. &
+                .not. query%is_contiguous_array_section, &
+                'dynamic component section was not refused')
+        case ('inspect_rank2')
+            saw_rank2 = .true.
+            call require(query%is_refused .and. query%is_unresolved .and. &
+                query%is_array_section_receiver .and. &
+                query%array_section_rank == 2, &
+                'rank-two component section was not refused')
         case ('inspect_generic')
             saw_generic = .true.
             call require(query%found .and. query%is_generic_binding .and. &
@@ -113,7 +167,8 @@ program test_select_type_component_dispatch
         end select
     end do
 
-    call require(call_count == 8 .and. saw_supported .and. saw_generic .and. &
+    call require(call_count == 12 .and. saw_supported .and. saw_section .and. &
+        saw_stride .and. saw_dynamic .and. saw_rank2 .and. saw_generic .and. &
         saw_pointer .and. saw_allocatable .and. saw_global .and. saw_alias .and. &
         saw_nested .and. saw_missing, 'component dispatch cases were incomplete')
 

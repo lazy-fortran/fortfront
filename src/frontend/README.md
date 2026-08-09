@@ -432,9 +432,13 @@ end subroutine
   resolves one explicit non-generic `CALL` through a narrowed component path.
   It preserves the source-backed receiver path and exposes the terminal
   component type, inherited or local implementation, effective PASS metadata,
-  and ordered implementation signature only for a scalar concrete component
-  and a sole direct arm statement. Generic, nested, unresolved, pointer,
-  TARGET, allocatable, polymorphic, array, alias, mutable-global, and
+  and ordered implementation signature for a scalar concrete component or one
+  contiguous rank-one component section with integer-literal bounds and unit
+  stride. The section result exposes `is_array_section_receiver`,
+  `array_section_rank`, `array_section_lower_bound`,
+  `array_section_upper_bound`, and `array_section_stride`. Generic, nested,
+  unresolved, pointer, TARGET, allocatable, polymorphic, dynamic, non-unit-
+  stride, higher-rank, array-element, alias, mutable-global, and
   ownership-changing cases remain explicit refusals without a guessed target.
 - **Concrete SELECT TYPE dispatch query**:
   `query_select_type_dispatch(arena, arm_node_index, call_node_index)`
