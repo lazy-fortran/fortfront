@@ -114,7 +114,7 @@ module frontend_compiler_queries
         generic_call_query_t, query_generic_call
     public :: defined_operator_operand_query_t, &
         defined_operator_candidate_query_t, defined_operator_query_t, &
-        query_defined_operator
+        query_defined_operator, query_defined_operator_into
     public :: STORAGE_LOCAL, STORAGE_OWNED, STORAGE_BORROWED, STORAGE_POINTER
     public :: STORAGE_MODULE, STORAGE_SAVE, STORAGE_COMMON
     public :: OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_DEALLOCATE
@@ -2374,6 +2374,17 @@ contains
     end function query_generic_call
 
     function query_defined_operator(arena, operator_node_index) result(query)
+        !! Compatibility function for callers that can safely receive a
+        !! derived result with nested allocatable components.  NVHPC 26.5
+        !! callers must use query_defined_operator_into instead.
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: operator_node_index
+        type(defined_operator_query_t) :: query
+
+        call query_defined_operator_into(arena, operator_node_index, query)
+    end function query_defined_operator
+
+    subroutine query_defined_operator_into(arena, operator_node_index, query)
         !! Resolve one same-arena user-defined unary or binary operator.
         !!
         !! The query walks visible INTERFACE OPERATOR(...) blocks, expands
@@ -2385,7 +2396,7 @@ contains
         !! pointer/TARGET, polymorphic, and mutable-global boundaries.
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: operator_node_index
-        type(defined_operator_query_t) :: query
+        type(defined_operator_query_t), intent(out) :: query
 
         character(len=:), allocatable :: operator_symbol
         integer :: left_index, right_index, line, column
@@ -2474,7 +2485,7 @@ contains
             query%is_refused = .true.
             call set_defined_operator_refusal_reason(query)
         end if
-    end function query_defined_operator
+    end subroutine query_defined_operator_into
 
     subroutine fill_defined_operator_candidate(arena, actual_indices, &
             interface_index, procedure_index, candidate)

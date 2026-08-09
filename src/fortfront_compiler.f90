@@ -73,7 +73,7 @@ module fortfront_compiler
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
         query_generic_call, defined_operator_operand_query_t, &
         defined_operator_candidate_query_t, defined_operator_query_t, &
-        query_defined_operator
+        query_defined_operator, query_defined_operator_into
     use frontend_compiler_diagnostics, only: compiler_diagnostic_t, &
         get_compiler_diagnostics, &
         DIAGNOSTIC_PHASE_PARSER, DIAGNOSTIC_PHASE_SEMANTIC, &
