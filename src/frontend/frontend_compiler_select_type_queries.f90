@@ -3931,6 +3931,9 @@ contains
     end subroutine refuse_generic_dispatch
 
     subroutine generic_call_actuals(arena, call_node_index, actual_indices)
+        !! Preserve actuals for both CALL statements and function references.
+        !! Matching remains exact and is performed by the caller; this helper
+        !! only exposes the source-owned argument list.
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: call_node_index
         integer, allocatable, intent(out) :: actual_indices(:)
@@ -3939,6 +3942,8 @@ contains
         if (.not. arena%has_node_at(call_node_index)) return
         select type (node => arena%entries(call_node_index)%node)
             type is (subroutine_call_node)
+            if (allocated(node%arg_indices)) actual_indices = node%arg_indices
+            type is (call_or_subscript_node)
             if (allocated(node%arg_indices)) actual_indices = node%arg_indices
         class default
         end select
