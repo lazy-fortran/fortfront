@@ -656,8 +656,11 @@ contains
         select case (normalize_type_kind(type_kind))
         case (TCHAR)
             kind_value = 1
-        case (TINT, TREAL, TLOGICAL, TCOMPLEX)
+        case (TINT, TLOGICAL, TCOMPLEX)
             kind_value = 4
+        case (TREAL)
+            ! Lazy dialect: kind-less real is real64 (8 bytes)
+            kind_value = 8
         case default
             kind_value = 0
         end select

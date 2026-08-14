@@ -393,15 +393,16 @@
         integer :: i
         integer :: mapped_kind
         character(len=:), allocatable :: temp_type_string
-        logical :: standardize
 
         if (.not. allocated(signature%param_kinds)) return
         if (size(signature%param_kinds) == 0) return
 
-        call get_type_standardization(standardize)
-        if (standardize) then
-            call promote_real_to_double(signature)
-        end if
+        ! Monomorphization only processes Lazy (untyped) procedures, where a
+        ! kind-less real is real64 in this dialect. Promote TREAL to TDOUBLE so
+        ! that `2.5` and `2.5d0`/`real(dp)` arguments collapse to a single r64
+        ! specialization instead of colliding on the same mangled name
+        ! (issue #2994).
+        call promote_real_to_double(signature)
 
         fallback_kind = determine_fallback_kind(signature%param_kinds, &
                                                 signature%param_type_strings)
