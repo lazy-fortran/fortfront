@@ -90,6 +90,8 @@ module fortfront_compiler
         get_declaration_var_name, get_declaration_type_name, &
         get_declaration_has_initializer, &
         get_declaration_initializer_index, &
+        get_declaration_initializer_was_overridden, &
+        get_declaration_shape_was_overridden, &
         get_derived_type_name, &
         get_node_stmt_label, get_goto_label, goto_is_computed, &
         get_goto_label_list, get_goto_selector_index
