@@ -2,7 +2,8 @@ module parser_declarations_multi_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use parser_declarations_core_module, only: skip_declaration_separator
+    use parser_declarations_core_module, only: skip_declaration_separator, &
+        procedure_decl_has_attributes
     use parser_declarations_construction_module, only: handle_complex_initializer, &
         add_single_declaration, &
         emit_multi_declaration
@@ -46,7 +47,16 @@ contains
         end if
 
         call parse_declaration_attributes(parser, arena, attr_info)
-        call skip_declaration_separator(parser)
+        block
+            logical :: had_separator
+            had_separator = skip_declaration_separator(parser)
+            if (.not. had_separator) then
+                if (procedure_decl_has_attributes(type_spec, attr_info)) then
+                    call parser%error_at_token( &
+                        "Expected '::' in procedure declaration", parser%peek())
+                end if
+            end if
+        end block
 
         call initialize_multi_state(var_names, per_var_dims, has_dims, &
             init_indices)
