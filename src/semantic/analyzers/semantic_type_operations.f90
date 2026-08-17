@@ -96,6 +96,20 @@ contains
         left_base_kind = base_element_kind(left_typ)
         right_base_kind = base_element_kind(right_typ)
 
+        ! Defer when an operand is an unresolved type variable (TVAR): the
+        ! concrete result type depends on how the variable is eventually
+        ! unified, so do not force a premature integer/real.  Otherwise an
+        ! expression like `2*x` where x is later inferred real would lock the
+        ! result to INTEGER while x is still a type variable (issue #2980).
+        if (left_base_kind == TVAR) then
+            typ = left_typ
+            return
+        end if
+        if (right_base_kind == TVAR) then
+            typ = right_typ
+            return
+        end if
+
         target_kind = left_base_kind
         if (left_base_kind == TDOUBLE .or. right_base_kind == TDOUBLE) then
             target_kind = TDOUBLE
