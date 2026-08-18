@@ -1,6 +1,5 @@
 program test_fixed_form_implicit_dimension_oracle
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use test_command_helpers, only: test_executable_path
     use transformation_api, only: compilation_options_t, compile_source
     implicit none
 
@@ -29,6 +28,8 @@ program test_fixed_form_implicit_dimension_oracle
     print *, "PASS: implicit DIMENSION dummy preserved"
 
 contains
+
+    include 'common/test_command_helpers.inc'
 
     subroutine compile_and_run(source_path, executable_path, description)
         character(len=*), intent(in) :: source_path, executable_path, description
