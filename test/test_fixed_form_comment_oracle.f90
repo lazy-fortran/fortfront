@@ -1,5 +1,4 @@
 program test_fixed_form_comment_oracle
-    use test_command_helpers, only: test_executable_path
     use transformation_api, only: compilation_options_t, compile_source
     use frontend_core, only: normalize_fixed_form_source_text
     implicit none
@@ -47,4 +46,9 @@ program test_fixed_form_comment_oracle
     end if
 
     print *, "test_fixed_form_comment_oracle: all cases passed"
+
+contains
+
+    include 'common/test_command_helpers.inc'
+
 end program test_fixed_form_comment_oracle
