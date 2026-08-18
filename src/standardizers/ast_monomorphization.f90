@@ -29,7 +29,9 @@ module ast_monomorphization
     use uid_generator, only: generate_uid
     use string_utils_mod, only: to_lower
     use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
-    use standardizer_parameter, only: param_metadata_t, init_param_metadata
+    use standardizer_parameter, only: param_metadata_t, init_param_metadata, &
+        get_standardizer_input_mode
+    use semantic_input_mode, only: INPUT_MODE_LAZY
     use procedure_classification, only: procedure_has_explicit_types
     implicit none
     private

@@ -61,7 +61,7 @@ contains
         case (TINT)
             kind_str = "i32"
         case (TREAL)
-            kind_str = "r64"
+            kind_str = "r32"
         case (TDOUBLE)
             kind_str = "r64"
         case (TCOMPLEX)
@@ -127,7 +127,7 @@ contains
         else if (index(type_desc, 'real(16)') > 0) then
             base = 'r128'
         else if (index(type_desc, 'real') > 0) then
-            base = 'r64'
+            base = 'r32'
         else if (index(type_desc, 'integer') > 0) then
             base = 'i32'
         else if (index(type_desc, 'complex(16)') > 0 .or. &
