@@ -10,20 +10,20 @@ program test_select_type_generic_pass_query
     type(compiler_frontend_options_t) :: options
     type(compiler_frontend_result_t) :: result
     type(select_type_generic_dispatch_query_t) :: query
-    character(len=:), allocatable :: source
+    character(len=:), allocatable :: source, executable
     integer :: i, status, call_count
 
     call read_example('examples/f90/select_type_generic_pass_query.f90', source)
+    executable = test_executable_path('fortfront_select_type_generic_pass_query')
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_select_type_generic_pass_query '// &
+        '-o '//executable//' '// &
         'examples/f90/select_type_generic_pass_query.f90', wait=.true., &
         exitstat=status)
     call require(status == 0, 'GNU Fortran rejected SELECT TYPE PASS fixture')
-    call execute_command_line('/tmp/fortfront_select_type_generic_pass_query', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, 'SELECT TYPE PASS runtime oracle failed')
-    call execute_command_line('rm -f /tmp/fortfront_select_type_generic_pass_query', &
-        wait=.true.)
+    call test_remove_file(executable)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -67,6 +67,7 @@ program test_select_type_generic_pass_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     integer function arm_for_call(frontend_result, call_index) result(arm_index)
         type(compiler_frontend_result_t), intent(in) :: frontend_result

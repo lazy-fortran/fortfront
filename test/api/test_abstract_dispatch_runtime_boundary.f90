@@ -18,15 +18,15 @@ program test_abstract_dispatch_runtime_boundary
     logical :: saw_inherited, saw_override, saw_abstract
     character(len=*), parameter :: fixture = &
         'examples/f90/abstract_dispatch_runtime_boundary.f90'
-    character(len=*), parameter :: executable = &
-        '/tmp/fortfront_abstract_dispatch_runtime_boundary'
+    character(len=:), allocatable :: executable
 
     call read_example(fixture, source)
+    executable = test_executable_path('fortfront_abstract_dispatch_runtime_boundary')
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
         '-o ' // executable // ' ' // fixture, wait=.true., exitstat=status)
     call require(status == 0, 'GNU rejected abstract dispatch fixture')
     call execute_command_line(executable, wait=.true., exitstat=status)
-    call execute_command_line('rm -f ' // executable, wait=.true.)
+    call test_remove_file(executable)
     call require(status == 0, &
         'GNU runtime oracle rejected inherited/override dispatch behavior')
 
@@ -105,6 +105,7 @@ program test_abstract_dispatch_runtime_boundary
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

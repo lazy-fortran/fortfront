@@ -1,4 +1,4 @@
-.PHONY: all build test test-small-stack check-duplication check-duplication-gate check-doc-links check-rejection-gate check-root-cleanliness clean help libfortfront.a
+.PHONY: all build test test-small-stack check-duplication check-duplication-gate check-doc-links check-rejection-gate check-reject-regression check-root-cleanliness clean help libfortfront.a
 
 # Default target
 all: build
@@ -68,6 +68,11 @@ check-rejection-gate:
 	    --corpus examples \
 	    --baseline test/fixtures/corpus_rejection_baseline.tsv
 
+# One-command before/after corpus rejection diff (issue #2924): build the
+# branch under test and a baseline, and fail on newly rejected corpus files.
+check-reject-regression:
+	@bash scripts/reject_regression_check.sh
+
 # Check repository Markdown files for broken relative links
 check-doc-links:
 	@python3 scripts/check_doc_links.py
@@ -111,6 +116,7 @@ help:
 	@echo "  make check-duplication - Check for test duplication violations"
 	@echo "  make check-duplication-gate - Negative control for the duplication gate"
 	@echo "  make check-rejection-gate - Fail on newly rejected corpus files"
+	@echo "  make check-reject-regression - Before/after corpus rejection diff for the current branch"
 	@echo "  make check-doc-links - Check repository Markdown for broken relative links"
 	@echo "  make check-root-cleanliness - Check project root for polluting files (issue #2148)"
 	@echo "  make clean    - Clean build artifacts"
