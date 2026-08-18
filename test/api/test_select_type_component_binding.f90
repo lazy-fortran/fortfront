@@ -17,63 +17,8 @@ program test_select_type_component_binding
     integer :: i, select_index, arm, leaf_node, generic_node
     integer :: pointer_node, allocatable_node
 
-    source = &
-        'module select_type_component_binding_fixture'//new_line('a')// &
-        '  implicit none'//new_line('a')// &
-        '  type, abstract :: base_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    procedure(run_interface), deferred, pass(self) :: run'//new_line('a')// &
-        '  end type base_t'//new_line('a')// &
-        '  type, extends(base_t) :: impl_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    procedure, pass(self) :: run => impl_run'//new_line('a')// &
-        '  end type impl_t'//new_line('a')// &
-        '  type, extends(impl_t) :: leaf_t'//new_line('a')// &
-        '    real :: value'//new_line('a')// &
-        '  end type leaf_t'//new_line('a')// &
-        '  type :: generic_t'//new_line('a')// &
-        '    integer :: value'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    generic :: choose => choose_left, choose_right'//new_line('a')// &
-        '  end type generic_t'//new_line('a')// &
-        '  type, extends(base_t) :: container_t'//new_line('a')// &
-        '    type(leaf_t) :: leaf'//new_line('a')// &
-        '    type(generic_t) :: generic'//new_line('a')// &
-        '    class(base_t), pointer :: dynamic'//new_line('a')// &
-        '    type(leaf_t), allocatable :: owned'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    procedure, pass(self) :: run => container_run'//new_line('a')// &
-        '  end type container_t'//new_line('a')// &
-        '  abstract interface'//new_line('a')// &
-        '    subroutine run_interface(self)'//new_line('a')// &
-        '      import base_t'//new_line('a')// &
-        '      class(base_t), intent(inout) :: self'//new_line('a')// &
-        '    end subroutine run_interface'//new_line('a')// &
-        '  end interface'//new_line('a')// &
-        'contains'//new_line('a')// &
-        '  subroutine inspect(box)'//new_line('a')// &
-        '    class(base_t), intent(inout) :: box'//new_line('a')// &
-        '    select type (typed => box)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      typed%leaf%value = typed%leaf%value'//new_line('a')// &
-        '      typed%generic%value = typed%generic%value'//new_line('a')// &
-        '      typed%dynamic => box'//new_line('a')// &
-        '      typed%owned%value = typed%owned%value'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect'//new_line('a')// &
-        '  subroutine impl_run(self)'//new_line('a')// &
-        '    class(impl_t), intent(inout) :: self'//new_line('a')// &
-        '  end subroutine impl_run'//new_line('a')// &
-        '  subroutine container_run(self)'//new_line('a')// &
-        '    class(container_t), intent(inout) :: self'//new_line('a')// &
-        '  end subroutine container_run'//new_line('a')// &
-        '  subroutine choose_left(self)'//new_line('a')// &
-        '    type(generic_t), intent(inout) :: self'//new_line('a')// &
-        '  end subroutine choose_left'//new_line('a')// &
-        '  subroutine choose_right(self)'//new_line('a')// &
-        '    type(generic_t), intent(inout) :: self'//new_line('a')// &
-        '  end subroutine choose_right'//new_line('a')// &
-        'end module select_type_component_binding_fixture'//new_line('a')
+    call read_example( &
+        'examples/f90/select_type_component_binding.f90', source)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -150,6 +95,8 @@ program test_select_type_component_binding
     print *, 'PASS: SELECT TYPE component binding contract'
 
 contains
+
+    include '../common/read_example.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

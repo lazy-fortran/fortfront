@@ -15,81 +15,8 @@ program test_select_type_component_generic_dispatch
     integer :: i, select_index, arm, call_count, resolved_count
     logical :: saw_ambiguous, saw_pointer, saw_allocatable
 
-    source = &
-        'module select_type_component_generic_fixture'//new_line('a')// &
-        '  implicit none'//new_line('a')// &
-        '  type :: leaf_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    generic :: choose => choose_int, choose_real'//new_line('a')// &
-        '  end type leaf_t'//new_line('a')// &
-        '  type :: ambiguous_leaf_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    generic :: choose => choose_left, choose_right'//new_line('a')// &
-        '  end type ambiguous_leaf_t'//new_line('a')// &
-        '  type :: container_t'//new_line('a')// &
-        '    type(leaf_t) :: leaf'//new_line('a')// &
-        '    type(ambiguous_leaf_t) :: ambiguous'//new_line('a')// &
-        '    type(leaf_t), pointer :: pointer_leaf'//new_line('a')// &
-        '    type(leaf_t), allocatable :: allocatable_leaf'//new_line('a')// &
-        '  end type container_t'//new_line('a')// &
-        'contains'//new_line('a')// &
-        '  subroutine inspect_int(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (typed => object)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      call typed%leaf%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_int'//new_line('a')// &
-        '  subroutine inspect_real(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    real(8), intent(in) :: value'//new_line('a')// &
-        '    select type (typed => object)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      call typed%leaf%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_real'//new_line('a')// &
-        '  subroutine inspect_ambiguous(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (typed => object)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      call typed%ambiguous%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_ambiguous'//new_line('a')// &
-        '  subroutine inspect_pointer(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (typed => object)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      call typed%pointer_leaf%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_pointer'//new_line('a')// &
-        '  subroutine inspect_allocatable(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (typed => object)'//new_line('a')// &
-        '    type is (container_t)'//new_line('a')// &
-        '      call typed%allocatable_leaf%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_allocatable'//new_line('a')// &
-        '  subroutine choose_int(self, value)'//new_line('a')// &
-        '    type(leaf_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_int'//new_line('a')// &
-        '  subroutine choose_real(self, value)'//new_line('a')// &
-        '    type(leaf_t), intent(inout) :: self'//new_line('a')// &
-        '    real(8), intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_real'//new_line('a')// &
-        '  subroutine choose_left(self, value)'//new_line('a')// &
-        '    type(ambiguous_leaf_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_left'//new_line('a')// &
-        '  subroutine choose_right(self, value)'//new_line('a')// &
-        '    type(ambiguous_leaf_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_right'//new_line('a')// &
-        'end module select_type_component_generic_fixture'//new_line('a')
+    call read_example( &
+        'examples/f90/select_type_component_generic_dispatch.f90', source)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -173,6 +100,8 @@ program test_select_type_component_generic_dispatch
     print *, 'PASS: SELECT TYPE component generic dispatch contract'
 
 contains
+
+    include '../common/read_example.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition
