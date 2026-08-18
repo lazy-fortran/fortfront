@@ -123,69 +123,9 @@ contains
         type(compiler_frontend_result_t) :: refusal_result
         integer :: arm, call_node
 
-        refusal_source = &
-            'module dispatch_refusals'//new_line('a')// &
-            '  implicit none'//new_line('a')// &
-            '  type, abstract :: base_t'//new_line('a')// &
-            '  contains'//new_line('a')// &
-            '    procedure(run_interface), deferred :: run'//new_line('a')// &
-            '    procedure, nopass :: first'//new_line('a')// &
-            '    procedure, nopass :: second'//new_line('a')// &
-            '    generic :: ambiguous => first, second'//new_line('a')// &
-            '  end type base_t'//new_line('a')// &
-            '  type, abstract, extends(base_t) :: middle_t'//new_line('a')// &
-            '  end type middle_t'//new_line('a')// &
-            '  type, extends(middle_t) :: leaf_t'//new_line('a')// &
-            '  contains'//new_line('a')// &
-            '    procedure :: run => leaf_run'//new_line('a')// &
-            '  end type leaf_t'//new_line('a')// &
-            '  type :: unrelated_t'//new_line('a')// &
-            '  contains'//new_line('a')// &
-            '    procedure :: run => unrelated_run'//new_line('a')// &
-            '  end type unrelated_t'//new_line('a')// &
-            '  abstract interface'//new_line('a')// &
-            '    subroutine run_interface(self)'//new_line('a')// &
-            '      import base_t'//new_line('a')// &
-            '      class(base_t) :: self'//new_line('a')// &
-            '    end subroutine run_interface'//new_line('a')// &
-            '  end interface'//new_line('a')// &
-            'contains'//new_line('a')// &
-            '  subroutine inspect(value)'//new_line('a')// &
-            '    class(base_t), intent(inout) :: value'//new_line('a')// &
-            '    select type (value)'//new_line('a')// &
-            '    type is (middle_t)'//new_line('a')// &
-            '      call value%run()'//new_line('a')// &
-            '    class is (unrelated_t)'//new_line('a')// &
-            '      call value%run()'//new_line('a')// &
-            '    class default'//new_line('a')// &
-            '      call value%run()'//new_line('a')// &
-            '    end select'//new_line('a')// &
-            '  end subroutine inspect'//new_line('a')// &
-            '  subroutine inspect_pointer(value)'//new_line('a')// &
-            '    class(base_t), pointer, intent(inout) :: value'//new_line('a')// &
-            '    select type (value)'//new_line('a')// &
-            '    type is (leaf_t)'//new_line('a')// &
-            '      call value%run()'//new_line('a')// &
-            '    end select'//new_line('a')// &
-            '  end subroutine inspect_pointer'//new_line('a')// &
-            '  subroutine inspect_owned(value)'//new_line('a')// &
-            '    class(base_t), allocatable, intent(inout) :: value'//new_line('a')// &
-            '    select type (value)'//new_line('a')// &
-            '    type is (leaf_t)'//new_line('a')// &
-            '      call value%run()'//new_line('a')// &
-            '    end select'//new_line('a')// &
-            '  end subroutine inspect_owned'//new_line('a')// &
-            '  subroutine leaf_run(self)'//new_line('a')// &
-            '    class(leaf_t) :: self'//new_line('a')// &
-            '  end subroutine leaf_run'//new_line('a')// &
-            '  subroutine unrelated_run(self)'//new_line('a')// &
-            '    type(unrelated_t) :: self'//new_line('a')// &
-            '  end subroutine unrelated_run'//new_line('a')// &
-            '  subroutine first()'//new_line('a')// &
-            '  end subroutine first'//new_line('a')// &
-            '  subroutine second()'//new_line('a')// &
-            '  end subroutine second'//new_line('a')// &
-            'end module dispatch_refusals'//new_line('a')
+        call read_example( &
+            'examples/f90/abstract_select_type_dispatch_refusals.f90', &
+            refusal_source)
 
         options = compiler_frontend_options_t()
         options%input_mode = INPUT_MODE_STANDARD

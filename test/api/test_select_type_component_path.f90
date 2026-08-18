@@ -16,30 +16,8 @@ program test_select_type_component_path
     integer :: i, select_index, value_node, pointer_node
     integer :: child_arm, default_arm
 
-    source = &
-        'module select_type_component_path_fixture'//new_line('a')// &
-        '  implicit none'//new_line('a')// &
-        '  type, abstract :: base_t'//new_line('a')// &
-        '  end type base_t'//new_line('a')// &
-        '  type :: leaf_t'//new_line('a')// &
-        '    real :: value'//new_line('a')// &
-        '  end type leaf_t'//new_line('a')// &
-        '  type, extends(base_t) :: child_t'//new_line('a')// &
-        '    type(leaf_t) :: leaf'//new_line('a')// &
-        '    class(base_t), pointer :: dynamic'//new_line('a')// &
-        '  end type child_t'//new_line('a')// &
-        'contains'//new_line('a')// &
-        '  subroutine inspect(box)'//new_line('a')// &
-        '    class(base_t), intent(inout) :: box'//new_line('a')// &
-        '    select type (typed => box)'//new_line('a')// &
-        '    type is (child_t)'//new_line('a')// &
-        '      typed%leaf%value = typed%leaf%value + 1.0'//new_line('a')// &
-        '      typed%dynamic => box'//new_line('a')// &
-        '    class default'//new_line('a')// &
-        '      continue'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect'//new_line('a')// &
-        'end module select_type_component_path_fixture'//new_line('a')
+    call read_example( &
+        'examples/f90/select_type_component_path.f90', source)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -104,6 +82,8 @@ program test_select_type_component_path
     print *, 'PASS: SELECT TYPE component path contract'
 
 contains
+
+    include '../common/read_example.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

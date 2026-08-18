@@ -15,75 +15,8 @@ program test_select_type_generic_dispatch
     integer :: i, select_index, call_count, resolved_count
     logical :: saw_ambiguous, saw_pointer, saw_allocatable
 
-    source = &
-        'module select_type_generic_dispatch_fixture'//new_line('a')// &
-        '  implicit none'//new_line('a')// &
-        '  type :: generic_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    generic :: choose => choose_int, choose_real'//new_line('a')// &
-        '  end type generic_t'//new_line('a')// &
-        '  type :: ambiguous_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '    generic :: choose => choose_left, choose_right'//new_line('a')// &
-        '  end type ambiguous_t'//new_line('a')// &
-        '  contains'//new_line('a')// &
-        '  subroutine inspect_int(object, integer_value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: integer_value'//new_line('a')// &
-        '    select type (object)'//new_line('a')// &
-        '    type is (generic_t)'//new_line('a')// &
-        '      call object%choose(integer_value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_int'//new_line('a')// &
-        '  subroutine inspect_real(object, real_value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    real(8), intent(in) :: real_value'//new_line('a')// &
-        '    select type (object)'//new_line('a')// &
-        '    type is (generic_t)'//new_line('a')// &
-        '      call object%choose(real_value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_real'//new_line('a')// &
-        '  subroutine inspect_pointer(object, value)'//new_line('a')// &
-        '    class(*), pointer, intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (object)'//new_line('a')// &
-        '    type is (generic_t)'//new_line('a')// &
-        '      call object%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_pointer'//new_line('a')// &
-        '  subroutine inspect_allocatable(object, value)'//new_line('a')// &
-        '    class(*), allocatable, intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (object)'//new_line('a')// &
-        '    type is (generic_t)'//new_line('a')// &
-        '      call object%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_allocatable'//new_line('a')// &
-        '  subroutine inspect_ambiguous(object, value)'//new_line('a')// &
-        '    class(*), intent(inout) :: object'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '    select type (object)'//new_line('a')// &
-        '    type is (ambiguous_t)'//new_line('a')// &
-        '      call object%choose(value)'//new_line('a')// &
-        '    end select'//new_line('a')// &
-        '  end subroutine inspect_ambiguous'//new_line('a')// &
-        '  subroutine choose_int(self, value)'//new_line('a')// &
-        '    type(generic_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_int'//new_line('a')// &
-        '  subroutine choose_real(self, value)'//new_line('a')// &
-        '    type(generic_t), intent(inout) :: self'//new_line('a')// &
-        '    real(8), intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_real'//new_line('a')// &
-        '  subroutine choose_left(self, value)'//new_line('a')// &
-        '    type(ambiguous_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_left'//new_line('a')// &
-        '  subroutine choose_right(self, value)'//new_line('a')// &
-        '    type(ambiguous_t), intent(inout) :: self'//new_line('a')// &
-        '    integer, intent(in) :: value'//new_line('a')// &
-        '  end subroutine choose_right'//new_line('a')// &
-        'end module select_type_generic_dispatch_fixture'//new_line('a')
+    call read_example( &
+        'examples/f90/select_type_generic_dispatch.f90', source)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -164,6 +97,8 @@ program test_select_type_generic_dispatch
     print *, 'PASS: narrowed SELECT TYPE generic dispatch contract'
 
 contains
+
+    include '../common/read_example.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

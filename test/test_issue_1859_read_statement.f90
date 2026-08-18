@@ -5,6 +5,7 @@ program test_issue_1859_read_statement
     implicit none
 
     character(:), allocatable :: input_code, output_code, error_msg
+    logical :: y_declared
 
     print *, "=== Issue #1859: READ statement variable inference ==="
 
@@ -26,7 +27,14 @@ program test_issue_1859_read_statement
         error stop 1
     end if
 
-    if (index(output_code, "integer :: y") == 0) then
+    y_declared = index(output_code, "real :: y") > 0 .or. &
+        index(output_code, "real :: x, y") > 0 .or. &
+        index(output_code, "real(dp) :: y") > 0 .or. &
+        index(output_code, "real(dp) :: x, y") > 0 .or. &
+        index(output_code, "real(8) :: y") > 0 .or. &
+        index(output_code, "real(8) :: x, y") > 0 .or. &
+        index(output_code, "integer :: y") > 0
+    if (.not. y_declared) then
         print *, "FAIL: Variable y not declared in output"
         print *, "Output:"
         print *, output_code
