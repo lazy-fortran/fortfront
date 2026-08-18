@@ -13,6 +13,8 @@ module frontend_compiler_type_queries
     use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t, TINT, TREAL, TCHAR, &
         TLOGICAL, TARRAY, TCOMPLEX, TDOUBLE, TDERIVED
+    use semantic_input_mode, only: INPUT_MODE_LAZY
+    use standardizer_parameter, only: get_standardizer_input_mode
     implicit none
     private
 
@@ -656,8 +658,17 @@ contains
         select case (normalize_type_kind(type_kind))
         case (TCHAR)
             kind_value = 1
-        case (TINT, TREAL, TLOGICAL, TCOMPLEX)
+        case (TINT, TLOGICAL, TCOMPLEX)
             kind_value = 4
+        case (TREAL)
+            ! Lazy dialect: kind-less real is real64. Standard Fortran keeps
+            ! the language default real kind; callers that need a standardized
+            ! Lazy signature promote its abstract TREAL below.
+            if (get_standardizer_input_mode() == INPUT_MODE_LAZY) then
+                kind_value = 8
+            else
+                kind_value = 4
+            end if
         case default
             kind_value = 0
         end select

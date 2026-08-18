@@ -393,15 +393,18 @@
         integer :: i
         integer :: mapped_kind
         character(len=:), allocatable :: temp_type_string
-        logical :: standardize
+        logical :: lazy_input
 
         if (.not. allocated(signature%param_kinds)) return
         if (size(signature%param_kinds) == 0) return
 
-        call get_type_standardization(standardize)
-        if (standardize) then
-            call promote_real_to_double(signature)
-        end if
+        ! In Lazy input, kind-less real is real64. Promote TREAL to TDOUBLE so
+        ! that `2.5` and `2.5d0`/`real(dp)` arguments collapse to a single r64
+        ! specialization instead of colliding on the same mangled name. Keep
+        ! standard-Fortran signatures at their source-language default kind;
+        ! TREAL is still r32 there (issue #2994).
+        lazy_input = get_standardizer_input_mode() == INPUT_MODE_LAZY
+        if (lazy_input) call promote_real_to_double(signature)
 
         fallback_kind = determine_fallback_kind(signature%param_kinds, &
                                                 signature%param_type_strings)
