@@ -32,3 +32,30 @@ f90/issue_2737_lfortran_template_instantiate.f90
 f90/issue_2738_lfortran_traits_requirements_implements.f90
 f90/issue_2817_inline_instantiate_caret.f90
 f90/do_concurrent_type_spec.f90  # gfortran-14 does not support type-spec in DO CONCURRENT (#2849)
+# Semantic/query fixtures intentionally validate AST facts without compiling generated code
+f90/polymorphic_array_storage_query.f90
+f90/select_type_generic_pass_query.f90
+f90/type_bound_nested_receiver_query.f90
+f90/owned_array_class_is_binding_identity.f90
+f90/type_bound_generic_dispatch_ambiguous.f90
+f90/defined_operator_conversion_refusal.f90
+f90/procedure_target_query.f90
+f90/procedure_callback_flow.f90
+f90/abstract_binding_hierarchy_facts.f90
+f90/select_type_dispatch_facts.f90
+f90/component_storage_facts.f90
+f90/defined_operator_ambiguous_refusal.f90
+f90/binding_hierarchy_query.f90
+f90/procedure_call_target_query.f90
+f90/procedure_callback_signature_query.f90
+f90/abstract_dispatch_target_query.f90
+f90/ownership_event_sequence_facts.f90
+f90/type_bound_generic_dispatch_query.f90
+f90/type_bound_dispatch_signature.f90
+f90/type_bound_call_query.f90
+f90/select_rank_facts.f90
+f90/procedure_actual_interface_mismatch.f90
+f90/owned_array_class_is_explicit_pass.f90
+f90/select_type_arm_facts.f90
+f90/owned_array_class_is_dispatch.f90
+f90/component_storage_rank2.f90
