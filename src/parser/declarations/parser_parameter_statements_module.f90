@@ -180,6 +180,13 @@ contains
                 if (allocated(decl%var_name)) then
                     decl_name = to_lower(trim(decl%var_name))
                     if (decl_name == target) then
+                        ! A PARAMETER statement applied to a variable that was
+                        ! already initialized hides the double-initialization.
+                        ! Record that we overwrote a pre-existing initializer so
+                        ! drivers (e.g. ffc) can diagnose the conflict.
+                        if (decl%has_initializer) then
+                            decl%initializer_was_overridden = .true.
+                        end if
                         decl%is_parameter = .true.
                         decl%has_initializer = .true.
                         decl%initializer_index = value_index
@@ -208,6 +215,9 @@ contains
         do i = 1, size(decl%var_names)
             decl_name = to_lower(trim(decl%var_names(i)))
             if (decl_name == target) then
+                if (decl%has_initializer) then
+                    decl%initializer_was_overridden = .true.
+                end if
                 decl%is_parameter = .true.
                 decl%has_initializer = .true.
                 decl%initializer_index = value_index

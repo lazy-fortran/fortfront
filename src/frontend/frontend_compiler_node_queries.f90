@@ -11,6 +11,8 @@ module frontend_compiler_node_queries
     public :: get_declaration_type_name
     public :: get_declaration_has_initializer
     public :: get_declaration_initializer_index
+    public :: get_declaration_initializer_was_overridden
+    public :: get_declaration_shape_was_overridden
     public :: get_derived_type_name
     public :: get_node_stmt_label
     public :: get_goto_label
@@ -100,6 +102,32 @@ contains
             has_init = node%has_initializer
         end select
     end function get_declaration_has_initializer
+
+    logical function get_declaration_initializer_was_overridden(arena, &
+            decl_index) result(overridden)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+
+        overridden = .false.
+        if (.not. arena%has_node_at(decl_index)) return
+        select type (node => arena%entries(decl_index)%node)
+            type is (declaration_node)
+            overridden = node%initializer_was_overridden
+        end select
+    end function get_declaration_initializer_was_overridden
+
+    logical function get_declaration_shape_was_overridden(arena, decl_index) &
+            result(overridden)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+
+        overridden = .false.
+        if (.not. arena%has_node_at(decl_index)) return
+        select type (node => arena%entries(decl_index)%node)
+            type is (declaration_node)
+            overridden = node%shape_was_overridden
+        end select
+    end function get_declaration_shape_was_overridden
 
     integer function get_declaration_initializer_index(arena, decl_index) &
             result(init_index)

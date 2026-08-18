@@ -1110,6 +1110,8 @@ module frontend_compiler_queries
         logical :: has_character_length = .false.
         logical :: has_intent = .false.
         logical :: has_initializer = .false.
+        logical :: initializer_was_overridden = .false.
+        logical :: shape_was_overridden = .false.
         logical :: is_optional = .false.
         logical :: is_array = .false.
         logical :: is_allocatable = .false.
@@ -4935,6 +4937,8 @@ contains
             query%has_intent = node%has_intent
             query%initializer_index = node%initializer_index
             query%has_initializer = node%has_initializer
+            query%initializer_was_overridden = node%initializer_was_overridden
+            query%shape_was_overridden = node%shape_was_overridden
             query%is_optional = node%is_optional
             query%is_array = node%is_array
             query%is_allocatable = node%is_allocatable
