@@ -1,4 +1,5 @@
 program test_procedure_pointer_state_boundaries
+    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, procedure_pointer_state_query_t, &
@@ -8,7 +9,7 @@ program test_procedure_pointer_state_boundaries
     type(compiler_frontend_options_t) :: options
     type(compiler_frontend_result_t) :: result
     type(procedure_pointer_state_query_t) :: query
-    character(len=:), allocatable :: source
+    character(len=:), allocatable :: source, executable
     integer :: i, status
     integer :: local_known_count
     logical :: saw_local_known, saw_dummy_alias, saw_host_associated_alias
@@ -16,6 +17,7 @@ program test_procedure_pointer_state_boundaries
 
     call read_example('examples/f90/procedure_pointer_state_boundaries.f90', &
         source)
+    executable = test_executable_path('fortfront_procedure_pointer_state_boundaries')
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
     options%run_semantics = .true.
@@ -24,16 +26,15 @@ program test_procedure_pointer_state_boundaries
         'procedure-pointer boundary fixture was rejected')
 
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_procedure_pointer_state_boundaries '// &
+        '-o '//executable//' '// &
         'examples/f90/procedure_pointer_state_boundaries.f90', &
         wait=.true., exitstat=status)
     call require(status == 0, 'GNU Fortran rejected boundary fixture')
-    call execute_command_line('/tmp/fortfront_procedure_pointer_state_boundaries', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, &
         'GNU runtime oracle rejected boundary fixture behavior')
-    call execute_command_line('rm -f '// &
-        '/tmp/fortfront_procedure_pointer_state_boundaries', wait=.true.)
+    call test_remove_file(executable)
 
     saw_local_known = .false.
     local_known_count = 0

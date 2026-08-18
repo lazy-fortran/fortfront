@@ -1,4 +1,5 @@
 program test_type_bound_generic_dispatch_query
+    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, get_node_type_at, subroutine_call_node, &
@@ -10,23 +11,23 @@ program test_type_bound_generic_dispatch_query
     type(compiler_frontend_result_t) :: result
     type(compiler_frontend_result_t) :: ambiguous_result
     type(type_bound_generic_dispatch_query_t) :: query
-    character(len=:), allocatable :: source, ambiguous_source
+    character(len=:), allocatable :: source, ambiguous_source, executable
     integer :: i, call_count, resolved_count, status
     logical :: saw_integer, saw_real, saw_named_pass
     logical :: saw_alias, saw_global, saw_dynamic, saw_ambiguous
 
     call read_example('examples/f90/type_bound_generic_dispatch_query.f90', &
         source)
+    executable = test_executable_path('fortfront_type_bound_generic_dispatch_query')
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_type_bound_generic_dispatch_query '// &
+        '-o '//executable//' '// &
         'examples/f90/type_bound_generic_dispatch_query.f90', wait=.true., &
         exitstat=status)
     call require(status == 0, 'GNU Fortran rejected generic dispatch fixture')
-    call execute_command_line('/tmp/fortfront_type_bound_generic_dispatch_query', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, 'generic dispatch runtime oracle failed')
-    call execute_command_line('rm -f /tmp/fortfront_type_bound_generic_dispatch_query', &
-        wait=.true.)
+    call test_remove_file(executable)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -76,8 +77,8 @@ program test_type_bound_generic_dispatch_query
                 query%selected_candidate_index > 0 .and. &
                 query%signature%found, 'generic target was not resolved')
             if (trim(query%receiver_name) == 'object' .and. &
-                    trim(query%candidates(query%selected_candidate_index)% &
-                    procedure_name) == 'choose_int') then
+                trim(query%candidates(query%selected_candidate_index)% &
+                procedure_name) == 'choose_int') then
                 saw_integer = .true.
                 call require(size(query%candidates) == 2, &
                     'integer generic candidate set is incomplete')
@@ -121,7 +122,7 @@ program test_type_bound_generic_dispatch_query
     do i = 1, ambiguous_result%arena%size
         if (.not. ambiguous_result%arena%has_node_at(i)) cycle
         if (trim(get_node_type_at(ambiguous_result%arena, i)) /= &
-                'subroutine_call') cycle
+            'subroutine_call') cycle
         query = query_type_bound_generic_dispatch(ambiguous_result%arena, i)
         if (.not. query%found) cycle
         if (query%is_ambiguous) then
