@@ -135,6 +135,14 @@ contains
             attr_info%accessibility = lowered
             token = parser%consume()
             handled = .true.
+        case ("pass")
+            attr_info%is_pass = .true.
+            token = parser%consume()
+            handled = .true.
+        case ("nopass")
+            attr_info%is_nopass = .true.
+            token = parser%consume()
+            handled = .true.
         case default
             handled = .false.
         end select
@@ -147,7 +155,7 @@ contains
         case ("allocatable", "pointer", "parameter", "external", "unsigned", &
                 "dimension", "intent", "bind", "optional", "save", "target", &
                 "volatile", "protected", "asynchronous", "contiguous", "value", &
-                "public", "private")
+                "public", "private", "pass", "nopass")
             is_attribute = .true.
         case default
             is_attribute = .false.

@@ -24,6 +24,7 @@ module parser_declarations_core_module
     public :: parse_declaration_with_result
     public :: parse_array_dimensions
     public :: skip_declaration_separator
+    public :: procedure_decl_has_attributes
 
 contains
 
@@ -40,6 +41,7 @@ contains
         logical :: has_local_dimensions
         character(len=:), allocatable :: var_name
         logical :: handled_multi
+        logical :: had_double_colon
 
         decl_index = 0
         type_spec = parse_type_specifier(parser, arena)
@@ -48,7 +50,18 @@ contains
         end if
 
         call parse_declaration_attributes(parser, arena, attr_info)
-        call skip_declaration_separator(parser)
+        had_double_colon = skip_declaration_separator(parser)
+
+        ! F2018 R1526: a procedure declaration that carries any proc-attr-spec
+        ! (e.g. POINTER, NOPASS) must separate them from the entity list with
+        ! '::'.  Accepting a missing separator silently turns the first entity
+        ! name into part of the attribute stream (gfortran.dg proc_ptr_comp_3).
+        if (.not. had_double_colon) then
+            if (procedure_decl_has_attributes(type_spec, attr_info)) then
+                call parser%error_at_token("Expected '::' in procedure declaration", &
+                    parser%peek())
+            end if
+        end if
 
         identifier_token = parser%consume()
         if (identifier_token%kind /= TK_IDENTIFIER) then
@@ -153,13 +166,16 @@ contains
         end if
     end subroutine validate_entity_attributes
 
-    subroutine skip_declaration_separator(parser)
+    function skip_declaration_separator(parser) result(had_double_colon)
         type(parser_state_t), intent(inout) :: parser
+        logical :: had_double_colon
         type(token_t) :: token
 
+        had_double_colon = .false.
         token = parser%peek()
         if (token%text == "::") then
             token = parser%consume()
+            had_double_colon = .true.
         end if
 
         do while (.not. parser%is_at_end())
@@ -170,7 +186,28 @@ contains
                 exit
             end if
         end do
-    end subroutine skip_declaration_separator
+    end function skip_declaration_separator
+
+
+    ! True when a procedure declaration carries one or more proc-attr-specs.
+    ! F2018 R1526 requires '::' to separate the attribute list from the entity
+    ! list whenever any attribute is present; a bare 'procedure() name' with no
+    ! attributes does not need the separator.
+    logical function procedure_decl_has_attributes(type_spec, attr_info) result(has)
+        type(type_specifier_t), intent(in) :: type_spec
+        type(declaration_attribute_info_t), intent(in) :: attr_info
+
+        has = .false.
+        if (.not. allocated(type_spec%base_keyword)) return
+        if (to_lower(trim(type_spec%base_keyword)) /= "procedure") return
+
+        has = attr_info%is_allocatable .or. attr_info%is_pointer .or. &
+            attr_info%is_target .or. attr_info%is_parameter .or. &
+            attr_info%is_external .or. attr_info%is_optional .or. &
+            attr_info%is_save .or. attr_info%is_value .or. &
+            attr_info%is_pass .or. attr_info%is_nopass .or. &
+            attr_info%has_intent .or. attr_info%has_global_dimensions
+    end function procedure_decl_has_attributes
 
     logical function handle_multi_variable_declaration(parser, arena, type_spec, &
             attr_info, first_token, &

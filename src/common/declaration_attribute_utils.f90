@@ -49,6 +49,8 @@ module declaration_attribute_utils
         logical :: is_contiguous = .false.
         logical :: is_value = .false.
         logical :: is_bind_c = .false.
+        logical :: is_pass = .false.
+        logical :: is_nopass = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
@@ -76,6 +78,8 @@ contains
         attr%is_contiguous = .false.
         attr%is_value = .false.
         attr%is_bind_c = .false.
+        attr%is_pass = .false.
+        attr%is_nopass = .false.
         attr%has_intent = .false.
         if (allocated(attr%intent)) deallocate (attr%intent)
         if (allocated(attr%accessibility)) deallocate (attr%accessibility)

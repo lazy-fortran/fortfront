@@ -59,3 +59,5 @@ f90/owned_array_class_is_explicit_pass.f90
 f90/select_type_arm_facts.f90
 f90/owned_array_class_is_dispatch.f90
 f90/component_storage_rank2.f90
+f90/issue_2987_proc_ptr_comp_3_ok.f90  # valid parser neighbour; emission is not yet compilable
+f90/issue_2987_pdt_30_ok.f90  # valid parser neighbour; emission is not yet compilable

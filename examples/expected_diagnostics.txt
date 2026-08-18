@@ -67,6 +67,8 @@ f90/pdt_33.f90
 f90/reject_scope_procedure_b2.f90
 f90/reject_call_function_dummy_type.f90
 f90/reject_scope_type_visibility_nested.f90
+f90/issue_2987_proc_ptr_comp_3.f90
+f90/issue_2987_pdt_30.f90
 f90/pr61669.f90
 f90/pr68054.f90
 f90/pr68319.f90
