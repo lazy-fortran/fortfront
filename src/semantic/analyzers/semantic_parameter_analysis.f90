@@ -270,6 +270,13 @@ contains
                                 next_var_id)
                         end if
                         call merge_parameter_type(param_types(i), inferred_arg_type)
+                        type is (binary_op_node)
+                        ! An expression argument (e.g. `twice(1.0d0/6.0d0)`)
+                        ! carries the real type through to the dummy (issue #2980).
+                        inferred_arg_type = infer_expression_type_static( &
+                            arena, arg_idx, param_names, &
+                            param_types)
+                        call merge_parameter_type(param_types(i), inferred_arg_type)
                     end select
                 end do
             end select
