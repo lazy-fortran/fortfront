@@ -114,7 +114,22 @@ base_stamp=$(date +%Y%m%d-%H%M%S)
 work_base="$project_root/build/reject-regression/$base_stamp"
 tmp="$work_base/tmp"
 mkdir -p "$tmp"
-trap '[[ $keep -eq 1 ]] || rm -rf "$work_base"' EXIT
+
+# shellcheck disable=SC2329 # invoked indirectly by the EXIT trap below
+cleanup() {
+    local exit_status=$?
+    if [[ -n "${target_wt:-}" ]]; then
+        git -C "$project_root" worktree remove --force "$target_wt" 2>/dev/null || true
+    fi
+    if [[ -n "${baseline_wt:-}" ]]; then
+        git -C "$project_root" worktree remove --force "$baseline_wt" 2>/dev/null || true
+    fi
+    if [[ $keep -eq 0 ]]; then
+        rm -rf "$work_base"
+    fi
+    return "$exit_status"
+}
+trap cleanup EXIT
 
 # --- Default corpus: examples/ plus gfortran.dg when locatable ---------------
 dg_dir=${FF_GFORTRAN_DG_DIR:-$project_root/../gcc/gcc/testsuite/gfortran.dg}
@@ -139,7 +154,8 @@ build_probe() {
         return 1
     fi
     local probe
-    probe=$(find "$dir/build" -type f -path '*/app/frontend_probe' -perm -u+x 2>/dev/null | xargs ls -t 2>/dev/null | head -n 1)
+    probe=$(find "$dir/build" -type f -path '*/app/frontend_probe' -perm -u+x \
+        -print0 2>/dev/null | xargs -0 -r ls -t 2>/dev/null | head -n 1)
     [[ -n "$probe" && -x "$probe" ]] || {
         echo "ERROR: no frontend_probe produced by the $name build (see $log)" >&2
         return 1
@@ -206,14 +222,6 @@ fi
 echo "== before/after corpus rejection diff ==" >&2
 bash "$script_dir/corpus_rejection_gate.sh" "${gate_args[@]}"
 status=$?
-
-# --- Cleanup worktrees -------------------------------------------------------
-if [[ -n "${target_wt:-}" ]]; then
-    git -C "$project_root" worktree remove --force "$target_wt" 2>/dev/null || true
-fi
-if [[ -n "${baseline_wt:-}" ]]; then
-    git -C "$project_root" worktree remove --force "$baseline_wt" 2>/dev/null || true
-fi
 
 echo >&2
 if [[ $status -eq 0 ]]; then
