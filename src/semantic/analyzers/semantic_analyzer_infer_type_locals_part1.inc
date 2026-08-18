@@ -230,6 +230,7 @@
             integer :: assoc_index
             type(mono_type_t) :: assoc_type
             type(poly_type_t) :: assoc_scheme
+            type(type_var_t), allocatable :: empty_vars(:)
 
             parent_index = current%node_index
             assoc_index = current%aux_index
@@ -243,7 +244,8 @@
                 if (assoc_node%associations(assoc_index)%expr_index <= 0) return
                 assoc_type = &
                     & get_node_type(assoc_node%associations(assoc_index)%expr_index)
-                assoc_scheme = create_poly_type(forall_vars=empty_type_vars(), &
+                allocate (empty_vars(0))
+                assoc_scheme = create_poly_type(forall_vars=empty_vars, &
                     & mono=assoc_type)
                 if (allocated(assoc_node%associations(assoc_index)%name)) then
                     call this%scopes%define(assoc_node%associations(assoc_index)%name, &

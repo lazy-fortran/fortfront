@@ -441,6 +441,7 @@
         type(mono_type_t) :: target_type
         type(poly_type_t) :: scheme
         type(poly_type_t), allocatable :: existing_scheme
+        type(type_var_t), allocatable :: empty_vars(:)
         integer :: pointer_index
 
         pointer_index = ptr_assign%pointer_index
@@ -467,7 +468,8 @@
                             target_type = create_mono_type(TINT)
                         end if
 
-                        scheme = create_poly_type(forall_vars=empty_type_vars(), &
+                        allocate (empty_vars(0))
+                        scheme = create_poly_type(forall_vars=empty_vars, &
                                                   mono=target_type)
                         call ctx%scopes%define(ptr_node%name, scheme)
 
@@ -518,10 +520,12 @@
         type(mono_type_t) :: var_type
         type(poly_type_t) :: var_scheme
         type(poly_type_t), allocatable :: existing_scheme
+        type(type_var_t), allocatable :: empty_vars(:)
 
         typ = create_mono_type(TVAR, var=create_type_var(0, "io"))
 
         if (.not. allocated(read_stmt%var_indices)) return
+        allocate (empty_vars(0))
 
         do i = 1, size(read_stmt%var_indices)
             var_index = read_stmt%var_indices(i)
@@ -541,7 +545,7 @@
 
                     call update_identifier_type_in_arena(arena, node%name, var_type)
 
-                    var_scheme = create_poly_type(forall_vars=empty_type_vars(), &
+                    var_scheme = create_poly_type(forall_vars=empty_vars, &
                                                   mono=var_type)
                     call ctx%scopes%define(node%name, var_scheme)
 
