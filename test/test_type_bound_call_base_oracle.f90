@@ -6,11 +6,12 @@ program test_type_bound_call_base_oracle
         "examples/f90/type_bound_call_base_oracle.f90"
     character(len=*), parameter :: output_path = &
         "build/type_bound_call_base_oracle.f90"
-    character(len=*), parameter :: executable_path = &
-        "build/type_bound_call_base_oracle"
+    character(len=:), allocatable :: executable_path
     character(len=512) :: error_msg
     type(compilation_options_t) :: options
     integer :: cmdstat, exitstat
+
+    executable_path = test_executable_path('type_bound_call_base_oracle')
 
     options%output_file = output_path
     call compile_source(input_path, options, error_msg)
@@ -32,6 +33,12 @@ program test_type_bound_call_base_oracle
         print *, "FAIL emitted type-bound call changed behavior"
         error stop 3
     end if
+    call test_remove_file(executable_path)
 
     print *, "test_type_bound_call_base_oracle: all cases passed"
+
+contains
+
+    include 'common/test_command_helpers.inc'
+
 end program test_type_bound_call_base_oracle

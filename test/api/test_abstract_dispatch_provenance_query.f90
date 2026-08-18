@@ -14,6 +14,7 @@ program test_abstract_dispatch_provenance_query
     type(binding_resolution_query_t) :: binding
     type(type_bound_call_query_t) :: call_binding
     character(len=:), allocatable :: source
+    character(len=:), allocatable :: executable
     character(len=:), allocatable :: syntax_command
     character(len=:), allocatable :: runtime_command
     integer :: syntax_status, syntax_exitstat, runtime_status, runtime_exitstat
@@ -24,6 +25,7 @@ program test_abstract_dispatch_provenance_query
 
     call read_example('examples/f90/abstract_dispatch_provenance_query.f90', &
         source)
+    executable = test_executable_path('fortfront_abstract_dispatch_provenance')
     syntax_command = 'gfortran -fsyntax-only examples/f90/'// &
         'abstract_dispatch_provenance_query.f90'
     call execute_command_line(syntax_command, wait=.true., &
@@ -31,16 +33,15 @@ program test_abstract_dispatch_provenance_query
     call require(syntax_status == 0 .and. syntax_exitstat == 0, &
         'GNU Fortran rejected the abstract dispatch fixture')
     runtime_command = 'gfortran -std=f2018 -pedantic -Wall -Wextra -o '// &
-        '/tmp/fortfront_abstract_dispatch_provenance '// &
+        executable//' '// &
         'examples/f90/abstract_dispatch_provenance_query.f90'
     call execute_command_line(runtime_command, wait=.true., &
         exitstat=runtime_exitstat, cmdstat=runtime_status)
     call require(runtime_status == 0 .and. runtime_exitstat == 0, &
         'GNU Fortran could not link the abstract dispatch fixture')
-    call execute_command_line('/tmp/fortfront_abstract_dispatch_provenance', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=runtime_exitstat, cmdstat=runtime_status)
-    call execute_command_line('rm -f /tmp/fortfront_abstract_dispatch_provenance', &
-        wait=.true.)
+    call test_remove_file(executable)
     call require(runtime_status == 0 .and. runtime_exitstat == 0, &
         'abstract dispatch runtime oracle failed')
 
@@ -155,6 +156,7 @@ program test_abstract_dispatch_provenance_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     integer function find_target(indices, wanted) result(found)
         integer, intent(in) :: indices(:), wanted

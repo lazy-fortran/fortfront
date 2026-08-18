@@ -9,9 +9,11 @@ program test_procedure_actual_interface_query
     type(compiler_frontend_result_t) :: result
     type(procedure_actual_argument_query_t) :: query
     character(len=:), allocatable :: source, mismatch_source, call_name, error_msg
+    character(len=:), allocatable :: executable
     integer :: i, compatible_count, status
 
     call read_example('examples/f90/procedure_actual_interface_query.f90', source)
+    executable = test_executable_path('fortfront_procedure_actual_interface_query')
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
     options%run_semantics = .true.
@@ -19,17 +21,15 @@ program test_procedure_actual_interface_query
     call require(result%success(), 'procedure interface fixture was rejected: '// &
         trim(result%diagnostic_text))
 
-    call execute_command_line('mkdir -p build/test_procedure_actual_interface_query', &
-        wait=.true., exitstat=status)
-    call require(status == 0, 'could not create runtime oracle directory')
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o build/test_procedure_actual_interface_query/run '// &
+        '-o '//executable//' '// &
         'examples/f90/procedure_actual_interface_query.f90', &
         wait=.true., exitstat=status)
     call require(status == 0, 'GNU Fortran rejected the interface fixture')
-    call execute_command_line('./build/test_procedure_actual_interface_query/run', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, 'interface fixture runtime oracle failed')
+    call test_remove_file(executable)
 
     compatible_count = 0
     do i = 1, result%arena%size
@@ -79,6 +79,7 @@ program test_procedure_actual_interface_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

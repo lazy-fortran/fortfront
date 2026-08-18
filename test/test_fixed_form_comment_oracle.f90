@@ -7,12 +7,13 @@ program test_fixed_form_comment_oracle
         "examples/f90/fixed_form_comment_no_continuation.f"
     character(len=*), parameter :: output_path = &
         "build/fixed_form_comment_no_continuation.f90"
-    character(len=*), parameter :: executable_path = &
-        "build/fixed_form_comment_no_continuation"
+    character(len=:), allocatable :: executable_path
     character(len=512) :: error_msg
     character(len=:), allocatable :: free_form
     type(compilation_options_t) :: options
     integer :: cmdstat, exitstat
+
+    executable_path = test_executable_path('fixed_form_comment_no_continuation')
 
     free_form = "! ordinary free-form comment"//new_line('a')// &
         "      program untouched"//new_line('a')// &
@@ -45,4 +46,9 @@ program test_fixed_form_comment_oracle
     end if
 
     print *, "test_fixed_form_comment_oracle: all cases passed"
+
+contains
+
+    include 'common/test_command_helpers.inc'
+
 end program test_fixed_form_comment_oracle

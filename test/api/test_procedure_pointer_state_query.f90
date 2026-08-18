@@ -8,13 +8,14 @@ program test_procedure_pointer_state_query
     type(compiler_frontend_options_t) :: options
     type(compiler_frontend_result_t) :: result
     type(procedure_pointer_state_query_t) :: query
-    character(len=:), allocatable :: source
+    character(len=:), allocatable :: source, executable
     integer :: i, associated_count, nullify_count, status
     logical :: saw_active, saw_cleared, saw_reassigned, saw_branched
     logical :: saw_nullify, saw_data_refusal, saw_second_argument
 
     call read_example('examples/f90/procedure_pointer_association_query.f90', &
         source)
+    executable = test_executable_path('fortfront_procedure_pointer_state_oracle')
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
     options%run_semantics = .true.
@@ -23,16 +24,15 @@ program test_procedure_pointer_state_query
         'procedure-pointer association fixture was rejected')
 
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_procedure_pointer_state_oracle '// &
+        '-o '//executable//' '// &
         'examples/f90/procedure_pointer_association_query.f90', &
         wait=.true., exitstat=status)
     call require(status == 0, 'GNU Fortran rejected association fixture')
-    call execute_command_line('/tmp/fortfront_procedure_pointer_state_oracle', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, &
         'GNU runtime oracle rejected association fixture behavior')
-    call execute_command_line('rm -f /tmp/fortfront_procedure_pointer_state_oracle', &
-        wait=.true.)
+    call test_remove_file(executable)
 
     associated_count = 0
     nullify_count = 0
@@ -111,6 +111,7 @@ program test_procedure_pointer_state_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

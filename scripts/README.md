@@ -11,6 +11,7 @@ This directory contains utility scripts for building, testing, and validating fo
 | build.sh | Simple build script wrapper for fpm |
 | check_test_duplication.py | Python script to detect inline code violations in tests |
 | check_test_duplication.sh | Shell wrapper for duplication checker |
+| reject_regression_check.sh | One-command before/after corpus rejection diff (issue #2924) |
 | run_frontend_conformance.sh | Frontend conformance wrapper for external suites |
 | run_gfortran_roundtrip.py | Frontend conformance and round-trip validation |
 | with_timeout.sh | Run command with timeout (Linux/macOS) |
@@ -46,6 +47,31 @@ Shell wrapper for the Python duplication checker. Provides Unix-friendly interfa
 ```bash
 ./scripts/check_test_duplication.sh
 ```
+
+### reject_regression_check.sh
+One-command before/after corpus rejection diff (issue #2924). A rejection
+change must not newly reject valid Fortran; this script builds the
+`frontend_probe` for the branch under test and for a baseline ref, runs the
+corpus rejection gate over the same corpus with both probes, and fails when a
+file the baseline accepted is rejected by the branch under test, outside the
+allowlist of intended fixtures.
+
+```bash
+scripts/reject_regression_check.sh                # current tree vs origin/main
+scripts/reject_regression_check.sh my-branch      # a branch vs origin/main
+scripts/reject_regression_check.sh --baseline origin/main --allow allow.txt
+scripts/reject_regression_check.sh --corpus ../gcc/gcc/testsuite/gfortran.dg
+```
+
+- `--baseline` accepts either a git ref (built in a temporary worktree) or an
+  existing report TSV from `corpus_rejection_gate.sh`.
+- The default corpus is `examples/` plus the `gfortran.dg` suite when it can
+  be located (`FF_GFORTRAN_DG_DIR` or `../gcc/gcc/testsuite/gfortran.dg`).
+- `--allow` lists intended fixtures permitted to become newly rejected.
+- `--keep` preserves the worktrees, builds, and reports under
+  `build/reject-regression/<timestamp>/`.
+
+Make target: `make check-reject-regression` (current tree vs `origin/main`).
 
 ### run_frontend_conformance.sh
 Thin wrapper around `run_gfortran_roundtrip.py`. It runs `gfortran-dg`,

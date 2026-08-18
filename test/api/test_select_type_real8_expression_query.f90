@@ -14,22 +14,22 @@ program test_select_type_real8_expression_query
     type(select_type_generic_dispatch_query_t) :: dispatch
     type(control_statement_query_t) :: control
     type(resolved_type_query_t) :: resolved
-    character(len=:), allocatable :: source
+    character(len=:), allocatable :: source, executable
     integer :: i, arm_index, call_index
     logical :: found_call, found_binary
 
     call read_example( &
         'examples/f90/select_type_real8_expression_query.f90', source)
+    executable = test_executable_path('fortfront_select_type_real8_expression_query')
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_select_type_real8_expression_query '// &
+        '-o '//executable//' '// &
         'examples/f90/select_type_real8_expression_query.f90', wait=.true., &
         exitstat=i)
     call require(i == 0, 'GNU Fortran rejected REAL(8) expression fixture')
-    call execute_command_line('/tmp/fortfront_select_type_real8_expression_query', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=i)
     call require(i == 0, 'REAL(8) expression runtime oracle failed')
-    call execute_command_line('rm -f /tmp/fortfront_select_type_real8_expression_query', &
-        wait=.true.)
+    call test_remove_file(executable)
 
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
@@ -101,6 +101,7 @@ program test_select_type_real8_expression_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     integer function arm_for_call(frontend_result, target_index) result(arm_index)
         type(compiler_frontend_result_t), intent(in) :: frontend_result

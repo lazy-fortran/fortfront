@@ -7,12 +7,12 @@ program test_fixed_form_implicit_dimension_oracle
         "examples/f90/fixed_form_implicit_dimension.f"
     character(len=*), parameter :: output_path = &
         "build/fixed_form_implicit_dimension.f90"
-    character(len=*), parameter :: source_executable = &
-        "build/fixed_form_implicit_dimension_source"
-    character(len=*), parameter :: output_executable = &
-        "build/fixed_form_implicit_dimension_output"
+    character(len=:), allocatable :: source_executable, output_executable
     character(len=512) :: error_msg
     type(compilation_options_t) :: options
+
+    source_executable = test_executable_path('fixed_form_implicit_dimension_source')
+    output_executable = test_executable_path('fixed_form_implicit_dimension_output')
 
     call compile_and_run(input_path, source_executable, &
         "reference fixed-form program")
@@ -28,6 +28,8 @@ program test_fixed_form_implicit_dimension_oracle
     print *, "PASS: implicit DIMENSION dummy preserved"
 
 contains
+
+    include 'common/test_command_helpers.inc'
 
     subroutine compile_and_run(source_path, executable_path, description)
         character(len=*), intent(in) :: source_path, executable_path, description
