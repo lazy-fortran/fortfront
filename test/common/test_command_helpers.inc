@@ -1,10 +1,3 @@
-module test_command_helpers
-    implicit none
-    private
-    public :: test_executable_path, test_remove_file
-
-contains
-
     function test_executable_path(stem) result(path)
         character(len=*), intent(in) :: stem
         character(len=:), allocatable :: path
@@ -34,15 +27,13 @@ contains
 
         is_windows = .false.
         call get_environment_variable('OS', value=os_value, length=os_len, &
-            status=os_status)
+                                      status=os_status)
         if (os_status == 0 .and. os_len > 0) then
             is_windows = trim(os_value(:os_len)) == 'Windows_NT'
         end if
         if (.not. is_windows) then
             call get_environment_variable('WINDIR', value=os_value, &
-                length=os_len, status=os_status)
+                                          length=os_len, status=os_status)
             is_windows = os_status == 0
         end if
     end function is_windows
-
-end module test_command_helpers

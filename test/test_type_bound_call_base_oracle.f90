@@ -1,5 +1,4 @@
 program test_type_bound_call_base_oracle
-    use test_command_helpers, only: test_executable_path, test_remove_file
     use transformation_api, only: compilation_options_t, compile_source
     implicit none
 
@@ -37,4 +36,9 @@ program test_type_bound_call_base_oracle
     call test_remove_file(executable_path)
 
     print *, "test_type_bound_call_base_oracle: all cases passed"
+
+contains
+
+    include 'common/test_command_helpers.inc'
+
 end program test_type_bound_call_base_oracle

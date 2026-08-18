@@ -1,5 +1,4 @@
 program test_abstract_dispatch_provenance_query
-    use test_command_helpers, only: test_executable_path, test_remove_file
     use iso_fortran_env, only: error_unit
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
@@ -157,6 +156,7 @@ program test_abstract_dispatch_provenance_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     integer function find_target(indices, wanted) result(found)
         integer, intent(in) :: indices(:), wanted
