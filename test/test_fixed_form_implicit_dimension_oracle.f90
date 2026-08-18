@@ -1,5 +1,6 @@
 program test_fixed_form_implicit_dimension_oracle
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use test_command_helpers, only: test_executable_path
     use transformation_api, only: compilation_options_t, compile_source
     implicit none
 
@@ -7,12 +8,12 @@ program test_fixed_form_implicit_dimension_oracle
         "examples/f90/fixed_form_implicit_dimension.f"
     character(len=*), parameter :: output_path = &
         "build/fixed_form_implicit_dimension.f90"
-    character(len=*), parameter :: source_executable = &
-        "build/fixed_form_implicit_dimension_source"
-    character(len=*), parameter :: output_executable = &
-        "build/fixed_form_implicit_dimension_output"
+    character(len=:), allocatable :: source_executable, output_executable
     character(len=512) :: error_msg
     type(compilation_options_t) :: options
+
+    source_executable = test_executable_path('fixed_form_implicit_dimension_source')
+    output_executable = test_executable_path('fixed_form_implicit_dimension_output')
 
     call compile_and_run(input_path, source_executable, &
         "reference fixed-form program")
