@@ -19,6 +19,10 @@ f90/call_graph_module_program_scopes.f90
 f90/ownership_dispatch_metadata.f90  # metadata fixture omits abstract interface body
 f90/component_storage_query.f90  # class(*) allocation events omit SOURCE/MOLD
 f90/select_type_component_dispatch.f90  # refusal cases intentionally include unresolved bindings
+f90/abstract_select_type_dispatch_refusals.f90  # refusal contract is parsed, not compiled
+f90/select_type_generic_dispatch.f90  # generic dispatch fixture is queried by API tests
+f90/select_type_component_binding.f90  # component binding fixture is queried by API tests
+f90/select_type_component_generic_dispatch.f90  # component generic fixture is queried by API tests
 f90/issue_2281_header_only_declarations.f90
 f90/issue_2283_nested_modules.f90
 f90/issue_2078_include_statement_silently_dropped.f90
