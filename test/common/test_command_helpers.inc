@@ -3,7 +3,11 @@
         character(len=:), allocatable :: path
 
         if (is_windows()) then
-            path = 'build/'//trim(stem)//'.exe'
+            ! MinGW's command runner does not resolve a bare relative path
+            ! beginning with a directory name. Keep the output under the
+            ! project build tree, but make the current-directory prefix and
+            ! Windows separators explicit for execute_command_line.
+            path = '.\build\'//trim(stem)//'.exe'
         else
             path = '/tmp/'//trim(stem)
         end if
