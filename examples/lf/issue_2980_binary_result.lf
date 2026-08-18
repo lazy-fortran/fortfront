@@ -1,0 +1,7 @@
+program issue_2980
+  print *, twice(1.0d0/6.0d0)
+contains
+  function twice(x) result(y)
+    y = 2*x
+  end function twice
+end program issue_2980
