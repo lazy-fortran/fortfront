@@ -1,5 +1,4 @@
 program test_select_type_generic_pass_query
-    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, get_node_type_at, subroutine_call_node, &
@@ -68,6 +67,7 @@ program test_select_type_generic_pass_query
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     integer function arm_for_call(frontend_result, call_index) result(arm_index)
         type(compiler_frontend_result_t), intent(in) :: frontend_result

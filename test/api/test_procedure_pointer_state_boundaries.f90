@@ -1,5 +1,4 @@
 program test_procedure_pointer_state_boundaries
-    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, procedure_pointer_state_query_t, &
@@ -95,6 +94,7 @@ program test_procedure_pointer_state_boundaries
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
 
     subroutine require(condition, message)
         logical, intent(in) :: condition
