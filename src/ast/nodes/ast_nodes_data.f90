@@ -58,6 +58,11 @@ module ast_nodes_data
         logical :: is_optional = .false. ! Whether optional attribute is present
         integer :: initializer_index = 0 ! Initializer index (stack-based)
         logical :: has_initializer = .false. ! Whether initializer is present
+        logical :: initializer_was_overridden = .false. ! True when a later
+        ! PARAMETER/DIMENSION statement overwrote a pre-existing initializer
+        logical :: shape_was_overridden = .false. ! True when a later DIMENSION
+        ! statement gave a shape to an entity that was already initialized or
+        ! already had a shape
         ! Array dimension support
         logical :: is_array = .false. ! Whether this is
         ! an array declaration

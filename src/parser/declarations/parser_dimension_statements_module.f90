@@ -178,6 +178,13 @@ module parser_dimension_statements_module
                 character(len=*), intent(in) :: target
                 integer, intent(in) :: dimension_indices(:)
 
+                ! A DIMENSION statement applied to an entity that was already
+                ! initialized or already had a shape hides a conflict
+                ! ("Dimensions specified for m after its initialisation").
+                ! Record it so drivers can diagnose.
+                if (decl%has_initializer .or. decl%is_array) then
+                    decl%shape_was_overridden = .true.
+                end if
                 call set_declaration_dimensions(decl, dimension_indices)
                 decl%var_name = target
                 decl%is_multi_declaration = .false.
@@ -299,6 +306,9 @@ module parser_dimension_statements_module
                 character(len=*), intent(in) :: target
                 integer, intent(in) :: dimension_indices(:)
 
+                if (decl%has_initializer .or. decl%is_array) then
+                    decl%shape_was_overridden = .true.
+                end if
                 call set_declaration_dimensions(decl, dimension_indices)
                 decl%var_name = target
                 decl%is_multi_declaration = .false.
