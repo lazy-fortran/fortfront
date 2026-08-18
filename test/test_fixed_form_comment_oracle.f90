@@ -1,4 +1,5 @@
 program test_fixed_form_comment_oracle
+    use test_command_helpers, only: test_executable_path
     use transformation_api, only: compilation_options_t, compile_source
     use frontend_core, only: normalize_fixed_form_source_text
     implicit none
@@ -7,12 +8,13 @@ program test_fixed_form_comment_oracle
         "examples/f90/fixed_form_comment_no_continuation.f"
     character(len=*), parameter :: output_path = &
         "build/fixed_form_comment_no_continuation.f90"
-    character(len=*), parameter :: executable_path = &
-        "build/fixed_form_comment_no_continuation"
+    character(len=:), allocatable :: executable_path
     character(len=512) :: error_msg
     character(len=:), allocatable :: free_form
     type(compilation_options_t) :: options
     integer :: cmdstat, exitstat
+
+    executable_path = test_executable_path('fixed_form_comment_no_continuation')
 
     free_form = "! ordinary free-form comment"//new_line('a')// &
         "      program untouched"//new_line('a')// &

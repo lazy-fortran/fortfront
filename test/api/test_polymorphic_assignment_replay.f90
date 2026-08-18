@@ -1,4 +1,5 @@
 program test_polymorphic_assignment_replay
+    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, get_node_type_at, ownership_event_query_t, &
@@ -19,10 +20,10 @@ program test_polymorphic_assignment_replay
     logical :: found_replayable_assignment
     character(len=*), parameter :: fixture = &
         'examples/f90/polymorphic_assignment_replay_facts.f90'
-    character(len=*), parameter :: executable = &
-        '/tmp/fortfront_polymorphic_assignment_replay_oracle'
+    character(len=:), allocatable :: executable
 
     call read_example(fixture, source)
+    executable = test_executable_path('fortfront_polymorphic_assignment_replay_oracle')
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
     options%run_semantics = .true.
@@ -115,7 +116,7 @@ program test_polymorphic_assignment_replay
         '-o ' // executable // ' ' // fixture, wait=.true., exitstat=status)
     call require(status == 0, 'GNU rejected the polymorphic assignment fixture')
     call execute_command_line(executable, wait=.true., exitstat=status)
-    call execute_command_line('rm -f ' // executable, wait=.true.)
+    call test_remove_file(executable)
     call require(status == 0, &
         'runtime semantic oracle rejected polymorphic assignment behavior')
 

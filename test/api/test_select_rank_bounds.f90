@@ -1,4 +1,5 @@
 program test_select_rank_bounds
+    use test_command_helpers, only: test_executable_path, test_remove_file
     use fortfront, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, control_statement_query_t, &
@@ -13,10 +14,11 @@ program test_select_rank_bounds
     type(control_statement_query_t) :: query
     type(declaration_query_t) :: declaration
     type(array_bounds_query_t) :: bounds
-    character(len=:), allocatable :: source
+    character(len=:), allocatable :: source, executable
     integer :: i, select_count, declaration_index, explicit_count, status
 
     call read_example('examples/f90/select_rank_bounds.f90', source)
+    executable = test_executable_path('fortfront_select_rank_bounds')
     options = compiler_frontend_options_t()
     options%input_mode = INPUT_MODE_STANDARD
     options%run_semantics = .true.
@@ -24,14 +26,13 @@ program test_select_rank_bounds
     call require(result%success(), 'SELECT RANK bounds fixture was rejected')
 
     call execute_command_line('gfortran -std=f2018 -pedantic -Wall -Wextra '// &
-        '-o /tmp/fortfront_select_rank_bounds '// &
+        '-o '//executable//' '// &
         'examples/f90/select_rank_bounds.f90', wait=.true., exitstat=status)
     call require(status == 0, 'GNU Fortran rejected SELECT RANK bounds fixture')
-    call execute_command_line('/tmp/fortfront_select_rank_bounds', &
+    call execute_command_line(executable, &
         wait=.true., exitstat=status)
     call require(status == 0, 'SELECT RANK runtime oracle failed')
-    call execute_command_line('rm -f /tmp/fortfront_select_rank_bounds', &
-        wait=.true.)
+    call test_remove_file(executable)
 
     select_count = 0
     explicit_count = 0
