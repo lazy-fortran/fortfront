@@ -25,6 +25,10 @@ program test_reject_placement_01_diagnostics
     call test_protected_in_implicit_main_rejected(all_tests_passed)
     call test_protected_in_multi_declaration_rejected(all_tests_passed)
     call test_protected_in_module_accepted(all_tests_passed)
+    call test_protected_after_module_contains_rejected(all_tests_passed)
+    call test_protected_after_program_contains_rejected(all_tests_passed)
+    call test_protected_statement_in_module_accepted(all_tests_passed)
+    call test_contained_subroutine_accepted(all_tests_passed)
     call test_plain_declaration_in_main_program_accepted(all_tests_passed)
     call test_save_in_main_program_accepted(all_tests_passed)
 
@@ -156,6 +160,59 @@ contains
             'end module m'
         call expect_frontend_accepts(source, passed)
     end subroutine test_protected_in_module_accepted
+
+    subroutine test_protected_after_module_contains_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing PROTECTED after module CONTAINS (rejected)...'
+        source = 'module a'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'protected x'//new_line('a')// &
+            'end module a'
+        call expect_frontend_error(source, &
+            'PROTECTED statement is only allowed in the specification part', &
+            passed)
+    end subroutine test_protected_after_module_contains_rejected
+
+    subroutine test_protected_after_program_contains_rejected(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing PROTECTED after program CONTAINS (rejected)...'
+        source = 'program p'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'protected x'//new_line('a')// &
+            'end program p'
+        call expect_frontend_error(source, &
+            'PROTECTED statement is only allowed in the specification part', &
+            passed)
+    end subroutine test_protected_after_program_contains_rejected
+
+    subroutine test_protected_statement_in_module_accepted(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing PROTECTED in a module specification part (accepted)...'
+        source = 'module m'//new_line('a')// &
+            'real :: x'//new_line('a')// &
+            'protected x'//new_line('a')// &
+            'end module m'
+        call expect_frontend_accepts(source, passed)
+    end subroutine test_protected_statement_in_module_accepted
+
+    subroutine test_contained_subroutine_accepted(passed)
+        logical, intent(inout) :: passed
+        character(len=:), allocatable :: source
+
+        print *, 'Testing an ordinary contained subroutine (accepted)...'
+        source = 'program p'//new_line('a')// &
+            'contains'//new_line('a')// &
+            'subroutine s'//new_line('a')// &
+            'end subroutine s'//new_line('a')// &
+            'end program p'
+        call expect_frontend_accepts(source, passed)
+    end subroutine test_contained_subroutine_accepted
 
     subroutine test_plain_declaration_in_main_program_accepted(passed)
         logical, intent(inout) :: passed
