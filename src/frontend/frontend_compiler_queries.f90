@@ -227,6 +227,7 @@ module frontend_compiler_queries
         integer :: node_index = 0
         character(len=:), allocatable :: name
         character(len=:), allocatable :: type_category
+        type(declaration_binding_t) :: derived_type_binding
         character(len=:), allocatable :: intent
         integer :: type_kind = 0
         integer :: kind_value = 0
@@ -1550,6 +1551,7 @@ contains
         if (resolved%found) then
             dummy%type_known = .true.
             dummy%type_kind = resolved%type_kind
+            dummy%derived_type_binding = resolved%derived_type_binding
             dummy%kind_value = resolved%kind_value
             dummy%kind_known = resolved%kind_value > 0
             dummy%rank = resolved%rank

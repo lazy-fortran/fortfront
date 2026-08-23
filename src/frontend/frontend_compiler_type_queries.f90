@@ -9,7 +9,7 @@ module frontend_compiler_type_queries
     use ast_nodes_misc, only: complex_literal_node, use_statement_node
     use ast_nodes_procedure, only: function_def_node
     use frontend_compiler_resolution, only: declaration_binding_t, &
-        resolve_name_at_node, resolve_identifier_binding
+        resolve_name_at_node, resolve_identifier_binding, BINDING_DERIVED_TYPE
     use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t, TINT, TREAL, TCHAR, &
         TLOGICAL, TARRAY, TCOMPLEX, TDOUBLE, TDERIVED
@@ -25,6 +25,7 @@ module frontend_compiler_type_queries
         integer :: storage_size_bits = 0
         integer :: rank = -1
         character(len=:), allocatable :: derived_type_name
+        type(declaration_binding_t) :: derived_type_binding
         character(len=:), allocatable :: diagnostic
     end type resolved_type_query_t
 
@@ -58,6 +59,7 @@ contains
         type(resolved_type_query_t) :: query
 
         query%derived_type_name = ""
+        query%derived_type_binding = declaration_binding_t()
         query%diagnostic = ""
 
         if (.not. arena%has_node_at(node_index)) then
@@ -73,6 +75,17 @@ contains
             query%derived_type_name = trim(node%resolved_derived_type_name)
             query%found = node%resolved_type_found
         end associate
+
+        if (query%found .and. query%type_kind == TDERIVED .and. &
+            len_trim(query%derived_type_name) > 0) then
+            call resolve_name_at_node(arena, node_index, &
+                query%derived_type_name, query%derived_type_binding, &
+                query%diagnostic)
+            if (query%derived_type_binding%binding_kind /= BINDING_DERIVED_TYPE) then
+                query%derived_type_binding = declaration_binding_t()
+                query%diagnostic = "derived type binding is unavailable"
+            end if
+        end if
 
         if (.not. query%found) then
             query%diagnostic = &

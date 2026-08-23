@@ -71,6 +71,8 @@ module fortfront_compiler
         query_type_binding_resolution, query_active_global_references, &
         query_type_binding_hierarchy, &
         type_bound_call_query_t, query_type_bound_call, &
+        procedure_dummy_query_t, procedure_signature_query_t, &
+        query_procedure_signature, &
         call_argument_query_t, call_arguments_query_t, query_call_arguments, &
         procedure_actual_argument_query_t, query_procedure_actual_argument, &
         generic_argument_query_t, generic_candidate_query_t, generic_call_query_t, &
