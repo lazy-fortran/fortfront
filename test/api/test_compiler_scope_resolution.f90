@@ -7,9 +7,11 @@ program test_compiler_scope_resolution
     use fortfront_compiler, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD, declaration_binding_t, &
+        procedure_signature_query_t, query_procedure_signature, &
         resolve_name_in_scope, resolve_name_at_node, &
         BINDING_DECLARATION, BINDING_NAMED_CONSTANT, BINDING_FUNCTION, &
-        BINDING_GENERIC_INTERFACE, BINDING_ASSOCIATE_NAME, &
+        BINDING_GENERIC_INTERFACE, BINDING_DERIVED_TYPE, &
+        BINDING_ASSOCIATE_NAME, &
         ASSOCIATION_DIRECT, ASSOCIATION_HOST, ASSOCIATION_USE
     implicit none
 
@@ -24,6 +26,7 @@ program test_compiler_scope_resolution
     call test_nested_associate_owner_boundary()
     call test_module_accessibility()
     call test_procedure_and_generic()
+    call test_derived_dummy_type_identity()
     print *, 'PASS: compiler scope resolution queries'
 
 contains
@@ -536,6 +539,68 @@ contains
             ASSOCIATION_DIRECT, 'generic interface g')
     end subroutine test_procedure_and_generic
 
+    subroutine test_derived_dummy_type_identity()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: producer_type
+        type(declaration_binding_t) :: consumer_type
+        type(procedure_signature_query_t) :: signature
+        character(len=:), allocatable :: error_msg
+        integer :: producer_index
+        integer :: consumer_index
+        integer :: procedure_index
+
+        call compile_standard( &
+            'module producer'//new_line('a')// &
+            '  type :: payload_t'//new_line('a')// &
+            '    integer :: value'//new_line('a')// &
+            '  end type payload_t'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine consume(payload)'//new_line('a')// &
+            '    type(payload_t), intent(inout) :: payload'//new_line('a')// &
+            '  end subroutine consume'//new_line('a')// &
+            'end module producer'//new_line('a')// &
+            'module consumer'//new_line('a')// &
+            '  use producer, only: payload_t, consume'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  subroutine caller(payload)'//new_line('a')// &
+            '    type(payload_t), intent(inout) :: payload'//new_line('a')// &
+            '    call consume(payload)'//new_line('a')// &
+            '  end subroutine caller'//new_line('a')// &
+            'end module consumer', result)
+
+        producer_index = find_module_scope(result)
+        consumer_index = find_module_scope_named(result, 'consumer')
+        procedure_index = find_subroutine(result, 'consume')
+        call resolve_name_in_scope(result%arena, producer_index, 'payload_t', &
+            producer_type, error_msg)
+        call require_binding(error_msg, producer_type, &
+            producer_type%declaration_node_index, BINDING_DERIVED_TYPE, &
+            ASSOCIATION_DIRECT, 'producer derived type')
+        call resolve_name_in_scope(result%arena, consumer_index, 'payload_t', &
+            consumer_type, error_msg)
+        call require_binding(error_msg, consumer_type, &
+            producer_type%declaration_node_index, BINDING_DERIVED_TYPE, &
+            ASSOCIATION_USE, 'imported derived type')
+
+        signature = query_procedure_signature(result%arena, procedure_index)
+        if (.not. signature%found .or. signature%dummy_count /= 1) then
+            write (error_unit, '(A)') &
+                'FAIL: derived dummy procedure signature was not found'
+            error stop 1
+        end if
+        if (.not. signature%dummies(1)%derived_type_binding%found .or. &
+            signature%dummies(1)%derived_type_binding%binding_kind /= &
+            BINDING_DERIVED_TYPE .or. &
+            signature%dummies(1)%derived_type_binding%declaration_node_index /= &
+            producer_type%declaration_node_index .or. &
+            signature%dummies(1)%derived_type_binding%scope_node_index /= &
+            producer_index) then
+            write (error_unit, '(A)') &
+                'FAIL: derived dummy lost its defining type identity'
+            error stop 1
+        end if
+    end subroutine test_derived_dummy_type_identity
+
     subroutine compile_standard(source, result)
         character(len=*), intent(in) :: source
         type(compiler_frontend_result_t), intent(out) :: result
@@ -668,6 +733,28 @@ contains
         write (error_unit, '(A)') 'FAIL: module not found'
         error stop 1
     end function find_module_scope
+
+    integer function find_module_scope_named(result, name) result(index)
+        use ast_nodes_data, only: module_node
+        type(compiler_frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        index = 0
+        do i = 1, result%arena%size
+            if (.not. result%arena%has_node_at(i)) cycle
+            select type (node => result%arena%entries(i)%node)
+                type is (module_node)
+                if (.not. allocated(node%name)) cycle
+                if (trim(node%name) == trim(name)) then
+                    index = i
+                    return
+                end if
+            end select
+        end do
+        write (error_unit, '(A)') 'FAIL: module not found: '//trim(name)
+        error stop 1
+    end function find_module_scope_named
 
     integer function find_program(result, name) result(index)
         type(compiler_frontend_result_t), intent(in) :: result
