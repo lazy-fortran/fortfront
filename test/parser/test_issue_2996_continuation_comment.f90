@@ -1,8 +1,10 @@
 program test_issue_2996_continuation_comment
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use frontend_core, only: lex_source
     use fortfront_compiler, only: compiler_frontend_options_t, &
         compiler_frontend_result_t, compile_frontend_from_string, &
         INPUT_MODE_STANDARD
+    use lexer_core, only: token_t, TK_COMMENT
     use ast_nodes_conditional, only: select_case_node, case_block_node
     use ast_nodes_core, only: literal_node
     implicit none
@@ -22,6 +24,11 @@ program test_issue_2996_continuation_comment
     call read_example('examples/f90/issue_2996_select_case_missing_continuation.f90', &
         source)
     call check_rejected(source, 'missing continuation marker', failures)
+
+    call read_example('examples/f90/issue_2996_assignment_comment_continuation.f90', &
+        source)
+    call check_continued_assignment(source, 'comment in expression continuation', &
+        failures)
 
     if (failures > 0) then
         write (error_unit, '(A,I0,A)') 'FAIL: ', failures, &
@@ -115,6 +122,57 @@ contains
             failures = failures + 1
         end if
     end subroutine check_rejected
+
+    subroutine check_continued_assignment(source, label, failures)
+        character(len=*), intent(in) :: source, label
+        integer, intent(inout) :: failures
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: lex_error
+        integer :: i, comment_count
+
+        options = compiler_frontend_options_t()
+        options%input_mode = INPUT_MODE_STANDARD
+        options%run_semantics = .true.
+
+        call lex_source(source, tokens, lex_error)
+        comment_count = 0
+        if (allocated(tokens)) then
+            do i = 1, size(tokens)
+                if (tokens(i)%kind /= TK_COMMENT) cycle
+                if (.not. allocated(tokens(i)%text)) cycle
+                if (index(tokens(i)%text, &
+                    'between continued expression lines') <= 0) cycle
+                comment_count = comment_count + 1
+                if (tokens(i)%line /= 6 .or. tokens(i)%column /= 9) then
+                    write (error_unit, '(A,A,A)') 'FAIL: ', trim(label), &
+                        ' changed comment location'
+                    failures = failures + 1
+                end if
+            end do
+        end if
+        if (allocated(lex_error) .and. len_trim(lex_error) > 0) then
+            write (error_unit, '(A,A,A)') 'FAIL: ', trim(label), &
+                ' could not lex its source'
+            failures = failures + 1
+        else if (comment_count /= 1) then
+            write (error_unit, '(A,A,A)') 'FAIL: ', trim(label), &
+                ' dropped its comment trivia'
+            failures = failures + 1
+        end if
+
+        call compile_frontend_from_string(source, result, options)
+
+        if (.not. result%parse_ok .or. .not. result%semantic_ok) then
+            write (error_unit, '(A,A,A)') 'FAIL: ', trim(label), &
+                ' was not accepted'
+            write (error_unit, '(A)') trim(result%diagnostic_text)
+            failures = failures + 1
+            return
+        end if
+
+    end subroutine check_continued_assignment
 
     subroutine inspect_values(result, indices, found_one, found_two)
         type(compiler_frontend_result_t), intent(in) :: result

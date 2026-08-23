@@ -55,6 +55,14 @@ contains
             test_continuation_comment_positions = .false.
         end if
 
+        call tokenize_core_with_trivia(source, tokens)
+        value_index = find_token_text(tokens, "2")
+        if (value_index == 0 .or. .not. has_leading_trivia_text(tokens(value_index), &
+            "! full-line comment")) then
+            print '(a)', "FAIL: continuation comment trivia was not attached"
+            test_continuation_comment_positions = .false.
+        end if
+
         source = "text = '! marker' // &"//new_line('a')// &
             "    ! comment containing '!'"//new_line('a')// &
             "    & '! still literal'"
@@ -314,6 +322,22 @@ contains
             end if
         end do
     end function has_trivia_kind
+
+    logical function has_leading_trivia_text(token, text)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: text
+        integer :: i
+
+        has_leading_trivia_text = .false.
+        if (.not. allocated(token%leading_trivia)) return
+        do i = 1, size(token%leading_trivia)
+            if (.not. allocated(token%leading_trivia(i)%text)) cycle
+            if (token%leading_trivia(i)%text == text) then
+                has_leading_trivia_text = .true.
+                return
+            end if
+        end do
+    end function has_leading_trivia_text
 
     logical function has_token_kind(tokens, kind)
         type(token_t), intent(in) :: tokens(:)
