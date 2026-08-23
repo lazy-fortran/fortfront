@@ -392,6 +392,19 @@ contains
 
         if (placement_input_mode /= INPUT_MODE_STANDARD) return
         if (depth <= 0) return
+
+        ! F2018 C858: a PROTECTED statement belongs to a module
+        ! specification part, never its module subprogram part or a main
+        ! program's internal-subprogram part.
+        if (stack(depth)%in_contains .and. word == "protected") then
+            if (scope_kind == "module" .or. scope_kind == "program") then
+                error_msg = placement_diagnostic( &
+                    "PROTECTED statement is only allowed in the "// &
+                    "specification part of a module", tokens(j))
+                return
+            end if
+        end if
+
         if (.not. stack(depth)%seen_executable) return
 
         if (starts_derived_type_definition(tokens, j, word)) then
