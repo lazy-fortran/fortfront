@@ -20,6 +20,7 @@ program test_compiler_scope_resolution
     call test_compound_declaration_identity()
     call test_block_shadow()
     call test_associate_scope()
+    call test_associate_selector_local_binding()
     call test_nested_block_shadow()
     call test_use_rename()
     call test_nested_associate_selector_binding()
@@ -256,6 +257,48 @@ contains
         end if
     end subroutine test_associate_scope
 
+    subroutine test_associate_selector_local_binding()
+        type(compiler_frontend_result_t) :: result
+        type(declaration_binding_t) :: scope_binding
+        type(declaration_binding_t) :: selector_binding
+        character(len=:), allocatable :: error_msg
+        integer :: function_index
+        integer :: associate_index
+        integer :: selector_index
+
+        call compile_standard( &
+            'program one_level'//new_line('a')// &
+            '  print *, evaluate(2.0)'//new_line('a')// &
+            'contains'//new_line('a')// &
+            '  pure function evaluate(value) result(result_value)'//new_line('a')// &
+            '    real, intent(in) :: value'//new_line('a')// &
+            '    real :: result_value'//new_line('a')// &
+            '    associate(alias => value + 1.0)'//new_line('a')// &
+            '      result_value = alias'//new_line('a')// &
+            '    end associate'//new_line('a')// &
+            '  end function evaluate'//new_line('a')// &
+            'end program one_level', result)
+
+        function_index = find_function(result, 'evaluate')
+        associate_index = find_associate(result)
+        select type (node => result%arena%entries(associate_index)%node)
+            type is (associate_node)
+            selector_index = node%associations(1)%expr_index
+        class default
+            error stop 'FAIL: one-level ASSOCIATE has wrong node type'
+        end select
+
+        call resolve_name_in_scope(result%arena, function_index, 'value', &
+            scope_binding, error_msg)
+        call require_found(error_msg, scope_binding, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'one-level local dummy')
+        call resolve_name_at_node(result%arena, selector_index, 'value', &
+            selector_binding, error_msg)
+        call require_binding(error_msg, selector_binding, &
+            scope_binding%declaration_node_index, BINDING_DECLARATION, &
+            ASSOCIATION_DIRECT, 'one-level ASSOCIATE local dummy selector')
+    end subroutine test_associate_selector_local_binding
+
     subroutine test_nested_associate_selector_binding()
         type(compiler_frontend_result_t) :: result
         type(declaration_binding_t) :: binding
@@ -289,11 +332,11 @@ contains
         do i = 1, result%arena%size
             if (.not. result%arena%has_node_at(i)) cycle
             select type (node => result%arena%entries(i)%node)
-            type is (associate_node)
+                type is (associate_node)
                 if (result%arena%entries(i)%parent_index <= 0) cycle
                 select type (parent_node => &
-                             result%arena%entries(result%arena%entries(i)%parent_index)%node)
-                type is (associate_node)
+                        result%arena%entries(result%arena%entries(i)%parent_index)%node)
+                    type is (associate_node)
                     inner_associate = i
                 end select
             end select
@@ -304,15 +347,15 @@ contains
         end if
         function_index = find_function(result, 'compute')
         select type (node => result%arena%entries(inner_associate)%node)
-        type is (associate_node)
+            type is (associate_node)
             selector_index = node%associations(1)%expr_index
         class default
             error stop 'FAIL: nested ASSOCIATE has wrong node type'
         end select
         call resolve_name_at_node(result%arena, selector_index, 'x', binding, &
-                                   error_msg)
+            error_msg)
         call require_found(error_msg, binding, BINDING_DECLARATION, &
-                           ASSOCIATION_DIRECT, 'nested ASSOCIATE local dummy')
+            ASSOCIATION_DIRECT, 'nested ASSOCIATE local dummy')
         if (binding%scope_node_index /= function_index) then
             write (error_unit, '(A)') &
                 'FAIL: nested ASSOCIATE dummy binding escaped its procedure'
