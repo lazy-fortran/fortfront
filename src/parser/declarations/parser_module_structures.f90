@@ -196,6 +196,25 @@ contains
         end select
     end function parse_module_declaration_statement
 
+    ! A duplicate prefix is still visible while the module parser accumulates
+    ! tokens. The prefix buffer deduplicates later, so diagnose it here.
+    subroutine reject_repeated_procedure_prefix(parser, stored, token, lowered)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=16), allocatable, intent(in) :: stored(:)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: lowered
+        integer :: i
+
+        if (.not. allocated(stored)) return
+        do i = 1, size(stored)
+            if (trim(stored(i)) /= trim(lowered)) cycle
+            call parser%error_at_token('duplicate '//trim(lowered)// &
+                ' attribute specified for this procedure', token, &
+                suggestion='specify each procedure prefix keyword at most once')
+            return
+        end do
+    end subroutine reject_repeated_procedure_prefix
+
     function parse_contains_section_item(parser, arena, prefix_buffer) &
             result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -231,6 +250,8 @@ contains
             case ("pure", "elemental", "impure", "recursive", &
                     "nonrecursive", "non_recursive", "module")
                 call prefix_buffer%get_all(stored)
+                call reject_repeated_procedure_prefix(parser, stored, token, &
+                    lowered)
                 call append_prefix_token(stored, trim(lowered))
                 call prefix_buffer%set(stored)
                 if (allocated(stored)) deallocate (stored)
