@@ -946,35 +946,6 @@
         end if
     end subroutine clear_container_implicit_indices
 
-    function is_function_node(arena, idx) result(is_func)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: idx
-        logical :: is_func
-
-        is_func = .false.
-        if (idx < 1 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
-
-        select type (n => arena%entries(idx)%node)
-        type is (function_def_node)
-            is_func = .true.
-        end select
-    end function is_function_node
-
-    function get_function_name(arena, idx) result(name)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: idx
-        character(len=:), allocatable :: name
-        type(function_def_node), pointer :: func
-
-        call get_function_node(arena, idx, func)
-        if (associated(func)) then
-            name = func%name
-        else
-            name = ""
-        end if
-    end function get_function_name
-
     function get_procedure_name_from_arena(arena, idx) result(name)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: idx

@@ -196,29 +196,6 @@
         end do
     end function consume_unit_expression
 
-    function consume_balanced_parens(parser) result(text)
-        !! Consume a parenthesised group, nesting and all, returning its text.
-        type(parser_state_t), intent(inout) :: parser
-        character(len=:), allocatable :: text
-        type(token_t) :: token
-        integer :: depth
-
-        text = ""
-        depth = 0
-        do
-            token = parser%peek()
-            if (token%kind == TK_EOF) exit
-            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                depth = depth + 1
-            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                depth = depth - 1
-            end if
-            text = text//token%text
-            token = parser%consume()
-            if (depth == 0) exit
-        end do
-    end function consume_balanced_parens
-
     ! Collect trailing specification for backspace/rewind/endfile statements
     function collect_position_spec(parser) result(spec_text)
         type(parser_state_t), intent(inout) :: parser

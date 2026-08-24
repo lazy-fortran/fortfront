@@ -20,14 +20,6 @@
             res_type = get_inferred_type_from_arena(this, arena, idx)
         end function get_node_type
 
-        function get_node_type_with_arena(a, idx) result(res_type)
-            type(ast_arena_t), intent(inout) :: a
-            integer, intent(in) :: idx
-            type(mono_type_t) :: res_type
-
-            res_type = get_inferred_type_from_arena(this, a, idx)
-        end function get_node_type_with_arena
-
         subroutine handle_declaration(node, node_index)
             type(declaration_node), intent(in) :: node
             integer, intent(in) :: node_index
