@@ -408,21 +408,6 @@ contains
         call trace_leave('transform_lazy_with_ast_wrapping')
     end subroutine transform_lazy_with_ast_wrapping
 
-    pure function ensure_trailing_newline(text) result(with_newline)
-        character(len=*), intent(in) :: text
-        character(len=:), allocatable :: with_newline
-        integer :: text_len
-
-        text_len = len(text)
-        if (text_len == 0) then
-            with_newline = new_line('A')
-        else if (text(text_len:text_len) == new_line('A')) then
-            with_newline = text
-        else
-            with_newline = text//new_line('A')
-        end if
-    end function ensure_trailing_newline
-
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
         character(len=*), intent(in) :: input
