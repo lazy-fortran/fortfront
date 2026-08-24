@@ -16,7 +16,7 @@ module semantic_undefined_variable_checker
     use ast_nodes_transfer, only: entry_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         subroutine_call_node
-    use intrinsic_registry, only: is_intrinsic_subroutine
+    use intrinsic_registry, only: is_intrinsic_function, is_intrinsic_subroutine
     use semantic_explicit_interface_checker, only: is_part_reference, &
         interface_declares_subroutine
     use semantic_external_declaration_names, only: collect_declared_procedures
@@ -138,6 +138,8 @@ contains
             if (is_call .and. .not. is_array_access) return
 
             if (is_construct_entity(arena, reference_index, trim(name))) return
+            if (is_intrinsic_function(trim(name)) .and. &
+                is_actual_argument_reference(arena, reference_index)) return
             if (is_select_type_associate_name(arena, scope_index, trim(name))) return
             if (is_use_associated_name(arena, scope_index, trim(name))) return
             if (is_namelist_name(arena, scope_index, trim(name))) return
@@ -538,6 +540,39 @@ contains
                 end select
             end do
         end function is_entry_procedure_name
+
+        logical function is_actual_argument_reference(arena, reference_index) &
+                result(found)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: reference_index
+            integer :: current, i
+
+            found = .false.
+            current = reference_index
+            do while (current > 0)
+                current = arena%entries(current)%parent_index
+                if (current <= 0) exit
+                if (.not. arena%has_node_at(current)) exit
+                select type (parent => arena%entries(current)%node)
+                    type is (call_or_subscript_node)
+                    if (.not. allocated(parent%arg_indices)) cycle
+                    do i = 1, size(parent%arg_indices)
+                        if (parent%arg_indices(i) == reference_index) then
+                            found = .true.
+                            return
+                        end if
+                    end do
+                    type is (subroutine_call_node)
+                    if (.not. allocated(parent%arg_indices)) cycle
+                    do i = 1, size(parent%arg_indices)
+                        if (parent%arg_indices(i) == reference_index) then
+                            found = .true.
+                            return
+                        end if
+                    end do
+                end select
+            end do
+        end function is_actual_argument_reference
 
         logical function same_name(left, right) result(equal)
             character(len=*), intent(in) :: left, right
