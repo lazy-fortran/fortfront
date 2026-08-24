@@ -17,8 +17,8 @@ module semantic_use_export_validation
         parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use error_handling, only: error_collection_t, ERROR_SEMANTIC
-    use frontend_compiler_resolution, only: is_scope_node, &
-        get_scope_statement_indices, find_module_index
+    use frontend_compiler_resolution, only: get_scope_statement_indices, &
+        find_module_index
     use generic_spec_names, only: normalize_generic_operator, is_generic_spec
     use string_types, only: string_t
     use string_utils_mod, only: to_lower

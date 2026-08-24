@@ -1,5 +1,5 @@
 module semantic_parameter_analysis
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    use type_system_unified, only: mono_type_t, poly_type_t, &
         create_mono_type, create_type_var, &
         create_poly_type, empty_type_vars, TVAR, TREAL, TDOUBLE, &
         TINT, TCHAR

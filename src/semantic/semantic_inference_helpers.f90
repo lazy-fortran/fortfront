@@ -1,7 +1,7 @@
 module semantic_inference_helpers
     ! Helper module for type inference of control flow and declarations
     ! This avoids circular dependencies with semantic_analyzer
-    use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
+    use type_system_unified, only: mono_type_t, poly_type_t, &
         create_mono_type, create_type_var, &
         create_poly_type, empty_type_vars, TVAR, TINT, TREAL, TCHAR, &
         TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED

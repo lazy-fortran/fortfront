@@ -3,7 +3,6 @@ module semantic_placement_validation
     ! to one kind of program section (issue #2896).
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, module_node
-    use ast_nodes_core, only: program_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
         error_collection_t
     implicit none
