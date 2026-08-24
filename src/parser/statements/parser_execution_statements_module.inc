@@ -725,6 +725,8 @@
                         ignored_token = parser_ref%consume()
                         stmt_index = parse_dimension_statement(parser_ref, arena_ref)
                     end block
+                case ("save")
+                    stmt_index = parse_save_statement(parser_ref, arena_ref)
                 case ("parameter")
                     block
                         type(token_t) :: ignored_token

@@ -9,7 +9,7 @@ module parser_dispatcher_module
         reject_unconsumed_tokens
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-        parse_derived_type_def, parser_is_at_type_definition
+        parse_derived_type_def, parser_is_at_type_definition, parse_save_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_import_resolution_module, only: parse_use_statement, &
         parse_include_statement

@@ -1,5 +1,6 @@
 module parser_declarations_core_module
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, to_lower
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
+        TK_WHITESPACE, TK_COMMENT, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_construction_module, only: add_single_declaration, &
@@ -21,12 +22,79 @@ module parser_declarations_core_module
     private
 
     public :: parse_declaration
+    public :: parse_save_statement
     public :: parse_declaration_with_result
     public :: parse_array_dimensions
     public :: skip_declaration_separator
     public :: procedure_decl_has_attributes
 
 contains
+
+    integer function parse_save_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t) :: token
+        character(len=:), allocatable :: name
+        integer :: idx, name_idx
+
+        stmt_index = 0
+        token = parser%consume()
+        call skip_save_trivia(parser)
+        token = parser%peek()
+        if (token%text == "::") then
+            token = parser%consume()
+            call skip_save_trivia(parser)
+        end if
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) exit
+            name = to_lower(trim(token%text))
+            token = parser%consume()
+
+            do idx = arena%size, 1, -1
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (decl => arena%entries(idx)%node)
+                    type is (declaration_node)
+                    if (allocated(decl%var_name)) then
+                        if (to_lower(trim(decl%var_name)) == name) then
+                            decl%is_save = .true.
+                            if (stmt_index == 0) stmt_index = idx
+                        end if
+                    end if
+                    if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                        do name_idx = 1, size(decl%var_names)
+                            if (to_lower(trim(decl%var_names(name_idx))) == name) then
+                                decl%is_save = .true.
+                                if (stmt_index == 0) stmt_index = idx
+                                exit
+                            end if
+                        end do
+                    end if
+                end select
+            end do
+
+            call skip_save_trivia(parser)
+            token = parser%peek()
+            if (token%text /= ",") exit
+            token = parser%consume()
+            call skip_save_trivia(parser)
+        end do
+    end function parse_save_statement
+
+    subroutine skip_save_trivia(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+    end subroutine skip_save_trivia
 
     function parse_declaration(parser, arena) result(decl_index)
         type(parser_state_t), intent(inout) :: parser

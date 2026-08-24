@@ -17,6 +17,7 @@ program test_declaration_bind_c
         .true., '', ok)
     call check('real(c_double), bind(c, name="cv") :: v = 3.0d0', &
         'real(c_double)', .false., 'cv', ok)
+    call check_standalone_save(ok)
 
     if (.not. ok) then
         print *, 'FAIL: bind(c) variable declaration parsing'
@@ -87,6 +88,36 @@ contains
         call assert(n_assign == 0, 'no stray assignment node', ok)
         call assert(n_stray_c == 0, 'no stray identifier c', ok)
     end subroutine check
+
+    subroutine check_standalone_save(ok)
+        logical, intent(inout) :: ok
+        type(ast_arena_t) :: arena
+        type(tooling_parse_options_t) :: options
+        character(len=:), allocatable :: error_msg
+        character(len=*), parameter :: src = &
+            'program p'//new_line('A')//'integer :: k'//new_line('A')// &
+            'save :: k'//new_line('A')//'end program p'
+        integer :: root_index, i
+
+        options = tooling_parse_options_t()
+        options%run_semantics = .false.
+        call tooling_load_ast_from_string(src, arena, root_index, error_msg, &
+            options)
+        call assert(len_trim(error_msg) == 0, 'standalone SAVE parses', ok)
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+                type is (declaration_node)
+                if (allocated(node%var_name)) then
+                    if (trim(node%var_name) == 'k') then
+                        call assert(node%is_save, 'standalone SAVE sets is_save', ok)
+                        return
+                    end if
+                end if
+            end select
+        end do
+        call assert(.false., 'standalone SAVE declaration found', ok)
+    end subroutine check_standalone_save
 
     subroutine assert(cond, label, ok)
         logical, intent(in) :: cond
