@@ -90,9 +90,7 @@
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write (error_unit, *) &
-                "Error: Expected ')' after write unit and format at line ", &
-                token%line
+            call parser%error("Expected ')' after write unit and format")
             write_index = 0
             return
         end if
