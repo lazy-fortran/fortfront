@@ -5385,21 +5385,6 @@ contains
         end do
     end function node_is_descendant_of
 
-    logical function node_is_direct_child(arena, node_index, roots) result(found)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index, roots(:)
-        integer :: i
-
-        found = .false.
-        if (.not. arena%has_node_at(node_index)) return
-        do i = 1, size(roots)
-            if (arena%entries(node_index)%parent_index == roots(i)) then
-                found = .true.
-                return
-            end if
-        end do
-    end function node_is_direct_child
-
     logical function nullify_touches_pointer(arena, node_index, declaration_index, &
             pointer_name) result(found)
         type(ast_arena_t), intent(in) :: arena
@@ -7529,20 +7514,6 @@ contains
             current = arena%entries(current)%parent_index
         end do
     end subroutine associate_reference_access
-
-    subroutine set_associate_access_kind(query)
-        type(associate_selector_query_t), intent(inout) :: query
-
-        if (query%has_read_reference .and. query%has_write_reference) then
-            query%association_access_kind = ACCESS_READ_WRITE
-        else if (query%has_write_reference) then
-            query%association_access_kind = ACCESS_WRITE
-        else if (query%has_read_reference) then
-            query%association_access_kind = ACCESS_READ
-        else
-            query%association_access_kind = 0
-        end if
-    end subroutine set_associate_access_kind
 
     function query_polymorphic_allocation(arena, allocation_node_index) result(query)
         !! Return the bounded SOURCE= fact for one polymorphic allocation.

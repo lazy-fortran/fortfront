@@ -393,45 +393,6 @@ contains
         error_msg = ""
     end subroutine run_semantic_analysis
 
-    subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, &
-            prog_index, &
-            error_msg)
-        type(token_t), intent(in) :: tokens(:)
-        type(compiler_arena_t), intent(inout) :: compiler_arena
-        integer, intent(inout) :: prog_index
-        character(len=*), intent(out) :: error_msg
-
-        ! Phase 2: Parsing
-        call compiler_arena%next_phase("parser")
-        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-
-        ! Phase 3: Semantic Analysis (only for lazy fortran)
-        call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-
-        ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call compiler_arena%next_phase("standardization")
-        call standardize_ast(compiler_arena%ast, prog_index)
-    end subroutine run_compilation_pipeline_from_phase2
-
-    subroutine run_compilation_pipeline_from_phase3(compiler_arena, prog_index)
-        type(compiler_arena_t), intent(inout) :: compiler_arena
-        integer, intent(inout) :: prog_index
-        character(len=MAX_FRONTEND_ERROR_LEN) :: error_msg
-
-        ! Phase 3: Semantic Analysis
-        call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
-        ! Note: For internal use, we continue even if semantic errors occur
-        ! The calling routine should check for errors separately
-
-        ! Phase 4: Standardization
-        call compiler_arena%next_phase("standardization")
-        call standardize_ast(compiler_arena%ast, prog_index)
-    end subroutine run_compilation_pipeline_from_phase3
-
     subroutine write_compiled_output(options, code, error_msg)
         type(compilation_options_t), intent(in) :: options
         character(len=*), intent(in) :: code
