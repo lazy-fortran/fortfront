@@ -6,6 +6,14 @@ program test_save_common
     type(tooling_parse_options_t) :: options
     type(ast_arena_t) :: arena
     character(len=:), allocatable :: error_msg
+    character(len=*), parameter :: nested_source = &
+        'subroutine p'//new_line('A')// &
+        'integer :: value'//new_line('A')// &
+        'common /argmnt2/ value'//new_line('A')// &
+        'save /argmnt2/'//new_line('A')// &
+        'block'//new_line('A')// &
+        'end block'//new_line('A')// &
+        'end subroutine p'
     integer :: root_index
     character(len=*), parameter :: source = &
         'program p'//new_line('A')// &
@@ -20,6 +28,12 @@ program test_save_common
 
     if (len_trim(error_msg) /= 0) then
         write (*, '(A)') 'FAIL: SAVE common block parsing: '//trim(error_msg)
+        error stop 1
+    end if
+
+    call tooling_load_ast_from_string(nested_source, arena, root_index, error_msg, options)
+    if (len_trim(error_msg) /= 0) then
+        write (*, '(A)') 'FAIL: nested SAVE common block parsing: '//trim(error_msg)
         error stop 1
     end if
     write (*, '(A)') 'PASS: SAVE common block parsing'

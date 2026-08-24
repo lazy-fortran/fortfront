@@ -260,6 +260,7 @@ contains
 
             if (lowered == "save") then
                 stmt_index = parse_save_statement(parser, arena)
+                if (stmt_index == 0) stmt_index = STATEMENT_NO_NODE
             end if
 
             if (lowered == "parameter") then
