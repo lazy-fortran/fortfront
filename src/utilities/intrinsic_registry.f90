@@ -165,7 +165,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 62
+        integer, parameter :: NUM_INTRINSICS = 63
         integer :: i
 
         if (registry_initialized) return
@@ -202,6 +202,11 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
             name="cos", return_type="real", arg_types="real", &
             description="Cosine function")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="dcos", return_type="real", arg_types="real", &
+            description="Double precision cosine function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
