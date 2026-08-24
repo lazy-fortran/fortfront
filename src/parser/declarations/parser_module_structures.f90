@@ -752,48 +752,6 @@ contains
         end if
     end subroutine handle_module_identifier_assignment
 
-    ! Temporary helper to skip procedure bodies during refactoring
-    subroutine skip_procedure_body(parser, proc_type)
-        type(parser_state_t), intent(inout) :: parser
-        character(len=*), intent(in) :: proc_type
-        type(token_t) :: token
-        integer :: nesting_level
-
-        nesting_level = 1 ! Already inside a procedure
-
-        ! Consume the procedure keyword
-        token = parser%consume()
-
-        ! Skip the procedure name if present
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-        end if
-
-        ! Skip until matching end <proc_type>
-        do while (.not. parser%is_at_end() .and. nesting_level > 0)
-            token = parser%peek()
-
-            if (token%kind == TK_KEYWORD) then
-                if (token%text == proc_type) then
-                    nesting_level = nesting_level + 1
-                else if (token%text == "end") then
-                    ! Check if next token is our procedure type
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == &
-                            TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == &
-                            proc_type) then
-                            nesting_level = nesting_level - 1
-                        end if
-                    end if
-                end if
-            end if
-
-            token = parser%consume()
-        end do
-    end subroutine skip_procedure_body
-
     function parse_abstract_interface_in_module(parser, arena, prefix_buffer) &
             result(stmt_index)
         type(parser_state_t), intent(inout) :: parser

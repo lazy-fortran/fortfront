@@ -148,50 +148,6 @@ contains
         typ = build_matmul_result(result_element, lhs_rank, rhs_rank)
     end function handle_matmul_intrinsic
 
-    subroutine extract_rank_and_base(source_type, rank, base_type)
-        type(mono_type_t), intent(in) :: source_type
-        integer, intent(out) :: rank
-        type(mono_type_t), intent(out) :: base_type
-        type(mono_type_t) :: current
-        integer :: visited_indices(100)
-        integer :: visited_count
-        integer :: i
-        logical :: is_cycle
-
-        current = source_type
-        call current%sync_from_arena()
-        rank = 0
-        visited_count = 0
-
-        do while (current%kind == TARRAY .and. current%has_args())
-            ! Detect cycles by checking if we've seen this type_id before
-            is_cycle = .false.
-            do i = 1, visited_count
-                if (visited_indices(i) == current%handle%type_id) then
-                    is_cycle = .true.
-                    exit
-                end if
-            end do
-
-            if (is_cycle) then
-                ! Circular reference detected - stop traversal
-                exit
-            end if
-
-            ! Track this type_id
-            visited_count = visited_count + 1
-            if (visited_count <= size(visited_indices)) then
-                visited_indices(visited_count) = current%handle%type_id
-            end if
-
-            rank = rank + 1
-            current = current%get_arg(1)
-            call current%sync_from_arena()
-        end do
-        base_type = current
-        call base_type%sync_from_arena()
-    end subroutine extract_rank_and_base
-
     function build_matmul_result(result_element, lhs_rank, rhs_rank) result(typ)
         type(mono_type_t), intent(in) :: result_element
         integer, intent(in) :: lhs_rank
