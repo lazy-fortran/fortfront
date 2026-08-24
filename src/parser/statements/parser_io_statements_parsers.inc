@@ -365,7 +365,8 @@
         lowered = trim(lowered)
         is_write_io_control_specifier = &
             (lowered == "iostat" .or. lowered == "iomsg" .or. &
-             lowered == "err" .or. lowered == "advance" .or. &
+             lowered == "err" .or. lowered == "end" .or. &
+             lowered == "advance" .or. &
              lowered == "asynchronous" .or. lowered == "decimal" .or. &
              lowered == "delim" .or. lowered == "id" .or. &
              lowered == "pos" .or. lowered == "rec" .or. &
