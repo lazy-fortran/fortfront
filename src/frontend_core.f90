@@ -446,17 +446,6 @@ contains
         end if
     end subroutine write_compiled_output
 
-    ! Phase 4: Code Generation
-    subroutine generate_fortran_code(arena, prog_index, code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: prog_index
-        character(len=:), allocatable, intent(out) :: code
-
-        ! CRITICAL FIX: Initialize codegen system before generating code
-        call initialize_codegen()
-        code = generate_code_from_arena(arena, prog_index)
-    end subroutine generate_fortran_code
-
     ! Deep copy procedures for compilation_options_t
     function compilation_options_deep_copy(this) result(copy)
         class(compilation_options_t), intent(in) :: this
