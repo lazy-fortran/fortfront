@@ -109,12 +109,9 @@ contains
         skippable = trim(token%text) == "&"
     end function placement_is_skippable
 
-    logical function placement_statement_continues(tokens, prev, k) result(continues)
+    logical function placement_statement_continues(tokens, k) result(continues)
         type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: prev
         integer, intent(in) :: k
-
-        integer :: unused
 
         continues = .false.
         if (k <= 0) return
@@ -123,7 +120,6 @@ contains
         if (tokens(k)%kind == TK_OPERATOR) then
             if (trim(tokens(k)%text) == ";") return
         end if
-        unused = prev
         continues = .true.
     end function placement_statement_continues
 
@@ -169,7 +165,7 @@ contains
         j = i
         if (tokens(i)%kind == TK_NUMBER) then
             after = placement_next_significant(tokens, i + 1)
-            if (.not. placement_statement_continues(tokens, i, after)) return
+            if (.not. placement_statement_continues(tokens, after)) return
             j = after
             return
         end if
@@ -179,7 +175,7 @@ contains
         if (tokens(colon)%kind /= TK_OPERATOR) return
         if (trim(tokens(colon)%text) /= ":") return
         after = placement_next_significant(tokens, colon + 1)
-        if (.not. placement_statement_continues(tokens, colon, after)) return
+        if (.not. placement_statement_continues(tokens, after)) return
         j = after
     end function skip_statement_label
 
@@ -565,7 +561,7 @@ contains
         if (word /= "block") return
         k = placement_next_significant(tokens, j + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, j, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         is_block_data = to_lower(trim(tokens(k)%text)) == "data"
     end function starts_block_data
 
@@ -580,7 +576,7 @@ contains
         opens = .false.
         k = placement_next_significant(tokens, j + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, j, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         if (tokens(k)%kind /= TK_IDENTIFIER .and. tokens(k)%kind /= TK_KEYWORD) &
             return
         next_word = to_lower(trim(tokens(k)%text))
@@ -612,7 +608,7 @@ contains
         end if
         k = placement_next_significant(tokens, j + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, j, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         opens = to_lower(trim(tokens(k)%text)) == "interface"
     end function opens_interface_block
 
@@ -628,7 +624,7 @@ contains
         if (word /= "type") return
         k = placement_next_significant(tokens, j + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, j, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         next_text = to_lower(trim(tokens(k)%text))
         ! TYPE(x) declares a variable and TYPE IS selects a class branch.
         if (next_text == "(") return
@@ -661,7 +657,7 @@ contains
             ! A labelled DO ends at its label, not at an END DO.
             k = placement_next_significant(tokens, j + 1)
             if (k > 0) then
-                if (placement_statement_continues(tokens, j, k)) then
+                if (placement_statement_continues(tokens, k)) then
                     if (tokens(k)%kind == TK_NUMBER) return
                 end if
             end if
@@ -679,46 +675,42 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: j
 
-        integer :: k, prev, paren_depth
+        integer :: k, paren_depth
 
         ends = .false.
-        prev = j
         k = placement_next_significant(tokens, j + 1)
-        if (.not. placement_statement_continues(tokens, prev, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         if (trim(tokens(k)%text) /= "(") return
 
         paren_depth = 0
         do while (k > 0)
-            if (.not. placement_statement_continues(tokens, prev, k)) return
+            if (.not. placement_statement_continues(tokens, k)) return
             if (trim(tokens(k)%text) == "(") paren_depth = paren_depth + 1
             if (trim(tokens(k)%text) == ")") then
                 paren_depth = paren_depth - 1
                 if (paren_depth == 0) exit
             end if
-            prev = k
             k = placement_next_significant(tokens, k + 1)
         end do
         if (k <= 0) return
 
-        prev = k
         k = placement_next_significant(tokens, k + 1)
-        ends = .not. placement_statement_continues(tokens, prev, k)
+        ends = .not. placement_statement_continues(tokens, k)
     end function statement_ends_after_paren_group
 
     logical function starts_procedure_definition(tokens, j) result(opens)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: j
 
-        integer :: k, prev, paren_depth
+        integer :: k, paren_depth
         character(len=:), allocatable :: word
 
         opens = .false.
         paren_depth = 0
-        prev = j
         k = j
         do while (k > 0)
             if (k > j) then
-                if (.not. placement_statement_continues(tokens, prev, k)) return
+                if (.not. placement_statement_continues(tokens, k)) return
             end if
             word = to_lower(trim(tokens(k)%text))
             if (word == "(") then
@@ -732,7 +724,6 @@ contains
                 end if
                 if (.not. is_procedure_prefix_word(word)) return
             end if
-            prev = k
             k = placement_next_significant(tokens, k + 1)
         end do
     end function starts_procedure_definition
@@ -758,22 +749,21 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: j
 
-        integer :: k, prev, paren_depth
+        integer :: k, paren_depth
         character(len=:), allocatable :: word
 
         is_stmt_fn = .false.
         if (tokens(j)%kind /= TK_IDENTIFIER) return
         if (is_specification_statement(to_lower(trim(tokens(j)%text)))) return
 
-        prev = j
         k = placement_next_significant(tokens, j + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, prev, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         if (trim(tokens(k)%text) /= "(") return
 
         paren_depth = 0
         do while (k > 0)
-            if (.not. placement_statement_continues(tokens, prev, k)) return
+            if (.not. placement_statement_continues(tokens, k)) return
             word = trim(tokens(k)%text)
             if (word == "(") then
                 paren_depth = paren_depth + 1
@@ -785,15 +775,13 @@ contains
             else
                 return
             end if
-            prev = k
             k = placement_next_significant(tokens, k + 1)
         end do
         if (k <= 0) return
 
-        prev = k
         k = placement_next_significant(tokens, k + 1)
         if (k <= 0) return
-        if (.not. placement_statement_continues(tokens, prev, k)) return
+        if (.not. placement_statement_continues(tokens, k)) return
         is_stmt_fn = trim(tokens(k)%text) == "="
     end function is_statement_function
 
@@ -824,7 +812,7 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: j
 
-        integer :: k, prev, paren_depth
+        integer :: k, paren_depth
         logical :: expect_component
         character(len=:), allocatable :: text
 
@@ -834,10 +822,9 @@ contains
 
         paren_depth = 0
         expect_component = .false.
-        prev = j
         k = placement_next_significant(tokens, j + 1)
         do while (k > 0)
-            if (.not. placement_statement_continues(tokens, prev, k)) return
+            if (.not. placement_statement_continues(tokens, k)) return
             text = trim(tokens(k)%text)
             if (paren_depth > 0) then
                 if (text == "(") paren_depth = paren_depth + 1
@@ -856,7 +843,6 @@ contains
             else
                 return
             end if
-            prev = k
             k = placement_next_significant(tokens, k + 1)
         end do
     end function is_assignment_statement
@@ -876,7 +862,7 @@ contains
         case ("type", "class")
             k = placement_next_significant(tokens, j + 1)
             if (k <= 0) return
-            if (.not. placement_statement_continues(tokens, j, k)) return
+            if (.not. placement_statement_continues(tokens, k)) return
             is_decl = trim(tokens(k)%text) == "("
         end select
         if (.not. is_decl) return
@@ -903,7 +889,7 @@ contains
         if (word /= "module" .and. word /= "procedure") return
         if (word == "module") then
             k = placement_next_significant(tokens, j + 1)
-            if (.not. placement_statement_continues(tokens, j, k)) return
+            if (.not. placement_statement_continues(tokens, k)) return
             if (to_lower(trim(tokens(k)%text)) /= "procedure") return
         end if
         opens = .true.
@@ -953,15 +939,13 @@ contains
         integer, intent(in) :: j
         character(len=:), allocatable :: text
 
-        integer :: k, prev
+        integer :: k
 
         text = to_lower(trim(tokens(j)%text))
-        prev = j
         k = placement_next_significant(tokens, j + 1)
         do while (k > 0)
-            if (.not. placement_statement_continues(tokens, prev, k)) exit
+            if (.not. placement_statement_continues(tokens, k)) exit
             text = to_lower(trim(tokens(k)%text))
-            prev = k
             k = placement_next_significant(tokens, k + 1)
         end do
     end function last_statement_word
