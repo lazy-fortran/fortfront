@@ -18,7 +18,7 @@ module parser_statement_core_module
     use parser_memory_statements_module, only: parse_allocate_statement, &
         parse_deallocate_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-        parse_derived_type_def, parser_is_at_type_definition
+        parse_derived_type_def, parser_is_at_type_definition, parse_save_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_resolution_module, only: parse_use_statement
     use parser_utils, only: analyze_declaration_structure
@@ -256,6 +256,10 @@ contains
 
             if (lowered == "dimension") then
                 stmt_index = parse_dimension_statement(parser, arena)
+            end if
+
+            if (lowered == "save") then
+                stmt_index = parse_save_statement(parser, arena)
             end if
 
             if (lowered == "parameter") then

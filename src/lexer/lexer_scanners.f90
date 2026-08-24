@@ -834,7 +834,7 @@ contains
                 'real', 'logical', 'character', 'complex', 'double', &
                 'precision', &
                 'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
-                'intent', 'use', 'module', 'contains', 'public', 'private', &
+                'intent', 'save', 'use', 'module', 'contains', 'public', 'private', &
                 'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
                 'procedure', 'interface', 'import', 'include', 'generic', &
                 'operator', &

@@ -313,6 +313,8 @@
             call handle_common_keyword(parser, arena, first_token, stmt_index)
         case ("dimension")
             call handle_dimension_keyword(parser, arena, first_token, stmt_index)
+        case ("save")
+            stmt_index = parse_save_statement(parser, arena)
         case ("value")
             stmt_index = parse_value_statement(parser, arena)
         case ("enum")

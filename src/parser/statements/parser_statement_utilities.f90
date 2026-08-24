@@ -5,7 +5,7 @@ module parser_statement_utilities_module
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-        parse_derived_type_def, parser_is_at_type_definition
+        parse_derived_type_def, parser_is_at_type_definition, parse_save_statement
     use parser_parameter_statements_module, only: parse_parameter_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_value_statements_module, only: parse_value_statement
@@ -165,6 +165,8 @@ contains
                 end if
             case ("dimension")
                 stmt_index = parse_dimension_statement(parser, arena)
+            case ("save")
+                stmt_index = parse_save_statement(parser, arena)
             case ("value")
                 stmt_index = parse_value_statement(parser, arena)
             case ("allocate")
