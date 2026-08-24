@@ -670,6 +670,13 @@
             return
         end if
 
+        ! Accept the legacy comma after DO (`do, i = 1, n`) used by old
+        ! fixed-form sources. It is only a separator before the ordinary
+        ! iterator, so consume it before parse_standard_control sees the name.
+        if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+            var_token = parser%consume()
+        end if
+
         allocate (controls(0))
         has_open_paren = .false.
 
