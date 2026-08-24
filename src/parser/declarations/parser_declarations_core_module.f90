@@ -1,6 +1,6 @@
 module parser_declarations_core_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
-        TK_WHITESPACE, TK_COMMENT, to_lower
+        TK_WHITESPACE, TK_COMMENT, TK_OPERATOR, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use parser_declarations_construction_module, only: add_single_declaration, &
@@ -48,6 +48,25 @@ contains
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == "/") then
+                token = parser%consume()
+                call skip_save_trivia(parser)
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                    token = parser%consume()
+                    call skip_save_trivia(parser)
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. trim(token%text) == "/") then
+                        token = parser%consume()
+                    end if
+                end if
+                call skip_save_trivia(parser)
+                token = parser%peek()
+                if (token%text /= ",") exit
+                token = parser%consume()
+                call skip_save_trivia(parser)
+                cycle
+            end if
             if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) exit
             name = to_lower(trim(token%text))
             token = parser%consume()
