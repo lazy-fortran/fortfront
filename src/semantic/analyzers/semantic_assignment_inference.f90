@@ -1,7 +1,7 @@
 module semantic_assignment_inference
     ! Assignment inference logic extracted from semantic_analyzer
     ! for architectural compliance (Issue #1117)
-    use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
+    use type_system_unified, only: mono_type_t, poly_type_t, &
         create_mono_type, create_poly_type, empty_type_vars, &
         TCHAR, TARRAY, TINT, TREAL, TLOGICAL, &
         TCOMPLEX, TDOUBLE, TDERIVED

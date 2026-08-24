@@ -1,5 +1,5 @@
 module semantic_scope_creation
-    use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
+    use type_system_unified, only: mono_type_t, poly_type_t, &
         create_poly_type, empty_type_vars, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
