@@ -396,6 +396,10 @@ contains
                     type_spec%character_length_expr = trim(value_text)
                     type_spec%has_character_length = .true.
                 end if
+            else if (token%text == ":") then
+                type_spec%character_length_expr = ":"
+                type_spec%has_character_length = .true.
+                token = parser%consume()
             else
                 token = parser%consume()
             end if
