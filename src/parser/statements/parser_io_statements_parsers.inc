@@ -747,7 +747,7 @@
         type(ast_arena_t), intent(inout) :: arena
         integer :: inquire_index
         type(token_t) :: token
-        integer :: line, column
+        integer :: line, column, depth
         character(len=:), allocatable :: spec_text
         character(len=:), allocatable :: lowered
         type(parser_state_t) :: specifier_parser
@@ -772,11 +772,19 @@
         specifier_parser = parser
 
         spec_text = ""
+        depth = 0
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()
-                exit
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == "(") then
+                    depth = depth + 1
+                else if (token%text == ")") then
+                    if (depth == 0) then
+                        token = parser%consume()
+                        exit
+                    end if
+                    depth = depth - 1
+                end if
             end if
 
             ! Only add space if not immediately after = AND if token is not &
