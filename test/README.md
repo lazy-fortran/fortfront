@@ -36,6 +36,10 @@ invalid-function and accepted-inquiry examples for issue #2970.
 
 ## Key Concepts
 
+`api/test_inquire_nested_specifiers.f90` checks nested FILE expressions,
+typed specifier queries, following statements, and source transformation using
+`examples/f90/inquire_nested_specifiers.f90`.
+
 **Test Hierarchy and Zero-Duplication Policy**
 
 For complete test organization policy, see [CLAUDE.md Examples & Tests Organization](../CLAUDE.md#examples--tests-organization).

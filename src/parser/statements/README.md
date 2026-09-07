@@ -17,7 +17,7 @@ This directory handles parsing of executable statements: assignments, I/O operat
 | parser_execution_statements_module.inc | Executable statement parsing dispatcher implementation |
 | parser_io_statements.f90 | Include wrapper for I/O statement parsing |
 | parser_io_statements_common.inc | I/O parsing helpers and implied do parsing |
-| parser_io_statements_parsers.inc | I/O statement parsing: read, write, print, open, close |
+| parser_io_statements_parsers.inc | I/O statement parsing: read, write, print, open, close, inquire |
 | parser_intrinsic_statements.f90 | Intrinsic statement parsing |
 | parser_external_statements.f90 | External statement parsing (EXTERNAL attribute) |
 | parser_legacy_statements.f90 | Legacy Fortran statement parsing (goto, computed goto) |
@@ -44,6 +44,8 @@ This directory handles parsing of executable statements: assignments, I/O operat
 - **Open**: `open(unit=10, file='data.txt', status='old')`
 - **Close**: `close(unit=10, status='keep')`
 - **Inquire**: `inquire(file='data.txt', exist=file_exists)`
+- INQUIRE specifiers preserve nested expressions such as
+  `file=trim(adjustl(filename))` and resume at the following statement.
 - **Format**: `format(I5, F10.5, A)` (format specification)
 
 **Control Transfer Statements**
