@@ -12,7 +12,7 @@ This directory handles parsing of all Fortran declaration constructs: type speci
 | parser_declarations_core_module.f90 | Core declaration parsing logic |
 | parser_declarations_construction_module.f90 | Declaration AST node construction |
 | parser_declarations_multi_module.f90 | Multi-variable declaration parsing (e.g., `integer :: a, b, c`) |
-| parser_declarations_type_spec_module.f90 | Type specification parsing (e.g., `integer(kind=4)`) |
+| parser_declarations_type_spec_module.f90 | Type specification parsing, including typed CHARACTER kind-selector expressions |
 | parser_declarations_type_spec_support_module.f90 | Type spec support utilities |
 | parser_declarations_derived_module.f90 | Derived type declaration parsing |
 | parser_declaration_attributes_module.f90 | Attribute parsing: `intent`, `allocatable`, `pointer`, etc. |

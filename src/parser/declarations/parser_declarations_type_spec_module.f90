@@ -103,7 +103,7 @@ contains
         case ("type", "class")
             call parse_parenthesized_derived(parser, arena, type_spec, token)
         case ("character")
-            call parse_parenthesized_character(parser, type_spec, token)
+            call parse_parenthesized_character(parser, arena, type_spec, token)
         case default
             call capture_parenthesized_content(parser, arena, type_spec)
         end select
@@ -185,8 +185,9 @@ contains
         end do
     end subroutine gather_derived_type_tokens
 
-    subroutine parse_parenthesized_character(parser, type_spec, open_paren)
+    subroutine parse_parenthesized_character(parser, arena, type_spec, open_paren)
         type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t), intent(in) :: open_paren
         type(token_t) :: token
@@ -211,7 +212,7 @@ contains
             end if
 
             param_start = parser%current_token
-            call handle_character_parameter(parser, type_spec)
+            call handle_character_parameter(parser, arena, type_spec)
             param_end = parser%current_token - 1
 
             if (param_end >= param_start) then
@@ -285,8 +286,9 @@ contains
         end do
     end subroutine collect_character_parameter_tokens
 
-    subroutine handle_character_parameter(parser, type_spec)
+    subroutine handle_character_parameter(parser, arena, type_spec)
         type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t) :: token
         character(len=:), allocatable :: normalized
@@ -352,8 +354,20 @@ contains
         case ("kind")
             token = parser%consume()
             call consume_optional_equals(parser)
-            if (.not. parser%is_at_end()) then
-                token = parser%consume()
+            call collect_character_parameter_tokens(parser, value_tokens)
+            call parse_single_parameter(value_tokens, type_spec, arena, parser)
+            if (allocated(type_spec%derived_parameter_nodes)) then
+                type_spec%kind_selector_index = type_spec%derived_parameter_nodes( &
+                    size(type_spec%derived_parameter_nodes))
+                deallocate (type_spec%derived_parameter_nodes)
+                call trim_token_sequence(value_tokens, cleaned)
+                if (allocated(cleaned)) then
+                    associate (selector => arena%entries( &
+                        type_spec%kind_selector_index)%node)
+                        selector%line = cleaned(1)%line
+                        selector%column = cleaned(1)%column
+                    end associate
+                end if
             end if
         case default
             if (token%kind == TK_NUMBER) then

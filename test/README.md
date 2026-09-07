@@ -30,6 +30,10 @@ This directory contains the complete test suite for fortfront, organized by subs
 - `system/` - System-level integration tests
 - `utilities/` - Utility function tests
 
+`api/test_issue_2970_character_kind_selector.f90` checks the retained CHARACTER
+kind-selector AST and the public diagnostic identity/span, using the canonical
+invalid-function and accepted-inquiry examples for issue #2970.
+
 ## Key Concepts
 
 **Test Hierarchy and Zero-Duplication Policy**
