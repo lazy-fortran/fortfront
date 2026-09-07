@@ -19,6 +19,7 @@ use type_hierarchy, only: create_type_hierarchy
 use semantic_type_hierarchy_validation, only: populate_type_hierarchy
 use semantic_enum_validation, only: validate_enum_definitions
 use semantic_literal_form_validation, only: validate_literal_forms
+use semantic_kind_selector_validation, only: validate_kind_selectors
 use semantic_use_nature_validation, only: validate_use_module_nature
 use semantic_use_export_validation, only: validate_use_only_exports
 use semantic_local_name_collision_validation, only: &
@@ -125,6 +126,7 @@ contains
         ! Reject malformed or disallowed literal forms before inference runs.
         call validate_literal_forms(arena, ctx%errors, &
                                     ctx%input_mode == INPUT_MODE_STANDARD)
+        call validate_kind_selectors(arena, ctx%errors)
 
         ! Whole-arena scoping-unit checks. They run for every root kind,
         ! including a bare module root, which the dispatch below skips.

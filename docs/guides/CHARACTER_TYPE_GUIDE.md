@@ -1,5 +1,18 @@
 # Character Type Handling
 
+## Explicit Kind Selectors
+
+The declaration AST preserves a CHARACTER `kind=` expression in
+`declaration_node%kind_selector_index`, including intrinsic inquiries and
+named parameter-array elements. A direct zero-argument function call cannot
+be a constant integer kind selector and produces a semantic diagnostic at
+the selector. Calls nested inside an inquiry argument are preserved, since
+the inquiry can use their types without evaluating their values.
+
+The accepted neighbors are in
+`examples/f90/issue_2970_character_kind_neighbors.f90`; the rejection and
+public diagnostic-span oracle is `test_issue_2970_character_kind_selector`.
+
 ## Automatic Length Inference
 
 fortfront calculates character lengths from string literals:

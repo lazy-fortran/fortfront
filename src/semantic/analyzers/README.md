@@ -39,6 +39,7 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_binary_ops_core.f90 | Core binary operation semantics |
 | semantic_literal_identifier.f90 | Literal and identifier type inference |
 | semantic_literal_form_validation.f90 | Reject malformed or disallowed literal forms (undefined named kind parameter, non-standard ISO_FORTRAN_ENV import, procedure name as an output list value) |
+| semantic_kind_selector_validation.f90 | Reject zero-argument function calls used directly as constant kind selectors while preserving intrinsic inquiry and parameter-array forms |
 | semantic_literal_type_helpers.f90 | Literal type helper functions |
 
 ### Function and Procedure Analysis
