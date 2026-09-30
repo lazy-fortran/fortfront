@@ -50,27 +50,43 @@ contains
         logical, intent(in) :: standard_input
 
         type(identifier_table_t) :: required
+        type(identifier_table_t) :: elemental_required
         integer :: i
 
         if (.not. standard_input) return
         call identifier_table_init(required)
+        call identifier_table_init(elemental_required)
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
                 type is (multi_unit_container_node)
                 call collect_interface_requiring_units(arena, node%body_indices, &
-                    required)
+                    required, elemental_required)
             class default
                 cycle
             end select
         end do
-        if (required%count == 0) return
+        if (required%count == 0 .and. elemental_required%count == 0) return
 
         do i = 1, arena%size
             if (.not. arena%has_node_at(i)) cycle
             select type (node => arena%entries(i)%node)
                 type is (subroutine_call_node)
-                call check_call_needs_interface(arena, errors, required, node, i)
+                call check_call_needs_interface(arena, errors, required, &
+                    node%name, i)
+                call check_call_needs_elemental_interface(arena, errors, &
+                    elemental_required, node%name, i)
+                type is (call_or_subscript_node)
+                ! A call written in an expression, `arr = square(arr)`, is a
+                ! call_or_subscript_node, not a subroutine_call_node, so the
+                ! ELEMENTAL/PURE requirement has to be checked here as well or
+                ! the reference is never seen (#1351).
+                if (node%is_intrinsic) cycle
+                if (node%is_array_access) cycle
+                call check_call_needs_interface(arena, errors, required, &
+                    node%name, i)
+                call check_call_needs_elemental_interface(arena, errors, &
+                    elemental_required, node%name, i)
             class default
                 cycle
             end select
@@ -78,10 +94,12 @@ contains
     end subroutine validate_whole_file_explicit_interface
 
     ! External subprograms of this file whose interface must be explicit.
-    subroutine collect_interface_requiring_units(arena, body_indices, required)
+    subroutine collect_interface_requiring_units(arena, body_indices, required, &
+            elemental_required)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         type(identifier_table_t), intent(inout) :: required
+        type(identifier_table_t), intent(inout) :: elemental_required
 
         integer :: i
 
@@ -90,10 +108,14 @@ contains
             if (.not. arena%has_node_at(body_indices(i))) cycle
             select type (unit => arena%entries(body_indices(i))%node)
                 type is (subroutine_def_node)
+                if (prefix_requires_explicit_interface(unit%prefix_keywords)) &
+                    call cache_allocated_name(unit%name, elemental_required)
                 if (.not. procedure_requires_explicit_interface(arena, &
                     unit%param_indices, unit%body_indices)) cycle
                 call cache_allocated_name(unit%name, required)
                 type is (function_def_node)
+                if (prefix_requires_explicit_interface(unit%prefix_keywords)) &
+                    call cache_allocated_name(unit%name, elemental_required)
                 if (.not. procedure_requires_explicit_interface(arena, &
                     unit%param_indices, unit%body_indices)) cycle
                 call cache_allocated_name(unit%name, required)
@@ -102,6 +124,33 @@ contains
             end select
         end do
     end subroutine collect_interface_requiring_units
+
+    ! F2018 15.4.2.1: a reference to an external subprogram that is defined
+    ! ELEMENTAL requires an explicit interface. An EXTERNAL declaration is an
+    ! implicit interface and does not satisfy it, which is what makes
+    ! `real, external :: square` plus `square(array)` invalid - gfortran
+    ! rejects it and ffc accepted it silently (#1351).
+    !
+    ! PURE is deliberately NOT included. gfortran does not demand an explicit
+    ! interface to call a pure external subprogram, and guessing that it does
+    ! would invent rejections the reference compiler does not make: the same
+    ! file that errors on the elemental `square` calls the pure `compute`
+    ! without complaint.
+    logical function prefix_requires_explicit_interface(prefix_keywords) &
+            result(requires)
+        character(len=16), allocatable, intent(in) :: prefix_keywords(:)
+
+        integer :: i
+
+        requires = .false.
+        if (.not. allocated(prefix_keywords)) return
+        do i = 1, size(prefix_keywords)
+            if (to_lower(trim(prefix_keywords(i))) == 'elemental') then
+                requires = .true.
+                return
+            end if
+        end do
+    end function prefix_requires_explicit_interface
 
     ! True when a dummy argument carries an attribute or shape that forces the
     ! interface of the procedure to be explicit.
@@ -190,21 +239,21 @@ contains
 
     ! Report a call whose target needs an explicit interface that is not
     ! visible in any enclosing scoping unit of the call.
-    subroutine check_call_needs_interface(arena, errors, required, expr, &
+    subroutine check_call_needs_interface(arena, errors, required, name, &
             expr_index)
         type(ast_arena_t), intent(in) :: arena
         type(error_collection_t), intent(inout) :: errors
         type(identifier_table_t), intent(in) :: required
-        type(subroutine_call_node), intent(in) :: expr
+        character(len=:), allocatable, intent(in) :: name
         integer, intent(in) :: expr_index
 
         character(len=:), allocatable :: proc_name
         integer :: scope_index
         integer :: steps
 
-        if (.not. allocated(expr%name)) return
-        if (len_trim(expr%name) == 0) return
-        proc_name = to_lower(trim(expr%name))
+        if (.not. allocated(name)) return
+        if (len_trim(name) == 0) return
+        proc_name = to_lower(trim(name))
         if (is_part_reference(proc_name)) return
         if (identifier_table_find(required, proc_name) <= 0) return
 
@@ -216,15 +265,17 @@ contains
         end do
 
         call errors%add_result(create_error_result( &
-            "Explicit interface required for '"//trim(expr%name)// &
+            "Explicit interface required for '"//trim(name)// &
             "': the procedure has a dummy argument whose attributes or shape "// &
             "make an explicit interface mandatory", ERROR_SEMANTIC, &
             component="semantic_analyzer", &
             context="explicit_interface_requirement", &
             suggestion="Add an interface block for the procedure, or move it "// &
             "into a module", &
-            line=expr%line, column=expr%column, end_line=expr%line, &
-            end_column=expr%column + 1))
+            line=arena%entries(expr_index)%node%line, &
+            column=arena%entries(expr_index)%node%column, &
+            end_line=arena%entries(expr_index)%node%line, &
+            end_column=arena%entries(expr_index)%node%column + 1))
     end subroutine check_call_needs_interface
 
     ! Whether one scoping unit provides an explicit interface for the name,
@@ -315,6 +366,49 @@ contains
             end select
         end do
     end function interface_declares_subroutine
+
+    ! Report a call to an ELEMENTAL or PURE external subprogram that has no
+    ! explicit interface in any enclosing scope (#1351). Kept apart from the
+    ! dummy-attribute check so the diagnostic names the real reason, the way
+    ! gfortran does, instead of blaming a dummy argument.
+    subroutine check_call_needs_elemental_interface(arena, errors, required, &
+            name, expr_index)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_collection_t), intent(inout) :: errors
+        type(identifier_table_t), intent(in) :: required
+        character(len=:), allocatable, intent(in) :: name
+        integer, intent(in) :: expr_index
+
+        character(len=:), allocatable :: proc_name
+        integer :: scope_index
+        integer :: steps
+
+        if (.not. allocated(name)) return
+        if (len_trim(name) == 0) return
+        proc_name = to_lower(trim(name))
+        if (is_part_reference(proc_name)) return
+        if (identifier_table_find(required, proc_name) <= 0) return
+
+        scope_index = expr_index
+        do steps = 1, MAX_SCOPE_WALK
+            scope_index = enclosing_scope_index(arena, scope_index)
+            if (scope_index <= 0) exit
+            if (scope_declares_name(arena, scope_index, proc_name)) return
+        end do
+
+        call errors%add_result(create_error_result( &
+            "Explicit interface required for '"//trim(name)// &
+            "': elemental procedure", ERROR_SEMANTIC, &
+            component="semantic_analyzer", &
+            context="explicit_interface_requirement", &
+            suggestion="Reference the defining module with USE, or add an "// &
+            "interface block; an EXTERNAL declaration is an implicit interface "// &
+            "and does not convey ELEMENTAL", &
+            line=arena%entries(expr_index)%node%line, &
+            column=arena%entries(expr_index)%node%column, &
+            end_line=arena%entries(expr_index)%node%line, &
+            end_column=arena%entries(expr_index)%node%column + 1))
+    end subroutine check_call_needs_elemental_interface
 
     logical function scope_declares_name(arena, scope_index, name) result(found)
         type(ast_arena_t), intent(in) :: arena
