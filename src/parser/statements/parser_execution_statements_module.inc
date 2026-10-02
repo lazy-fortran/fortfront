@@ -39,7 +39,7 @@
 
         ! Parse program body until end program
         ! Use a simpler approach that delegates to individual statement parsing
-        call parse_program_body(parser, arena, body_indices)
+        call parse_program_body(parser, arena, body_indices, program_name)
 
         ! Create program node
         prog_index = push_program(arena, program_name, body_indices, line, column)
@@ -48,10 +48,11 @@
 
     ! Parse the body of a program until end program
     ! Simplified approach that handles the basic case
-    subroutine parse_program_body(parser, arena, body_indices)
+    subroutine parse_program_body(parser, arena, body_indices, program_name)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
+        character(len=:), allocatable, intent(in) :: program_name
         type(token_t) :: token
         type(token_t) :: label_token
         type(parser_prefix_buffer_t) :: prefix_buffer
@@ -80,7 +81,7 @@
             end if
 
             if (end_program_encountered(token)) then
-                call consume_end_program(parser)
+                call consume_end_program(parser, program_name)
                 exit
             end if
 
@@ -112,7 +113,7 @@
 
             ! After potentially consuming label, check for end program again
             if (token%kind == TK_KEYWORD .and. end_program_encountered(token)) then
-                call consume_end_program(parser)
+                call consume_end_program(parser, program_name)
                 exit
             end if
 
@@ -268,8 +269,9 @@
             end select
         end function end_program_encountered
 
-        subroutine consume_end_program(parser_ref)
+        subroutine consume_end_program(parser_ref, program_name)
             type(parser_state_t), intent(inout) :: parser_ref
+            character(len=:), allocatable, intent(in) :: program_name
             type(token_t) :: local_token
             character(len=:), allocatable :: lowered
 
@@ -295,6 +297,18 @@
                 local_token = parser_ref%peek()
                 if (local_token%kind == TK_IDENTIFIER) then
                     local_token = parser_ref%consume()
+                    ! END PROGRAM <name> must name the program unit it closes;
+                    ! swallowing a mismatch silently over-accepts an invalid
+                    ! program (gfortran: "Expected label 'p' for END
+                    ! PROGRAM").
+                    if (allocated(program_name) .and. &
+                        to_lower(trim(local_token%text)) /= &
+                        to_lower(trim(program_name))) then
+                        call parser_ref%error_at_token( &
+                            'END PROGRAM name "'//trim(local_token%text)// &
+                            '" does not match program "'//trim(program_name)// &
+                            '"', local_token)
+                    end if
                 end if
             end if
         end subroutine consume_end_program
