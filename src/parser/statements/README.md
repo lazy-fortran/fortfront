@@ -47,6 +47,8 @@ This directory handles parsing of executable statements: assignments, I/O operat
 - INQUIRE specifiers preserve nested expressions such as
   `file=trim(adjustl(filename))` and resume at the following statement.
 - **Format**: `format(I5, F10.5, A)` (format specification)
+- I/O implied-do lists preserve every ordered object in `object_indices`,
+  including nested implied-do nodes; `expr_index` aliases the first object.
 
 **Control Transfer Statements**
 - **Return**: `return`, `return expr` (alternate return legacy)

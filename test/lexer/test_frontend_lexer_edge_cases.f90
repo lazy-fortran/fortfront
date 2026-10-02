@@ -13,6 +13,7 @@ program test_frontend_lexer_edge_cases
     if (.not. test_continuation_and_positions()) all_passed = .false.
     if (.not. test_continuation_comment_positions()) all_passed = .false.
     if (.not. test_continued_character_literals()) all_passed = .false.
+    if (.not. test_character_continuation_trivia()) all_passed = .false.
     if (.not. test_kind_parameter_literals()) all_passed = .false.
     if (.not. test_complex_and_hollerith_literals()) all_passed = .false.
     if (.not. test_trivia_preservation()) all_passed = .false.
@@ -111,6 +112,9 @@ contains
         if (.not. expect_token(tokens, 1, TK_STRING, "'abc   def'")) then
             test_continued_character_literals = .false.
         end if
+        if (.not. expect_position(tokens, 1, 1, 1)) then
+            test_continued_character_literals = .false.
+        end if
 
         ! GNU Fortran accepts the widely used omitted leading ampersand as an
         ! extension. FortFront accepts it too so valid downstream corpora are
@@ -120,6 +124,66 @@ contains
             test_continued_character_literals = .false.
         end if
     end function test_continued_character_literals
+
+    logical function test_character_continuation_trivia()
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: source
+        integer :: i
+
+        test_character_continuation_trivia = .true.
+        source = "text = 'left&"//new_line('a')// &
+            "  ! first 'comment'"//new_line('a')// &
+            "  "//new_line('a')//"   &right'; tail"
+        do i = 1, 2
+            if (i == 1) then
+                call tokenize_core(source, tokens)
+            else
+                call tokenize_core_with_trivia(source, tokens)
+            end if
+            if (.not. expect_token(tokens, 3, TK_STRING, "'leftright'")) then
+                test_character_continuation_trivia = .false.
+            end if
+            if (.not. expect_position(tokens, 3, 1, 8)) then
+                test_character_continuation_trivia = .false.
+            end if
+            if (.not. expect_position(tokens, 5, 4, 13)) then
+                test_character_continuation_trivia = .false.
+            end if
+            if (.not. expect_comment_trivia(tokens(3), "! first 'comment'", 2, 3)) then
+                test_character_continuation_trivia = .false.
+            end if
+        end do
+
+        source = "'left&"//char(13)//char(10)// &
+            char(9)//char(13)//char(10)//char(9)//"&right'"
+        call tokenize_core(source, tokens)
+        if (.not. expect_token(tokens, 1, TK_STRING, "'leftright'")) then
+            test_character_continuation_trivia = .false.
+        end if
+        if (.not. expect_position(tokens, 1, 1, 1)) then
+            test_character_continuation_trivia = .false.
+        end if
+    end function test_character_continuation_trivia
+
+    logical function expect_comment_trivia(token, text, line, column)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: text
+        integer, intent(in) :: line, column
+        integer :: i
+
+        expect_comment_trivia = .false.
+        if (allocated(token%leading_trivia)) then
+            do i = 1, size(token%leading_trivia)
+                if (token%leading_trivia(i)%kind /= TK_COMMENT) cycle
+                if (.not. allocated(token%leading_trivia(i)%text)) cycle
+                if (token%leading_trivia(i)%text /= text) cycle
+                expect_comment_trivia = token%leading_trivia(i)%line == line .and. &
+                    token%leading_trivia(i)%column == column
+                if (expect_comment_trivia) return
+            end do
+        end if
+        print '(a)', 'FAIL: continued character comment trivia or position changed'
+    end function expect_comment_trivia
 
     logical function test_kind_parameter_literals()
         type(token_t), allocatable :: tokens(:)

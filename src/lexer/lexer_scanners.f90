@@ -194,13 +194,15 @@ contains
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
-        integer :: start_pos, start_col, continuation_pos, segment_start
+        integer :: start_pos, start_col, start_line, continuation_pos, segment_start
         character :: quote_char, c
         character(len=:), allocatable :: token_text
+        type(trivia_token_t), allocatable :: continuation_comments(:)
         logical :: found_closing_quote, had_continuation
 
         start_pos = pos
         start_col = col_num
+        start_line = line_num
         quote_char = source(pos:pos)
         found_closing_quote = .false.
         had_continuation = .false.
@@ -228,7 +230,8 @@ contains
                         token_text = token_text// &
                             source(segment_start:continuation_pos - 1)
                     end if
-                    call consume_string_continuation(source, pos, line_num, col_num)
+                    call consume_string_continuation(source, pos, line_num, col_num, &
+                        continuation_comments)
                     segment_start = pos
                     cycle
                 end if
@@ -284,8 +287,12 @@ contains
                 ! Extract content until current position and append the terminator
                 tokens(token_count)%text = token_text//quote_char
             end if
-            tokens(token_count)%line = line_num
+            tokens(token_count)%line = start_line
             tokens(token_count)%column = start_col
+            if (allocated(continuation_comments)) then
+                call move_alloc(continuation_comments, &
+                    tokens(token_count)%leading_trivia)
+            end if
         end if
     end subroutine scan_string
 
@@ -311,38 +318,72 @@ contains
     ! Advance over the newline and over continuation-line indentation. A
     ! leading ampersand is required by the standard but optional in common
     ! compiler practice, so both forms resume the character context.
-    subroutine consume_string_continuation(source, pos, line_num, col_num)
+    subroutine consume_string_continuation(source, pos, line_num, col_num, comments)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num
+        type(trivia_token_t), allocatable, intent(inout) :: comments(:)
 
-        if (source(pos:pos) == char(13)) then
-            if (pos < len(source)) then
-                if (source(pos + 1:pos + 1) == char(10)) then
-                    pos = pos + 2
+        do
+            if (source(pos:pos) == char(13)) then
+                if (pos < len(source)) then
+                    if (source(pos + 1:pos + 1) == char(10)) then
+                        pos = pos + 2
+                    else
+                        pos = pos + 1
+                    end if
                 else
                     pos = pos + 1
                 end if
             else
                 pos = pos + 1
             end if
-        else
-            pos = pos + 1
-        end if
-        line_num = line_num + 1
-        col_num = 1
+            line_num = line_num + 1
+            col_num = 1
 
+            do while (pos <= len(source))
+                if (source(pos:pos) /= ' ' .and. source(pos:pos) /= char(9)) exit
+                pos = pos + 1
+                col_num = col_num + 1
+            end do
+            if (pos > len(source)) return
+            if (source(pos:pos) == '!') then
+                call retain_string_continuation_comment(source, pos, line_num, &
+                    col_num, comments)
+                if (pos > len(source)) return
+            end if
+            if (source(pos:pos) /= char(10) .and. source(pos:pos) /= char(13)) exit
+        end do
+        if (source(pos:pos) == '&') then
+            pos = pos + 1
+            col_num = col_num + 1
+        end if
+    end subroutine consume_string_continuation
+
+    subroutine retain_string_continuation_comment(source, pos, line_num, col_num, &
+            comments)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: line_num
+        integer, intent(inout) :: pos, col_num
+        type(trivia_token_t), allocatable, intent(inout) :: comments(:)
+        type(trivia_token_t) :: comment
+        integer :: start_pos
+
+        start_pos = pos
+        comment%kind = TK_COMMENT
+        comment%line = line_num
+        comment%column = col_num
         do while (pos <= len(source))
-            if (source(pos:pos) /= ' ' .and. source(pos:pos) /= char(9)) exit
+            if (source(pos:pos) == char(10) .or. source(pos:pos) == char(13)) exit
             pos = pos + 1
             col_num = col_num + 1
         end do
-        if (pos <= len(source)) then
-            if (source(pos:pos) == '&') then
-                pos = pos + 1
-                col_num = col_num + 1
-            end if
+        comment%text = source(start_pos:pos - 1)
+        if (allocated(comments)) then
+            comments = [comments, comment]
+        else
+            comments = [comment]
         end if
-    end subroutine consume_string_continuation
+    end subroutine retain_string_continuation_comment
 
     ! Safe string scanning with error handling
     subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, &

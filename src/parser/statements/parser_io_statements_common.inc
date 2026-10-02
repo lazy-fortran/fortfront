@@ -303,16 +303,17 @@
         end if
     end subroutine parse_argument_list
 
-    ! Parse implied-do expression specific to I/O lists: &
-    ! (expr, var = start, end [, step])
-    function parse_io_implied_do(parser, arena) result(expr_index)
+    ! Parse an I/O implied-do, including nested loops and object lists:
+    ! (object [, object ...], var = start, end [, step])
+    recursive function parse_io_implied_do(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
 
-        type(token_t) :: token
+        type(token_t) :: token, next_token
         integer :: saved_pos
         integer :: value_expr_index
+        integer, allocatable :: object_indices(:)
         integer :: start_index, end_index, step_index
         character(len=:), allocatable :: var_name
         integer :: line, column
@@ -335,33 +336,45 @@
             return
         end if
 
-        value_expr_index = parse_comparison(parser, arena)
+        value_expr_index = parse_io_implied_do(parser, arena)
+        if (value_expr_index <= 0) then
+            value_expr_index = parse_comparison(parser, arena)
+        end if
         if (value_expr_index <= 0) then
             expr_index = fail_and_restore()
             return
         end if
 
-        token = parser%peek()
-        if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
-            expr_index = fail_and_restore()
-            return
-        end if
-        token = parser%consume()
+        object_indices = [value_expr_index]
+        do
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+                expr_index = fail_and_restore()
+                return
+            end if
+            token = parser%consume()
 
-        token = parser%peek()
-        if (token%kind /= TK_IDENTIFIER) then
-            expr_index = fail_and_restore()
-            return
-        end if
-        var_name = token%text
-        token = parser%consume()
+            token = parser%peek()
+            next_token = parser%get_token_at_index(parser%current_token + 1)
+            if (token%kind == TK_IDENTIFIER) then
+                if (next_token%kind == TK_OPERATOR .and. next_token%text == "=") then
+                    var_name = token%text
+                    token = parser%consume()
+                    token = parser%consume()
+                    exit
+                end if
+            end if
 
-        token = parser%peek()
-        if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
-            expr_index = fail_and_restore()
-            return
-        end if
-        token = parser%consume()
+            value_expr_index = parse_io_implied_do(parser, arena)
+            if (value_expr_index <= 0) then
+                value_expr_index = parse_comparison(parser, arena)
+            end if
+            if (value_expr_index <= 0) then
+                expr_index = fail_and_restore()
+                return
+            end if
+            object_indices = [object_indices, value_expr_index]
+        end do
 
         ! Past "( expr , name =" the item can only be an io-implied-do
         ! (F2023 R1224), so the rest of the iterator and its closing right
@@ -415,16 +428,18 @@
         token = parser%consume()
 
         if (step_index > 0) then
-            expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+            expr_index = push_io_implied_do(arena, object_indices(1), var_name, &
                                             start_expr_index=start_index, &
                                             end_expr_index=end_index, &
                                             step_expr_index=step_index, line=line, &
-                                            column=column)
+                                            column=column, &
+                                            object_indices=object_indices)
         else
-            expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+            expr_index = push_io_implied_do(arena, object_indices(1), var_name, &
                                             start_expr_index=start_index, &
                                             end_expr_index=end_index, line=line, &
-                                            column=column)
+                                            column=column, &
+                                            object_indices=object_indices)
         end if
         if (allocated(var_name)) then
             block

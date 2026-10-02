@@ -87,6 +87,8 @@ gfortran output.f90 -o test
 - Implied-DO index locality: `issue_2819_implied_do_index_locality_valid.f90` (valid),
   `issue_2819_implied_do_index_out_of_scope.f90` and
   `issue_2819_implied_do_index_shadow.f90` (rejected)
+- I/O implied-do object lists: `io_implied_do_objects.f90` exercises nested
+  PRINT/READ loops and multiple WRITE objects with a negative stride.
 - Strict arg checker scope resolution: `issue_2644_strict_arg_checker_scope_lookup.f90`
 - Regression coverage includes `duplicate_var_decl_regression.f90` for preventing
   auto-generated duplicate local declarations
