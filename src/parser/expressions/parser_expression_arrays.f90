@@ -4,9 +4,13 @@ module parser_expression_arrays_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
-        identifier_node
+        identifier_node, literal_node
+    use ast_nodes_bounds, only: range_expression_node, array_bounds_node
+    use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
     use ast_factory, only: push_array_literal, push_do_loop, &
         push_call_or_subscript_with_slice_detection
+    use ast_factory_arrays, only: push_array_slice
+    use ast_factory_core, only: push_literal
     implicit none
     private
 
@@ -878,7 +882,24 @@ contains
         if (.not. allocated(arg_indices)) return
 
         call extract_target_name(arena, expr_index, call_name)
-        if (.not. allocated(call_name)) return
+        if (.not. allocated(call_name)) then
+            ! Substring of a literal base, 'abcdef'(2:4): a literal carries
+            ! no target name, but the range postfix is legal Fortran and
+            ! must not be dropped (#3018) - silently printing the whole
+            ! literal is a miscompile. Keep the literal as the slice base;
+            ! the backend folds the constant range.
+            if (base_expr > 0 .and. base_expr <= arena%size .and. &
+                any_range_argument(arena, arg_indices)) then
+                expr_index = fold_literal_substring(arena, base_expr, &
+                    arg_indices, close_token%line, close_token%column)
+                if (expr_index == 0) then
+                    expr_index = push_array_slice(arena, base_expr, &
+                        arg_indices, size(arg_indices), close_token%line, &
+                        close_token%column)
+                end if
+            end if
+            return
+        end if
 
         ! Preserve a compound designator when this postfix contains a range.
         ! In particular, c(2)(1:3) must keep c(2) as the slice base instead of
@@ -956,6 +977,137 @@ contains
             allocate (arg_indices(0))
         end if
     end subroutine collect_index_arguments
+
+    integer function fold_literal_substring(arena, base_expr, arg_indices, &
+            line, column) result(folded)
+        ! Fold 'abcdef'(2:4) to the literal 'bcd' at parse time (#3018).
+        ! Standard rules: l >= 1, u >= l, out-of-range upper bound pads with
+        ! blanks, deeper bound truncates. ASCII text only; every other shape
+        ! returns 0 so the caller keeps the slice and the backend refuses it
+        ! loudly instead of silently dropping the range.
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer, intent(in) :: arg_indices(:)
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: text, inner
+        integer :: lo, up, inner_len, i
+        character :: quote
+        logical :: ok
+
+        folded = 0
+        if (size(arg_indices) /= 1) return
+        if (.not. arena%has_node_at(base_expr)) return
+        select type (base => arena%entries(base_expr)%node)
+        type is (literal_node)
+            if (base%literal_kind /= LITERAL_STRING) return
+            if (.not. allocated(base%value)) return
+            text = base%value
+            if (len(text) < 2) return
+            quote = text(1:1)
+            if (quote /= "'" .and. quote /= '"') return
+            if (text(len(text):len(text)) /= quote) return
+            inner = text(2:len(text) - 1)
+            if (index(inner, quote) > 0) return  ! doubled-quote escapes
+            do i = 1, len(inner)
+                if (iachar(inner(i:i)) > 127) return
+            end do
+        class default
+            return
+        end select
+
+        if (.not. arena%has_node_at(arg_indices(1))) return
+        select type (rng => arena%entries(arg_indices(1))%node)
+        type is (range_expression_node)
+            ! 0 and -1 both spell "absent" for these sentinels here.
+            if (rng%stride_index /= -1 .and. rng%stride_index /= 0) return
+            inner_len = len(inner)
+            lo = 1
+            up = inner_len
+            if (rng%start_index > 0) then
+                if (.not. literal_integer_value(arena, rng%start_index, lo, &
+                    LITERAL_INTEGER)) return
+            end if
+            if (rng%end_index > 0) then
+                if (.not. literal_integer_value(arena, rng%end_index, up, &
+                    LITERAL_INTEGER)) return
+            end if
+        type is (array_bounds_node)
+            ! parse_range pushes array bounds for `l:u` in this dialect.
+            if (rng%stride_index > 0 .or. rng%is_assumed_shape) return
+            inner_len = len(inner)
+            lo = 1
+            up = inner_len
+            if (rng%lower_bound_index > 0) then
+                if (.not. literal_integer_value(arena, &
+                    rng%lower_bound_index, lo, LITERAL_INTEGER)) return
+            end if
+            if (rng%upper_bound_index > 0) then
+                if (.not. literal_integer_value(arena, &
+                    rng%upper_bound_index, up, LITERAL_INTEGER)) return
+            end if
+        class default
+            return
+        end select
+
+        ! gfortran rejects a literal-base substring whose bounds leave the
+        ! literal (compile error "substring ... exceeds string length"), so
+        ! stay inside it; out-of-range shapes keep the slice and the backend
+        ! refuses them loudly instead.
+        if (lo < 1 .or. up > inner_len) return
+        inner = inner(lo:up)
+        folded = push_literal(arena, quote//inner//quote, LITERAL_STRING, &
+            line, column)
+    end function fold_literal_substring
+
+    logical function literal_integer_value(arena, node_index, value, kind) &
+            result(ok)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(in) :: kind
+        integer, intent(out) :: value
+        integer :: io_stat
+        character(len=:), allocatable :: text
+
+        ok = .false.
+        value = 0
+        if (.not. arena%has_node_at(node_index)) return
+        select type (lit => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (lit%literal_kind /= kind) return
+            if (.not. allocated(lit%value)) return
+            text = adjustl(lit%value)
+            read(text, *, iostat=io_stat) value
+            ok = io_stat == 0
+        end select
+    end function literal_integer_value
+
+    logical function any_range_argument(arena, arg_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arg_indices(:)
+        integer :: i
+
+        found = .false.
+        do i = 1, size(arg_indices)
+            if (.not. arena%has_node_at(arg_indices(i))) cycle
+            select type (node => arena%entries(arg_indices(i))%node)
+                type is (range_expression_node)
+                found = .true.
+                return
+            end select
+        end do
+    end function any_range_argument
+
+    logical function base_is_literal(arena, base_expr) result(ok)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: base_expr
+
+        ok = .false.
+        if (.not. arena%has_node_at(base_expr)) return
+        select type (node => arena%entries(base_expr)%node)
+            type is (literal_node)
+            ok = .true.
+        end select
+    end function base_is_literal
 
     subroutine extract_target_name(arena, expr_index, call_name)
         type(ast_arena_t), intent(in) :: arena
