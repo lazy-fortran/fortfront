@@ -57,6 +57,7 @@ contains
             if (.not. arena%has_node_at(i)) cycle
             if (.not. is_scope_node(arena, i)) cycle
             call check_scope(arena, i, errors)
+            call check_duplicate_declarations(arena, i, errors)
             call check_inherited_collisions(arena, i, errors)
             call check_common_and_construct_names(arena, i, errors)
             call check_imports(arena, i, errors)
@@ -107,6 +108,57 @@ contains
         end do
     end subroutine check_scope
 
+    ! Only distinct type declarations count. Attribute-only statements can
+    ! supplement a type declaration; procedure/interface conflicts have their
+    ! own validator. BLOCK declarations belong to another scope.
+    subroutine check_duplicate_declarations(arena, scope_index, errors)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(error_collection_t), intent(inout) :: errors
+        type(declaration_binding_t), allocatable :: bindings(:)
+        character(len=:), allocatable :: error_msg
+        integer :: i, j
+
+        call get_scope_bindings(arena, scope_index, bindings, error_msg)
+        if (len_trim(error_msg) > 0) return
+        do j = 1, size(bindings)
+            if (binding_class(bindings(j)) /= CLASS_ENTITY) cycle
+            if (.not. is_type_declaration(arena, bindings(j))) cycle
+            do i = 1, j - 1
+                if (binding_class(bindings(i)) /= CLASS_ENTITY) cycle
+                if (.not. is_type_declaration(arena, bindings(i))) cycle
+                if (.not. same_name(bindings(i)%name, bindings(j)%name)) cycle
+                if (bindings(i)%declaration_node_index == &
+                    bindings(j)%declaration_node_index) then
+                    if (bindings(i)%declaration_entity_index == &
+                        bindings(j)%declaration_entity_index) cycle
+                end if
+                call report(arena, bindings(j), errors, &
+                    "' is declared more than once in the same scoping unit")
+                exit
+            end do
+        end do
+    end subroutine check_duplicate_declarations
+
+    logical function is_type_declaration(arena, binding) result(is_typed)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_binding_t), intent(in) :: binding
+        character(len=:), allocatable :: type_name
+
+        is_typed = .false.
+        if (.not. arena%has_node_at(binding%declaration_node_index)) return
+        select type (decl => arena%entries(binding%declaration_node_index)%node)
+            type is (declaration_node)
+            if (decl%is_inferred) return
+            if (.not. allocated(decl%type_name)) return
+            type_name = lowered(trim(decl%type_name))
+            if (len(type_name) == 0) return
+            if (type_name == 'external') return
+            if (index(type_name, 'procedure') == 1) return
+            is_typed = .true.
+        end select
+    end function is_type_declaration
+
     ! Collisions between a local declaration and an inherited name: an internal
     ! procedure that repeats a host entity the host also references, and a
     ! derived-type definition of a use-associated name.
@@ -125,9 +177,20 @@ contains
         host_index = find_host_scope(arena, scope_index)
         internal_scope = is_procedure_scope(arena, scope_index)
         do i = 1, size(bindings)
+            if (binding_class(bindings(i)) == CLASS_ENTITY) then
+                call resolve_use_binding(arena, scope_index, bindings(i)%name, &
+                    inherited)
+                if (inherited%found) then
+                    if (inherited%binding_kind == BINDING_DERIVED_TYPE) then
+                        call report(arena, bindings(i), errors, &
+                            "' is also declared as a type by use association")
+                    end if
+                end if
+                cycle
+            end if
             if (bindings(i)%binding_kind == BINDING_DERIVED_TYPE) then
                 call resolve_use_binding(arena, scope_index, bindings(i)%name, &
-                                         inherited)
+                    inherited)
                 if (inherited%found) then
                     call report(arena, bindings(i), errors, &
                         "' has already been defined by use association")
@@ -138,12 +201,12 @@ contains
             if (host_index <= 0) cycle
             if (.not. internal_scope) cycle
             call resolve_name_in_scope(arena, host_index, bindings(i)%name, &
-                                       inherited, error_msg)
+                inherited, error_msg)
             if (len_trim(error_msg) > 0) cycle
             if (.not. inherited%found) cycle
             if (binding_class(inherited) /= CLASS_ENTITY) cycle
             if (.not. name_referenced_as_data_object(arena, scope_index, &
-                                                     bindings(i)%name)) cycle
+                bindings(i)%name)) cycle
             call report(arena, bindings(i), errors, &
                 "' is host associated and cannot also name an internal "// &
                 "procedure of the same name")
@@ -163,23 +226,43 @@ contains
         do i = 1, size(indices)
             if (.not. arena%has_node_at(indices(i))) cycle
             select type (node => arena%entries(indices(i))%node)
-            type is (common_block_node)
+                type is (common_block_node)
                 if (.not. allocated(node%member_names)) cycle
                 do j = 1, size(node%member_names)
-                    if (.not. inherited_type_used_here(arena, scope_index, &
-                                                       node%member_names(j)%s)) cycle
+                    if (.not. visible_type_name(arena, scope_index, &
+                        node%member_names(j)%s)) cycle
                     call report_at(errors, node%member_names(j)%s, node%line, &
-                                   node%column, incompatible_object_message())
+                        node%column, incompatible_object_message())
                 end do
-            type is (do_loop_node)
+                type is (do_loop_node)
+                if (allocated(node%var_name)) then
+                    if (visible_type_name(arena, scope_index, node%var_name)) then
+                        call report_at(errors, node%var_name, node%line, &
+                            node%column, "' is a derived type, not a DO variable")
+                    end if
+                end if
                 if (.not. allocated(node%label)) cycle
                 if (.not. inherited_type_used_here(arena, scope_index, &
-                                                   node%label)) cycle
+                    node%label)) cycle
                 call report_at(errors, node%label, node%line, node%column, &
-                               incompatible_object_message())
+                    incompatible_object_message())
             end select
         end do
     end subroutine check_common_and_construct_names
+
+    logical function visible_type_name(arena, scope_index, name) result(is_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        character(len=*), intent(in) :: name
+        type(declaration_binding_t) :: binding
+        character(len=:), allocatable :: error_msg
+
+        call resolve_name_in_scope(arena, scope_index, name, binding, error_msg)
+        is_type = .false.
+        if (len_trim(error_msg) > 0) return
+        if (.not. binding%found) return
+        is_type = binding%binding_kind == BINDING_DERIVED_TYPE
+    end function visible_type_name
 
     function incompatible_object_message() result(text)
         character(len=:), allocatable :: text
@@ -202,17 +285,17 @@ contains
         do i = 1, size(indices)
             if (.not. arena%has_node_at(indices(i))) cycle
             select type (node => arena%entries(indices(i))%node)
-            type is (import_statement_node)
+                type is (import_statement_node)
                 if (.not. node%has_list) cycle
                 if (.not. allocated(node%import_list)) cycle
                 do j = 1, size(node%import_list)
                     call resolve_use_binding(arena, scope_index, &
-                                             node%import_list(j)%s, binding)
+                        node%import_list(j)%s, binding)
                     if (.not. binding%found) cycle
                     call report_at(errors, node%import_list(j)%s, node%line, &
-                                   node%column, &
-                                   "' cannot be imported because it is "// &
-                                   "already accessible in the local scope")
+                        node%column, &
+                        "' cannot be imported because it is "// &
+                        "already accessible in the local scope")
                 end do
             end select
         end do
@@ -239,7 +322,7 @@ contains
         do i = 1, size(indices)
             if (.not. arena%has_node_at(indices(i))) cycle
             select type (node => arena%entries(indices(i))%node)
-            type is (declaration_node)
+                type is (declaration_node)
                 if (.not. allocated(node%type_name)) cycle
                 spec_name = derived_type_spec_name(node%type_name)
                 if (len_trim(spec_name) == 0) cycle
@@ -303,7 +386,7 @@ contains
 
         is_bare = .false.
         select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
+            type is (identifier_node)
             if (.not. allocated(node%name)) return
             is_bare = same_name(node%name, name)
         end select
@@ -317,9 +400,9 @@ contains
 
         is_procedure = .false.
         select type (node => arena%entries(scope_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             is_procedure = .true.
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             is_procedure = .true.
         end select
     end function is_procedure_scope
@@ -332,9 +415,9 @@ contains
 
         name = ''
         select type (node => arena%entries(scope_index)%node)
-        type is (function_def_node)
+            type is (function_def_node)
             if (allocated(node%name)) name = node%name
-        type is (subroutine_def_node)
+            type is (subroutine_def_node)
             if (allocated(node%name)) name = node%name
         end select
     end function scope_unit_name

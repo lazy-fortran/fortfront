@@ -13,6 +13,11 @@ supported subset through LIRIC.
 ## Features
 
 - End-to-end pipeline: lexing, parsing, semantic checks, and Fortran emission
+- Validation of duplicate local declarations, type/entity name collisions,
+  named-constant definition contexts, character inquiry arity, and closing
+  program/DO construct names, while preserving legal local shadowing
+- Nested named DO constructs retain their complete loop structure and closing names
+- Numeric literals followed directly by dotted operators remain separate tokens
 - Lazy Fortran to standard Fortran conversion with automatic type inference
 - CLI and library APIs for scripting, pipelines, and embedding in larger tools
 

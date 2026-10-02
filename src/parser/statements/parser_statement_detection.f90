@@ -1,6 +1,7 @@
 module parser_statement_detection_module
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_IDENTIFIER, &
         TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+    use parser_block_statement_utils_module, only: include_end_construct_name
     implicit none
     private
 
@@ -413,6 +414,8 @@ contains
         case ("enddo")
             done = try_close_depth(tracker%do_depth, "do", tracker%first_keyword, &
                 idx, end_index)
+            if (done .and. end_index == idx) &
+                end_index = include_end_construct_name(tokens, idx)
         case ("endwhere")
             done = try_close_depth(tracker%where_depth, "where", &
                 tracker%first_keyword, idx, end_index)
@@ -473,6 +476,8 @@ contains
             restart_iteration = .true.
             done = try_close_depth(tracker%do_depth, "do", tracker%first_keyword, &
                 idx, end_index)
+            if (done .and. end_index == idx) &
+                end_index = include_end_construct_name(tokens, idx)
         case ("associate")
             idx = next_idx
             restart_iteration = .true.
@@ -564,7 +569,7 @@ contains
                 case ("enddo")
                     depth = depth - 1
                     if (depth <= 0) then
-                        end_index = idx
+                        end_index = include_end_construct_name(tokens, idx)
                         return
                     end if
                 case ("end")
@@ -573,7 +578,7 @@ contains
                             if (to_lower(trim(tokens(idx + 1)%text)) == "do") then
                                 depth = depth - 1
                                 if (depth <= 0) then
-                                    end_index = idx + 1
+                                    end_index = include_end_construct_name(tokens, idx + 1)
                                     return
                                 end if
                                 idx = idx + 1

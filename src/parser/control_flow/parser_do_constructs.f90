@@ -21,7 +21,8 @@ module parser_do_constructs_module
         statement_callbacks_t, &
         null_statement_callbacks, &
         find_statement_end, extend_block_statement_end
-    use parser_block_statement_utils_module, only: block_construct_start
+    use parser_block_statement_utils_module, only: block_construct_start, &
+        include_end_construct_name
     use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private
@@ -40,6 +41,52 @@ module parser_do_constructs_module
     public :: ensure_if_do_registration
 
 contains
+
+    subroutine consume_end_do(parser, loop_label)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=*), intent(in), optional :: loop_label
+        type(token_t) :: token
+        integer :: next_index
+
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD) return
+        select case (to_lower(trim(token%text)))
+        case ("enddo", "end do")
+            token = parser%consume()
+        case ("end")
+            next_index = skip_trivia_tokens(parser%tokens, parser%current_token + 1)
+            if (next_index > size(parser%tokens)) return
+            if (to_lower(trim(parser%tokens(next_index)%text)) /= "do") return
+            do while (parser%current_token <= next_index)
+                token = parser%consume()
+            end do
+        case default
+            return
+        end select
+
+        ! A construct name belongs to this END DO statement, never to a later
+        ! statement. Skip horizontal whitespace only before checking the name.
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind /= TK_WHITESPACE) exit
+            token = parser%consume()
+        end do
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            if (present(loop_label)) then
+                if (to_lower(trim(token%text)) == to_lower(trim(loop_label))) return
+                call parser%error_at_token('END DO name "'//trim(token%text)// &
+                    '" does not match construct "'//trim(loop_label)//'"', token)
+            else
+                call parser%error_at_token( &
+                    'END DO name requires a named DO construct', token)
+            end if
+        else if (present(loop_label)) then
+            call parser%error_at_token( &
+                'END DO requires construct name "'//trim(loop_label)//'"', token)
+        end if
+    end subroutine consume_end_do
 
     include 'parser_do_constructs_part1.inc'
     include 'parser_do_constructs_part2.inc'

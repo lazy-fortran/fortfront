@@ -9,7 +9,7 @@ module parser_block_statement_utils_module
     public :: is_block_construct_keyword
     public :: block_construct_start
     public :: locate_block_statement_end
-    public :: locate_single_line_end
+    public :: locate_single_line_end, include_end_construct_name
 
 contains
 
@@ -164,8 +164,8 @@ contains
                     depth = depth - 1
                     stmt_end = closer_end
                     if (depth <= 0) then
-                        if (construct == "block") then
-                            stmt_end = include_block_construct_name(all_tokens, &
+                        if (construct == "block" .or. construct == "do") then
+                            stmt_end = include_end_construct_name(all_tokens, &
                                 stmt_end)
                         end if
                         return
@@ -197,7 +197,7 @@ contains
         if (present(unaccounted)) unaccounted = .true.
     end function locate_block_statement_end
 
-    integer function include_block_construct_name(all_tokens, end_index) &
+    integer function include_end_construct_name(all_tokens, end_index) &
             result(extended_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: end_index
@@ -219,7 +219,7 @@ contains
                 extended_end = name_index
             end if
         end if
-    end function include_block_construct_name
+    end function include_end_construct_name
 
     ! Index of the last token of the terminator of `construct` starting at pos,
     ! or 0 when the token at pos does not start one. Handles both the one-word

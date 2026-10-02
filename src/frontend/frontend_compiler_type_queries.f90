@@ -272,7 +272,7 @@ contains
         call resolve_from_inferred_type(node)
     end subroutine resolve_identifier
 
-    subroutine resolve_binary_operation(arena, node, visiting)
+    recursive subroutine resolve_binary_operation(arena, node, visiting)
         type(ast_arena_t), intent(inout) :: arena
         type(binary_op_node), intent(inout) :: node
         logical, intent(inout) :: visiting(:)
@@ -306,6 +306,11 @@ contains
             result_kind = max(left_kind, right_kind)
             if (result_kind <= 0) result_kind = 4
             call set_intrinsic_metadata(node, TLOGICAL, result_kind, result_rank)
+            return
+        end if
+
+        if (node%is_unary_minus) then
+            call copy_metadata_from_index(arena, node%right_index, node)
             return
         end if
 

@@ -1,6 +1,7 @@
 module parser_expression_operator_utils_module
     use lexer_core, only: token_t, TK_OPERATOR, to_lower
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: binary_op_node
     use ast_factory, only: push_binary_op, push_literal
     use ast_types, only: LITERAL_INTEGER
     use parser_expression_stacks_module, only: operator_entry_t, operator_stack_t, &
@@ -204,6 +205,10 @@ contains
                 zero_index = create_zero_literal(arena, token)
                 result_index = push_binary_op(arena, zero_index, result_index, &
                     token%text, token%line, token%column)
+                select type (node => arena%entries(result_index)%node)
+                    type is (binary_op_node)
+                    node%is_unary_minus = .true.
+                end select
             case ("+")
                 cycle
                 ! Note: .not. is now handled as an operator with PREC_NOT precedence
@@ -239,7 +244,7 @@ contains
                 op_entry%token_line, op_entry%token_column)
         else
             result_index = push_binary_op(arena, left_index, right_index, &
-                op_entry%symbol, &
+                to_lower(op_entry%symbol), &
                 op_entry%token_line, op_entry%token_column)
         end if
 

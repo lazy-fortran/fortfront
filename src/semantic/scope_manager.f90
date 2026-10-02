@@ -83,7 +83,7 @@ module scope_manager
                         procedure :: deep_copy => scope_stack_deep_copy
                         procedure :: assign => scope_stack_assign
                         generic :: assignment(=) => assign
-                        ! Remove finalize - automatic cleanup with allocatable
+                        final :: scope_stack_finalize
                     end type scope_stack_t
 
                 contains
@@ -547,7 +547,15 @@ module scope_manager
                         end if
                     end subroutine scope_stack_assign
 
-                    ! Finalization removed - automatic cleanup with allocatable arrays
+                    subroutine scope_stack_finalize(stack)
+                        type(scope_stack_t), intent(inout) :: stack
+
+                        ! Scopes borrow this table; the stack owns its allocation.
+                        if (associated(stack%identifier_storage)) then
+                            deallocate (stack%identifier_storage)
+                        end if
+                        nullify (stack%identifier_storage)
+                    end subroutine scope_stack_finalize
 
                     ! Record one global entity's binding label. Reports a collision when a
                     ! different global entity already registered the same label. Repeated
