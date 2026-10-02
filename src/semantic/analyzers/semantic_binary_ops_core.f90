@@ -25,6 +25,11 @@ contains
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
 
+        if (binop%is_unary_minus) then
+            typ = right_typ
+            return
+        end if
+
         if (binop%operator == "+") then
             if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
                 typ = infer_string_concatenation(arena, binop%left_index, &

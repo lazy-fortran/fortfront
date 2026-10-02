@@ -206,29 +206,7 @@
             body_indices = temp_body_indices
         end block
 
-        ! Consume 'end do' tokens
-        block
-            type(token_t) :: token
-            integer :: check_idx
-            token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                while_token = parser%consume()  ! consume 'end'
-                ! Skip whitespace/newlines/comments to find "do"
-                do while (.not. parser%is_at_end())
-                    token = parser%peek()
-                    if (token%kind == TK_WHITESPACE .or. token%kind == TK_NEWLINE .or. &
-                        token%kind == TK_COMMENT) then
-                        while_token = parser%consume()  ! skip trivia
-                    else
-                        exit
-                    end if
-                end do
-                token = parser%peek()
-                if (token%kind == TK_KEYWORD .and. token%text == "do") then
-                    while_token = parser%consume()  ! consume 'do'
-                end if
-            end if
-        end block
+        call consume_end_do(parser, loop_label)
 
         if (loop_index > 0) then
             if (allocated(arena%entries(loop_index)%node)) then

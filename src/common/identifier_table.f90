@@ -125,15 +125,19 @@ contains
         character(len=*), intent(in) :: key
         integer(int32) :: hash
         integer(int64) :: acc
+        integer(int64), parameter :: hash_mask = int(z'7fffffff', int64)
+        integer(int64), parameter :: hash_prime = 435_int64
         integer :: i, length
 
-        acc = 1469598103934665603_int64
+        ! Only the low 31 bits are stored. Reduce before multiplication so the
+        ! FNV recurrence is unchanged while every intermediate fits in int64.
+        acc = iand(1469598103934665603_int64, hash_mask)
         length = len_trim(key)
         do i = 1, length
             acc = ieor(acc, int(iachar(key(i:i)), int64))
-            acc = acc * 1099511628211_int64
+            acc = iand(acc * hash_prime, hash_mask)
         end do
-        hash = int(iand(acc, int(z'7fffffff', int64)), int32)
+        hash = int(acc, int32)
         if (hash == 0_int32) hash = 1_int32
     end function compute_hash
 

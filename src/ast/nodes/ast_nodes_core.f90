@@ -81,6 +81,9 @@ module ast_nodes_core
         integer :: left_index ! Index to left operand in stack
         integer :: right_index ! Index to right operand in stack
         character(len=:), allocatable :: operator
+        ! Prefix minus is stored as zero minus its operand for existing visitors.
+        ! The synthetic zero does not participate in numeric kind promotion.
+        logical :: is_unary_minus = .false.
     contains
         procedure :: accept => binary_op_accept
         procedure :: assign => binary_op_assign
@@ -278,6 +281,7 @@ contains
         ! Copy derived class fields
         lhs%left_index = rhs%left_index
         lhs%right_index = rhs%right_index
+        lhs%is_unary_minus = rhs%is_unary_minus
         if (allocated(rhs%operator)) then
             lhs%operator = rhs%operator
         else if (allocated(lhs%operator)) then

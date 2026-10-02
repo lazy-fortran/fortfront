@@ -301,13 +301,14 @@
                     ! swallowing a mismatch silently over-accepts an invalid
                     ! program (gfortran: "Expected label 'p' for END
                     ! PROGRAM").
-                    if (allocated(program_name) .and. &
-                        to_lower(trim(local_token%text)) /= &
-                        to_lower(trim(program_name))) then
-                        call parser_ref%error_at_token( &
-                            'END PROGRAM name "'//trim(local_token%text)// &
-                            '" does not match program "'//trim(program_name)// &
-                            '"', local_token)
+                    if (allocated(program_name)) then
+                        if (to_lower(trim(local_token%text)) /= &
+                            to_lower(trim(program_name))) then
+                            call parser_ref%error_at_token( &
+                                'END PROGRAM name "'//trim(local_token%text)// &
+                                '" does not match program "'//trim(program_name)// &
+                                '"', local_token)
+                        end if
                     end if
                 end if
             end if

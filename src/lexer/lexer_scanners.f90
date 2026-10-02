@@ -15,6 +15,7 @@ module lexer_scanners
 
     ! Public source character classification (F2018 6.1 character set)
     public :: is_legal_source_char, is_name_body_char, is_percent_prefix_char
+    public :: is_dotted_operator_at
 
 contains
 
@@ -99,6 +100,8 @@ contains
                 pos = pos + 1
                 col_num = col_num + 1
             else if (c == '.' .and. .not. has_dot) then
+                ! A dotted operator terminates the number before its first dot.
+                if (is_dotted_operator_at(source, pos)) exit
                 has_dot = .true.
                 dot_count = 1
                 pos = pos + 1
@@ -892,6 +895,33 @@ contains
         if (code == 10) legal = .true.
         if (code == 13) legal = .true.
     end function is_legal_source_char
+
+    pure logical function is_dotted_operator_at(source, position) result(is_dotted)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: position
+        integer :: probe
+
+        is_dotted = .false.
+        if (position < 1 .or. position >= len(source)) return
+        if (source(position:position) /= '.') return
+        probe = position + 1
+        select case (source(probe:probe))
+        case ('a':'z', 'A':'Z')
+            probe = probe + 1
+        case default
+            return
+        end select
+        do while (probe <= len(source))
+            select case (source(probe:probe))
+            case ('a':'z', 'A':'Z')
+                probe = probe + 1
+            case default
+                exit
+            end select
+        end do
+        if (probe > len(source)) return
+        is_dotted = source(probe:probe) == '.'
+    end function is_dotted_operator_at
 
     ! True for characters that may continue a Fortran name.
     pure logical function is_name_body_char(c) result(is_body)
