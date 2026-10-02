@@ -40,6 +40,10 @@ invalid-function and accepted-inquiry examples for issue #2970.
 typed specifier queries, following statements, and source transformation using
 `examples/f90/inquire_nested_specifiers.f90`.
 
+`parser/test_io_implied_do_objects.f90` checks nested PRINT/READ loops,
+ordered WRITE objects and malformed iterator rejection using
+`examples/f90/io_implied_do_objects.f90` and small parser-only inputs.
+
 **Test Hierarchy and Zero-Duplication Policy**
 
 For complete test organization policy, see [CLAUDE.md Examples & Tests Organization](../CLAUDE.md#examples--tests-organization).
