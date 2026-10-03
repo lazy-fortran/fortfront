@@ -1,5 +1,18 @@
 # FortFront roadmap
 
+## Compiler execution plan
+
+The full compiler roadmap is [ffc PLAN.md](https://github.com/lazy-fortran/ffc/blob/main/PLAN.md);
+[fo Gremlin PLAN.md](https://github.com/lazy-fortran/fo/blob/main/PLAN.md) owns the
+shared continuous-testing/bootstrap provider. Complete that enabling stage before
+further compiler work. Use explicit serial main-session or parallel luna worktree
+mode, one integration controller, shared CLI/MCP semantics and bounded corpus
+sampling/retention. Fix fo workflow defects first; use the updated CLI during
+execution when MCP cannot reload. Current delivery is planning only; execution awaits a later user
+instruction. Local contracts below retain their owner but do not override this
+compiler scheduling or exclude required modern standard Fortran facilities.
+Historical snapshots are dated evidence, not claims of current full green.
+
 Snapshot: 2026-08-09. FortFront owns lexing, parsing, semantic resolution,
 typed public queries, and diagnostics for the ffc pipeline. It remains
 backend-neutral.
@@ -44,7 +57,7 @@ do not hide them with platform-specific expected output.
 The current source-discovery audit found no remaining FortFront self-source
 parse/semantic drops. GNU and NVIDIA `nvfortran` 26.5 cold builds cover the
 381-target lane; the downstream FortAD nvfortran gate still needs a fresh run
-against this revision and is not evidence of a FortFront failure until then.
+against the corresponding FortFront commit before attributing a failure to it.
 
 ### Bounded recovered-source diagnostics (2026-08-09)
 
@@ -278,7 +291,7 @@ oracle and full local `fo check` pass; no production parser change or XFAIL
 was needed.
 
 The canonical downstream plan and current corpus counts live in the
-[ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/ROADMAP.md).
+[ffc roadmap](https://github.com/lazy-fortran/ffc/blob/main/PLAN.md).
 FortFront does not duplicate its parity dashboard.
 
 The nested character-array substring parser contract is now covered locally:
