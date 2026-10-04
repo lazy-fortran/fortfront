@@ -60,6 +60,3 @@ The lexer is the first phase of compilation, converting raw text into structured
 **Common Utilities**
 - `common/identifier_table` - Identifier interning
 - `utilities/string_utils` - String manipulation
-
-**Standard Library**
-- `stdlib` - Character classification, string utilities

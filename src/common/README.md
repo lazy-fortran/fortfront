@@ -62,8 +62,5 @@ id2 = identifier_table_add("myvar")
 
 ## Dependencies
 
-**Standard Library**
-- `stdlib` - String utilities, hash tables
-
 **Utilities**
 - `utilities/string_utils` - String manipulation

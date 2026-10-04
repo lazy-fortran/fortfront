@@ -4,9 +4,6 @@ description = "Core analysis frontend for lazy fortran - lexer, parser, semantic
 author = "krystophny"
 license = "MIT"
 
-[dependencies]
-stdlib = "*"
-
 [build]
 auto-examples = false
 

@@ -151,7 +151,6 @@ make build             # Build via Makefile
 ```
 
 **Dependencies**:
-- `stdlib` - Fortran standard library
 - `test-drive` - Testing framework (test-only)
 
 ## Testing
