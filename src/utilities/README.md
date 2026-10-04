@@ -85,9 +85,6 @@ This directory provides general-purpose utility functions used throughout the fo
 
 ## Dependencies
 
-**Standard Library**
-- `stdlib` - String utilities, I/O
-
 **Common Utilities**
 - `common/identifier_table` - Identifier management (for intrinsic names)
 

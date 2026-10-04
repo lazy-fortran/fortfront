@@ -12,7 +12,7 @@ It is currently a transformer and tooling frontend, not a compiler backend.
 - Lazy Fortran (.lf) to standard Fortran transformation
 - Tooling APIs for linters, formatters, and experimental compilers
 
-**Dependencies**: Fortran stdlib (`stdlib`) via `fpm.toml`
+**Dependencies**: No external production packages are declared in `fpm.toml`.
 
 ## Tool Architecture
 
@@ -64,7 +64,8 @@ Single point of integration via fo (planned):
 
 ## Architecture Benefits
 
-- **Minimal dependencies**: Fortfront builds as an `fpm` package with `stdlib`
+- **Minimal dependencies**: Fortfront builds as an `fpm` package without external
+  production packages
 - **Consistent parsing**: Tools can share one frontend instead of re-parsing
 - **Shared semantics**: Type inference and diagnostics are centralized
 - **Backend separation**: Native code generation stays in compiler drivers
