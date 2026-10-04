@@ -67,5 +67,4 @@ The AST subsystem provides the core data structures and operations for represent
 - `common/identifier_table` - String interning for identifiers
 - `common/uid_generator` - Unique node IDs
 
-**External**
-- `stdlib` - Fortran standard library
+**External packages**: None.
