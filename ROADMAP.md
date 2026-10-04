@@ -4,13 +4,15 @@
 
 The full compiler roadmap is [ffc PLAN.md](https://github.com/lazy-fortran/ffc/blob/main/PLAN.md);
 [fo Gremlin PLAN.md](https://github.com/lazy-fortran/fo/blob/main/PLAN.md) owns the
-shared continuous-testing/bootstrap provider. Complete that enabling stage before
-further compiler work. Use explicit serial main-session or parallel luna worktree
-mode, one integration controller, shared CLI/MCP semantics and bounded corpus
-sampling/retention. Fix fo workflow defects first; use the updated CLI during
-execution when MCP cannot reload. Current delivery is planning only; execution awaits a later user
-instruction. Local contracts below retain their owner but do not override this
-compiler scheduling or exclude required modern standard Fortran facilities.
+shared continuous-testing/bootstrap provider. Follow the master stage order:
+complete that enabling stage and verify the ffc adapter before compiler-feature
+work; independent provider tasks and read-only review can proceed in parallel
+when their prerequisites are met. Use explicit serial main-session or parallel
+luna worktree mode, one integration controller, shared CLI/MCP semantics and
+bounded corpus sampling/retention. Fix fo workflow defects first; use the updated
+CLI during execution when MCP cannot reload. Local contracts below retain their
+owners and scope within this authorized implementation sequence; they do not
+exclude required modern standard Fortran facilities.
 Historical snapshots are dated evidence, not claims of current full green.
 
 Snapshot: 2026-08-09. FortFront owns lexing, parsing, semantic resolution,
