@@ -541,7 +541,7 @@ fprettify <file.f90>
 - `fpm.toml` - Package manifest
 - `auto-executables = false` - Only explicit `[[executable]]` entries built
 - `auto-tests = true` - All `test/*.f90` discovered automatically
-- Depends on `stdlib` (Fortran standard library)
+- No external production dependencies are declared in `fpm.toml`
 
 ## Documentation & Navigation
 
