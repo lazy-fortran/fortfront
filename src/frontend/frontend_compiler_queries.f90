@@ -138,8 +138,7 @@ module frontend_compiler_queries
     public :: associate_selector_query_t
     public :: binding_resolution_query_t, global_reference_query_t
     public :: query_storage, query_ownership_events, query_component_path
-    public :: query_polymorphic_allocation, query_polymorphic_assignment, &
-        query_polymorphic_assignment_into
+    public :: query_polymorphic_allocation, query_polymorphic_assignment_into
     public :: query_associate_selector, query_associate_selectors
     public :: query_type_binding_resolution, query_active_global_references
     public :: binding_hierarchy_entry_t, binding_hierarchy_query_t
@@ -7613,17 +7612,6 @@ contains
             owner_storage%rank == 0 .and. source_storage%rank == 0 .and. &
             allocation%mold_expr_index == 0 .and. .not. has_type_spec
     end function query_polymorphic_allocation
-
-    function query_polymorphic_assignment(arena, assignment_node_index) &
-            result(query)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: assignment_node_index
-        type(polymorphic_assignment_query_t) :: query
-
-        ! Keep the function form for source compatibility. Consumers that
-        ! cross compiler/runtime boundaries should use the out-argument form.
-        call query_polymorphic_assignment_into(arena, assignment_node_index, query)
-    end function query_polymorphic_assignment
 
     subroutine query_polymorphic_assignment_into(arena, assignment_node_index, query)
         !! Return one bounded polymorphic allocatable-assignment fact.

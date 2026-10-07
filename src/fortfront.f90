@@ -94,8 +94,7 @@ module fortfront
         binding_resolution_query_t, global_reference_query_t, query_storage, &
         binding_hierarchy_entry_t, binding_hierarchy_query_t, &
         query_ownership_events, query_component_path, &
-        query_polymorphic_allocation, query_polymorphic_assignment, &
-        query_polymorphic_assignment_into, &
+        query_polymorphic_allocation, query_polymorphic_assignment_into, &
         query_type_binding_resolution, query_active_global_references, &
         query_type_binding_hierarchy, &
         type_bound_call_query_t, query_type_bound_call, &
