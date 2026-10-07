@@ -62,10 +62,10 @@
             standardizer_type_standardization_enabled)
 
         if (mono_type%kind == TARRAY) then
-            if (type_args_allocated(mono_type) .and. &
-                type_args_size(mono_type) > 0) then
+            if (mono_type%has_args() .and. &
+                mono_type%get_args_count() > 0) then
                 element_type = mono_type_to_string( &
-                               type_args_element(mono_type, 1), include_shape=.false., &
+                               mono_type%get_arg(1), include_shape=.false., &
                                prefer_len_zero_char=.true., &
                              standardize_real=standardizer_type_standardization_enabled, &
                                success=type_success)

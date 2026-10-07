@@ -565,8 +565,7 @@ contains
 
     function infer_base_type_from_call_site(arena, func_node, param_position) &
             result(base_type)
-        use type_system_unified, only: TARRAY, &
-            type_args_size, type_args_element
+        use type_system_unified, only: TARRAY
         use semantic_type_context, only: infer_expression_type_static
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node

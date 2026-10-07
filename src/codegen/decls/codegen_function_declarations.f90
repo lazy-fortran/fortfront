@@ -35,8 +35,7 @@ module codegen_function_declarations
         is_entry_parameter_decl
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
-    use type_system_unified, only: mono_type_t, TARRAY, TFUN, type_args_allocated, &
-        type_args_size, type_args_element
+    use type_system_unified, only: mono_type_t, TARRAY, TFUN
     implicit none
     private
     public :: generate_code_function_def

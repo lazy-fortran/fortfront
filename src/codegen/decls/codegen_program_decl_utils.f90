@@ -4,8 +4,7 @@ module codegen_program_decl_utils
     use fortfront_constants, only: MAX_PROGRAM_VARIABLES
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
-    use type_system_unified, only: TFUN, type_args_allocated, type_args_size, &
-        type_args_element
+    use type_system_unified, only: TFUN
     implicit none
     private
     public :: exists_in_list, build_function_return_type_table
@@ -156,10 +155,10 @@ contains
                 end if
                 ! Fall back to inferred_type for lazy Fortran (Issue #2075)
                 if (func%inferred_type%kind == TFUN .and. &
-                    type_args_allocated(func%inferred_type) .and. &
-                    type_args_size(func%inferred_type) >= 2) then
+                    func%inferred_type%has_args() .and. &
+                    func%inferred_type%get_args_count() >= 2) then
                     inferred_return_type = mono_type_to_string( &
-                        type_args_element(func%inferred_type, 2), &
+                        func%inferred_type%get_arg(2), &
                         include_shape=.true., &
                         standardize_real=.false., &
                         fallback='')
