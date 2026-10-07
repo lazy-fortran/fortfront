@@ -2,12 +2,12 @@ module ast_factory_control
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_factory_core, only: validate_arena, validate_node_index
-    use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
-        case_block_node, case_range_node, case_default_node, &
-        select_type_node, type_guard_block_node, &
-        select_rank_node, rank_block_node, &
-        where_node, elsewhere_clause_t, associate_node, &
-        block_construct_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
+        case_range_node, case_default_node, select_type_node, type_guard_block_node, &
+        select_rank_node, rank_block_node
+    use ast_nodes_loops, only: MAX_INDEX_NAME_LENGTH
+    use ast_nodes_array, only: where_node, elsewhere_clause_t
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use uid_generator, only: generate_uid
     use error_handling, only: result_t

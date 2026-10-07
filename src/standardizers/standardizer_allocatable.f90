@@ -7,7 +7,7 @@ module standardizer_allocatable
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_loops
-    use ast_nodes_control
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_data
     use ast_nodes_procedure
     use type_system_unified
@@ -712,7 +712,6 @@ contains
 
     ! Check if declaration is a derived type component
     function is_type_component(arena, decl_index) result(is_component)
-        use ast_nodes_data, only: derived_type_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: decl_index
         logical :: is_component

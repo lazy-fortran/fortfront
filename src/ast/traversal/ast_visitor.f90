@@ -1,7 +1,7 @@
 module ast_visitor
     use ast_nodes_core
     use ast_nodes_procedure
-    use ast_nodes_control
+    use ast_nodes_conditional, only: select_case_node, if_node
     use ast_nodes_loops
     use ast_nodes_io
     use ast_nodes_data, only: declaration_node, module_node, submodule_node, &

@@ -128,7 +128,7 @@ contains
             "assignments, nested WHERE statements, or "// &
             "nested WHERE constructs (F2018 10.2.3.2)", &
             line=stmt_line, column=stmt_col, end_line=stmt_line, &
-            end_column=stmt_col + 1 &
+            end_column=stmt_col + 1, &
             )
 
         call errors%add_result(error_result)
@@ -136,9 +136,10 @@ contains
 
     ! Get human-readable statement type name
     function get_stmt_type_name(arena, stmt_index) result(name)
-        use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-            stop_node, return_node, cycle_node, exit_node, &
-            forall_node, select_case_node, pause_node
+        use ast_nodes_conditional, only: if_node, select_case_node
+        use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+        use ast_nodes_transfer, only: stop_node, return_node, cycle_node, exit_node, &
+            pause_node
         use ast_nodes_io, only: print_statement_node, write_statement_node, &
             read_statement_node
         use ast_nodes_misc, only: allocate_statement_node, deallocate_statement_node

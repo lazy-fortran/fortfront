@@ -8,7 +8,14 @@ module ast_introspection
     use ast_base, only: ast_node
     use ast_nodes_core
     use ast_nodes_procedure
-    use ast_nodes_control
+    use ast_nodes_conditional, only: type_guard_block_node, case_default_node, &
+        select_rank_node, select_type_node, select_case_node, case_block_node, &
+        rank_block_node, case_range_node, if_node
+    use ast_nodes_loops, only: do_while_node, do_loop_node, forall_node
+    use ast_nodes_array, only: where_stmt_node, where_node
+    use ast_nodes_transfer, only: error_stop_node, continue_node, nullify_node, &
+        return_node, cycle_node, pause_node, entry_node, goto_node, exit_node, stop_node
+    use ast_nodes_associate, only: block_construct_node, associate_node
     use ast_nodes_data
     use ast_nodes_io
     use ast_nodes_misc

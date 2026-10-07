@@ -3,7 +3,8 @@ module frontend_program_builders
     use ast_nodes_core, only: program_node, assignment_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_io, only: print_statement_node
-    use ast_nodes_control, only: if_node, do_loop_node
+    use ast_nodes_conditional, only: if_node
+    use ast_nodes_loops, only: do_loop_node
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &

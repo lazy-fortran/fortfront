@@ -207,7 +207,7 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
     ! Create ASSOCIATE construct node and add to stack
     function push_associate(arena, associations, body_indices, line, column, &
                             parent_index) result(assoc_index)
-        use ast_nodes_control, only: associate_node, association_t
+        use ast_nodes_associate, only: associate_node, association_t
         type(ast_arena_t), intent(inout) :: arena
         type(association_t), intent(in) :: associations(:)
         integer, intent(in), optional :: body_indices(:)
@@ -245,7 +245,7 @@ function push_do_loop(arena, var_name, start_index, end_index, step_index, &
     end function push_associate
 
     subroutine link_association_expressions(arena, parent_index, associations)
-        use ast_nodes_control, only: association_t
+        use ast_nodes_associate, only: association_t
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         type(association_t), intent(in) :: associations(:)

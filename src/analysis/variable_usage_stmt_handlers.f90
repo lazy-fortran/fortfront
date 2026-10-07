@@ -221,7 +221,7 @@ contains
     end subroutine process_deallocate_statement_children
 
     subroutine process_associate_construct_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: associate_node
+        use ast_nodes_associate, only: associate_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info

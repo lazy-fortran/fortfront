@@ -11,7 +11,6 @@ module lexer_core
     ! Re-export all token types and constants
     public :: TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
     public :: TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, TK_UNKNOWN
-    public :: TOKEN_WHITESPACE, TOKEN_COMMENT, TOKEN_NEWLINE
 
     ! Re-export types
     public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, &

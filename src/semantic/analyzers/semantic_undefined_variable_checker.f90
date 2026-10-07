@@ -7,8 +7,8 @@ module semantic_undefined_variable_checker
         component_access_node, pointer_assignment_node
     use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
         select_type_node, type_guard_block_node
-    use ast_nodes_control, only: do_loop_node, do_while_node, case_default_node, &
-        forall_node
+    use ast_nodes_conditional, only: case_default_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_data, only: declaration_node, multi_unit_container_node
     use ast_nodes_misc, only: implicit_statement_node, use_statement_node, &
@@ -815,7 +815,7 @@ contains
                     suggestion="Declare the variable before using it"// &
                     " or remove 'implicit none'", &
                     line=node%line, column=node%column, end_line=node%line, &
-                    end_column=node%column + 1 &
+                    end_column=node%column + 1, &
                     )
                 call errors%add_result(error_result)
             end if

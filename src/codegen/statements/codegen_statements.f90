@@ -4,7 +4,6 @@ module codegen_statements
     use ast_nodes_io
     use ast_nodes_misc
     use ast_nodes_procedure
-    use ast_nodes_control
     use ast_nodes_legacy, only: common_block_node, enum_node
     use type_system_unified
     use string_types, only: string_t

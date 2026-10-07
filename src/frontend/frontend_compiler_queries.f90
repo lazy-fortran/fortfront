@@ -6,8 +6,9 @@ module frontend_compiler_queries
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         array_literal_node, program_node, component_access_node, &
         call_or_subscript_node, pointer_assignment_node, assignment_node
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-        forall_node, where_node, where_stmt_node
+    use ast_nodes_conditional, only: if_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_array, only: where_node, where_stmt_node
     use ast_nodes_associate, only: associate_node
     use ast_nodes_bounds, only: array_slice_node, array_bounds_node, &
         range_expression_node

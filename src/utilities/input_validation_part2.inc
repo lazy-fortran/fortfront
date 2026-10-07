@@ -1,20 +1,4 @@
 
-    ! Legacy format function for backward compatibility
-    function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)
-        character(len=*), intent(in) :: message
-        integer, intent(in) :: line, column
-        character(len=*), intent(in) :: source_lines(:)
-        character(len=*), intent(in) :: suggestion
-        character(len=:), allocatable :: formatted
-
-        ! Just delegate to enhanced version with default error type
-        if (len(suggestion) > 0) then
-            formatted = format_enhanced_error(message, line, column, source_lines, suggestion, "SYNTAX_ERROR")
-        else
-            formatted = format_enhanced_error(message, line, column, source_lines, "Check syntax", "SYNTAX_ERROR")
-        end if
-    end function format_syntax_error
-
     ! Split source code into lines with dynamic allocation to prevent buffer overflow
     subroutine split_into_lines(source, lines)
         character(len=*), intent(in) :: source

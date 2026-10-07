@@ -15,11 +15,6 @@ module lexer_token_types
     integer, parameter, public :: TK_WHITESPACE = 8 ! New: for CST trivia
     integer, parameter, public :: TK_UNKNOWN = 99
 
-    ! Backward compatibility aliases
-    integer, parameter, public :: TOKEN_WHITESPACE = TK_WHITESPACE
-    integer, parameter, public :: TOKEN_COMMENT = TK_COMMENT
-    integer, parameter, public :: TOKEN_NEWLINE = TK_NEWLINE
-
     ! Trivia token type (simpler, non-recursive)
     type, public :: trivia_token_t
         integer :: kind = TK_UNKNOWN

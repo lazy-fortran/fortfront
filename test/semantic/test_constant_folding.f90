@@ -2,7 +2,7 @@ program test_constant_folding
     use lexer_api, only: lex_source
     use parser_api, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_core, only: literal_node, binary_op_node
     use ast_base, only: LITERAL_LOGICAL
     use lexer_core, only: token_t

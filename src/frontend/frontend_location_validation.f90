@@ -12,7 +12,7 @@ module frontend_location_validation
         call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         subroutine_call_node
-    use ast_nodes_control, only: if_node, select_case_node
+    use ast_nodes_conditional, only: if_node, select_case_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_data, only: declaration_node, derived_type_node, module_node, &

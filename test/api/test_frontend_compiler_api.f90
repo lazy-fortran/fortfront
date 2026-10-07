@@ -3,7 +3,7 @@ program test_frontend_compiler_api
     use fortfront_compiler, only: compile_frontend_from_file, &
         compile_frontend_from_string, compiler_frontend_options_t, &
         compiler_frontend_result_t
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_io, only: print_statement_node
     implicit none
 

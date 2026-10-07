@@ -36,7 +36,7 @@ module parser_statement_utilities_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, &
         push_import_statement
-    use ast_nodes_control, only: association_t
+    use ast_nodes_associate, only: association_t
     use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_common_statement_module, only: parse_common_statement

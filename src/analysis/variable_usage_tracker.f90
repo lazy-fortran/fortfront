@@ -5,10 +5,11 @@ module variable_usage_tracker_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_dispatcher_module
-    use ast_nodes_core, only: assignment_node, binary_op_node, &
         call_or_subscript_node, component_access_node, &
         identifier_node, program_node
-    use ast_nodes_control, only: block_construct_node, do_loop_node, if_node
+    use ast_nodes_conditional, only: if_node
+    use ast_nodes_loops, only: do_loop_node
+    use ast_nodes_associate, only: block_construct_node
     use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
@@ -99,7 +100,7 @@ contains
 
     ! Visit all expression nodes with a visitor function
     subroutine visit_expression_nodes(arena, root_index, visitor, user_data)
-        use ast_nodes_control, only: associate_node
+        use ast_nodes_associate, only: associate_node
         use ast_nodes_bounds, only: array_slice_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index

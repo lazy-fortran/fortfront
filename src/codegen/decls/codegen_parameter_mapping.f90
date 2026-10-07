@@ -5,8 +5,9 @@ module codegen_parameter_mapping
     use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
         intent_type_to_string
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
-        case_default_node, do_loop_node, do_while_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
+        case_default_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node
     use codegen_parameter_info, only: parameter_info_t
     use string_utils_mod, only: to_lower
     implicit none

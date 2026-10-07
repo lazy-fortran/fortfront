@@ -50,12 +50,12 @@ module semantic_analyzer
         array_literal_node, program_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
         subroutine_def_node
-    use ast_nodes_control, only: do_loop_node, if_node, do_while_node, where_node, &
-        where_stmt_node, forall_node, select_case_node, &
-        case_block_node, associate_node, association_t, &
-        cycle_node, exit_node, stop_node, return_node, &
-        entry_node, continue_node, elsewhere_clause_t, &
-        pause_node, nullify_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_array, only: where_node, where_stmt_node, elsewhere_clause_t
+    use ast_nodes_transfer, only: cycle_node, exit_node, stop_node, return_node, &
+        entry_node, continue_node, pause_node, nullify_node
+    use ast_nodes_associate, only: associate_node, association_t
     use ast_nodes_data, only: declaration_node, &
         module_node, derived_type_node, &
         multi_unit_container_node
