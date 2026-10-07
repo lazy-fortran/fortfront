@@ -1,6 +1,8 @@
 program test_node_type_identification
     use fortfront_ast, only: ast_arena_t, comment_node, create_ast_arena, &
         directive_node, get_node_type, get_node_type_id
+    use fortfront_node_constants, only: NODE_PROGRAM, NODE_ASSIGNMENT, &
+        NODE_COMMENT, NODE_DIRECTIVE, NODE_UNKNOWN
     use fortfront_lexer, only: lex_source, token_t
     use parser_api, only: parse_tokens
     implicit none
