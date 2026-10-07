@@ -1,7 +1,8 @@
 program test_procedure_reassignment_query
     use fortfront_compiler, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, compiler_frontend_result_t, &
-        procedure_reassignment_call_query_t, query_procedure_reassignment_call
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use frontend_compiler_queries, only: procedure_reassignment_call_query_t, &
+        query_procedure_reassignment_call
     use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
