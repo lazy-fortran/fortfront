@@ -11,6 +11,16 @@ sketched in an earlier issue is not a mandatory implementation.
 
 ## Current goals
 
+2026-10-07 cleanup: the obsolete broad `fortfront` Fortran module has been
+removed. In-workspace tests, examples, app code, documentation and FFC use the
+focused owner modules directly; no compatibility facade is retained. The full
+FortFront FPM test set compiled on commit `d745100`. Its exact Fo Gremlin
+generation `40b9a95b3e601e1da8a7ed817d1f54738d827f79bbb4313434511fc2e8de4895`
+passed seven focused cases. FFC commit `0045ecf` passed three focused compiler
+cases against that FortFront candidate in generation
+`26600e3118c9aa3dd440ed8baaa1936b4e3cdad4a7d081d00bea4ec68cba61e7`.
+These focused receipts do not claim full test-suite execution.
+
 - Repair current false acceptance/rejection, dropped source meaning and memory/
   arithmetic defects using independent public/consumer examples.
 - Give FFC enough public information to implement the required standard without
