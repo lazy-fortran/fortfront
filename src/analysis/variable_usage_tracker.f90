@@ -5,8 +5,6 @@ module variable_usage_tracker_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_dispatcher_module
-        call_or_subscript_node, component_access_node, &
-        identifier_node, program_node
     use ast_nodes_conditional, only: if_node
     use ast_nodes_loops, only: do_loop_node
     use ast_nodes_associate, only: block_construct_node
