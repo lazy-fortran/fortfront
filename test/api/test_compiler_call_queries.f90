@@ -1,13 +1,10 @@
 program test_compiler_call_queries
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, &
-        compile_frontend_from_string, &
-        get_node_source_location_from_arena, &
-        get_node_type_kind, &
-        get_subroutine_call_arg_indices, &
-        get_subroutine_call_name, &
-        is_subroutine_call_statement, &
-        INPUT_MODE_STANDARD, TINT
+    use fortfront_ast, only: get_node_source_location_from_arena, get_node_type_kind
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        get_subroutine_call_arg_indices, get_subroutine_call_name, &
+        is_subroutine_call_statement
+    use fortfront_semantic, only: INPUT_MODE_STANDARD, TINT
     implicit none
 
     type(compiler_frontend_options_t) :: options

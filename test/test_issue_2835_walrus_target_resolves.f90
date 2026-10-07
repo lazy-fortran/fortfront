@@ -4,11 +4,11 @@ program test_issue_2835_walrus_target_resolves
     ! backend can walk it. The crash was a dangling target index reported as
     ! "identifier index does not reference an AST node" during lowering.
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, &
-        compile_frontend_from_string, &
-        get_program_body_info, get_identifier_name, &
-        assignment_node, INPUT_MODE_LAZY
+    use fortfront_ast, only: assignment_node
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, get_identifier_name, &
+        get_program_body_info
+    use fortfront_semantic, only: INPUT_MODE_LAZY
     implicit none
 
     type(compiler_frontend_options_t) :: options

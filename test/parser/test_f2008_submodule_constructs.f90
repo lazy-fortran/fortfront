@@ -6,8 +6,9 @@ program test_f2008_submodule_constructs
     use string_utils_mod, only: to_lower
     use transformation_api, only: transform_context_t, transform_with_context, &
         & INPUT_MODE_STANDARD
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t, token_t, get_node_type_at, ast_to_json
+    use fortfront_ast, only: ast_arena_t, ast_to_json, get_node_type_at
+    use fortfront_lexer, only: token_t
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     character(len=:), allocatable :: source_code

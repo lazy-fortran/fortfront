@@ -1,7 +1,6 @@
 program test_block_boundaries_sibling_relationships
-    use fortfront, only: ast_arena_t, create_ast_arena, &
-        get_next_sibling, get_previous_sibling, &
-        get_block_statements, is_last_in_block, is_block_node
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, get_block_statements, &
+        get_next_sibling, get_previous_sibling, is_block_node, is_last_in_block
     use ast_factory, only: push_program, push_assignment, push_if, &
         push_identifier, push_literal
     use ast_types, only: LITERAL_INTEGER

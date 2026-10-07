@@ -1,6 +1,7 @@
 program test_issue_6_assignment_codegen
     ! Test for GitHub issue #6: Assignment statements are dropped by emit_fortran
-    use fortfront
+    use codegen_api, only: emit_fortran
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

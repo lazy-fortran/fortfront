@@ -1,5 +1,5 @@
 program test_issue_2290_recursive_interface
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

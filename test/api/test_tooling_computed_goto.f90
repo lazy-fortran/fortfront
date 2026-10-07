@@ -1,7 +1,8 @@
 program test_tooling_computed_goto
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t, token_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_lexer, only: token_t
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     use ast_nodes_transfer, only: goto_node
     use ast_nodes_core, only: identifier_node
     implicit none

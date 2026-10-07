@@ -1,5 +1,5 @@
 program test_issue_1858_implicit_do_print
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

@@ -1,11 +1,10 @@
 program test_fortfront_api_arena
     ! Test the public API AST arena functionality
-    use fortfront, only: ast_arena_t, create_ast_arena, node_exists, get_node_type_at, &
-        get_node_location, get_parent, &
-        get_children, get_arena_stats, traverse_ast, &
-        get_node_range, source_range_t, &
-        ast_node, program_node, assignment_node, identifier_node, &
-        literal_node, LITERAL_INTEGER
+    use fortfront_ast, only: assignment_node, ast_arena_t, ast_node, create_ast_arena, &
+        get_arena_stats, get_children, get_node_location, get_node_range, &
+        get_node_type_at, get_parent, identifier_node, LITERAL_INTEGER, literal_node, &
+        node_exists, program_node, traverse_ast
+    use fortfront_types, only: source_range_t
     use ast_factory, only: push_program, push_assignment, push_identifier, push_literal
     implicit none
 
@@ -187,7 +186,7 @@ contains
         print *, 'Testing arena statistics...'
 
         block
-            use fortfront, only: ast_arena_stats_t
+            use fortfront_ast, only: ast_arena_stats_t
             type(ast_arena_t) :: arena
             type(ast_arena_stats_t) :: stats
             integer :: i, index

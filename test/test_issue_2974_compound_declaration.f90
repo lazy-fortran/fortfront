@@ -7,9 +7,10 @@ program test_issue_2974_compound_declaration
     ! source spelling or private parser state, and verifies that each declared
     ! entity has its own public declaration node and correct shape.
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, compiler_frontend_result_t, &
-        INPUT_MODE_STANDARD, declaration_node
+    use fortfront_ast, only: declaration_node
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     use lexer_core, only: to_lower
     implicit none
 

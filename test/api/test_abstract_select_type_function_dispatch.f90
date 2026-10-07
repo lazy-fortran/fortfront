@@ -1,13 +1,13 @@
 program test_abstract_select_type_function_dispatch
     use iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, assignment_node, &
-        derived_type_query_t, query_derived_type, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_TYPE, &
-        select_type_branch_query_t, query_select_type_branch, &
-        select_type_dispatch_query_t, query_select_type_dispatch, &
-        type_bound_call_query_t, query_type_bound_call
+    use fortfront_ast, only: assignment_node, get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_TYPE, &
+        control_statement_query_t, derived_type_query_t, query_control_statement, &
+        query_derived_type, query_select_type_branch, query_select_type_dispatch, &
+        query_type_bound_call, select_type_branch_query_t, &
+        select_type_dispatch_query_t, type_bound_call_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

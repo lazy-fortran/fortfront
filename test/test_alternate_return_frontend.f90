@@ -3,10 +3,11 @@ program test_alternate_return_frontend
     !   * `*<label>` actual arguments
     !   * the `RETURN <scalar-int-expr>` selector
     !   * `*` dummy arguments marked by an explicit attribute
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, &
-        compiler_frontend_result_t, INPUT_MODE_STANDARD, &
-        get_node_type_at, emit_fortran
+    use codegen_api, only: emit_fortran
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     use fortfront_compiler, only: get_alternate_return_label, &
         get_return_selector, &
         is_alternate_return_dummy

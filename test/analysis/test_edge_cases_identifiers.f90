@@ -1,5 +1,7 @@
 program test_edge_cases_identifiers
-    use fortfront, only: lex_source, parse_tokens, create_ast_arena, token_t, ast_arena_t
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     implicit none
 

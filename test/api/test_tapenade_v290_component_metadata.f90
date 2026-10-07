@@ -1,11 +1,11 @@
 program test_tapenade_v290_component_metadata
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_file, &
-        compile_frontend_from_string, INPUT_MODE_STANDARD, &
-        component_path_query_t, query_component_path, &
-        declaration_query_t, query_declaration, &
-        derived_type_query_t, query_derived_type
+    use fortfront_compiler, only: compile_frontend_from_file, &
+        compile_frontend_from_string, compiler_frontend_options_t, &
+        compiler_frontend_result_t, component_path_query_t, declaration_query_t, &
+        derived_type_query_t, query_component_path, query_declaration, &
+        query_derived_type
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     character(len=*), parameter :: fixture = &

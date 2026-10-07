@@ -1,5 +1,5 @@
 program test_issue_212_exponentiation_precedence
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

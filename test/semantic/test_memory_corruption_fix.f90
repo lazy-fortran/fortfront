@@ -1,7 +1,7 @@
 program test_memory_corruption_fix
     ! Test for issue #71: Memory corruption in semantic analyzer
     ! This test reproduces the conditions that cause double-free errors
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: test_code, output_code, error_msg

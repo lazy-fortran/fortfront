@@ -1,6 +1,6 @@
 program tmp_goto_ast
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t, ast_to_json
+    use fortfront_ast, only: ast_arena_t, ast_to_json
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     type(ast_arena_t) :: arena

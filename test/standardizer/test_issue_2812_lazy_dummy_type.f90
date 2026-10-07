@@ -7,8 +7,9 @@ program test_issue_2812_lazy_dummy_type
     ! The standardized AST must carry a concrete, ASCII-clean type_name for the
     ! inferred kind. The dummies a, b are inferred integer from add(5, 3).
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: lex_source, parse_tokens, create_ast_arena, &
-        ast_arena_t, token_t
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use semantic_api, only: semantic_context_t, create_semantic_context, &
         analyze_program
     use standardizer, only: standardize_ast

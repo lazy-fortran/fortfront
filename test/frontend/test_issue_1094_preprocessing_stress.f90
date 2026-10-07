@@ -1,6 +1,8 @@
 program test_issue_1094_preprocessing_stress
     ! Regression test for Issue #1094 (preprocessing crash with many statements)
-    use fortfront, only: lex_source, parse_tokens, token_t, ast_arena_t, create_ast_arena
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use ast_nodes_core, only: program_node
     implicit none
 

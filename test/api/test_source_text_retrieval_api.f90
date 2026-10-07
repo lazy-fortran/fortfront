@@ -1,7 +1,7 @@
 program test_source_text_retrieval_api
-    use fortfront, only: ast_arena_t, tooling_load_ast_from_string, &
-        tooling_parse_options_t, has_source_text, &
-        get_source_text, get_source_line, get_source_range
+    use fortfront_ast, only: ast_arena_t, get_source_line, get_source_range, &
+        get_source_text, has_source_text
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     logical :: all_passed

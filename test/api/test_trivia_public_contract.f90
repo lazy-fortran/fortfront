@@ -5,10 +5,9 @@ program test_trivia_public_contract
     ! CST_WHITESPACE, and CST_NEWLINE. Removing or reshaping any of these is a
     ! breaking change for a downstream repository, so this test imports exactly
     ! what fluff imports and exercises it end to end.
-    use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
-        create_ast_arena, get_node_type_id_from_arena, &
-        get_trivia_for_ast_node, &
-        trivia_t, CST_COMMENT, CST_WHITESPACE, CST_NEWLINE
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, CST_COMMENT, CST_NEWLINE, &
+        CST_WHITESPACE, get_node_type_id_from_arena, get_trivia_for_ast_node, trivia_t
+    use fortfront_tooling, only: tooling_load_ast_from_string
     use fortfront_types, only: NODE_ASSIGNMENT
     implicit none
 

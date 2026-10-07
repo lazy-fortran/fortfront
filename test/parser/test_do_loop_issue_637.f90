@@ -1,6 +1,6 @@
 program test_do_loop_issue_637
     ! Test that parser handles do loops with expressions (Issue #637)
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

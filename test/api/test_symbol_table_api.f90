@@ -1,6 +1,12 @@
 program test_symbol_table_api
     ! Test suite for symbol table query API (issue #2613)
-    use fortfront
+    use fortfront_ast, only: analyze_program, ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: create_semantic_context, get_all_symbols, &
+        get_current_scope_depth, get_scope_info, get_symbols_in_scope, &
+        is_symbol_defined, lookup_symbol, scope_global, semantic_context_t
+    use fortfront_types, only: scope_info_t, symbol_info_t
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_passed

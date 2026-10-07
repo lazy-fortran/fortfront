@@ -1,8 +1,10 @@
 program test_fortfront_api_codegen
     ! Test the public API code generation functionality
-    use fortfront, only: emit_fortran, lex_source, parse_tokens, &
-        analyze_semantics, token_t, &
-        ast_arena_t, create_ast_arena
+    use codegen_api, only: emit_fortran
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: analyze_semantics
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_passed

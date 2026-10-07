@@ -1,9 +1,10 @@
 program test_procedure_target_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, declaration_query_t, &
-        query_declaration, procedure_target_query_t, query_procedure_target, &
-        program_unit_query_t, query_program_unit
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, declaration_query_t, &
+        procedure_target_query_t, program_unit_query_t, query_declaration, &
+        query_procedure_target, query_program_unit
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

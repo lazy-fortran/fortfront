@@ -1,6 +1,6 @@
 program test_save_common
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     type(tooling_parse_options_t) :: options

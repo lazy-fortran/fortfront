@@ -1,7 +1,7 @@
 program test_call_argument_contract
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, call_arguments_query_t, query_call_arguments
+    use fortfront_compiler, only: call_arguments_query_t, compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, query_call_arguments
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

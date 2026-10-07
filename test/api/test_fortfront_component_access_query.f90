@@ -1,8 +1,9 @@
 program test_fortfront_component_access_query
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, compiler_frontend_result_t, &
-        compile_frontend_from_string, component_access_query_t, &
-        query_component_access, get_identifier_name, INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        component_access_query_t, get_identifier_name, query_component_access
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     character(len=*), parameter :: source = &

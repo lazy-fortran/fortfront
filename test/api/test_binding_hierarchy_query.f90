@@ -1,9 +1,10 @@
 program test_binding_hierarchy_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, derived_type_query_t, &
-        query_derived_type, binding_hierarchy_query_t, &
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: binding_hierarchy_query_t, &
+        compile_frontend_from_string, compiler_frontend_options_t, &
+        compiler_frontend_result_t, derived_type_query_t, query_derived_type, &
         query_type_binding_hierarchy
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

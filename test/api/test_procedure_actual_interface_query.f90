@@ -1,8 +1,9 @@
 program test_procedure_actual_interface_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, procedure_actual_argument_query_t, &
-        query_procedure_actual_argument, get_subroutine_call_name
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        get_subroutine_call_name, procedure_actual_argument_query_t, &
+        query_procedure_actual_argument
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

@@ -1,6 +1,6 @@
 program test_issue_1534_allocatable_deferred_shape
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

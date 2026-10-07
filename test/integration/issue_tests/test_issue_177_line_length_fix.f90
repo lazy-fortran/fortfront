@@ -2,8 +2,8 @@ program test_issue_177_line_length_fix
     ! Test for issue #177: Line length enforcement with continuations
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
         iostat_eor
-    use fortfront, only: transform_lazy_fortran_string_with_format, &
-        format_options_t
+    use fortfront_transform, only: format_options_t, &
+        transform_lazy_fortran_string_with_format
     implicit none
 
     character(len=:), allocatable :: output, error_msg

@@ -1,9 +1,9 @@
 program test_issue_1968_array_dimension_api
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        emit_fortran, query_program_unit, &
-        query_declaration, program_unit_query_t, declaration_query_t
+    use codegen_api, only: emit_fortran
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, declaration_query_t, &
+        program_unit_query_t, query_declaration, query_program_unit
     implicit none
 
     character(len=:), allocatable :: source

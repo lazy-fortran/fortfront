@@ -1,5 +1,5 @@
 program test_issue_1782_procedure_pointer
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

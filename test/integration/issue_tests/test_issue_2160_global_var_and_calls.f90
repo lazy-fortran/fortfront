@@ -1,5 +1,5 @@
 program test_issue_2160_global_var_and_calls
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

@@ -1,7 +1,8 @@
 program test_array_literal_type_preservation
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
-    use fortfront, only: transform_lazy_fortran_string_with_format, format_options_t
+    use fortfront_transform, only: format_options_t, &
+        transform_lazy_fortran_string_with_format
     implicit none
 
     character(len=:), allocatable :: source

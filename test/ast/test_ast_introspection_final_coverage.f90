@@ -1,5 +1,12 @@
 program test_ast_introspection_final_coverage
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, case_block_node, case_default_node, &
+        case_range_node, contains_node, create_ast_arena, derived_type_node, &
+        function_def_node, get_node_source_location, get_node_type_id, &
+        get_node_type_id_from_arena, has_semantic_info, identifier_node, &
+        interface_block_node, literal_node, literal_real, parameter_declaration_node, &
+        subroutine_def_node, use_statement_node
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_passed = .true.

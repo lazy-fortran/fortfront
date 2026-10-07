@@ -1,5 +1,5 @@
 program test_issue_1898_implicit_multi_spec
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source, result_code, error_msg
 

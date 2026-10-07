@@ -1,7 +1,8 @@
 program test_issue_2857_generic_interface_specifics
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: lex_source, parse_tokens, ast_arena_t, &
-        create_ast_arena, token_t, find_nodes_by_type
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, find_nodes_by_type
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     implicit none
 
     character(len=:), allocatable :: source_code

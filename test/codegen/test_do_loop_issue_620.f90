@@ -2,7 +2,7 @@ program test_do_loop_issue_620
     ! Test that do loops generate proper code, not TODO placeholders (Issue #620)
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
         iostat_eor
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source, output, error_msg

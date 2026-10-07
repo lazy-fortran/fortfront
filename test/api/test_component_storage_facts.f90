@@ -1,11 +1,11 @@
 program test_component_storage_facts
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, component_access_query_t, query_component_access, &
-        component_path_query_t, query_component_path, storage_query_t, &
-        query_storage, query_declaration, declaration_query_t, &
-        STORAGE_LOCAL, STORAGE_OWNED, STORAGE_POINTER, &
-        get_identifier_name
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        component_access_query_t, component_path_query_t, declaration_query_t, &
+        get_identifier_name, query_component_access, query_component_path, &
+        query_declaration, query_storage, STORAGE_LOCAL, STORAGE_OWNED, &
+        STORAGE_POINTER, storage_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type :: expected_path_t

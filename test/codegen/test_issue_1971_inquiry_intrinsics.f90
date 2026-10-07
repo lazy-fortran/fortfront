@@ -1,5 +1,5 @@
 program test_issue_1971_inquiry_intrinsics
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

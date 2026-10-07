@@ -1,5 +1,5 @@
 program test_bom_handling
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

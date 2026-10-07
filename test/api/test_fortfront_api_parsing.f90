@@ -1,9 +1,9 @@
 program test_fortfront_api_parsing
     ! Test the public API parsing functionality
-    use fortfront, only: parse_tokens, ast_arena_t, create_ast_arena, &
-        lex_source, token_t, ast_node, &
-        program_node, assignment_node, function_def_node, &
-        if_node, do_loop_node
+    use fortfront_ast, only: assignment_node, ast_arena_t, ast_node, create_ast_arena, &
+        do_loop_node, function_def_node, if_node, program_node
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use ast_nodes_data, only: mixed_construct_container_node
     implicit none
 

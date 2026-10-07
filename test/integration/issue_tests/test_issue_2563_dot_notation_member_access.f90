@@ -1,5 +1,5 @@
 program test_issue_2563_dot_notation_member_access
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

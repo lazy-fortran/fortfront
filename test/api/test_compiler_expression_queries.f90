@@ -7,8 +7,8 @@ program test_compiler_expression_queries
         query_array_slice, &
         query_component_access, query_array_literal, query_pointer_assignment, &
         query_nullify, get_identifier_name, get_literal_info
-    use fortfront, only: array_bounds_query_t, range_expression_query_t, &
-        query_array_bounds, query_range_expression
+    use fortfront_compiler, only: array_bounds_query_t, query_array_bounds, &
+        query_range_expression, range_expression_query_t
     implicit none
 
     character(len=:), allocatable :: source

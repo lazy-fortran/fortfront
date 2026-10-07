@@ -1,8 +1,9 @@
 program test_type_bound_dispatch_signature
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, derived_type_query_t, &
-        query_derived_type, type_bound_call_query_t, query_type_bound_call
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, derived_type_query_t, &
+        query_derived_type, query_type_bound_call, type_bound_call_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

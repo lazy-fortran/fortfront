@@ -7,9 +7,9 @@ program test_reject_use_01_diagnostics
     ! "conflicts with intrinsic module" / "conflicts with non-intrinsic module"
     ! and accepts the corrected neighbour. The expectations below are derived
     ! from the standard rule (F2023 14.2.2), not from fortfront's own output.
-    use fortfront, only: compiler_frontend_result_t, &
-        compiler_frontend_options_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     logical :: all_passed

@@ -1,5 +1,5 @@
 program test_issue_1778_simple
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input_code, output_code, error_msg
 

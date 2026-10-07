@@ -1,6 +1,6 @@
 program test_interface_decl_inspect
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_file, &
-        ast_arena_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_tooling, only: tooling_load_ast_from_file, tooling_parse_options_t
     use ast_nodes_data, only: declaration_node
     use ast_nodes_procedure, only: function_def_node
     use standardizer_core, only: standardize_ast

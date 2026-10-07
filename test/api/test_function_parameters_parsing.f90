@@ -4,7 +4,9 @@ program test_function_parameters_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
-    use fortfront, only: ast_arena_t, create_ast_arena, token_t, ast_node, function_def_node
+    use fortfront_ast, only: ast_arena_t, ast_node, create_ast_arena, &
+        function_def_node
+    use fortfront_lexer, only: token_t
     use ast_nodes_data, only: parameter_declaration_node
     implicit none
 

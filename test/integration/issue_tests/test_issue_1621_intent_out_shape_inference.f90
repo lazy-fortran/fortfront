@@ -1,6 +1,6 @@
 ! Test intent(out) array shape inference with parameter-determined dimensions
 program test_issue_1621_intent_out_shape_inference
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

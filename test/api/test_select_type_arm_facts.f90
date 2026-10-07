@@ -1,10 +1,11 @@
 program test_select_type_arm_facts
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_TYPE, &
-        SELECT_TYPE_ARM_TYPE_IS, SELECT_TYPE_ARM_CLASS_IS, &
-        SELECT_TYPE_ARM_CLASS_DEFAULT
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_TYPE, &
+        control_statement_query_t, query_control_statement, &
+        SELECT_TYPE_ARM_CLASS_DEFAULT, SELECT_TYPE_ARM_CLASS_IS, &
+        SELECT_TYPE_ARM_TYPE_IS
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

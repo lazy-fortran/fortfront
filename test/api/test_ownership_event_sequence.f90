@@ -1,12 +1,14 @@
 program test_ownership_event_sequence
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, ownership_event_query_t, &
-        query_ownership_events, OWNERSHIP_EVENT_ALLOCATE, &
-        OWNERSHIP_EVENT_MOVE_ALLOC, OWNERSHIP_EVENT_ASSIGNMENT, &
-        OWNERSHIP_EVENT_DEALLOCATE, OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE, &
-        OWNERSHIP_REALLOCATION_POTENTIAL, OWNERSHIP_STATE_UNALLOCATED, &
-        OWNERSHIP_STATE_ALLOCATED, OWNERSHIP_STATE_SAME_AS_SOURCE
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        OWNERSHIP_ASSIGNMENT_WHOLE_ALLOCATABLE, OWNERSHIP_EVENT_ALLOCATE, &
+        OWNERSHIP_EVENT_ASSIGNMENT, OWNERSHIP_EVENT_DEALLOCATE, &
+        OWNERSHIP_EVENT_MOVE_ALLOC, ownership_event_query_t, &
+        OWNERSHIP_REALLOCATION_POTENTIAL, OWNERSHIP_STATE_ALLOCATED, &
+        OWNERSHIP_STATE_SAME_AS_SOURCE, OWNERSHIP_STATE_UNALLOCATED, &
+        query_ownership_events
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

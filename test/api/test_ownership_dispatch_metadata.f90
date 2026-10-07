@@ -1,14 +1,15 @@
 program test_ownership_dispatch_metadata
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, declaration_query_t, &
-        query_declaration, derived_type_query_t, query_derived_type, &
-        storage_query_t, query_storage, STORAGE_OWNED, STORAGE_SAVE, &
-        STORAGE_COMMON, ownership_event_query_t, query_ownership_events, &
-        OWNERSHIP_EVENT_ALLOCATE, OWNERSHIP_EVENT_MOVE_ALLOC, &
-        OWNERSHIP_EVENT_NULLIFY, component_path_query_t, query_component_path, &
-        binding_resolution_query_t, query_type_binding_resolution, &
-        global_reference_query_t, query_active_global_references, ACCESS_WRITE
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: ACCESS_WRITE, binding_resolution_query_t, &
+        compile_frontend_from_string, compiler_frontend_options_t, &
+        compiler_frontend_result_t, component_path_query_t, declaration_query_t, &
+        derived_type_query_t, global_reference_query_t, OWNERSHIP_EVENT_ALLOCATE, &
+        OWNERSHIP_EVENT_MOVE_ALLOC, OWNERSHIP_EVENT_NULLIFY, ownership_event_query_t, &
+        query_active_global_references, query_component_path, query_declaration, &
+        query_derived_type, query_ownership_events, query_storage, &
+        query_type_binding_resolution, STORAGE_COMMON, STORAGE_OWNED, storage_query_t, &
+        STORAGE_SAVE
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

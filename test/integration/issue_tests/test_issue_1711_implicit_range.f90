@@ -1,5 +1,5 @@
 program test_issue_1711_implicit_range
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     character(len=:), allocatable :: source, result_code, error_msg

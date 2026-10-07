@@ -1,10 +1,8 @@
 program test_compiler_identifier_queries
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, &
-        compile_frontend_from_string, &
-        is_identifier, get_identifier_name, &
-        is_literal, &
-        INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, get_identifier_name, &
+        is_identifier, is_literal
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: result_options
