@@ -275,8 +275,7 @@ end subroutine
   `POLYMORPHIC_SOURCE_CONCRETE`, `POLYMORPHIC_SOURCE_POLYMORPHIC`, or
   `POLYMORPHIC_SOURCE_UNKNOWN`. Factories, dynamic sources, repeated
   acquisition, and alias paths remain unbounded and retain their explicit
-  refusal flags. `query_polymorphic_assignment_into` and the compatibility
-  function `query_polymorphic_assignment` expose the
+  refusal flags. `query_polymorphic_assignment_into` and the
   `ownership_event_query_t%polymorphic_assignment` record cover one
   intrinsic assignment to a polymorphic allocatable derived object,
   including a component such as `holder%item`. Exact source/destination

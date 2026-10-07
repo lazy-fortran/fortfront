@@ -610,9 +610,8 @@ independent expected-facts oracle.
 
 `query_polymorphic_assignment_into(arena, assignment_node_index, query)` writes
 the bounded fact for an intrinsic assignment whose destination is a
-polymorphic allocatable derived object. The function form,
-`query_polymorphic_assignment`, remains a compatibility wrapper. The same
-record is attached to the corresponding `ownership_event_query_t` as
+polymorphic allocatable derived object. The same record is attached to the
+corresponding `ownership_event_query_t` as
 `polymorphic_assignment`. It retains exact
 source/destination paths and declaration identities, reports recursively
 whether the concrete source type owns allocatable components, and sets

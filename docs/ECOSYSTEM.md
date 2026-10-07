@@ -27,19 +27,6 @@ The ecosystem tools live in separate repositories and build on fortfront.
 | **fortcov** | Coverage analysis | Independent gcov/FPM coverage tool; not part of compiler bootstrap | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
 | **standard** | Language-mode specifications and grammar references | Source of truth for the intended LFortran Standard/Infer behavior | [lazy-fortran/standard](https://github.com/lazy-fortran/standard) |
 
-## fo: Universal Orchestrator (planned)
-
-Planned single executable containing all tools, backward compatible with fpm:
-
-```bash
-fo new project              # Project initialization
-fo build                    # Enhanced build with caching
-fo test                     # Testing with coverage integration
-fo run main.lf              # Execute with fortrun enhancement
-fo analyze                  # fluff static analysis
-fo format                   # fluff code formatting
-```
-
 ## Compiler Direction
 
 The active compiler path keeps FortFront backend-neutral. FortFront owns
@@ -50,17 +37,6 @@ through LIRIC. LIRIC stays behind `ffc`.
 LIRIC should not be coupled directly into FortFront. FortFront should remain
 backend-neutral so `fluff`, `fortrun`, and other tools can keep using the same
 frontend.
-
-## VSCode Integration
-
-Single point of integration via fo (planned):
-```json
-{
-  "fortran.languageServer": "fo lsp",
-  "fortran.formatter": "fo format",
-  "fortran.linter": "fo analyze"
-}
-```
 
 ## Architecture Benefits
 
