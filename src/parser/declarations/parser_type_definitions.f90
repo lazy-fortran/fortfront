@@ -5,8 +5,7 @@ module parser_type_definitions_module
         TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_derived_type
-    use ast_factory
+    use ast_factory_declarations, only: push_derived_type
     use string_utils_mod, only: to_lower
     implicit none
     private

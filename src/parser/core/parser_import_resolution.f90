@@ -6,8 +6,10 @@ module parser_import_resolution_module
         TK_WHITESPACE, TK_EOF
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_use_statement, push_include_statement, push_literal
-    use ast_factory, only: push_use_statement, push_include_statement, push_literal
+    use ast_factory_core, only: push_literal
+    use ast_factory_statements, only: push_include_statement, push_use_statement
+    use ast_factory_core, only: push_literal
+    use ast_factory_statements, only: push_include_statement, push_use_statement
     use ast_types, only: LITERAL_STRING
     use string_types, only: string_t
     use url_utilities, only: extract_module_from_url

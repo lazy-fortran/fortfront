@@ -3,7 +3,7 @@ module parser_instantiate_statement_module
         TK_IDENTIFIER, TK_KEYWORD, TK_NUMBER, TK_STRING
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_instantiate_statement
+    use ast_factory_generics, only: push_instantiate_statement
     implicit none
     private
 

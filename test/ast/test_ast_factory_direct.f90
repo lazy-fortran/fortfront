@@ -1,5 +1,8 @@
 program test_ast_factory_direct
-    use ast_factory
+    use ast_factory_core, only: push_array_literal, push_assignment, push_binary_op, &
+        push_complex_literal, push_identifier, push_literal, push_program
+    use ast_factory_expressions, only: push_subroutine_call
+    use ast_factory_statements, only: push_return, push_stop
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_nodes_procedure, only: subroutine_call_node

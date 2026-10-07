@@ -3,7 +3,7 @@ module parser_assignment_shared_module
         TK_STRING, TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier, push_literal
+    use ast_factory_core, only: push_assignment, push_identifier, push_literal
     use ast_types, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_REAL, &
         LITERAL_STRING
     implicit none

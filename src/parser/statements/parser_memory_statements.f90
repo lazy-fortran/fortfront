@@ -7,8 +7,7 @@ module parser_memory_statements_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_allocate, push_deallocate
-    use ast_factory
+    use ast_factory_statements, only: push_allocate, push_deallocate
     implicit none
     private
 

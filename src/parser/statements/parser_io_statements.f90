@@ -11,12 +11,11 @@ module parser_io_statements_module
         io_specifier_t, inquire_statement_node, backspace_statement_node, &
         rewind_statement_node, endfile_statement_node
     use parser_io_specifiers, only: parse_io_specifier_nodes
-    use ast_factory, only: push_print_statement, push_write_statement, &
-        push_read_statement, push_format_statement, &
-        push_open_statement, push_close_statement, &
-        push_inquire_statement, push_backspace_statement, &
-        push_rewind_statement, push_endfile_statement, &
-        push_io_implied_do
+    use ast_factory_io, only: push_backspace_statement, push_close_statement, &
+        push_endfile_statement, push_format_statement, push_inquire_statement, &
+        push_open_statement, push_print_statement, push_read_statement, &
+        push_rewind_statement, push_write_statement
+    use ast_factory_statements, only: push_io_implied_do
     implicit none
     private
 

@@ -7,7 +7,7 @@ module parser_if_statements_module
     use parser_expressions_module, only: parse_range
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_if
+    use ast_factory_control, only: push_if
     use error_reporting, only: error_collection_t
     implicit none
     private

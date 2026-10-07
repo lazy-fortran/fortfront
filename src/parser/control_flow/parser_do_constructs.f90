@@ -6,7 +6,7 @@ module parser_do_constructs_module
     use parser_expressions_module, only: parse_logical_or
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_loops, only: do_loop_node, do_while_node
-    use ast_factory, only: push_do_loop, push_do_while
+    use ast_factory_control, only: push_do_loop, push_do_while
     use parser_if_constructs_module, only: parse_if, register_parse_do_loop
     use parser_statement_callbacks_module, only: register_fallback_do_parser, &
         register_fallback_if_parser, register_fallback_block_parser, &

@@ -2,7 +2,7 @@ module parser_intrinsic_statements_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_intrinsic_statement
+    use ast_factory_statements, only: push_intrinsic_statement
     implicit none
     private
 

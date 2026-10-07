@@ -4,8 +4,8 @@ program test_arena_deep_copy
     ! Issue #2840: AST arena copy drops entries.
 
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, destroy_ast_arena
-    use ast_factory, only: push_program, push_assignment, push_identifier, &
-        push_literal
+    use ast_factory_core, only: push_assignment, push_identifier, push_literal, &
+        push_program
     use ast_base, only: LITERAL_INTEGER
     use lexer_core, only: token_t
     use frontend_core, only: lex_source, emit_fortran

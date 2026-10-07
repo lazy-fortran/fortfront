@@ -1,7 +1,7 @@
 program test_codegen_generics_named_blocks
     use, intrinsic :: iso_fortran_env, only: output_unit
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_factory, only: push_declaration
+    use ast_factory_declarations, only: push_declaration
     use ast_nodes_generics, only: create_trait_block, create_requirement_block, &
         create_implements_block, trait_block_node, &
         requirement_block_node, implements_block_node

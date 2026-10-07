@@ -18,7 +18,7 @@ module parser_array_constructs_module
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
         parse_select_rank
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_where, push_associate, push_block_construct
+    use ast_factory_control, only: push_associate, push_block_construct, push_where
     implicit none
     private
 

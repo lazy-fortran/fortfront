@@ -1,6 +1,6 @@
 module standardizer_subroutine
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     use ast_nodes_procedure, only: subroutine_def_node
     use ast_nodes_data, only: INTENT_IN, INTENT_INOUT, INTENT_OUT
     use standardizer_parameter, only: fill_parameter_declaration

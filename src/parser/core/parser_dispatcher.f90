@@ -60,7 +60,6 @@ module parser_dispatcher_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node, directive_node
     use uid_generator, only: generate_uid
-    use ast_factory
     use parser_assignment_module, only: parse_assignment_statement
     use parser_expressions_module, only: parse_expression
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token

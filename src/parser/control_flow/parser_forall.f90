@@ -6,7 +6,7 @@ module parser_forall_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_forall
+    use ast_factory_control, only: push_forall
     use ast_nodes_loops, only: forall_triplet_t
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, &

@@ -5,8 +5,8 @@ module parser_parameter_handling_module
         TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_parameter_declaration, push_identifier, push_literal
-    use ast_factory
+    use ast_factory_core, only: push_identifier, push_literal
+    use ast_factory_declarations, only: push_parameter_declaration
     use ast_types, only: LITERAL_INTEGER
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT

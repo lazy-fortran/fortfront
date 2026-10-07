@@ -22,7 +22,9 @@ module parser_arithmetic_if_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_INTEGER
-    use ast_factory, only: push_if, push_goto, push_binary_op, push_literal
+    use ast_factory_control, only: push_if
+    use ast_factory_core, only: push_binary_op, push_literal
+    use ast_factory_statements, only: push_goto
     implicit none
     private
 

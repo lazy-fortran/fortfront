@@ -1146,7 +1146,7 @@
     end subroutine collect_prefix_keywords
 
     function parse_unsupported_statement(keyword, parser, arena) result(stmt_index)
-        use ast_factory, only: push_error_node
+        use ast_factory_errors, only: push_error_node
         character(len=*), intent(in) :: keyword
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena

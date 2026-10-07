@@ -16,7 +16,7 @@ module parser_if_inline_module
         allocate_stmt_tokens_with_eof, &
         parse_basic_statement_core
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_if
+    use ast_factory_control, only: push_if
     implicit none
     private
 

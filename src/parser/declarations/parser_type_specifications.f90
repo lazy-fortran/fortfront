@@ -5,7 +5,7 @@ module parser_type_specifications_module
         TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     use parser_implicit_shared_module, only: parse_none_spec_list
     use parser_implicit_letter_specs_module, only: validate_implicit_letter_specs
     implicit none

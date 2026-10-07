@@ -28,7 +28,8 @@ module parser_statements_module
     use parser_expressions_module, only: parse_comparison, &
         parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory
+    use ast_factory_control, only: push_if
+    use ast_factory_core, only: push_literal
     use ast_types, only: LITERAL_STRING
     implicit none
     private

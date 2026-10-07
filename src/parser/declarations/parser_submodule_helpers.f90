@@ -7,9 +7,10 @@ module parser_submodule_helpers_module
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_visibility_statement, push_namelist_statement, &
-        push_assignment, push_identifier, push_literal, &
-        push_error_node, push_subroutine_def
+    use ast_factory_core, only: push_assignment, push_identifier, push_literal
+    use ast_factory_errors, only: push_error_node
+    use ast_factory_procedures, only: push_subroutine_def
+    use ast_factory_statements, only: push_namelist_statement, push_visibility_statement
     use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
         parser_is_at_type_definition

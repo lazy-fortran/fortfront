@@ -14,7 +14,7 @@ module parser_if_constructs_module
     use parser_if_body_module, only: parse_if_body
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_conditional, only: if_node
-    use ast_factory, only: push_if
+    use ast_factory_control, only: push_if
     use parser_trailing_comment_module, only: capture_trailing_comment
     implicit none
     private

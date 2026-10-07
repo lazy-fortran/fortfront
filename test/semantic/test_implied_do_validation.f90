@@ -7,7 +7,7 @@ program test_implied_do_validation
     use ast_base, only: LITERAL_INTEGER
     use ast_factory_core, only: push_identifier, push_literal, push_binary_op, &
         push_array_literal
-    use ast_factory, only: push_do_loop
+    use ast_factory_control, only: push_do_loop
     use error_handling, only: error_collection_t, create_error_collection
     use semantic_implied_do_validation, only: validate_implied_do_array
     use ast_nodes_core, only: array_literal_node

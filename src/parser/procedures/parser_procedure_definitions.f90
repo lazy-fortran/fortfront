@@ -2,7 +2,7 @@ module parser_procedure_definitions_module
     use parser_state_module, only: parser_state_t
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_function_def, push_subroutine_def
+    use ast_factory_procedures, only: push_function_def, push_subroutine_def
     use parser_procedure_signatures_module, only: &
         parse_function_prefix_keywords, parse_function_signature, &
         parse_function_result_clause, parse_parameter_list, &
