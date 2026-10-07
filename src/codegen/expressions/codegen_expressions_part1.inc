@@ -62,7 +62,7 @@
         logical :: is_zero
 
         is_zero = .false.
-        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (node_index <= 0 .or. node_index > arena%entry_count) return
         if (.not. allocated(arena%entries(node_index)%node)) return
 
         select type (n => arena%entries(node_index)%node)

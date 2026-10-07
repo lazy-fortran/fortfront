@@ -108,7 +108,7 @@ contains
         type(array_bounds_node), pointer :: node
 
         node => null()
-        if (index > 0 .and. index <= arena%compat_size) then
+        if (index > 0 .and. index <= arena%entry_count) then
             select type (p => arena%entries(index)%node)
                 type is (array_bounds_node)
                 node => p
@@ -122,7 +122,7 @@ contains
         type(array_slice_node), pointer :: node
 
         node => null()
-        if (index > 0 .and. index <= arena%compat_size) then
+        if (index > 0 .and. index <= arena%entry_count) then
             select type (p => arena%entries(index)%node)
                 type is (array_slice_node)
                 node => p
@@ -136,7 +136,7 @@ contains
         type(range_expression_node), pointer :: node
 
         node => null()
-        if (index > 0 .and. index <= arena%compat_size) then
+        if (index > 0 .and. index <= arena%entry_count) then
             select type (p => arena%entries(index)%node)
                 type is (range_expression_node)
                 node => p
@@ -150,7 +150,7 @@ contains
         type(array_operation_node), pointer :: node
 
         node => null()
-        if (index > 0 .and. index <= arena%compat_size) then
+        if (index > 0 .and. index <= arena%entry_count) then
             select type (p => arena%entries(index)%node)
                 type is (array_operation_node)
                 node => p

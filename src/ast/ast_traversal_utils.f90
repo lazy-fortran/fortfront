@@ -41,7 +41,7 @@ contains
         integer, allocatable :: children(:)
 
         count = 0
-        allocate (temp_indices(arena%compat_size))
+        allocate (temp_indices(arena%entry_count))
 
         call collect_matching_nodes(arena, root_index, node_type_name, &
             temp_indices, count)
@@ -62,7 +62,7 @@ contains
         integer :: i
         integer, allocatable :: children(:)
 
-        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (node_index <= 0 .or. node_index > arena%entry_count) return
 
         if (allocated(arena%entries(node_index)%node_type)) then
             if (arena%entries(node_index)%node_type == node_type_name) then
@@ -89,11 +89,11 @@ contains
         ancestor_index = 0
         current_index = node_index
 
-        if (current_index <= 0 .or. current_index > arena%compat_size) return
+        if (current_index <= 0 .or. current_index > arena%entry_count) return
 
         current_index = arena%entries(current_index)%parent_index
 
-        do while (current_index > 0 .and. current_index <= arena%compat_size)
+        do while (current_index > 0 .and. current_index <= arena%entry_count)
             if (allocated(arena%entries(current_index)%node_type)) then
                 if (arena%entries(current_index)%node_type == node_type_name) then
                     ancestor_index = current_index
@@ -115,7 +115,7 @@ contains
 
         found = .false.
 
-        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (node_index <= 0 .or. node_index > arena%entry_count) return
 
         children = arena%get_children(node_index)
 
@@ -155,7 +155,7 @@ contains
         integer, allocatable :: children(:)
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (node_index <= 0 .or. node_index > arena%entry_count) return
 
         if (present(user_data)) then
             call callback(arena, node_index, user_data)
