@@ -2,6 +2,8 @@ program test_ast_introspection_coverage
     use fortfront_ast, only: ast_arena_t, create_ast_arena, &
         get_node_source_location_from_arena, get_node_type_details, &
         get_node_type_id_from_arena, get_node_type_kind
+    use fortfront_node_constants, only: NODE_PROGRAM, NODE_ASSIGNMENT, &
+        NODE_IDENTIFIER, NODE_LITERAL
     use fortfront_lexer, only: lex_source, token_t
     use fortfront_semantic, only: analyze_semantics
     use parser_api, only: parse_tokens
