@@ -82,7 +82,7 @@ contains
         integer :: type_id
 
         ! Use select type to determine node type and return standard constants
-        ! These constants match those defined in fortfront.f90
+        ! These constants match those defined in fortfront_node_constants.
         select type (node)
             type is (program_node)
             type_id = 1 ! NODE_PROGRAM
@@ -261,7 +261,7 @@ contains
 
     ! Get source location for any node (issue #12 requirement)
     ! Returns a simple type that matches the existing source_location_t
-    ! definition in fortfront.f90
+    ! definition in fortfront_types.
     subroutine get_node_source_location(node, line, column)
         class(ast_node), intent(in) :: node
         integer, intent(out) :: line, column

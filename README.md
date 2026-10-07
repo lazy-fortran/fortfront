@@ -83,9 +83,6 @@ specialized semantic query helpers are still a roadmap item.
 - `fortfront_tooling` - Convenience functions for tool developers
 - `fortfront_compiler` - Compiler-facing parse and semantic result API
 
-The existing `fortfront` module remains as a broad compatibility facade. New
-users should prefer the narrower modules above.
-
 See docs/guides/LIBRARY_USAGE.md for worked examples.
 
 ## Links
