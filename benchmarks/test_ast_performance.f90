@@ -1,5 +1,8 @@
 program test_ast_performance
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: semantic_context_t, create_semantic_context
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_tests_passed

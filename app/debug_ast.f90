@@ -1,6 +1,8 @@
 program debug_ast
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t, token_t, ast_to_json
+    use fortfront_ast, only: ast_arena_t, ast_to_json
+    use fortfront_lexer, only: token_t
+    use fortfront_tooling, only: tooling_parse_options_t, &
+        tooling_load_ast_from_string
     implicit none
 
     type(ast_arena_t) :: arena
