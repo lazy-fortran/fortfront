@@ -1,7 +1,7 @@
 program test_chained_assignment_parsing
     ! Test that chained assignment is not misparsed as logical expression
     ! Regression test for issue #2159
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

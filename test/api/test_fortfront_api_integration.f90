@@ -1,7 +1,14 @@
 program test_fortfront_api_integration
     ! Integration test for the complete fortfront public API pipeline
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront
+    use codegen_api, only: emit_fortran
+    use fortfront_ast, only: analyze_program, assignment_node, ast_arena_stats_t, &
+        ast_arena_t, binary_op_node, create_ast_arena, get_arena_stats, &
+        get_type_for_node, identifier_node, literal_node, program_node
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: analyze_semantics, create_semantic_context, &
+        mono_type_t, semantic_context_t
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_passed

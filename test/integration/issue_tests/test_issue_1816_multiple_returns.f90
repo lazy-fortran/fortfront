@@ -1,7 +1,7 @@
 program test_issue_1816_multiple_returns
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
         iostat_eor
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

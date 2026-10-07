@@ -1,11 +1,10 @@
 program test_select_rank_bounds
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_RANK, &
-        SELECT_RANK_DISPATCH_EXPLICIT, SELECT_RANK_DISPATCH_DEFAULT, &
-        declaration_query_t, query_declaration, array_bounds_query_t, &
-        query_array_bounds
+    use fortfront_compiler, only: array_bounds_query_t, compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_RANK, &
+        control_statement_query_t, declaration_query_t, query_array_bounds, &
+        query_control_statement, query_declaration, SELECT_RANK_DISPATCH_DEFAULT, &
+        SELECT_RANK_DISPATCH_EXPLICIT
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

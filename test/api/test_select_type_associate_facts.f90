@@ -1,8 +1,9 @@
 program test_select_type_associate_facts
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_TYPE, get_identifier_name
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_TYPE, &
+        control_statement_query_t, get_identifier_name, query_control_statement
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

@@ -1,5 +1,8 @@
 program test_simplified_arena
-    use fortfront
+    use fortfront_ast, only: assignment_node, ast_arena_t, create_ast_arena, &
+        find_nodes_by_type, identifier_node, literal_node, program_node
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     implicit none
 
     type(ast_arena_t) :: arena

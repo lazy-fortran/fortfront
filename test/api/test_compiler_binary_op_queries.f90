@@ -1,9 +1,8 @@
 program test_compiler_binary_op_queries
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, &
-        compile_frontend_from_string, &
-        is_binary_op, get_binary_op_info, &
-        INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, get_binary_op_info, &
+        is_binary_op
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

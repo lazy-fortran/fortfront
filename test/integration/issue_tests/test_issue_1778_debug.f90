@@ -2,7 +2,8 @@ program test_issue_1778_debug
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use lexer_core
-    use fortfront
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input_code, output_code, error_msg
     type(token_t), allocatable :: tokens(:)

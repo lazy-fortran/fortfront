@@ -1,11 +1,11 @@
 program test_select_type_branch_facts
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_TYPE, &
-        select_type_branch_query_t, query_select_type_branch, &
-        SELECT_TYPE_MATCH_UNKNOWN, SELECT_TYPE_MATCH_EXACT, &
-        SELECT_TYPE_MATCH_EXTENSION, SELECT_TYPE_MATCH_DEFAULT
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_TYPE, &
+        control_statement_query_t, query_control_statement, query_select_type_branch, &
+        select_type_branch_query_t, SELECT_TYPE_MATCH_DEFAULT, SELECT_TYPE_MATCH_EXACT, &
+        SELECT_TYPE_MATCH_EXTENSION, SELECT_TYPE_MATCH_UNKNOWN
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

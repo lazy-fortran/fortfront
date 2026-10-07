@@ -1,5 +1,5 @@
 program test_issue_2077_goto_labeled_statements
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 

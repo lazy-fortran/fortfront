@@ -1,9 +1,10 @@
 program test_ownership_deep_assignment
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, get_identifier_name, &
-        ownership_event_query_t, query_ownership_events, &
-        OWNERSHIP_EVENT_ASSIGNMENT, OWNERSHIP_ASSIGNMENT_DEEP_DERIVED
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, get_identifier_name, &
+        OWNERSHIP_ASSIGNMENT_DEEP_DERIVED, OWNERSHIP_EVENT_ASSIGNMENT, &
+        ownership_event_query_t, query_ownership_events
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

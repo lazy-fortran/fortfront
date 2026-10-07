@@ -1,6 +1,6 @@
 program test_nested_procedure_constructs
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

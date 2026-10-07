@@ -1,6 +1,6 @@
 program test_if_inside_do_loop
     ! Regression test for Issue #1324: ensure IF statements inside DO loops parse
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source, output, error_msg

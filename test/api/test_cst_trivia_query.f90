@@ -1,9 +1,8 @@
 program test_cst_trivia_query
-    use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
-        get_trivia_for_ast_node, get_source_trivia_at, &
-        get_node_type_id_from_arena, &
-        get_trivia_for_ast_node_tokens, tokenize_core_with_trivia, &
-        token_t
+    use fortfront_ast, only: ast_arena_t, get_node_type_id_from_arena, &
+        get_source_trivia_at, get_trivia_for_ast_node, get_trivia_for_ast_node_tokens
+    use fortfront_lexer, only: token_t, tokenize_core_with_trivia
+    use fortfront_tooling, only: tooling_load_ast_from_string
     use fortfront_types, only: NODE_ASSIGNMENT
     use cst_nodes, only: CST_COMMENT, CST_NEWLINE, CST_WHITESPACE, trivia_t
     implicit none

@@ -1,8 +1,8 @@
 program test_procedure_callback_missing_assignment
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, procedure_callback_flow_query_t, &
-        query_procedure_callback_flow
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        procedure_callback_flow_query_t, query_procedure_callback_flow
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

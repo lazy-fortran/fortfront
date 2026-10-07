@@ -1,5 +1,5 @@
 program test_issue_1815_string_array_char_lengths
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

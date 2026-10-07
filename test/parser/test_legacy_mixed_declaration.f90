@@ -1,6 +1,7 @@
 program test_legacy_mixed_declaration
-    use fortfront, only: ast_arena_t, token_t, tooling_load_ast_from_string, &
-        tooling_parse_options_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_lexer, only: token_t
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     use ast_nodes_data, only: declaration_node
     implicit none
 

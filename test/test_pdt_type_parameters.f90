@@ -3,10 +3,10 @@ program test_pdt_type_parameters
     ! and reachable through public compiler-facing queries:
     !   get_derived_type_parameters (formals: name, KIND/LEN, default)
     !   get_declaration_type_parameters (actuals on an entity declaration)
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, &
-        compiler_frontend_result_t, INPUT_MODE_STANDARD, &
-        get_node_type_at
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     use fortfront_compiler, only: get_derived_type_parameters, &
         get_declaration_type_parameters, &
         type_parameter_t, &

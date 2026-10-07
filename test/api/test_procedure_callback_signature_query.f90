@@ -1,9 +1,9 @@
 program test_procedure_callback_signature_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, TINT, TREAL, get_node_type_at, &
-        procedure_target_query_t, &
-        query_procedure_target
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        procedure_target_query_t, query_procedure_target
+    use fortfront_semantic, only: INPUT_MODE_STANDARD, TINT, TREAL
     implicit none
 
     type(compiler_frontend_options_t) :: options

@@ -1,7 +1,7 @@
 program test_issue_1405_data_statement
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     print *, "=== Codegen: DATA statements preserved ==="

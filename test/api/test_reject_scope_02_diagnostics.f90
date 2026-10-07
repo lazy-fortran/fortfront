@@ -7,9 +7,9 @@ program test_reject_scope_02_diagnostics
     ! "Symbol 'xx' at (1) also declared as a type at (2)" and accepts a program
     ! that merely declares a variable OF the type. The expectations below come
     ! from the standard rule (F2023 19.3.1), not from fortfront's own output.
-    use fortfront, only: compiler_frontend_result_t, &
-        compiler_frontend_options_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     logical :: all_passed

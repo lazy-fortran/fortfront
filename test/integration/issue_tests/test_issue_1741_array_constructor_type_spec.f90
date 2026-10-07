@@ -1,6 +1,6 @@
 ! Test array constructor with type specification (issue #1741)
 program test_issue_1741_array_constructor_type_spec
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 

@@ -1,5 +1,10 @@
 program test_ast_semantic_introspection
-    use fortfront
+    use fortfront_ast, only: analyze_program, ast_arena_t, create_ast_arena, &
+        get_node_type_at, get_node_type_details
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: create_semantic_context, semantic_context_t, tchar, &
+        tint, tlogical, treal
+    use parser_api, only: parse_tokens
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL
     implicit none

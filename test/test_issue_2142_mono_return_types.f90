@@ -1,6 +1,6 @@
 program test_issue_2142_mono_return_types
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source, output, error_msg
     integer :: i32_pos, r64_pos

@@ -1,8 +1,9 @@
 program test_call_graph_queries
-    use fortfront, only: ast_arena_t, build_call_graph, call_graph_t, &
-        create_ast_arena, get_all_procedures, get_call_count, &
-        get_callees, get_callers, is_procedure_used, lex_source, &
-        parse_tokens, token_t
+    use call_graph_module, only: build_call_graph, call_graph_t, get_all_procedures, &
+        get_call_count, get_callees, get_callers, is_procedure_used
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

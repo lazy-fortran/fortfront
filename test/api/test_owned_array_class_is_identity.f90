@@ -1,10 +1,11 @@
 program test_owned_array_class_is_identity
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_TYPE, &
-        select_type_owned_array_query_t, query_select_type_owned_array, &
-        STORAGE_OWNED, STORAGE_MODULE, STORAGE_SAVE
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_TYPE, &
+        control_statement_query_t, query_control_statement, &
+        query_select_type_owned_array, select_type_owned_array_query_t, STORAGE_MODULE, &
+        STORAGE_OWNED, STORAGE_SAVE
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

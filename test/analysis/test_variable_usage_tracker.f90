@@ -1,5 +1,10 @@
 program test_variable_usage_tracker
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, if_node, program_node
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
+    use variable_usage_tracker_module, only: count_variable_usage, &
+        expression_visitor_t, get_identifiers_in_subtree, get_variables_in_expression, &
+        is_variable_used_in_expression, variable_usage_info_t, visit_expression_nodes
     use, intrinsic :: iso_fortran_env, only: error_unit
     use test_variable_usage_tracker_helpers, only: count_nodes_visitor
     implicit none

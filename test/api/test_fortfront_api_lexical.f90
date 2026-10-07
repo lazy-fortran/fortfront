@@ -1,6 +1,6 @@
 program test_fortfront_api_lexical
     ! Test the public API lexical analysis functionality
-    use fortfront, only: lex_source, token_t
+    use fortfront_lexer, only: lex_source, token_t
     implicit none
 
     logical :: all_passed

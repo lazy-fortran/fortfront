@@ -1,5 +1,5 @@
 program test_issue_1777_negative_stride
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed

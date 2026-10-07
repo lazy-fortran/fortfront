@@ -3,9 +3,10 @@ program test_issue_2851_procedure_implicit_local
     ! for procedure bodies, not only the implicit-main program. An implicitly
     ! typed local inside a subroutine/function body must get a declaration_node
     ! in the arena so AST consumers do not see an undeclared identifier.
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, compiler_frontend_result_t, &
-        INPUT_MODE_LAZY, get_node_type_at, declaration_node
+    use fortfront_ast, only: declaration_node, get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_LAZY
     implicit none
 
     call assert_local_declared('subroutine', &

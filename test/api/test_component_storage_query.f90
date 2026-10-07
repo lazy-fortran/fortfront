@@ -1,9 +1,9 @@
 program test_component_storage_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, component_access_query_t, query_component_access, &
-        component_path_query_t, query_component_path, storage_query_t, &
-        query_storage, STORAGE_OWNED
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        component_access_query_t, component_path_query_t, query_component_access, &
+        query_component_path, query_storage, STORAGE_OWNED, storage_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type :: expected_fact_t

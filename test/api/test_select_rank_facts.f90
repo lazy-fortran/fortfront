@@ -1,11 +1,11 @@
 program test_select_rank_facts
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, control_statement_query_t, &
-        query_control_statement, CONTROL_SELECT_RANK, &
-        CONTROL_TYPE_GUARD, &
-        SELECT_RANK_DISPATCH_EXPLICIT, SELECT_RANK_DISPATCH_ASSUMED_SIZE, &
-        SELECT_RANK_DISPATCH_DEFAULT
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_RANK, &
+        control_statement_query_t, CONTROL_TYPE_GUARD, query_control_statement, &
+        SELECT_RANK_DISPATCH_ASSUMED_SIZE, SELECT_RANK_DISPATCH_DEFAULT, &
+        SELECT_RANK_DISPATCH_EXPLICIT
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

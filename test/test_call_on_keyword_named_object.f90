@@ -11,9 +11,10 @@ program test_call_on_keyword_named_object
     !! The checks are on the emitted code, not on the parser's internals: the
     !! call must survive with its designator intact and the statements after
     !! it must still be there.
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, compiler_frontend_result_t, &
-        INPUT_MODE_STANDARD, emit_fortran
+    use codegen_api, only: emit_fortran
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     call check_call_then_loop('operator')

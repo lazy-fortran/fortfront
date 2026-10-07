@@ -2,7 +2,7 @@ program test_issue_1350_recursive_keyword
     ! Regression tests for GitHub issue #1350:
     !  - Recursive keyword dropped from function declarations
     !  - ELSE branch bodies removed from simple IF statements
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

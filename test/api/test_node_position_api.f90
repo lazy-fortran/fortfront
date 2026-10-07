@@ -1,6 +1,6 @@
 program test_node_position_api
-    use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
-        tooling_parse_options_t, get_node_line, get_node_column
+    use fortfront_ast, only: ast_arena_t, get_node_column, get_node_line
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     logical :: all_passed

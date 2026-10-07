@@ -9,9 +9,9 @@ program test_if_else_body_type_inference
     ! correctly typed by the then branch.  Downstream consumers (notably
     ! lazy-fortran/ffc lowering) then needed local workarounds to
     ! recover the array-access intent.
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, &
-        compiler_frontend_result_t, INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     use ast_nodes_control, only: if_node
     use ast_nodes_core, only: assignment_node, call_or_subscript_node
     implicit none

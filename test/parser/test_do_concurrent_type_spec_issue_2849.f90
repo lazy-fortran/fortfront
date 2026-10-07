@@ -1,6 +1,6 @@
 program test_do_concurrent_type_spec_issue_2849
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source, output, error_msg

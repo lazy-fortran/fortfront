@@ -196,11 +196,11 @@ The intended compiler boundary is:
 The compiler API is Fortran-only today. A full C ABI for typed AST traversal is
 not implemented.
 
-Consumers using the unified `fortfront` facade can query array-bound and range
-nodes without importing concrete AST node types:
+Consumers using `fortfront_compiler` can query array-bound and range nodes
+without importing concrete AST node types:
 
 ```fortran
-use fortfront, only: array_bounds_query_t, query_array_bounds
+use fortfront_compiler, only: array_bounds_query_t, query_array_bounds
 
 type(array_bounds_query_t) :: bounds
 

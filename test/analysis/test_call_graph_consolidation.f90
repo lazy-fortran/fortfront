@@ -1,5 +1,8 @@
 program test_call_graph_consolidation
-    use fortfront
+    use call_graph_module, only: build_call_graph, call_graph_t
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

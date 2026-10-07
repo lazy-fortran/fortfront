@@ -1,6 +1,8 @@
 program test_issue_2858_double_precision_contained_function
-    use fortfront, only: parse_tokens, ast_arena_t, create_ast_arena, &
-        lex_source, token_t, ast_node, function_def_node
+    use fortfront_ast, only: ast_arena_t, ast_node, create_ast_arena, &
+        function_def_node
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     implicit none
 
     logical :: all_passed

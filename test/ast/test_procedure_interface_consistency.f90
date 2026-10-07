@@ -1,7 +1,11 @@
 program test_procedure_interface_consistency
     ! Test for issue #74: Function/subroutine interface inconsistencies in AST API
     ! This test verifies that the unified procedure interface works correctly
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, create_function_def, &
+        create_subroutine_def, function_def_node, get_procedure_body, &
+        get_procedure_name, get_procedure_params, get_procedure_return_type, &
+        identifier_node, interface_block_node, is_procedure_node, &
+        procedure_has_return_type, subroutine_def_node
     implicit none
 
     logical :: all_tests_passed

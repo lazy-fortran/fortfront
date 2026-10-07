@@ -1,11 +1,11 @@
 program test_select_type_real8_expression_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, &
-        control_statement_query_t, query_control_statement, &
-        select_type_generic_dispatch_query_t, &
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        control_statement_query_t, query_control_statement, query_resolved_type, &
         query_select_type_generic_dispatch, resolved_type_query_t, &
-        query_resolved_type, TREAL
+        select_type_generic_dispatch_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD, TREAL
     use ast_nodes_core, only: call_or_subscript_node, binary_op_node
     implicit none
 

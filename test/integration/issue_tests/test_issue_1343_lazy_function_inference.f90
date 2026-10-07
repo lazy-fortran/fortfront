@@ -1,5 +1,5 @@
 program test_issue_1343_lazy_function_inference
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed

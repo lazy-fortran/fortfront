@@ -1,6 +1,8 @@
 program test_issue_2236_optional_assumed_rank
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: tooling_parse_options_t, ast_arena_t, token_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_lexer, only: token_t
+    use fortfront_tooling, only: tooling_parse_options_t
     implicit none
 
     logical :: all_passed
@@ -24,7 +26,7 @@ contains
     include '../../common/read_example.inc'
 
     logical function test_optional_assumed_rank_parsing()
-        use fortfront, only: tooling_load_ast_from_string
+        use fortfront_tooling, only: tooling_load_ast_from_string
         type(ast_arena_t) :: arena
         type(tooling_parse_options_t) :: options
         type(token_t), allocatable :: tokens(:)

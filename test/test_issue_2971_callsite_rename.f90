@@ -1,6 +1,6 @@
 program test_issue_2971_callsite_rename
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source, output, error_msg
 

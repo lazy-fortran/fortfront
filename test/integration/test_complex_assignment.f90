@@ -1,5 +1,5 @@
 program test_complex_assignment
-    use fortfront
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: output, error_msg

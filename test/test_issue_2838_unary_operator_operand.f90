@@ -4,11 +4,10 @@ program test_issue_2838_unary_operator_operand
     ! walk the operator call like any other. The crash was a dangling operand
     ! index reported as "argument index does not reference an AST node".
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, &
-        compile_frontend_from_string, &
-        is_binary_op, get_binary_op_info, &
-        get_identifier_name, INPUT_MODE_STANDARD
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, get_binary_op_info, &
+        get_identifier_name, is_binary_op
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

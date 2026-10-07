@@ -1,5 +1,7 @@
 program test_dummy_argument_tracking
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena
+    use fortfront_lexer, only: token_t, tokenize_core
+    use variable_usage_tracker_module, only: get_identifiers_in_subtree
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 

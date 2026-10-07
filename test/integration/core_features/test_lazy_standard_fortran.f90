@@ -1,6 +1,12 @@
 program test_lazy_standard_fortran
     ! Test that lazy Fortran mode correctly handles standard Fortran input
-    use fortfront
+    use codegen_api, only: emit_fortran
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, literal_node, program_node
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: analyze_semantics, create_semantic_context, &
+        semantic_context_t
+    use fortfront_transform, only: transform_lazy_fortran_string
+    use parser_api, only: parse_tokens
     implicit none
 
     type(ast_arena_t) :: arena

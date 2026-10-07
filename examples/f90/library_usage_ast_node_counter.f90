@@ -1,5 +1,5 @@
 module ast_node_counter_callbacks
-    use fortfront, only: ast_arena_t, get_node_type_at, node_exists
+    use fortfront_ast, only: ast_arena_t, get_node_type_at, node_exists
     implicit none
 contains
     subroutine count_callback(arena, node_index)
@@ -16,8 +16,8 @@ end module ast_node_counter_callbacks
 program ast_node_counter
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_node_counter_callbacks, only: count_callback
-    use fortfront, only: ast_arena_t, create_ast_arena, &
-        tooling_load_ast_from_string, traverse_ast
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, traverse_ast
+    use fortfront_tooling, only: tooling_load_ast_from_string
     implicit none
 
     type(ast_arena_t) :: arena

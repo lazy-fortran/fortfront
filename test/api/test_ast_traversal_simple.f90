@@ -1,5 +1,9 @@
 program test_ast_traversal_simple
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, debug_visitor_t, &
+        traverse_postorder, traverse_preorder
+    use fortfront_lexer, only: lex_source, token_t
+    use fortfront_semantic, only: semantic_context_t
+    use parser_api, only: parse_tokens
     use ast_visitor
     implicit none
 

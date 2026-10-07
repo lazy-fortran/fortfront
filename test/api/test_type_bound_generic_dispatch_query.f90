@@ -1,9 +1,9 @@
 program test_type_bound_generic_dispatch_query
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, subroutine_call_node, &
-        type_bound_generic_dispatch_query_t, &
-        query_type_bound_generic_dispatch
+    use fortfront_ast, only: get_node_type_at, subroutine_call_node
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        query_type_bound_generic_dispatch, type_bound_generic_dispatch_query_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options

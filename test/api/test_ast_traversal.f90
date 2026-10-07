@@ -1,5 +1,9 @@
 program test_ast_traversal
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, create_ast_arena, debug_visitor_t, &
+        is_if_node, is_print_statement_node, is_program_node, traverse_ast, &
+        traverse_ast_visitor, traverse_postorder, traverse_preorder
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use lexer_api, only: lex_source
     use parser_api, only: parse_tokens
     use ast_visitor

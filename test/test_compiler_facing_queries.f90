@@ -8,10 +8,10 @@ program test_compiler_facing_queries
     !   get_interface_block_body
     !   has_bind_c_attribute
     !   get_bind_c_name
-    use fortfront, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, &
-        compiler_frontend_result_t, INPUT_MODE_STANDARD, &
-        get_node_type_at
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     use fortfront_compiler, only: get_declaration_initializer, &
         get_derived_type_components, &
         get_array_literal_elements, get_import_list, &

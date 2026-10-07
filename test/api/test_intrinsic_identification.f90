@@ -1,5 +1,7 @@
 program test_intrinsic_identification
-    use fortfront
+    use fortfront_ast, only: ast_arena_t, call_or_subscript_node, create_ast_arena
+    use fortfront_lexer, only: lex_source, token_t
+    use parser_api, only: parse_tokens
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
         registry_get_signature => get_intrinsic_signature
     implicit none

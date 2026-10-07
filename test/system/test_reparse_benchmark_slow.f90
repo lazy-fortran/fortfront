@@ -1,7 +1,7 @@
 program test_reparse_benchmark_slow
     use, intrinsic :: iso_fortran_env, only: dp => real64, int64
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_string, &
-        ast_arena_t
+    use fortfront_ast, only: ast_arena_t
+    use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
     implicit none
 
     logical :: all_passed

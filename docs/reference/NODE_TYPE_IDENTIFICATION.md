@@ -16,7 +16,7 @@ ast_node (abstract base)
 Use integer constants for O(1) type identification:
 
 ```fortran
-use fortfront
+use fortfront_ast
 
 if (get_node_type(arena, index) == NODE_ASSIGNMENT) then
     ! Process assignment

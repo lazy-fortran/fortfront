@@ -1,9 +1,11 @@
 program test_defined_operator_query
     use iso_fortran_env, only: error_unit
-    use fortfront, only: compiler_frontend_options_t, &
-        compiler_frontend_result_t, compile_frontend_from_string, &
-        INPUT_MODE_STANDARD, get_node_type_at, is_binary_op, &
-        get_binary_op_info, defined_operator_query_t, query_defined_operator
+    use fortfront_ast, only: get_node_type_at
+    use fortfront_compiler, only: compile_frontend_from_string, &
+        compiler_frontend_options_t, compiler_frontend_result_t, &
+        defined_operator_query_t, get_binary_op_info, is_binary_op, &
+        query_defined_operator
+    use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
     type(compiler_frontend_options_t) :: options
