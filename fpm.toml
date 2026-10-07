@@ -11,3 +11,8 @@ auto-examples = false
 implicit-external = false
 implicit-typing = false
 source-form = "free"
+
+[[extra.fo.inputs]]
+path = "examples"
+kind = "directory"
+role = "test-fixture"
