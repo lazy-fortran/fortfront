@@ -4,6 +4,9 @@ module codegen_statements
     use ast_nodes_io
     use ast_nodes_misc
     use ast_nodes_procedure
+    use ast_nodes_transfer, only: stop_node, return_node, alt_return_spec_node, &
+        entry_node, continue_node, goto_node, error_stop_node, cycle_node, &
+        exit_node, pause_node, nullify_node
     use ast_nodes_legacy, only: common_block_node, enum_node
     use type_system_unified
     use string_types, only: string_t

@@ -779,7 +779,7 @@ subroutine update_existing_variable_type(existing_idx, var_type, var_types)
     end if
 
     if (index(var_types(existing_idx), 'character(') == 1 &
-        .and. index(var_types(existing_idx), 'len=:') > 0, &
+        .and. index(var_types(existing_idx), 'len=:') > 0 &
         .and. index(var_types(existing_idx), 'allocatable') == 0) then
         var_types(existing_idx) = trim(var_types(existing_idx)) &
             //", allocatable"
