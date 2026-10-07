@@ -1,7 +1,8 @@
 program test_procedure_call_target_query
     use fortfront_compiler, only: compile_frontend_from_string, &
-        compiler_frontend_options_t, compiler_frontend_result_t, &
-        procedure_call_target_query_t, query_procedure_call_target
+        compiler_frontend_options_t, compiler_frontend_result_t
+    use frontend_compiler_queries, only: procedure_call_target_query_t, &
+        query_procedure_call_target
     use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
