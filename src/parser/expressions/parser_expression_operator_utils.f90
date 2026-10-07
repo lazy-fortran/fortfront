@@ -2,7 +2,7 @@ module parser_expression_operator_utils_module
     use lexer_core, only: token_t, TK_OPERATOR, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node
-    use ast_factory, only: push_binary_op, push_literal
+    use ast_factory_core, only: push_binary_op, push_literal
     use ast_types, only: LITERAL_INTEGER
     use parser_expression_stacks_module, only: operator_entry_t, operator_stack_t, &
         operand_stack_t, token_stack_t, &
@@ -220,7 +220,7 @@ contains
     end function apply_prefix_stack
 
     subroutine reduce_single_operator(operators, operands, arena)
-        use ast_factory, only: push_assignment
+        use ast_factory_core, only: push_assignment
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena

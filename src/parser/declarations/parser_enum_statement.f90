@@ -17,7 +17,7 @@ module parser_enum_statement_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
-    use ast_factory, only: push_enum
+    use ast_factory_statements, only: push_enum
     use semantic_constant_values, only: integer_literal_fits_default_kind
     implicit none
     private

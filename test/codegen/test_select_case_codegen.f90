@@ -2,10 +2,11 @@ program test_select_case_codegen
     use frontend_core, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
-    use ast_factory, only: push_program, push_identifier, push_literal
-    use ast_factory, only: push_select_case, push_select_case_with_default, &
-        push_case_block, push_case_default
-    use ast_factory, only: push_print_statement
+    use ast_factory_core, only: push_identifier, push_literal, push_program
+    use ast_factory_control, only: push_case_block, push_case_default, &
+        push_select_case, &
+        push_select_case_with_default
+    use ast_factory_io, only: push_print_statement
     implicit none
 
     character(len=:), allocatable :: src

@@ -23,7 +23,8 @@ module parser_statement_core_module
     use parser_import_resolution_module, only: parse_use_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_pointer_assignment, push_identifier
+    use ast_factory_core, only: push_assignment, push_identifier, &
+        push_pointer_assignment
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
         null_statement_callbacks, &
         call_fallback_do_parser, call_fallback_if_parser, &

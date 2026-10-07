@@ -10,7 +10,6 @@ module standardizer_program
     use ast_nodes_conditional, only: select_case_node, if_node
     use ast_nodes_loops, only: do_while_node, do_loop_node
     use ast_nodes_transfer, only: nullify_node
-    use ast_factory
     use type_system_unified
     use error_handling
     use standardizer_declarations

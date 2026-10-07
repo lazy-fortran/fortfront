@@ -1,7 +1,7 @@
 module parser_interface_module_procedures_module
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
-    use ast_factory, only: push_module_procedure
+    use ast_factory_procedures, only: push_module_procedure
     use parser_state_module, only: parser_state_t
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &

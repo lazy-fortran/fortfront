@@ -6,9 +6,9 @@ module parser_statement_data_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node, literal_node, &
         identifier_node
-    use ast_factory, only: push_assignment, push_array_literal, &
-        push_namelist_statement, push_data_statement, &
-        push_io_implied_do
+    use ast_factory_core, only: push_array_literal, push_assignment
+    use ast_factory_statements, only: push_data_statement, push_io_implied_do, &
+        push_namelist_statement
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
     implicit none

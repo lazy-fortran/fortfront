@@ -60,8 +60,9 @@ module parser_execution_statements_module
         looks_like_implicit_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: contains_node
-    use ast_factory, only: push_program, &
-        push_declaration, push_implicit_statement, push_goto
+    use ast_factory_core, only: push_program
+    use ast_factory_declarations, only: push_declaration
+    use ast_factory_statements, only: push_goto, push_implicit_statement
     use parser_statement_utilities_module, only: parse_comment_or_directive
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_common_statement_module, only: parse_common_statement

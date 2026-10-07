@@ -10,7 +10,6 @@ Factory methods handle arena allocation, node initialization, field assignment, 
 
 | File | Description |
 |------|-------------|
-| ast_factory.f90 | Public facade for all factory methods |
 | ast_factory_core.f90 | Core node factories: programs, modules, functions, variables, literals |
 | ast_factory_procedures.f90 | Procedure node factories: parameters, results, internal procedures, entries |
 | ast_factory_declarations.f90 | Declaration node factories: type declarations, variable declarations, attributes |
@@ -66,7 +65,7 @@ end function
 **Modularization**
 - Factories grouped by node family
 - Split modules when approaching size limits
-- Facade modules provide unified interface
+- Consumers import each factory from the module that owns it
 - Includes (.inc) used for oversized factories
 
 ## Dependencies

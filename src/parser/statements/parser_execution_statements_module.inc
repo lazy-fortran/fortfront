@@ -830,7 +830,7 @@
 
         integer function parse_unsupported_stmt(keyword, parser_ref, arena_ref) &
             result(stmt_index)
-            use ast_factory, only: push_error_node
+            use ast_factory_errors, only: push_error_node
             character(len=*), intent(in) :: keyword
             type(parser_state_t), intent(inout) :: parser_ref
             type(ast_arena_t), intent(inout) :: arena_ref

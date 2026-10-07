@@ -1,7 +1,8 @@
 module test_where_forall_validation
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_factory
     use ast_nodes_loops, only: MAX_INDEX_NAME_LENGTH, forall_node
+    use ast_factory_control, only: push_forall
+    use ast_factory_core, only: push_identifier, push_literal
     implicit none
 
 contains

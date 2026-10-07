@@ -5,7 +5,7 @@ module parser_interface_blocks_module
     use parser_state_module, only: parser_state_t
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_interface_block
+    use ast_factory_procedures, only: push_interface_block
     use parser_interface_block_headers_module, only: begin_interface_block, &
         handle_interface_end
     use parser_interface_prefix_module, only: is_procedure_prefix, &

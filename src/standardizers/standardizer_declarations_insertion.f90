@@ -1,6 +1,6 @@
 module standardizer_declarations_insertion
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     use ast_nodes_core, only: literal_node, program_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &

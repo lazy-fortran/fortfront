@@ -14,13 +14,12 @@ module parser_select_constructs_module
     use parser_statement_core_module, only: statement_callbacks_t, &
         null_statement_callbacks
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_select_case, push_select_case_with_default, &
-        push_case_block, push_case_range, push_case_default, &
-        push_select_type, push_select_type_with_default, &
-        push_type_guard_block, &
-        push_select_rank, push_select_rank_with_default, &
-        push_rank_block, &
-        push_identifier, push_literal, push_assignment, &
+    use ast_factory_control, only: push_case_block, push_case_default, &
+        push_case_range, &
+        push_rank_block, push_select_case, push_select_case_with_default, &
+        push_select_rank, push_select_rank_with_default, push_select_type, &
+        push_select_type_with_default, push_type_guard_block
+    use ast_factory_core, only: push_assignment, push_identifier, push_literal, &
         push_pointer_assignment
     implicit none
     private

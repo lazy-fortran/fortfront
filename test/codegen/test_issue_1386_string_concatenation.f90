@@ -2,8 +2,8 @@ program test_issue_1386_string_concatenation
     use frontend_core, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_STRING
-    use ast_factory, only: push_program, push_assignment, push_identifier, &
-        push_literal, push_binary_op
+    use ast_factory_core, only: push_assignment, push_binary_op, push_identifier, &
+        push_literal, push_program
     implicit none
 
     type(ast_arena_t) :: arena

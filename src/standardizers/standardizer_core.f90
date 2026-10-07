@@ -3,7 +3,6 @@ module standardizer_core
     ! This module provides the primary interface for AST standardization
 
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory
     use type_system_unified
     use error_handling, only: &
         ERROR_TYPE_SYSTEM

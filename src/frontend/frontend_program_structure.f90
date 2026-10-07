@@ -9,7 +9,7 @@ module frontend_program_structure
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
         end_statement_node, implicit_statement_node, &
         interface_block_node
-    use ast_factory, only: push_program, push_multi_unit_container
+    use ast_factory_core, only: push_multi_unit_container, push_program
 
     implicit none
     private

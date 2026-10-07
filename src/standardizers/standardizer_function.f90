@@ -1,6 +1,6 @@
 module standardizer_function
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     use ast_nodes_procedure, only: function_def_node
     use standardizer_parameter, only: get_standardizer_type_standardization
     use standardizer_function_parameters, only: standardize_function_parameters

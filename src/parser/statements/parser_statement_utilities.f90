@@ -34,8 +34,8 @@ module parser_statement_utilities_module
     use parser_import_resolution_module, only: parse_use_statement
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_associate, push_if, &
-        push_import_statement
+    use ast_factory_control, only: push_associate, push_if
+    use ast_factory_statements, only: push_import_statement
     use ast_nodes_associate, only: association_t
     use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement

@@ -6,7 +6,7 @@ module parser_submodule_structures_module
         TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_submodule_structured
+    use ast_factory_procedures, only: push_submodule_structured
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_type_specifications_module, only: take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier

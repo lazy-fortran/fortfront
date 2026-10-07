@@ -6,9 +6,10 @@ module parser_expressions_module
     use ast_nodes_core, only: component_access_node, identifier_node, &
         range_subscript_node
     use ast_types, only: LITERAL_INTEGER, LITERAL_LOGICAL
-    use ast_factory, only: push_binary_op, push_literal, push_identifier, &
-        push_range_expression, push_complex_literal, &
-        push_assumed_size_bounds, push_assumed_rank_bounds
+    use ast_factory_arrays, only: push_assumed_rank_bounds, push_assumed_size_bounds, &
+        push_range_expression
+    use ast_factory_core, only: push_binary_op, push_complex_literal, push_identifier, &
+        push_literal
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expression_helpers_module, only: parse_number_literal, &
         parse_string_literal, &

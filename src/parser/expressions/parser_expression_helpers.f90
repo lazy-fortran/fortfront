@@ -3,8 +3,8 @@ module parser_expression_helpers_module
         TK_WHITESPACE, TK_NEWLINE, TK_COMMENT, TK_EOF, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_REAL, LITERAL_INTEGER, LITERAL_STRING, LITERAL_LOGICAL
-    use ast_factory, only: push_literal, push_component_access, &
-        push_call_or_subscript, &
+    use ast_factory_core, only: push_component_access, push_literal
+    use ast_factory_expressions, only: push_call_or_subscript, &
         push_call_or_subscript_with_slice_detection
     use parser_state_module, only: parser_state_t
     use parser_utilities, only: peek_next_nontrivial_token

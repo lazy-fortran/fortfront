@@ -7,8 +7,9 @@ module parser_expression_arrays_module
         identifier_node, literal_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
-    use ast_factory, only: push_array_literal, push_do_loop, &
-        push_call_or_subscript_with_slice_detection
+    use ast_factory_control, only: push_do_loop
+    use ast_factory_core, only: push_array_literal
+    use ast_factory_expressions, only: push_call_or_subscript_with_slice_detection
     use ast_factory_arrays, only: push_array_slice
     use ast_factory_core, only: push_literal
     implicit none

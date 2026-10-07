@@ -7,8 +7,9 @@ module parser_call_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_subroutine_call, push_literal, &
-        push_alt_return_spec
+    use ast_factory_core, only: push_literal
+    use ast_factory_expressions, only: push_subroutine_call
+    use ast_factory_statements, only: push_alt_return_spec
     use ast_types, only: LITERAL_STRING
     implicit none
     private

@@ -3,7 +3,7 @@ module parser_implicit_shared_module
         TK_WHITESPACE, TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     implicit none
     private
 

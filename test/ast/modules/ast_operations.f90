@@ -1,7 +1,7 @@
 module ast_operations
     ! Operations on AST nodes
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_factory
+    use ast_factory_core, only: push_literal, push_program
     implicit none
 
     private

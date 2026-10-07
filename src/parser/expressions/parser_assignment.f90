@@ -6,8 +6,9 @@ module parser_assignment_module
     use parser_expressions_module, only: parse_range, parse_logical_eqv
     use parser_utilities, only: peek_next_nontrivial_token
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_pointer_assignment, &
-        push_identifier, push_literal, push_complex_literal
+    use ast_factory_core, only: push_assignment, push_complex_literal, &
+        push_identifier, &
+        push_literal, push_pointer_assignment
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
     private

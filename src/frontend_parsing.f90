@@ -11,7 +11,7 @@ module frontend_parsing
     use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_factory, only: push_program, push_multi_unit_container
+    use ast_factory_core, only: push_multi_unit_container, push_program
     use frontend_utilities, only: is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &

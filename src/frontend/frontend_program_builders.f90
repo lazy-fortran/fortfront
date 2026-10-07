@@ -10,7 +10,7 @@ module frontend_program_builders
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &
         end_statement_node, comment_node, directive_node, &
         blank_line_node
-    use ast_factory, only: push_implicit_statement
+    use ast_factory_statements, only: push_implicit_statement
     use standardizer_program, only: insert_contains_statement
     use procedure_classification, only: procedure_has_entry_statement
     implicit none

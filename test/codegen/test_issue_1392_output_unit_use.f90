@@ -2,8 +2,9 @@ program test_issue_1392_output_unit_use
     use frontend_core, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_STRING
-    use ast_factory, only: push_program, push_literal, push_write_statement, &
-        push_use_statement
+    use ast_factory_core, only: push_literal, push_program
+    use ast_factory_io, only: push_write_statement
+    use ast_factory_statements, only: push_use_statement
     implicit none
 
     print *, "=== Issue #1392: ensure iso output unit use is retained ==="

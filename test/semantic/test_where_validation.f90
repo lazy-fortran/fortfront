@@ -4,7 +4,7 @@ program test_where_validation
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_array, only: where_node, elsewhere_clause_t
     use ast_base, only: LITERAL_LOGICAL, LITERAL_INTEGER
-    use ast_factory, only: push_where
+    use ast_factory_control, only: push_where
     use ast_factory_core, only: push_assignment, push_identifier, push_literal
     use ast_factory_control, only: push_if
     use ast_factory_statements, only: push_stop

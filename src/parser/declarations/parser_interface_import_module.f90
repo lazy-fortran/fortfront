@@ -1,6 +1,6 @@
 module parser_interface_import_module
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_import_statement
+    use ast_factory_statements, only: push_import_statement
     use parser_state_module, only: parser_state_t
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, TK_WHITESPACE

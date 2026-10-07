@@ -2,8 +2,8 @@ module parser_template_blocks_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_template_block, push_trait_block, &
-        push_requirement_block, push_implements_block
+    use ast_factory_generics, only: push_implements_block, push_requirement_block, &
+        push_template_block, push_trait_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_module_structures_module, only: parse_module_body
     implicit none

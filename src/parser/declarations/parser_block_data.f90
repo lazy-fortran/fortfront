@@ -4,7 +4,8 @@ module parser_block_data_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_STRING
-    use ast_factory, only: push_block_data, push_literal
+    use ast_factory_core, only: push_literal
+    use ast_factory_procedures, only: push_block_data
     use parser_declarations, only: parse_declaration
     use parser_common_statement_module, only: parse_common_statement
     use parser_statement_data_module, only: parse_data_statement

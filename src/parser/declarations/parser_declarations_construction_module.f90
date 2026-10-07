@@ -3,7 +3,8 @@ module parser_declarations_construction_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node
-    use ast_factory, only: push_declaration, push_complex_literal
+    use ast_factory_core, only: push_complex_literal
+    use ast_factory_declarations, only: push_declaration
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_expressions_module, only: parse_comparison
     use parser_type_hooks_module, only: register_type_annotation

@@ -2,7 +2,6 @@ program test_issue_517_multi_unit_parsing
     use frontend_parsing
     use lexer_core
     use ast_arena_modern
-    use ast_factory
     implicit none
 
     character(len=:), allocatable :: test_code

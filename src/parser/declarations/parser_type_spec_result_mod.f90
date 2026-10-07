@@ -2,7 +2,7 @@ module parser_type_spec_result_mod
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_EOF
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_identifier
+    use ast_factory_core, only: push_identifier
     use parser_expressions_module, only: parse_comparison
     use parser_type_spec_tokens_mod, only: append_token, append_int
     use parser_type_spec_tokens_mod, only: trim_token_sequence, strip_outer_parentheses

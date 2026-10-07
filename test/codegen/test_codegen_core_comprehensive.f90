@@ -2,7 +2,8 @@ program test_codegen_core_comprehensive
     use codegen_core
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
-    use ast_factory
+    use ast_factory_core, only: push_assignment, push_binary_op, push_identifier, &
+        push_literal
     implicit none
 
     integer :: test_count, pass_count

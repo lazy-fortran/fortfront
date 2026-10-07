@@ -16,7 +16,7 @@ module frontend_program_units
     use frontend_statement_processing, only: parse_all_statements, &
         parse_explicit_program_unit
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_program
+    use ast_factory_core, only: push_program
     use frontend_utilities, only: is_type_start
     use error_reporting, only: error_collection_t
 

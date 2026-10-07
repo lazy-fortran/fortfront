@@ -3,7 +3,7 @@ module parser_declarations_derived_module
         TK_WHITESPACE, TK_COMMENT, TK_OPERATOR
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_derived_type, push_type_binding
+    use ast_factory_declarations, only: push_derived_type, push_type_binding
     use parser_declarations_type_spec_support_module, only: &
         skip_type_definition_attributes
     use parser_type_spec_attributes_mod, only: extract_extends_from_attributes

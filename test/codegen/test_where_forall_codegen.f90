@@ -2,9 +2,9 @@ program test_where_forall_codegen
     use frontend_core, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_base, only: LITERAL_INTEGER
-    use ast_factory, only: push_program, push_identifier, push_literal, push_binary_op, &
-        push_assignment
-    use ast_factory, only: push_where_construct_with_elsewhere, push_forall
+    use ast_factory_core, only: push_assignment, push_binary_op, push_identifier, &
+        push_literal, push_program
+    use ast_factory_control, only: push_forall, push_where_construct_with_elsewhere
     implicit none
 
     logical :: all_passed
