@@ -17,7 +17,6 @@ module frontend_parsing
     use mixed_construct_detector, only: detect_mixed_constructs, &
         mixed_construct_result_t, &
         is_top_level_declaration
-    use error_handling, only: result_t
     use error_reporting, only: error_collection_t, error_record_t
     use parser_dispatcher_module, only: clear_parser_errors
     use parser_construct_terminators_module, only: validate_construct_terminators
@@ -61,14 +60,8 @@ module frontend_parsing
     implicit none
     private
 
-    ! Parse result type combining result_t with program index
-    type, public :: parse_result_with_index_t
-        type(result_t) :: result
-        integer :: prog_index = 0
-    end type parse_result_with_index_t
-
     ! Main public interface (preserved for compatibility)
-    public :: parse_tokens, parse_tokens_safe
+    public :: parse_tokens
 
     ! Re-export functions needed by other modules
     public :: find_program_unit_boundary, is_function_start, is_end_function, &
@@ -183,25 +176,6 @@ contains
         call finalize_program_result(arena, unit_indices, prog_index, error_msg)
         call export_parser_errors(diagnostics, parser_errors)
     end subroutine parse_tokens
-
-    ! Safe parsing wrapper
-    function parse_tokens_safe(tokens, arena) result(parse_result)
-        type(token_t), intent(in) :: tokens(:)
-        type(ast_arena_t), intent(inout) :: arena
-        type(parse_result_with_index_t) :: parse_result
-
-        character(len=500) :: error_msg
-
-        call parse_tokens(tokens, arena, parse_result%prog_index, error_msg)
-
-        if (len_trim(error_msg) > 0) then
-            parse_result%result%success = .false.
-            parse_result%result%error_message = trim(error_msg)
-        else
-            parse_result%result%success = .true.
-            parse_result%result%error_message = ""
-        end if
-    end function parse_tokens_safe
 
     logical function debug_dump_enabled() result(is_enabled)
         character(len=8) :: debug_flag

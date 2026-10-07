@@ -31,8 +31,7 @@ module frontend_core
         set_line_length_config, get_line_length_config
     use path_validation, only: validate_input_path, &
         & path_validation_result_t
-    use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
-        parse_result_with_index_t
+    use frontend_parsing, only: parse_tokens
     use frontend_transformation_analysis, only: promote_functions_to_internal_program
     use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use frontend_utilities, only: write_output_file
@@ -44,7 +43,6 @@ module frontend_core
     public :: lex_source, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
     public :: lex_file
-    public :: parse_tokens_safe, parse_result_with_index_t
     public :: normalize_fixed_form_source_text, is_fixed_form_file
 
     ! Simplified compilation options - no backend selection
