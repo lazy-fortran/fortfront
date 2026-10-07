@@ -128,7 +128,7 @@ contains
             "assignments, nested WHERE statements, or "// &
             "nested WHERE constructs (F2018 10.2.3.2)", &
             line=stmt_line, column=stmt_col, end_line=stmt_line, &
-            end_column=stmt_col + 1, &
+            end_column=stmt_col + 1 &
             )
 
         call errors%add_result(error_result)
