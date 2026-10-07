@@ -49,8 +49,8 @@
   or crash the pipeline.
 - Invalid tokens materialize literal nodes with diagnostic payloads, matching the
   legacy lazy Fortran behaviour while letting the Pratt loop continue.
-- `frontend_parsing::parse_tokens_safe` returns a `parse_result_with_index_t`
-  bundle that includes the root program handle plus syntax errors for tooling.
+- `frontend_parsing::parse_tokens` returns the root program handle and syntax
+  diagnostics through output arguments, with optional parser error records.
 
 ## Integration with Call Graph and Tooling
 - Optional analysis surfaces operate solely on the Pratt output; call graph

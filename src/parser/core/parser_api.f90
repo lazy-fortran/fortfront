@@ -3,8 +3,6 @@ module parser_api
     ! Provides parsing functionality to convert tokens into AST
     use frontend_parsing, only: &
         parse_tokens, &
-        parse_tokens_safe, &
-        parse_result_with_index_t, &
         find_program_unit_boundary, &
         is_function_start, &
         is_end_function, &
@@ -24,13 +22,11 @@ module parser_api
     private
 
     ! Core types
-    public :: parse_result_with_index_t
     public :: ast_arena_t
     public :: compiler_arena_t
 
     ! Main parsing functions
     public :: parse_tokens
-    public :: parse_tokens_safe
 
     ! Arena management
     public :: create_compiler_arena
