@@ -227,7 +227,7 @@ contains
         call destroy_ast_arena(arena)
 
         if (.not. allocated(arena%entries) .and. &
-            arena%compat_size == 0 .and. &
+            arena%entry_count == 0 .and. &
             arena%max_depth == 0 .and. &
             arena%size == 0 .and. &
             arena%capacity == 0 .and. &

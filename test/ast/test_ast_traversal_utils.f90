@@ -37,25 +37,25 @@ contains
 
         prog%name = "test"
         call arena%push(prog, "program_node", 0)
-        prog_idx = arena%compat_size
+        prog_idx = arena%entry_count
 
         id%name = "x"
         call arena%push(id, "identifier_node", prog_idx)
-        id1_idx = arena%compat_size
+        id1_idx = arena%entry_count
 
         assign%target_index = 0
         assign%value_index = 0
         assign%operator = "="
         call arena%push(assign, "assignment_node", prog_idx)
-        assign1_idx = arena%compat_size
+        assign1_idx = arena%entry_count
 
         id%name = "y"
         call arena%push(id, "identifier_node", assign1_idx)
-        id2_idx = arena%compat_size
+        id2_idx = arena%entry_count
 
         id%name = "z"
         call arena%push(id, "identifier_node", prog_idx)
-        id3_idx = arena%compat_size
+        id3_idx = arena%entry_count
 
         found_indices = find_nodes_by_type(arena, prog_idx, "identifier_node")
 

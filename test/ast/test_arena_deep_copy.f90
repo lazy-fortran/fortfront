@@ -58,10 +58,10 @@ contains
             prog_idx = push_program(original, "test_prog", body_indices, 1, 1)
 
             entries_before = allocated(original%entries)
-            print *, '    DIAG: entries_before=', entries_before, ' compat_size=', original%compat_size
+            print *, '    DIAG: entries_before=', entries_before, ' entry_count=', original%entry_count
             copy = original
             entries_after = allocated(copy%entries)
-            print *, '    DIAG: entries_after=', entries_after, ' compat_size=', copy%compat_size
+            print *, '    DIAG: entries_after=', entries_after, ' entry_count=', copy%entry_count
 
             ! CRITICAL: entries must be allocated in copy
             ! This is the core issue #2840 - base assignment drops extension components
@@ -77,10 +77,10 @@ contains
                 return
             end if
 
-            ! Verify compat_size
-            if (copy%compat_size /= original%compat_size) then
-                print *, '  FAIL: compat_size mismatch'
-                print *, '    original:', original%compat_size, 'copy:', copy%compat_size
+            ! Verify entry_count
+            if (copy%entry_count /= original%entry_count) then
+                print *, '  FAIL: entry_count mismatch'
+                print *, '    original:', original%entry_count, 'copy:', copy%entry_count
                 test_arena_copy_preserves_entries = .false.
                 return
             end if
@@ -152,7 +152,7 @@ contains
             type(ast_arena_t) :: original, copy
             integer :: id_idx, lit_idx, assign_idx, prog_idx
             integer, allocatable :: body_indices(:)
-            integer :: saved_compat_size
+            integer :: saved_entry_count
 
             original = create_ast_arena()
 
@@ -162,13 +162,13 @@ contains
             body_indices = [assign_idx]
             prog_idx = push_program(original, "demo", body_indices, 1, 1)
 
-            saved_compat_size = original%compat_size
+            saved_entry_count = original%entry_count
             copy = original
             call destroy_ast_arena(original)
 
             ! Copy must still have all nodes
-            if (copy%compat_size /= saved_compat_size) then
-                print *, '  FAIL: compat_size changed after destroy'
+            if (copy%entry_count /= saved_entry_count) then
+                print *, '  FAIL: entry_count changed after destroy'
                 test_copy_independent_of_original = .false.
                 return
             end if
@@ -285,8 +285,8 @@ contains
             original = create_ast_arena()
             copy = original
 
-            if (copy%compat_size /= 0) then
-                print *, '  FAIL: empty copy has non-zero compat_size'
+            if (copy%entry_count /= 0) then
+                print *, '  FAIL: empty copy has non-zero entry_count'
                 test_copy_empty_arena = .false.
                 return
             end if
@@ -317,7 +317,7 @@ contains
             copy = original
 
             ! Check every populated entry
-            do idx = 1, original%compat_size
+            do idx = 1, original%entry_count
                 if (allocated(original%entries(idx)%node_type)) then
                     if (.not. allocated(copy%entries(idx)%node_type)) then
                         print *, '  FAIL: node_type lost at index', idx
@@ -390,7 +390,7 @@ contains
             character(len=:), allocatable :: emit_original, emit_copy
             character(len=:), allocatable :: error_msg
             integer :: prog_idx
-            integer :: saved_compat_size, idx
+            integer :: saved_entry_count, idx
 
             call read_example('examples/f90/call_graph_module_program_scopes.f90', &
                 source)
@@ -410,22 +410,22 @@ contains
                 return
             end if
 
-            if (original%compat_size == 0) then
+            if (original%entry_count == 0) then
                 print *, '  FAIL: parse produced empty arena'
                 test_parse_emit_roundtrip = .false.
                 return
             end if
 
-            saved_compat_size = original%compat_size
+            saved_entry_count = original%entry_count
 
             call emit_fortran(original, prog_idx, emit_original)
 
             copy = original
             call destroy_ast_arena(original)
 
-            if (copy%compat_size /= saved_compat_size) then
-                print *, '  FAIL: compat_size lost after destroy'
-                print *, '    expected:', saved_compat_size, ' got:', copy%compat_size
+            if (copy%entry_count /= saved_entry_count) then
+                print *, '  FAIL: entry_count lost after destroy'
+                print *, '    expected:', saved_entry_count, ' got:', copy%entry_count
                 test_parse_emit_roundtrip = .false.
                 return
             end if
@@ -436,7 +436,7 @@ contains
                 return
             end if
 
-            do idx = 1, copy%compat_size
+            do idx = 1, copy%entry_count
                 if (allocated(copy%entries(idx)%node)) then
                     if (.not. allocated(copy%entries(idx)%node_type)) then
                         print *, '  FAIL: node_type missing at index', idx

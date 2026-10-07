@@ -40,7 +40,7 @@ module ast_arena_modern
 
     type, extends(ast_arena_core_t) :: ast_arena_t
         type(ast_entry_t), allocatable :: entries(:)
-        integer :: compat_size = 0
+        integer :: entry_count = 0
         integer :: current_index = 0
         integer :: max_depth = 0
         character(len=:), allocatable :: source_text
@@ -141,7 +141,7 @@ contains
         integer, allocatable :: child_indices(:)
 
         ! Return children indices from indexed entries
-        if (parent_index > 0 .and. parent_index <= this%compat_size) then
+        if (parent_index > 0 .and. parent_index <= this%entry_count) then
             if (allocated(this%entries(parent_index)%child_indices)) then
                 allocate (child_indices(this%entries(parent_index)%child_count))
                 child_indices = this%entries(parent_index)%child_indices( &
@@ -161,9 +161,9 @@ contains
         class(ast_node), allocatable :: parent_node
         integer :: parent_index
 
-        if (index > 0 .and. index <= this%compat_size) then
+        if (index > 0 .and. index <= this%entry_count) then
             parent_index = this%entries(index)%parent_index
-            if (parent_index > 0 .and. parent_index <= this%compat_size) then
+            if (parent_index > 0 .and. parent_index <= this%entry_count) then
                 if (allocated(this%entries(parent_index)%node)) then
                     call copy_ast_node_indexed(parent_node, &
                         this%entries(parent_index)%node)
@@ -178,7 +178,7 @@ contains
         integer, intent(in) :: index
         integer :: depth
 
-        if (index > 0 .and. index <= this%compat_size) then
+        if (index > 0 .and. index <= this%entry_count) then
             depth = this%entries(index)%depth
         else
             depth = 0
@@ -195,7 +195,7 @@ contains
 
         next_sibling = 0
 
-        if (node_index > 0 .and. node_index <= this%compat_size) then
+        if (node_index > 0 .and. node_index <= this%entry_count) then
             parent_idx = this%entries(node_index)%parent_index
             if (parent_idx > 0) then
                 siblings = this%get_children(parent_idx)
@@ -222,7 +222,7 @@ contains
 
         prev_sibling = 0
 
-        if (node_index > 0 .and. node_index <= this%compat_size) then
+        if (node_index > 0 .and. node_index <= this%entry_count) then
             parent_idx = this%entries(node_index)%parent_index
             if (parent_idx > 0) then
                 siblings = this%get_children(parent_idx)
@@ -272,7 +272,7 @@ contains
 
         is_block = .false.
 
-        if (node_index > 0 .and. node_index <= this%compat_size) then
+        if (node_index > 0 .and. node_index <= this%entry_count) then
             if (allocated(this%entries(node_index)%node_type)) then
                 node_type = this%entries(node_index)%node_type
 
@@ -309,7 +309,7 @@ contains
 
         ! Count matching nodes first
         count = 0
-        do i = 1, this%compat_size
+        do i = 1, this%entry_count
             if (allocated(this%entries(i)%node_type)) then
                 if (this%entries(i)%node_type == type_name) then
                     count = count + 1
@@ -323,7 +323,7 @@ contains
 
         ! Fill result array
         count = 0
-        do i = 1, this%compat_size
+        do i = 1, this%entry_count
             if (allocated(this%entries(i)%node_type)) then
                 if (this%entries(i)%node_type == type_name) then
                     count = count + 1
@@ -344,41 +344,41 @@ contains
         call this%ensure_capacity()
 
         ! Add to indexed entries
-        this%compat_size = this%compat_size + 1
+        this%entry_count = this%entry_count + 1
 
         ! Store in indexed entries array
         ! Newly grown entries should be empty; check before replacing.
-        if (allocated(this%entries(this%compat_size)%node)) then
-            deallocate (this%entries(this%compat_size)%node)
+        if (allocated(this%entries(this%entry_count)%node)) then
+            deallocate (this%entries(this%entry_count)%node)
         end if
-        call copy_ast_node_indexed(this%entries(this%compat_size)%node, node)
+        call copy_ast_node_indexed(this%entries(this%entry_count)%node, node)
 
         ! Set metadata
         if (present(node_type)) then
-            this%entries(this%compat_size)%node_type = node_type
+            this%entries(this%entry_count)%node_type = node_type
         else
-            this%entries(this%compat_size)%node_type = "unknown"
+            this%entries(this%entry_count)%node_type = "unknown"
         end if
 
         ! Set parent relationship
         if (present(parent_index)) then
-            this%entries(this%compat_size)%parent_index = parent_index
-            if (parent_index > 0 .and. parent_index <= this%compat_size) then
-                this%entries(this%compat_size)%depth = &
+            this%entries(this%entry_count)%parent_index = parent_index
+            if (parent_index > 0 .and. parent_index <= this%entry_count) then
+                this%entries(this%entry_count)%depth = &
                     this%entries(parent_index)%depth + 1
 
                 ! Add this child to parent's children list
-                call add_child_indexed(this, parent_index, this%compat_size)
+                call add_child_indexed(this, parent_index, this%entry_count)
             else
-                this%entries(this%compat_size)%depth = 0
+                this%entries(this%entry_count)%depth = 0
             end if
         else
-            this%entries(this%compat_size)%parent_index = 0
-            this%entries(this%compat_size)%depth = 0
+            this%entries(this%entry_count)%parent_index = 0
+            this%entries(this%entry_count)%depth = 0
         end if
 
         ! Update max depth tracking
-        this%max_depth = max(this%max_depth, this%entries(this%compat_size)%depth)
+        this%max_depth = max(this%max_depth, this%entries(this%entry_count)%depth)
 
         ! Update node count to stay in sync
         call this%increment_node_count()
@@ -439,15 +439,15 @@ contains
         core_capacity = stats%capacity ! Current core arena capacity from stats
 
         ! Grow indexed entries if needed
-        if (this%compat_size >= size(this%entries)) then
+        if (this%entry_count >= size(this%entries)) then
             new_capacity = max(size(this%entries) * 2, &
-                this%compat_size + AST_ARENA_GROWTH_MINIMUM)
+                this%entry_count + AST_ARENA_GROWTH_MINIMUM)
 
             allocate (temp_entries(new_capacity))
-            if (this%compat_size > 0) then
+            if (this%entry_count > 0) then
                 ! PERFORMANCE FIX: Manually move entries to avoid expensive deep copying
-                call move_entries_fast(this%entries(1:this%compat_size), &
-                    temp_entries(1:this%compat_size))
+                call move_entries_fast(this%entries(1:this%entry_count), &
+                    temp_entries(1:this%entry_count))
             end if
 
             call move_alloc(temp_entries, this%entries)
@@ -466,7 +466,7 @@ contains
         stats = this%ast_arena_core_t%get_stats()
 
         ! Report indexed entry information
-        stats%total_nodes = this%compat_size
+        stats%total_nodes = this%entry_count
         stats%max_depth = this%max_depth
 
         ! Use indexed entry array size as capacity
@@ -477,11 +477,11 @@ contains
         end if
 
         ! Update other relevant fields
-        stats%node_count = this%compat_size
-        stats%active_nodes = this%compat_size
+        stats%node_count = this%entry_count
+        stats%active_nodes = this%entry_count
     end function ast_arena_indexed_get_stats
 
-    ! Compatibility AST entry deep copy
+    ! Indexed AST entry deep copy
     function ast_entry_deep_copy(this) result(copy)
         class(ast_entry_t), intent(in) :: this
         type(ast_entry_t) :: copy
@@ -505,7 +505,7 @@ contains
         end if
     end function ast_entry_deep_copy
 
-    ! Compatibility AST entry assignment - MEMORY SAFE VERSION
+    ! Indexed AST entry assignment - MEMORY SAFE VERSION
     subroutine ast_entry_assign(lhs, rhs)
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
@@ -544,7 +544,7 @@ contains
 
         ! MEMORY SAFETY: Properly clean up all entry components
         if (allocated(this%entries)) then
-            do i = 1, min(this%compat_size, size(this%entries))
+            do i = 1, min(this%entry_count, size(this%entries))
                 ! Clean up polymorphic nodes
                 if (allocated(this%entries(i)%node)) then
                     deallocate (this%entries(i)%node)
@@ -565,7 +565,7 @@ contains
         end if
 
         ! Reset indexed entry state
-        this%compat_size = 0
+        this%entry_count = 0
         this%max_depth = 0
     end subroutine ast_arena_indexed_reset
 
@@ -652,8 +652,8 @@ contains
 
         call ast_arena_push_indexed(this, node, node_type, parent_index)
 
-        ! Sync size field with compat_size
-        this%size = this%compat_size
+        ! Sync size field with entry_count
+        this%size = this%entry_count
 
         ! CRITICAL FIX: Sync capacity field to prevent validation errors
         if (allocated(this%entries)) then
@@ -673,7 +673,7 @@ contains
 
         call destroy_indexed_entries(arena)
         if (allocated(arena%entries)) deallocate (arena%entries)
-        arena%compat_size = 0
+        arena%entry_count = 0
         arena%max_depth = 0
         arena%size = 0
         arena%capacity = 0
@@ -689,9 +689,9 @@ contains
         ! Use the core implementation
         free_result = arena%ast_arena_core_t%free_node(handle)
 
-        ! Sync compat_size with actual node count for statistics
+        ! Sync entry_count with actual node count for statistics
         if (free_result%success) then
-            arena%compat_size = &
+            arena%entry_count = &
                 arena%ast_arena_core_t%get_node_count()
         end if
     end function free_ast_node_modern
@@ -725,9 +725,9 @@ contains
         ! Delegate to core function
         ast_handle = core_store(arena%ast_arena_core_t, node)
 
-        ! Sync compat_size with actual node count for statistics
+        ! Sync entry_count with actual node count for statistics
         if (is_valid_ast_handle(ast_handle)) then
-            arena%compat_size = &
+            arena%entry_count = &
                 arena%ast_arena_core_t%get_node_count()
         end if
     end function store_ast_node_modern
@@ -750,10 +750,10 @@ contains
         ! Reset core and indexed entries
         call this%reset()
 
-        ! Sync compat_size with actual node count (should be 0 after reset)
-        this%compat_size = &
+        ! Sync entry_count with actual node count (should be 0 after reset)
+        this%entry_count = &
             this%ast_arena_core_t%get_node_count()
-        this%size = this%compat_size
+        this%size = this%entry_count
         if (allocated(this%entries)) then
             this%capacity = size(this%entries)
         else
@@ -847,7 +847,7 @@ contains
 
         if (.not. allocated(arena%entries)) return
 
-        valid_size = arena%compat_size
+        valid_size = arena%entry_count
         if (valid_size <= 0) return
         if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%node)) return
@@ -916,8 +916,8 @@ contains
         present = .false.
         ! Bounds check for parent_index to prevent out-of-bounds access
         if (.not. allocated(arena%entries)) return
-        ! Use compat_size for logical size validation
-        valid_size = arena%compat_size
+        ! Use entry_count for logical size validation
+        valid_size = arena%entry_count
         if (valid_size <= 0) return
         if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
@@ -941,8 +941,8 @@ contains
 
         ! Bounds check: ensure parent_index is valid
         if (.not. allocated(arena%entries)) return
-        ! Use compat_size for logical size validation
-        valid_size = arena%compat_size
+        ! Use entry_count for logical size validation
+        valid_size = arena%entry_count
         if (valid_size <= 0) return
         if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
@@ -972,7 +972,7 @@ contains
         integer :: i
 
         lhs%ast_arena_core_t = rhs%ast_arena_core_t
-        lhs%compat_size = rhs%compat_size
+        lhs%entry_count = rhs%entry_count
         lhs%current_index = rhs%current_index
         lhs%max_depth = rhs%max_depth
         if (allocated(rhs%entries)) then

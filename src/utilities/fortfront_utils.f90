@@ -262,7 +262,7 @@ contains
 
         ! Use stats from the arena
         stats = arena%get_stats()
-        stats%total_nodes = arena%compat_size
+        stats%total_nodes = arena%entry_count
         stats%max_depth = arena%max_depth
     end function get_arena_stats
 
