@@ -82,7 +82,8 @@ contains
     subroutine analyze_ast_content(arena, root_index, has_functions, &
             has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
-        use ast_nodes_control, only: if_node, do_loop_node
+        use ast_nodes_conditional, only: if_node
+        use ast_nodes_loops, only: do_loop_node
         use ast_nodes_procedure, only: subroutine_call_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -149,7 +150,8 @@ contains
     subroutine analyze_single_unit(arena, unit_index, has_functions, &
             has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
-        use ast_nodes_control, only: if_node, do_loop_node
+        use ast_nodes_conditional, only: if_node
+        use ast_nodes_loops, only: do_loop_node
         use ast_nodes_procedure, only: subroutine_call_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: unit_index

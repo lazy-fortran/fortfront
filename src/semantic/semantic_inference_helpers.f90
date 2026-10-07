@@ -7,9 +7,11 @@ module semantic_inference_helpers
         TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, where_node, &
-        where_stmt_node, forall_node, select_case_node, &
-        associate_node, stop_node, pause_node, nullify_node
+    use ast_nodes_conditional, only: if_node, select_case_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_array, only: where_node, where_stmt_node
+    use ast_nodes_transfer, only: stop_node, pause_node, nullify_node
+    use ast_nodes_associate, only: associate_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     implicit none

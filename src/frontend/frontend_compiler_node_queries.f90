@@ -1,6 +1,6 @@
 module frontend_compiler_node_queries
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_control, only: goto_node
+    use ast_nodes_transfer, only: goto_node
     use ast_nodes_data, only: declaration_node, derived_type_node
     implicit none
     private

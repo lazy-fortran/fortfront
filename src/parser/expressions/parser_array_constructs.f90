@@ -164,7 +164,7 @@ contains
             callbacks, &
             where_end_keywords, &
             line, column) result(where_index)
-        use ast_nodes_control, only: elsewhere_clause_t
+        use ast_nodes_array, only: elsewhere_clause_t
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t), intent(inout) :: parser
         integer, intent(in) :: mask_expr_index
@@ -305,7 +305,7 @@ contains
 
     ! Parse ASSOCIATE construct
     recursive function parse_associate(parser, arena) result(assoc_index)
-        use ast_nodes_control, only: association_t
+        use ast_nodes_associate, only: association_t
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assoc_index

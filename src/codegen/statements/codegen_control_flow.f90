@@ -1,7 +1,12 @@
 module codegen_control_flow
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
-    use ast_nodes_control
+    use ast_nodes_conditional, only: type_guard_block_node, case_default_node, &
+        select_rank_node, select_type_node, select_case_node, case_block_node, &
+        rank_block_node, case_range_node, if_node
+    use ast_nodes_loops, only: do_while_node, do_loop_node, forall_node
+    use ast_nodes_array, only: where_node
+    use ast_nodes_associate, only: block_construct_node, associate_node
     use type_system_unified
     use codegen_indent
     use codegen_grouped_body, only: generate_grouped_body

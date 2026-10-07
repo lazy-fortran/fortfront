@@ -6,13 +6,11 @@ module semantic_function_inference
     use ast_nodes_core, only: identifier_node, assignment_node, &
         call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
-        select_case_node, case_block_node, &
-        case_default_node, select_type_node, &
-        type_guard_block_node, where_node, &
-        where_stmt_node, associate_node, &
-        block_construct_node, forall_node, &
-        elseif_wrapper_t, elsewhere_clause_t
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
+        case_default_node, select_type_node, type_guard_block_node, elseif_wrapper_t
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_array, only: where_node, where_stmt_node, elsewhere_clause_t
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_data, only: declaration_node
     use semantic_procedure_utils, only: detect_result_name, &
         declaration_type_to_mono

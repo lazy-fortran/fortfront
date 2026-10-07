@@ -5,7 +5,7 @@ module standardizer_declarations_collection
         call_or_subscript_node, identifier_node, literal_node
     use ast_nodes_data, only: declaration_node, derived_type_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
-    use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
         case_default_node
     use ast_nodes_io, only: io_implied_do_node, print_statement_node, &
         read_statement_node
@@ -779,7 +779,7 @@ subroutine update_existing_variable_type(existing_idx, var_type, var_types)
     end if
 
     if (index(var_types(existing_idx), 'character(') == 1 &
-        .and. index(var_types(existing_idx), 'len=:') > 0 &
+        .and. index(var_types(existing_idx), 'len=:') > 0, &
         .and. index(var_types(existing_idx), 'allocatable') == 0) then
         var_types(existing_idx) = trim(var_types(existing_idx)) &
             //", allocatable"

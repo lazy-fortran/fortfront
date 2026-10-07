@@ -2,7 +2,7 @@ program test_tmp_debug
     use fortfront_ast, only: ast_arena_t
     use fortfront_lexer, only: token_t
     use fortfront_tooling, only: tooling_load_ast_from_string, tooling_parse_options_t
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_core, only: assignment_node, identifier_node, literal_node, &
         program_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node

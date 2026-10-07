@@ -40,7 +40,13 @@ module codegen_core
         instantiate_statement_node, trait_block_node, &
         requirement_block_node, implements_block_node
     use ast_error_nodes, only: error_node_t
-    use ast_nodes_control
+    use ast_nodes_conditional, only: select_rank_node, select_type_node, &
+        select_case_node, if_node
+    use ast_nodes_array, only: where_node
+    use ast_nodes_transfer, only: alt_return_spec_node, error_stop_node, continue_node, &
+        nullify_node, return_node, cycle_node, pause_node, entry_node, goto_node, &
+        exit_node, stop_node
+    use ast_nodes_associate, only: block_construct_node, associate_node
     use ast_nodes_loops
     use ast_nodes_io
     use codegen_generics, only: generate_code_template_block, &

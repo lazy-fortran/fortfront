@@ -24,7 +24,6 @@ module input_validation
     public :: contains_invalid_patterns
     public :: has_only_meaningless_tokens
     public :: format_enhanced_error
-    public :: format_syntax_error
     public :: split_into_lines
 
     ! Internal helper functions (private to module)

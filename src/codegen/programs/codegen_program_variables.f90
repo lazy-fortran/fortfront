@@ -13,10 +13,11 @@ module codegen_program_variables
     use ast_nodes_legacy, only: enum_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
-    use ast_nodes_control, only: associate_node, if_node, do_loop_node, &
-        do_while_node, select_case_node, case_block_node, &
-        case_default_node, where_node, forall_node, &
-        block_construct_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
+        case_default_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_array, only: where_node
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_conditional, only: select_type_node, type_guard_block_node, &
         select_rank_node, rank_block_node
     use codegen_program_decl_utils, only: exists_in_list, &

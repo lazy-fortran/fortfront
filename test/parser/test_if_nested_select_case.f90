@@ -4,7 +4,7 @@ program test_if_nested_select_case
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_constructs_module, only: parse_if
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_control, only: if_node, select_case_node
+    use ast_nodes_conditional, only: if_node, select_case_node
     use ast_nodes_core, only: literal_node
     implicit none
 

@@ -1,6 +1,7 @@
 module test_where_forall_coverage
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_control
+    use ast_nodes_loops, only: forall_node
+    use ast_nodes_array, only: where_stmt_node, where_node
     use ast_factory
     implicit none
 

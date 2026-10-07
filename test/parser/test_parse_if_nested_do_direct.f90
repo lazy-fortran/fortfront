@@ -5,7 +5,7 @@ program test_parse_if_nested_do_direct
     use parser_if_constructs_module, only: parse_if
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_loops, only: do_loop_node
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_core, only: literal_node
     implicit none
 

@@ -22,11 +22,11 @@ module fortfront_ast
         module_node, derived_type_node, &
         intent_type_to_string, INTENT_NONE, INTENT_IN, &
         INTENT_OUT, INTENT_INOUT
-    use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
-        case_range_node, case_default_node, &
-        where_node, cycle_node, exit_node, goto_node, &
-        error_stop_node, stop_node, return_node, &
-        continue_node
+    use ast_nodes_conditional, only: if_node, select_case_node, case_block_node, &
+        case_range_node, case_default_node
+    use ast_nodes_array, only: where_node
+    use ast_nodes_transfer, only: cycle_node, exit_node, goto_node, error_stop_node, &
+        stop_node, return_node, continue_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
         read_statement_node, format_descriptor_node

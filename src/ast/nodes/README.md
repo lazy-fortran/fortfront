@@ -13,7 +13,6 @@ Node types cover the complete Fortran language: programs, modules, procedures, e
 | ast_nodes_core.f90 | Core program structure: programs, modules, functions, subroutines, variables, literals |
 | ast_nodes_procedure.f90 | Procedure-related nodes: parameters, result declarations, internal procedures, entry points |
 | ast_nodes_conditional.f90 | Conditional constructs: if/elseif/else blocks, select case/type, where/elsewhere |
-| ast_nodes_control.f90 | Control flow: goto, continue, stop, exit, cycle, return |
 | ast_nodes_loops.f90 | Loop constructs: do loops, do-while, implied-do arrays |
 | ast_nodes_array.f90 | Array operations: indexing, slicing, array constructors, reshape |
 | ast_nodes_bounds.f90 | Array bounds and specifications: dimension attributes, array shape information |

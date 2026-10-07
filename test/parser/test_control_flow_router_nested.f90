@@ -5,7 +5,7 @@ program test_control_flow_router_nested
     use parser_execution_statements_module, only: parse_program_statement
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_loops, only: do_loop_node
-    use ast_nodes_control, only: if_node, select_case_node
+    use ast_nodes_conditional, only: if_node, select_case_node
     use ast_nodes_core, only: literal_node, program_node
     implicit none
 

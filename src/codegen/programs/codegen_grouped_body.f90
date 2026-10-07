@@ -1,8 +1,6 @@
 module codegen_grouped_body
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_control, only: &
-        continue_node, stop_node, &
-        error_stop_node
+    use ast_nodes_transfer, only: continue_node, stop_node, error_stop_node
     use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
         contains_node, end_statement_node, &
         data_statement_node, use_statement_node, &

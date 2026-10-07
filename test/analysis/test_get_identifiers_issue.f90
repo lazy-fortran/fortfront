@@ -189,7 +189,7 @@ contains
 
         ! Get identifiers from the if condition
         block
-            use ast_nodes_control, only: if_node
+            use ast_nodes_conditional, only: if_node
             select type (node => arena%entries(if_nodes(1))%node)
                 type is (if_node)
                 identifiers = get_identifiers_in_subtree(arena, node%condition_index)
@@ -292,7 +292,7 @@ contains
             end block
         case ("if_statement")
             block
-                use ast_nodes_control, only: if_node
+                use ast_nodes_conditional, only: if_node
                 select type (node => arena%entries(node_index)%node)
                     type is (if_node)
                     if (allocated(node%then_body_indices)) then

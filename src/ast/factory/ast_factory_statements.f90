@@ -8,9 +8,8 @@ module ast_factory_statements
         include_statement_node, import_statement_node, &
         end_statement_node, allocate_statement_node, &
         deallocate_statement_node, create_implicit_statement
-    use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
-        error_stop_node, cycle_node, exit_node, &
-        continue_node, pause_node, nullify_node
+    use ast_nodes_transfer, only: stop_node, return_node, entry_node, goto_node, &
+        error_stop_node, cycle_node, exit_node, continue_node, pause_node, nullify_node
     use ast_nodes_transfer, only: alt_return_spec_node
     use ast_nodes_io, only: io_implied_do_node
     use ast_nodes_legacy, only: common_block_node, enum_node

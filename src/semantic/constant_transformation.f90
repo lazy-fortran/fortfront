@@ -2,10 +2,9 @@ module constant_transformation
     ! Module for compile-time constant folding and evaluation
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
-    use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
         assignment_node, call_or_subscript_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
-    use ast_nodes_control, only: if_node
+    use ast_nodes_conditional, only: if_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_core
     use standardizer_types, only: get_integer_literal_value, INVALID_INTEGER

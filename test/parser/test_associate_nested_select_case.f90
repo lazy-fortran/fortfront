@@ -4,7 +4,8 @@ program test_associate_nested_select_case
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_array_constructs_module, only: parse_associate
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_nodes_control, only: associate_node, select_case_node
+    use ast_nodes_conditional, only: select_case_node
+    use ast_nodes_associate, only: associate_node
     use ast_nodes_core, only: literal_node
     implicit none
 

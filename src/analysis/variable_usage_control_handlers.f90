@@ -59,7 +59,7 @@ contains
     end subroutine push_node
 
     subroutine process_if_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: if_node
+        use ast_nodes_conditional, only: if_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -100,7 +100,7 @@ contains
     end subroutine process_if_node_children
 
     subroutine process_do_while_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: do_while_node
+        use ast_nodes_loops, only: do_while_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -123,7 +123,7 @@ contains
     end subroutine process_do_while_node_children
 
     subroutine process_select_case_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: select_case_node
+        use ast_nodes_conditional, only: select_case_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -232,7 +232,7 @@ contains
     end subroutine process_type_guard_block_node_children
 
     subroutine process_where_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: where_node
+        use ast_nodes_array, only: where_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -266,7 +266,7 @@ contains
     end subroutine process_where_node_children
 
     subroutine process_where_stmt_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: where_stmt_node
+        use ast_nodes_array, only: where_stmt_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -280,7 +280,7 @@ contains
     end subroutine process_where_stmt_node_children
 
     subroutine process_case_block_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: case_block_node
+        use ast_nodes_conditional, only: case_block_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -307,7 +307,7 @@ contains
     end subroutine process_case_block_node_children
 
     subroutine process_block_construct_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: block_construct_node
+        use ast_nodes_associate, only: block_construct_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -328,7 +328,7 @@ contains
     end subroutine process_block_construct_node_children
 
     subroutine process_do_loop_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: do_loop_node
+        use ast_nodes_loops, only: do_loop_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info

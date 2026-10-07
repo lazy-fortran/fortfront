@@ -1,6 +1,6 @@
 module ast_traversal_visit
     use ast_base, only: ast_node
-    use ast_nodes_control, only: if_node, select_case_node
+    use ast_nodes_conditional, only: if_node, select_case_node
     use ast_nodes_core, only: assignment_node, binary_op_node, &
         call_or_subscript_node, identifier_node, &
         literal_node, program_node
