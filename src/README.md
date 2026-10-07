@@ -128,14 +128,13 @@ frontend → parser → lexer → common → utilities
 ## Public API
 
 **Stable Entry Points**:
-- `fortfront.f90` - Broad compatibility facade
-- `fortfront_*.f90` - Layered public facade modules
+- `fortfront_*.f90` - Focused public API modules
 - `transformation_api.f90` - High-level transformation API
 - `frontend/` modules - Pipeline components
 
 **Internal Use Only**:
 - Most subsystem modules are internal
-- Use facade modules for external integration
+- Use focused public modules for external integration
 - See `docs/guides/LIBRARY_USAGE.md` for API examples
 
 ## Build System

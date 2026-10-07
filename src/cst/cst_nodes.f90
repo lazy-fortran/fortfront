@@ -6,7 +6,7 @@ module cst_nodes
     public :: CST_COMMENT, CST_WHITESPACE, CST_NEWLINE
 
     ! Trivia kinds. The numbering is part of the public API: fluff compares
-    ! against these values through the fortfront facade.
+    ! against these values through the public fortfront_ast module.
     integer, parameter :: CST_COMMENT = 10
     integer, parameter :: CST_WHITESPACE = 11
     integer, parameter :: CST_NEWLINE = 12
