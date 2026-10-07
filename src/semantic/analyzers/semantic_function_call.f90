@@ -1,8 +1,6 @@
 module semantic_function_call
     use type_system_unified, only: mono_type_t, poly_type_t, create_mono_type, &
-        TREAL, TINT, TCHAR, TLOGICAL, TFUN, TARRAY, &
-        TCOMPLEX, type_args_allocated, type_args_size, &
-        type_args_element
+        TREAL, TINT, TCHAR, TLOGICAL, TFUN, TARRAY, TCOMPLEX
     use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
@@ -104,9 +102,9 @@ contains
             scheme_mono = scheme%get_mono()
             has_function_scheme = (scheme_mono%kind == TFUN)
             typ = scheme_mono
-            if (has_function_scheme .and. type_args_allocated(typ) .and. &
-                type_args_size(typ) >= 2) then
-                typ = type_args_element(typ, 2)
+            if (has_function_scheme .and. typ%has_args() .and. &
+                typ%get_args_count() >= 2) then
+                typ = typ%get_arg(2)
             end if
             return_type_locked = has_function_scheme
             return

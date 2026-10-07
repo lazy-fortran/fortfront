@@ -1,7 +1,6 @@
 module type_string_utils
-    use type_system_unified, only: mono_type_t, type_args_allocated, &
-        type_args_size, type_args_element, TVAR, &
-        TINT, TREAL, TCHAR, TLOGICAL, TARRAY, &
+    use type_system_unified, only: mono_type_t, TVAR, TINT, TREAL, &
+        TCHAR, TLOGICAL, TARRAY, &
         TCOMPLEX, TDOUBLE, TFUN, TDERIVED
     use string_utils_mod, only: to_lower
     implicit none
@@ -116,9 +115,9 @@ contains
             type_str = "double precision"
         case (TFUN)
             ! For function types, use the return type (second arg) if available
-            if (type_args_allocated(mono_type) .and. &
-                type_args_size(mono_type) >= 2) then
-                call resolve_mono_type_string(type_args_element(mono_type, 2), &
+            if (mono_type%has_args() .and. &
+                mono_type%get_args_count() >= 2) then
+                call resolve_mono_type_string(mono_type%get_arg(2), &
                     include_shape, prefer_len_zero_char, &
                     standardize_real, type_str, success)
                 if (.not. success) type_str = ""
@@ -174,14 +173,14 @@ contains
 
         success = .true.
 
-        if (.not. type_args_allocated(mono_type)) then
+        if (.not. mono_type%has_args()) then
             success = .false.
-        else if (type_args_size(mono_type) <= 0) then
+        else if (mono_type%get_args_count() <= 0) then
             success = .false.
         end if
         if (.not. success) return
 
-        inner_element = type_args_element(mono_type, 1)
+        inner_element = mono_type%get_arg(1)
 
         element_str = mono_type_to_string(inner_element, &
             include_shape=.false., &
@@ -262,8 +261,8 @@ contains
             visited_ids(visited_count) = mono_type%handle%type_id
         end if
 
-        if (type_args_allocated(mono_type) .and. type_args_size(mono_type) > 0) then
-            inner_element = type_args_element(mono_type, 1)
+        if (mono_type%has_args() .and. mono_type%get_args_count() > 0) then
+            inner_element = mono_type%get_arg(1)
             if (inner_element%kind == TARRAY) then
                 call collect_array_dimensions_impl(inner_element, dim_spec, &
                     visited_ids, visited_count, depth)

@@ -3,8 +3,7 @@ module semantic_array_literal
     use type_system_unified, only: mono_type_t, &
         create_mono_type, create_poly_type, &
         TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
-        TDOUBLE, TFUN, TARRAY, type_args_allocated, &
-        type_args_size, type_args_element
+        TDOUBLE, TFUN, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: array_literal_node
     use ast_nodes_loops, only: do_loop_node

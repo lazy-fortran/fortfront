@@ -109,10 +109,9 @@
             inferred_return_type%kind = 0
             inferred_return_type = node%inferred_type
             if (inferred_return_type%kind == TFUN) then
-                if (type_args_allocated(inferred_return_type)) then
-                    if (type_args_size(inferred_return_type) >= 2) then
-                        inferred_return_type = type_args_element(inferred_return_type, &
-                                                                 2)
+                if (inferred_return_type%has_args()) then
+                    if (inferred_return_type%get_args_count() >= 2) then
+                        inferred_return_type = inferred_return_type%get_arg(2)
                     end if
                 end if
             end if

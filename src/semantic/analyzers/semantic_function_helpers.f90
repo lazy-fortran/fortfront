@@ -1,9 +1,7 @@
 module semantic_function_helpers
     use type_system_unified, only: mono_type_t, create_mono_type, &
         TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE, &
-        TCOMPLEX, TFUN, TARRAY, TVAR, &
-        type_args_allocated, type_args_size, &
-        type_args_element
+        TCOMPLEX, TFUN, TARRAY, TVAR
     use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
@@ -200,9 +198,9 @@ contains
                 if (.not. allocated(node%name)) cycle
                 if (trim(node%name) /= trim(func_name)) cycle
                 if (node%inferred_type%kind == TFUN .and. &
-                    type_args_allocated(node%inferred_type) .and. &
-                    type_args_size(node%inferred_type) >= 2) then
-                    return_type = type_args_element(node%inferred_type, 2)
+                    node%inferred_type%has_args() .and. &
+                    node%inferred_type%get_args_count() >= 2) then
+                    return_type = node%inferred_type%get_arg(2)
                     found = .true.
                     return
                 else if (allocated(node%return_type)) then

@@ -521,46 +521,6 @@
         end if
     end subroutine type_env_ensure_capacity
 
-    ! Public wrapper functions for type argument access
-    function type_has_args(typ) result(has_args)
-        type(mono_type_t), intent(in) :: typ
-        logical :: has_args
-        has_args = typ%has_args()
-    end function type_has_args
-
-    function type_get_args_count(typ) result(count)
-        type(mono_type_t), intent(in) :: typ
-        integer :: count
-        count = typ%get_args_count()
-    end function type_get_args_count
-
-    function type_get_arg(typ, index) result(arg_type)
-        type(mono_type_t), intent(in) :: typ
-        integer, intent(in) :: index
-        type(mono_type_t) :: arg_type
-        arg_type = typ%get_arg(index)
-    end function type_get_arg
-
-    ! Additional semantic analyzer compatibility functions
-    function type_args_allocated(typ) result(allocated)
-        type(mono_type_t), intent(in) :: typ
-        logical :: allocated
-        allocated = typ%has_args()
-    end function type_args_allocated
-
-    function type_args_size(typ) result(size)
-        type(mono_type_t), intent(in) :: typ
-        integer :: size
-        size = typ%get_args_count()
-    end function type_args_size
-
-    function type_args_element(typ, index) result(element_type)
-        type(mono_type_t), intent(in) :: typ
-        integer, intent(in) :: index
-        type(mono_type_t) :: element_type
-        element_type = typ%get_arg(index)
-    end function type_args_element
-
     ! Poly type mono sync function
     subroutine poly_type_sync_mono(this)
         class(poly_type_t), intent(inout) :: this
