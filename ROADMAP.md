@@ -11,15 +11,17 @@ sketched in an earlier issue is not a mandatory implementation.
 
 ## Current goals
 
-2026-10-07 cleanup: the obsolete broad `fortfront` Fortran module has been
-removed. In-workspace tests, examples, app code, documentation and FFC use the
-focused owner modules directly; no compatibility facade is retained. The full
-FortFront FPM test set compiled on commit `d745100`. Its exact Fo Gremlin
-generation `40b9a95b3e601e1da8a7ed817d1f54738d827f79bbb4313434511fc2e8de4895`
-passed seven focused cases. FFC commit `0045ecf` passed three focused compiler
-cases against that FortFront candidate in generation
-`26600e3118c9aa3dd440ed8baaa1936b4e3cdad4a7d081d00bea4ec68cba61e7`.
-These focused receipts do not claim full test-suite execution.
+2026-10-07 cleanup: the broad `fortfront`, `ast_nodes_control`, and
+`ast_factory` facades, the `ast_arena_compat` inheritance layer, unused
+parser/type wrappers and token aliases are removed. Indexed AST storage now
+lives in `ast_arena_modern`; its live size field is `entry_count`. FortFront
+declares `examples/` as a resident test input. All FPM test targets compiled;
+focused native tests passed. The exact Fo Gremlin generation
+`e7f62b95e95a5c4e7e2ee78fa76c73ee858913cec2613913eb513ece134d9045`
+passed 13/13 focused cases with zero current failures. FFC `c9cfdfe` passed
+three focused compiler consumers against the combined FortFront candidate in
+generation `f6e57e6851e4441e1e665f34a3ba2866014ef53f6ac02388917fe2946e97a50f`.
+These receipts do not claim full test-suite execution.
 
 - Repair current false acceptance/rejection, dropped source meaning and memory/
   arithmetic defects using independent public/consumer examples.
