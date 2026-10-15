@@ -240,7 +240,7 @@
         if (token%kind /= TK_OPERATOR .or. token%text /= '=') return
         token = parser%consume()
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
             namelist_group = token%text
             token = parser%consume()
             return
