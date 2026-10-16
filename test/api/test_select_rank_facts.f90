@@ -4,7 +4,7 @@ program test_select_rank_facts
         compiler_frontend_options_t, compiler_frontend_result_t, CONTROL_SELECT_RANK, &
         control_statement_query_t, CONTROL_TYPE_GUARD, query_control_statement, &
         SELECT_RANK_DISPATCH_ASSUMED_SIZE, SELECT_RANK_DISPATCH_DEFAULT, &
-        SELECT_RANK_DISPATCH_EXPLICIT
+        SELECT_RANK_DISPATCH_EXPLICIT, use_statement_query_t, query_use_statements
     use fortfront_semantic, only: INPUT_MODE_STANDARD
     implicit none
 
@@ -51,11 +51,66 @@ program test_select_rank_facts
             'invalid control query crossed its boundary')
     end if
 
+    call check_nested_select_rank()
     print *, 'PASS: SELECT RANK facts contract'
 
 contains
 
     include '../common/read_example.inc'
+    include '../common/test_command_helpers.inc'
+
+    subroutine check_nested_select_rank()
+        type(compiler_frontend_result_t) :: nested_result
+        type(control_statement_query_t) :: nested_query, child_query
+        type(use_statement_query_t), allocatable :: uses(:)
+        character(len=:), allocatable :: nested_source, executable
+        integer :: node_index, arm, nested_count, outer_count, child_index, status
+
+        call read_example('examples/f90/select_rank_nested.f90', nested_source)
+        call compile_frontend_from_string(nested_source, nested_result, options)
+        call require(nested_result%success(), &
+            'nested SELECT RANK fixture was rejected')
+        uses = query_use_statements(nested_result%arena)
+        call require(size(uses) == 1, 'nested fixture USE dependency was lost')
+        call require(trim(uses(1)%module_name) == 'iso_fortran_env', &
+            'nested fixture USE dependency was changed')
+        nested_count = 0
+        outer_count = 0
+        do node_index = 1, nested_result%arena%size
+            nested_query = query_control_statement(nested_result%arena, node_index)
+            if (nested_query%statement_kind /= CONTROL_SELECT_RANK) cycle
+            nested_count = nested_count + 1
+            call require(size(nested_query%rank_arms) > 0, &
+                'nested rank construct has no arms')
+            if (nested_query%rank_arms(1)%selector_name /= 'actual') cycle
+            outer_count = outer_count + 1
+            call require(size(nested_query%rank_arms) == 3, &
+                'outer rank arms were not preserved')
+            do arm = 1, 2
+                child_index = nested_query%rank_arms(arm)%body_entry_node_index
+                child_query = query_control_statement(nested_result%arena, child_index)
+                call require(child_query%statement_kind == CONTROL_SELECT_RANK, &
+                    'nested rank construct is not an outer arm child')
+                call require(size(child_query%rank_arms) == 2, &
+                    'nested rank arms were not preserved')
+                call require(child_query%rank_arms(1)%selected_rank == &
+                    nested_query%rank_arms(arm)%selected_rank, &
+                    'nested explicit rank was changed')
+                call require(child_query%rank_arms(2)%is_default, &
+                    'nested default rank arm was lost')
+            end do
+        end do
+        call require(nested_count == 3 .and. outer_count == 1, &
+            'nested SELECT RANK tree is incomplete')
+        executable = test_executable_path('fortfront_select_rank_nested')
+        call execute_command_line('gfortran -std=f2018 -pedantic -o '// &
+            executable//' examples/f90/select_rank_nested.f90', &
+            wait=.true., exitstat=status)
+        call require(status == 0, 'GNU Fortran rejected nested SELECT RANK fixture')
+        call execute_command_line(executable, wait=.true., exitstat=status)
+        call require(status == 0, 'nested SELECT RANK runtime oracle failed')
+        call test_remove_file(executable)
+    end subroutine check_nested_select_rank
 
     subroutine check_select_rank_query(query, ordinal)
         type(control_statement_query_t), intent(in) :: query

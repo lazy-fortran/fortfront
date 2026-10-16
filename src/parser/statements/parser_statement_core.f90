@@ -29,7 +29,8 @@ module parser_statement_core_module
         null_statement_callbacks, &
         call_fallback_do_parser, call_fallback_if_parser, &
         call_fallback_block_parser, &
-        call_fallback_select_case_parser, call_fallback_select_type_parser
+        call_fallback_select_case_parser, call_fallback_select_type_parser, &
+        call_fallback_select_rank_parser
     use parser_statement_data_module, only: parse_data_statement, &
         parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -390,19 +391,35 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(statement_callbacks_t), intent(in) :: callbacks
-        logical :: has_next_token
+        integer :: next_index
 
         stmt_index = 0
-        has_next_token = parser%current_token + 1 <= size(parser%tokens)
-        if (has_next_token) then
-            if (parser%tokens(parser%current_token + 1)%text == "type") then
+        next_index = parser%current_token + 1
+        do while (next_index <= size(parser%tokens))
+            select case (parser%tokens(next_index)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                next_index = next_index + 1
+            case default
+                exit
+            end select
+        end do
+        if (next_index <= size(parser%tokens)) then
+            select case (to_lower(parser%tokens(next_index)%text))
+            case ("type")
                 if (associated(callbacks%parse_select_type)) then
                     stmt_index = callbacks%parse_select_type(parser, arena)
                 else
                     stmt_index = call_fallback_select_type_parser(parser, arena)
                 end if
                 return
-            end if
+            case ("rank")
+                if (associated(callbacks%parse_select_rank)) then
+                    stmt_index = callbacks%parse_select_rank(parser, arena)
+                else
+                    stmt_index = call_fallback_select_rank_parser(parser, arena)
+                end if
+                return
+            end select
         end if
 
         if (associated(callbacks%parse_select_case)) then
