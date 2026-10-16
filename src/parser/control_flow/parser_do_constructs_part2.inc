@@ -103,6 +103,17 @@
                             do_pos = block_end
                         end if
                     end if
+                    ! A named DO (`name: do ...`) must also be handed over whole,
+                    ! or its END DO name is matched against the enclosing loop.
+                    if (do_pos == stmt_start .and. &
+                        stmt_start + 2 <= size(parser%tokens)) then
+                        if (parser%tokens(stmt_start + 1)%kind == TK_OPERATOR .and. &
+                            parser%tokens(stmt_start + 1)%text == ":" .and. &
+                            parser%tokens(stmt_start + 2)%kind == TK_KEYWORD .and. &
+                            parser%tokens(stmt_start + 2)%text == "do") then
+                            do_pos = stmt_start + 2
+                        end if
+                    end if
                 end if
                 if (parser%tokens(do_pos)%kind == TK_KEYWORD) then
                     select case (to_lower(parser%tokens(do_pos)%text))
