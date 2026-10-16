@@ -16,7 +16,7 @@
             ! caller filled in no select callback was by far the most common
             ! parse failure across a large source tree.
             call register_fallback_select_parsers(parse_select_case, &
-                parse_select_type)
+                parse_select_type, parse_select_rank)
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks

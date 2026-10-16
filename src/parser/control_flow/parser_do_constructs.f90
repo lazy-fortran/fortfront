@@ -11,7 +11,8 @@ module parser_do_constructs_module
     use parser_statement_callbacks_module, only: register_fallback_do_parser, &
         register_fallback_if_parser, register_fallback_block_parser, &
         register_fallback_select_parsers
-    use parser_select_constructs_module, only: parse_select_case, parse_select_type
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
+        parse_select_rank
     use parser_array_constructs_module, only: parse_where_construct, parse_associate, &
         parse_block_construct
     use parser_forall_module, only: parse_forall

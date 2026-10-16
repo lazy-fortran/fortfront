@@ -50,6 +50,7 @@ module parser_statement_callbacks_module
     public :: register_fallback_block_parser, call_fallback_block_parser
     public :: register_fallback_select_parsers
     public :: call_fallback_select_case_parser, call_fallback_select_type_parser
+    public :: call_fallback_select_rank_parser
 
     !! The DO parser, registered rather than imported.
     !!
@@ -74,6 +75,7 @@ module parser_statement_callbacks_module
     !! callback was the single most common parse failure in a large tree.
     procedure(parse_without_parent_interface), pointer :: select_case_parser => null()
     procedure(parse_without_parent_interface), pointer :: select_type_parser => null()
+    procedure(parse_without_parent_interface), pointer :: select_rank_parser => null()
     public :: parse_with_parent_interface
     public :: parse_without_parent_interface
 
@@ -135,13 +137,15 @@ contains
         if (associated(block_parser)) node_index = block_parser(parser, arena)
     end function call_fallback_block_parser
 
-    subroutine register_fallback_select_parsers(case_proc, type_proc)
+    subroutine register_fallback_select_parsers(case_proc, type_proc, rank_proc)
         !! Called once by the select parser's own initialisation.
         procedure(parse_without_parent_interface) :: case_proc
         procedure(parse_without_parent_interface) :: type_proc
+        procedure(parse_without_parent_interface), optional :: rank_proc
 
         select_case_parser => case_proc
         select_type_parser => type_proc
+        if (present(rank_proc)) select_rank_parser => rank_proc
     end subroutine register_fallback_select_parsers
 
     integer function call_fallback_select_case_parser(parser, arena) &
@@ -165,6 +169,17 @@ contains
             node_index = select_type_parser(parser, arena)
         end if
     end function call_fallback_select_type_parser
+
+    integer function call_fallback_select_rank_parser(parser, arena) &
+        result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        node_index = 0
+        if (associated(select_rank_parser)) then
+            node_index = select_rank_parser(parser, arena)
+        end if
+    end function call_fallback_select_rank_parser
 
     pure function null_statement_callbacks() result(callbacks)
         !! Every component explicitly nullified, rather than left to the
