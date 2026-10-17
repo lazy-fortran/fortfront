@@ -98,7 +98,7 @@ contains
         module_directory_has_module = .false.
         if (len_trim(base) == 0) return
 
-        module_path = trim(base) // sep // 'fortfront.mod'
+        module_path = trim(base) // sep // 'fortfront_ast.mod'
         inquire (file=trim(module_path), exist=exists)
         if (exists) then
             module_directory_has_module = .true.
@@ -156,6 +156,7 @@ contains
         character(len=*), intent(in) :: executable_path
         character(len=:), allocatable :: path
         character(len=:), allocatable :: current_dir
+        character(len=:), allocatable :: parent_dir
         character(len=:), allocatable :: candidate
         character(len=1) :: sep
         logical :: exists
@@ -171,7 +172,9 @@ contains
                 path = trim(candidate)
                 return
             end if
-            current_dir = directory_from_path(current_dir)
+            parent_dir = directory_from_path(current_dir)
+            if (parent_dir == current_dir) exit
+            current_dir = parent_dir
         end do
 
         inquire (file='compile_commands.json', exist=exists)
@@ -180,7 +183,7 @@ contains
 
     subroutine fallback_module_dir_search(module_dir)
         character(len=:), allocatable, intent(inout) :: module_dir
-        character(len=256) :: search_file
+        character(len=:), allocatable :: search_file
         integer :: exit_code, unit_num, ios
         character(len=512) :: line
         integer :: sep_pos
@@ -189,16 +192,16 @@ contains
         if (len_trim(module_dir) > 0) return
 
         is_win = check_if_windows()
-        search_file = 'fortfront_module_search.txt'
+        search_file = make_temp_file_path('fortfront_module_search', '.txt', is_win)
 
         if (is_win) then
-            call execute_command_line('cmd /C "dir /s /b fortfront.mod > '// &
-                trim(search_file)//' 2>nul"', &
+            call execute_command_line('cmd /C "dir /s /b fortfront_ast.mod > "'// &
+                trim(search_file)//'" 2>nul"', &
                 exitstat=exit_code)
         else
             call execute_command_line( &
-                'find build -name "fortfront.mod" -print -quit > '// &
-                trim(search_file)//' 2>/dev/null', exitstat=exit_code)
+                'find build -name "fortfront_ast.mod" -print -quit > "'// &
+                trim(search_file)//'" 2>/dev/null', exitstat=exit_code)
         end if
 
         if (exit_code /= 0) then

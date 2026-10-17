@@ -25,8 +25,12 @@ program tmp_goto_ast
     call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
         options)
 
-    print *, 'error:', merge(trim(error_msg), '<none>', &
-        allocated(error_msg) .and. len_trim(error_msg) > 0)
+    if (.not. allocated(error_msg)) error_msg = ''
+    if (len_trim(error_msg) > 0) then
+        print *, 'error:', trim(error_msg)
+    else
+        print *, 'error:', '<none>'
+    end if
 
     call ast_to_json(arena, root_index, json_output)
     print *, 'json:', trim(json_output)
