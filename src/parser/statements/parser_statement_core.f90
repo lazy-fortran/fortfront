@@ -20,7 +20,8 @@ module parser_statement_core_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
         parse_derived_type_def, parser_is_at_type_definition, parse_save_statement
     use parser_call_module, only: parse_call_statement
-    use parser_import_resolution_module, only: parse_use_statement
+    use parser_import_resolution_module, only: parse_use_statement, &
+        parse_include_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
     use ast_factory_core, only: push_assignment, push_identifier, &
@@ -254,6 +255,10 @@ contains
             ! file with it.
             if (lowered == "use") then
                 stmt_index = parse_use_statement(parser, arena)
+            end if
+
+            if (lowered == "include") then
+                stmt_index = parse_include_statement(parser, arena)
             end if
 
             if (lowered == "dimension") then

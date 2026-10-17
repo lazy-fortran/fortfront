@@ -31,7 +31,8 @@ module parser_statement_utilities_module
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
-    use parser_import_resolution_module, only: parse_use_statement
+    use parser_import_resolution_module, only: parse_use_statement, &
+        parse_include_statement
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
     use ast_factory_control, only: push_associate, push_if
@@ -118,6 +119,8 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("use")
                 stmt_index = parse_use_statement(parser, arena)
+            case ("include")
+                stmt_index = parse_include_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
                     "double", "type", "class", "procedure")
                 ! Check if this is actually an assignment like "double = 5"

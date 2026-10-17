@@ -431,7 +431,9 @@ contains
             token = parser%consume()
             filename = token%text
         else
-            filename = "! Invalid include statement"
+            call parser%error("Expected a character literal after INCLUDE")
+            stmt_index = 0
+            return
         end if
 
         ! Create include statement node

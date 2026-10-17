@@ -23,6 +23,11 @@ three focused compiler consumers against the combined FortFront candidate in
 generation `f6e57e6851e4441e1e665f34a3ba2866014ef53f6ac02388917fe2946e97a50f`.
 These receipts do not claim full test-suite execution.
 
+2026-10-17 NEO-RT consumer repair: nested Fortran INCLUDE lines now reach the
+shared INCLUDE parser in both statement dispatchers. DO, IF, SELECT and BLOCK
+preserve the included filename and following statements; non-character operands
+reject. The new regression and two existing INCLUDE tests pass through Fo.
+
 - Repair current false acceptance/rejection, dropped source meaning and memory/
   arithmetic defects using independent public/consumer examples.
 - Give FFC enough public information to implement the required standard without
