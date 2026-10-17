@@ -38,6 +38,14 @@ reject. The new regression and two existing INCLUDE tests pass through Fo.
   part of [Fo #205](https://github.com/lazy-fortran/fo/issues/205), preserving
   useful features and independently correct downstream behavior.
 
+2026-10-17 library-example corpus repair: integration discovery locates the
+current public `fortfront_ast.mod`; absolute-path ancestor search terminates
+at the filesystem root. The goto AST example also handles absent or empty
+diagnostics without unequal-length character MERGE arguments. Five canonical
+library clients compile and run before and after transformation with matching
+output; two focused native API/discovery checks pass. The attempted Fo lane
+failed in its build route, so no Gremlin or full-corpus pass is claimed.
+
 ## Active goal owners
 
 | Outcome | Issues |
