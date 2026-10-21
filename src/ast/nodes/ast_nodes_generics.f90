@@ -14,7 +14,7 @@ module ast_nodes_generics
     public :: create_requirement_block
     public :: create_implements_block
 
-    type, extends(ast_node), public :: template_block_node
+    type, extends(ast_node) :: template_block_node
         character(len=:), allocatable :: name
         character(len=:), allocatable :: parameter_names(:)
         integer, allocatable :: declaration_indices(:)
@@ -26,7 +26,7 @@ module ast_nodes_generics
         generic :: assignment(=) => assign
     end type template_block_node
 
-    type, extends(ast_node), public :: instantiate_statement_node
+    type, extends(ast_node) :: instantiate_statement_node
         character(len=:), allocatable :: template_name
         character(len=:), allocatable :: spec_text
     contains
@@ -35,7 +35,7 @@ module ast_nodes_generics
         generic :: assignment(=) => assign
     end type instantiate_statement_node
 
-    type, extends(ast_node), public :: trait_block_node
+    type, extends(ast_node) :: trait_block_node
         character(len=:), allocatable :: name
         character(len=:), allocatable :: parameter_names(:)
         integer, allocatable :: declaration_indices(:)
@@ -47,7 +47,7 @@ module ast_nodes_generics
         generic :: assignment(=) => assign
     end type trait_block_node
 
-    type, extends(ast_node), public :: requirement_block_node
+    type, extends(ast_node) :: requirement_block_node
         character(len=:), allocatable :: name
         character(len=:), allocatable :: parameter_names(:)
         integer, allocatable :: declaration_indices(:)
@@ -59,7 +59,7 @@ module ast_nodes_generics
         generic :: assignment(=) => assign
     end type requirement_block_node
 
-    type, extends(ast_node), public :: implements_block_node
+    type, extends(ast_node) :: implements_block_node
         character(len=:), allocatable :: name
         character(len=:), allocatable :: parameter_names(:)
         integer, allocatable :: declaration_indices(:)

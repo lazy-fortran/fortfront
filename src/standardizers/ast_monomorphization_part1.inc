@@ -1,6 +1,6 @@
 
     subroutine transform_monomorphization(arena, root_index, signatures)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(inout) :: root_index
         type(signatures_map_t), intent(in) :: signatures
         logical :: is_multi_unit, found
@@ -57,7 +57,7 @@
     ! Read the root's body indices, reporting whether the root is the multi-unit
     ! container. Both a top-level program and the container expose body_indices.
     subroutine get_root_body(arena, root_index, body_indices, is_multi_unit, found)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(out) :: body_indices(:)
         logical, intent(out) :: is_multi_unit, found
@@ -81,7 +81,7 @@
 
     ! Replace the root's body indices in place (program or container root).
     subroutine set_root_body(arena, root_index, body_indices)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, intent(in) :: body_indices(:)
 
@@ -98,7 +98,7 @@
 
     ! Handle root node that is not a program node
     subroutine handle_non_program_root(arena, root_index, signatures)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         type(signatures_map_t), intent(in) :: signatures
         integer :: i
@@ -127,7 +127,7 @@
 
     ! Debug log mixed container contents
     subroutine debug_log_mixed_container(arena, container)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(mixed_construct_container_node), intent(in) :: container
 
         if (.not. debug_logging_enabled()) return
@@ -152,7 +152,7 @@
 
     ! Debug log array of node indices with node types
     subroutine debug_log_index_array(arena, indices, label)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: indices(:)
         character(len=*), intent(in) :: label
         integer :: i
@@ -176,7 +176,7 @@
                                              module_count, &
                                              module_names, program_indices, &
                                              program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
         type(signatures_map_t), intent(in) :: signatures
         integer, allocatable, intent(inout) :: preserved_indices(:)
@@ -259,7 +259,7 @@
                                                module_indices, &
                                                module_count, &
                                                module_names)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
         integer, intent(in) :: proc_idx
         character(len=*), intent(in) :: proc_name
@@ -320,7 +320,7 @@
     ! leaving the untyped original unreferenced.
     subroutine rename_call_sites_to_specializations(arena, proc_name, all_sigs, &
                                                     unique_sigs)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: proc_name
         type(type_signature_t), intent(in) :: all_sigs(:)
         type(type_signature_t), intent(in) :: unique_sigs(:)
@@ -356,7 +356,7 @@
     end function signature_mangled_name
 
     subroutine set_call_site_name(arena, call_index, expected_name, new_name)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: call_index
         character(len=*), intent(in) :: expected_name
         character(len=*), intent(in) :: new_name
@@ -470,7 +470,7 @@
 
     subroutine create_procedure_variants(arena, proc_idx, is_function, &
                                          proc_sigs, variant_indices)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: proc_idx
         logical, intent(in) :: is_function
         type(type_signature_t), intent(in) :: proc_sigs(:)
@@ -493,7 +493,7 @@
 
     function create_module_with_interface(arena, proc_name, variant_indices) &
         result(mod_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: variant_indices(:)
         integer :: mod_idx
@@ -560,7 +560,7 @@
                                              implicit_preserved_count, &
                                              module_indices, module_count, &
                                              module_names)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
         integer, intent(in) :: implicit_indices(:)
         integer, allocatable, intent(inout) :: implicit_preserved(:)
@@ -625,7 +625,7 @@
 
     logical function has_executable_implicit_content(arena, indices, count) &
             result(has_executable)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, allocatable, intent(in) :: indices(:)
         integer, intent(in) :: count
         integer :: i, child_idx
@@ -669,7 +669,7 @@
                                          module_count, module_names, &
                                          preserved_indices, preserved_count, &
                                          program_indices, program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
         integer, intent(inout) :: explicit_indices(:)
         integer, intent(in) :: explicit_count
@@ -698,7 +698,7 @@
     subroutine finalize_no_modules(arena, root_index, preserved_indices, &
                                    preserved_count, implicit_preserved, &
                                    implicit_preserved_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: preserved_indices(:)
         integer, intent(in) :: preserved_count
@@ -713,7 +713,7 @@
 
     subroutine find_program_nodes(arena, preserved_indices, preserved_count, &
                                   program_indices, program_count)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, allocatable, intent(in) :: preserved_indices(:)
         integer, intent(in) :: preserved_count
         integer, allocatable, intent(inout) :: program_indices(:)
@@ -750,7 +750,7 @@
                                                   preserved_indices, &
                                                   preserved_count, &
                                                   program_indices, program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: module_indices(:)
         integer, intent(in) :: module_count
@@ -791,7 +791,7 @@
                                        module_names, implicit_preserved, &
                                        implicit_preserved_count, preserved_indices, &
                                        preserved_count, program_body)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, allocatable, intent(in) :: module_indices(:)
         integer, intent(in) :: module_count
         character(len=*), allocatable, intent(in) :: module_names(:)
@@ -831,7 +831,7 @@
 
     subroutine create_and_register_main_program(arena, root_index, program_body, &
                                                 prog_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: program_body(:)
         integer, intent(out) :: prog_idx
@@ -849,7 +849,7 @@
 
     subroutine promote_double_literals_for_programs(arena, program_indices, &
                                                     program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, allocatable, intent(in) :: program_indices(:)
         integer, intent(in) :: program_count
         integer :: i
@@ -864,7 +864,7 @@
                                           preserved_indices, preserved_count, &
                                           module_names, program_indices, &
                                           program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(in) :: module_indices(:)
         integer, intent(in) :: module_count
@@ -902,7 +902,7 @@
     end subroutine finalize_container_indices
 
     subroutine process_mixed_container(arena, root_index, signatures)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         type(signatures_map_t), intent(in) :: signatures
         type(mixed_construct_container_node), pointer :: container

@@ -208,7 +208,7 @@
     end subroutine clean_external_declarations
 
     subroutine merge_additional_main_programs(arena, root_prog, target_prog_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         class(multi_unit_container_node), intent(inout) :: root_prog
         integer, intent(in) :: target_prog_idx
         integer, allocatable :: new_body(:)
@@ -334,7 +334,7 @@
     end subroutine remove_target_procedures_from_body
 
     subroutine normalize_multi_unit_container(arena, root_index)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(inout) :: root_index
         integer :: i, target_prog_idx, contains_pos
         integer, allocatable :: procedures(:), all_procedures(:)

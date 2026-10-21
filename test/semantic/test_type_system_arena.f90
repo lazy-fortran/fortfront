@@ -18,6 +18,7 @@ program test_type_system_arena
     ! Handle validation
     call test_handle_validation()
     call test_null_handles()
+    call test_default_constructors()
 
     ! Performance and stress tests
     call test_bulk_allocation()
@@ -42,6 +43,22 @@ program test_type_system_arena
     end if
 
 contains
+
+    subroutine test_default_constructors()
+        type(arena_mono_type_t) :: mono
+        type(arena_poly_type_t) :: poly
+
+        call test_start("Default constructors contain null nested handles")
+        mono = arena_mono_type_t()
+        poly = arena_poly_type_t()
+        if (is_valid_args_handle(mono%args) .or. &
+            is_valid_args_handle(poly%forall_vars) .or. &
+            is_valid_mono_handle(poly%mono)) then
+            call test_fail("Default constructor contains a valid nested handle")
+        else
+            call test_pass()
+        end if
+    end subroutine test_default_constructors
 
     subroutine test_arena_creation()
         type(type_arena_t) :: arena

@@ -17,7 +17,7 @@
 
     ! Helper function to infer type from a literal node
     function infer_element_type_from_literal(arena, elem_index) result(type_str)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: elem_index
         character(len=:), allocatable :: type_str
         logical :: standardizer_type_standardization_enabled

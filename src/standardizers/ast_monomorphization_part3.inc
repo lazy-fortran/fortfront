@@ -24,7 +24,7 @@
     function clone_function_body_with_updated_result(arena, orig_func, &
                                                      result_name, return_type) &
         result(body_indices_copy)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(function_def_node), pointer, intent(in) :: orig_func
         character(len=*), intent(in) :: result_name
         character(len=*), intent(in) :: return_type
@@ -197,7 +197,7 @@
 
     function clone_parameter_with_kind(arena, param_idx, kind_value, type_override) &
         result(new_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: param_idx
         integer, intent(in) :: kind_value
         character(len=*), intent(in), optional :: type_override
@@ -273,7 +273,7 @@
 
     function create_module_procedure_node(arena, func_name, variant_indices) &
         result(idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: func_name
         integer, intent(in) :: variant_indices(:)
         integer :: idx
@@ -294,7 +294,7 @@
     end function create_module_procedure_node
 
     function create_interface_node(arena, name, mod_proc_idx) result(idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: mod_proc_idx
         integer :: idx
@@ -312,7 +312,7 @@
 
     function create_module_for_function(arena, func_name, iso_use_idx, &
                                         interface_idx, variant_indices) result(idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: func_name
         integer, intent(in) :: iso_use_idx
         integer, intent(in) :: interface_idx
@@ -335,7 +335,7 @@
     end function create_module_for_function
 
     function create_dp_kind_use_statement_node(arena) result(idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer :: idx
         type(use_statement_node) :: use_stmt
         character(len=6) :: rename_list(2)
@@ -350,7 +350,7 @@
     end function create_dp_kind_use_statement_node
 
     function create_use_statement_node(arena, module_name) result(idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         integer :: idx
         type(use_statement_node) :: use_stmt
@@ -362,7 +362,7 @@
 
     function determine_return_type_string(arena, signature, orig_func) &
         result(type_str)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(type_signature_t), intent(in) :: signature
         type(function_def_node), pointer, intent(in) :: orig_func
         character(len=:), allocatable :: type_str
@@ -582,7 +582,7 @@
     end function determine_return_type_string
 
     logical function function_result_is_implicit(arena, func) result(is_implicit)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(function_def_node), pointer, intent(in) :: func
         integer :: i, body_index
         character(len=:), allocatable :: result_name
@@ -622,7 +622,7 @@
     end function function_result_is_implicit
 
     subroutine update_call_result_type(arena, call_index, return_kind, type_str)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: call_index
         integer, intent(in) :: return_kind
         character(len=*), intent(in) :: type_str
@@ -791,7 +791,7 @@
     end function get_procedure_signatures
 
     subroutine get_program_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(program_node), pointer, intent(out) :: node_ptr
 
@@ -806,7 +806,7 @@
     end subroutine get_program_node
 
     subroutine get_mixed_container_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(mixed_construct_container_node), pointer, intent(out) :: node_ptr
 
@@ -821,7 +821,7 @@
     end subroutine get_mixed_container_node
 
     subroutine get_function_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(function_def_node), pointer, intent(out) :: node_ptr
 
@@ -836,7 +836,7 @@
     end subroutine get_function_node
 
     subroutine get_subroutine_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(subroutine_def_node), pointer, intent(out) :: node_ptr
 
@@ -851,7 +851,7 @@
     end subroutine get_subroutine_node
 
     subroutine get_call_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(call_or_subscript_node), pointer, intent(out) :: node_ptr
 
@@ -866,7 +866,7 @@
     end subroutine get_call_node
 
     subroutine get_parameter_node(arena, idx, node_ptr)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         type(parameter_declaration_node), pointer, intent(out) :: node_ptr
 
@@ -881,7 +881,7 @@
     end subroutine get_parameter_node
 
     subroutine set_container_explicit_indices(arena, root_index, indices, count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, intent(in) :: indices(:)
         integer, intent(in) :: count
@@ -902,7 +902,7 @@
     end subroutine set_container_explicit_indices
 
     subroutine set_container_implicit_indices(arena, root_index, indices, count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         integer, intent(in) :: indices(:)
         integer, intent(in) :: count
@@ -923,7 +923,7 @@
     end subroutine set_container_implicit_indices
 
     subroutine clear_container_explicit_indices(arena, root_index)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         type(mixed_construct_container_node), pointer :: container
 
@@ -935,7 +935,7 @@
     end subroutine clear_container_explicit_indices
 
     subroutine clear_container_implicit_indices(arena, root_index)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: root_index
         type(mixed_construct_container_node), pointer :: container
 
@@ -947,7 +947,7 @@
     end subroutine clear_container_implicit_indices
 
     function get_procedure_name_from_arena(arena, idx) result(name)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: idx
         character(len=:), allocatable :: name
 
