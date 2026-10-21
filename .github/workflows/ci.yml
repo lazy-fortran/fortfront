@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+  merge_group:
+    types: [checks_requested]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
@@ -31,7 +33,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
 
     steps:
     - uses: actions/checkout@v4

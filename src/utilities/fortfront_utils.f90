@@ -780,7 +780,7 @@ contains
 
     ! Get typed node access functions
     function get_node_as_program(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(program_node), pointer :: node
 
@@ -796,7 +796,7 @@ contains
     end function get_node_as_program
 
     function get_node_as_assignment(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(assignment_node), pointer :: node
 
@@ -812,7 +812,7 @@ contains
     end function get_node_as_assignment
 
     function get_node_as_function_def(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(function_def_node), pointer :: node
 
@@ -828,7 +828,7 @@ contains
     end function get_node_as_function_def
 
     function get_node_as_subroutine_def(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(subroutine_def_node), pointer :: node
 

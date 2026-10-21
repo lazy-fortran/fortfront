@@ -34,7 +34,7 @@ contains
 
     ! Get the type of an expression from the AST
     function get_expression_type(arena, expr_index) result(expr_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: expr_index
         type(mono_type_t), pointer :: expr_type
 
@@ -118,7 +118,7 @@ contains
 
     ! Get type for call or subscript node
     function get_call_or_subscript_type(arena, node) result(expr_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(call_or_subscript_node), intent(in), target :: node
         type(mono_type_t), pointer :: expr_type
 
@@ -211,7 +211,7 @@ contains
 
     ! Check if a call_or_subscript node has array slice arguments
     function has_array_slice_args(arena, node) result(has_slice)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
         logical :: has_slice
         integer :: i
@@ -237,7 +237,7 @@ contains
 
     ! Check if an expression is an array expression by structure
     function is_array_expression(arena, expr_index) result(is_array)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: expr_index
         logical :: is_array
 
@@ -258,7 +258,7 @@ contains
 
     ! Check if array literal contains an implied do loop
     function has_implied_do_loop(arena, array_node) result(has_implied)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: array_node
         logical :: has_implied
 
@@ -285,7 +285,7 @@ contains
 
     ! Calculate size of implied do loop, handling nested loops recursively
     recursive function get_implied_do_size(arena, do_node_index) result(total_size)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: do_node_index
         integer :: total_size
         integer :: outer_size, inner_size, num_body
@@ -346,7 +346,7 @@ contains
 
     ! Calculate loop size from start, end, and step expressions
     function calculate_loop_size(arena, start_idx, end_idx, step_idx) result(size)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: start_idx, end_idx, step_idx
         integer :: size
         integer :: start_val, end_val, step_val
@@ -400,7 +400,7 @@ contains
 
     ! Get integer value from a literal node
     function get_integer_literal_value(arena, expr_idx) result(value)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: expr_idx
         integer :: value
 
@@ -472,7 +472,7 @@ contains
     contains
 
         subroutine queue_subexpressions(arena_l, node_idx)
-            type(ast_arena_t), intent(in) :: arena_l
+            type(ast_arena_t), target, intent(in) :: arena_l
             integer, intent(in) :: node_idx
 
             select type (node => arena_l%entries(node_idx)%node)
@@ -487,7 +487,7 @@ contains
         end subroutine queue_subexpressions
 
         function evaluate_node(arena_l, node_idx, res) result(val)
-            type(ast_arena_t), intent(in) :: arena_l
+            type(ast_arena_t), target, intent(in) :: arena_l
             integer, intent(in) :: node_idx
             integer, intent(in) :: res(:)
             integer :: val
@@ -594,7 +594,7 @@ contains
     end function get_integer_literal_value
 
     integer function resolve_identifier_integer_value(arena, expr_idx) result(val)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: expr_idx
 
         character(len=:), allocatable :: name
@@ -634,7 +634,7 @@ contains
 
     ! Get array variable type declaration from an array expression
     function get_array_var_type(arena, expr_index) result(var_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
 
@@ -655,7 +655,7 @@ contains
     end function get_array_var_type
 
     function process_array_literal_type(arena, node) result(var_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=64) :: var_type
         character(len=:), allocatable :: elem_type_str
@@ -675,7 +675,7 @@ contains
     end function process_array_literal_type
 
     function infer_array_element_type(arena, node) result(elem_type_str)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=:), allocatable :: elem_type_str
         type(mono_type_t), pointer :: expr_type
@@ -731,7 +731,7 @@ contains
     end function extract_expression_element_type
 
     function build_implied_do_type(arena, node, elem_type_str) result(var_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=*), intent(in) :: elem_type_str
         character(len=64) :: var_type
@@ -748,7 +748,7 @@ contains
 
     function try_build_modern_implied_do_type(arena, node, elem_type_str) &
         result(var_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=*), intent(in) :: elem_type_str
         character(len=64) :: var_type
@@ -794,7 +794,7 @@ contains
     end function try_build_modern_implied_do_type
 
     function check_modern_implied_do_pattern(arena, node) result(is_valid)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         logical :: is_valid
         integer :: idx
@@ -812,7 +812,7 @@ contains
     end function check_modern_implied_do_pattern
 
     function build_regular_array_type(arena, node, elem_type_str) result(var_type)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=*), intent(in) :: elem_type_str
         character(len=64) :: var_type
@@ -838,7 +838,7 @@ contains
 
     subroutine analyze_nested_arrays(arena, node, has_array_element, &
                                       all_literal_arrays, inner_size)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         logical, intent(out) :: has_array_element, all_literal_arrays
         integer, intent(out) :: inner_size

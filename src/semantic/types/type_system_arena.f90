@@ -19,18 +19,18 @@ module type_system_arena
 
     ! Handle types for safe type references
     type :: mono_handle_t
-        type(arena_handle_t) :: handle
+        type(arena_handle_t) :: handle = arena_handle_t()
         integer :: type_id = 0 ! Unique identifier for debugging
     end type mono_handle_t
 
     type :: poly_handle_t
-        type(arena_handle_t) :: handle
+        type(arena_handle_t) :: handle = arena_handle_t()
         integer :: type_id = 0 ! Unique identifier for debugging
     end type poly_handle_t
 
     ! Handle for type argument arrays
     type :: args_handle_t
-        type(arena_handle_t) :: handle
+        type(arena_handle_t) :: handle = arena_handle_t()
         integer :: count = 0 ! Number of arguments
         integer :: type_id = 0 ! Unique identifier for debugging
     end type args_handle_t
@@ -40,7 +40,7 @@ module type_system_arena
         integer :: kind = 0 ! TVAR, TINT, TREAL, etc.
         integer :: var_id = 0 ! Type variable ID
         character(len=64) :: var_name = "" ! Fixed-size name to avoid allocatable
-        type(args_handle_t) :: args ! Handle to argument array
+        type(args_handle_t) :: args = args_handle_t() ! Handle to argument array
         integer :: size = 0 ! For TCHAR(len=size), TARRAY(size)
         logical :: is_unsigned = .false.
         logical :: is_allocatable = .false.
@@ -50,12 +50,12 @@ module type_system_arena
 
     ! Arena-based polymorphic type
     type :: arena_poly_type_t
-        type(args_handle_t) :: forall_vars ! Handle to quantified variables
-        type(mono_handle_t) :: mono ! Handle to monomorphic type
+        type(args_handle_t) :: forall_vars = args_handle_t() ! Quantified variables
+        type(mono_handle_t) :: mono = mono_handle_t() ! Monomorphic type
     end type arena_poly_type_t
 
     ! Type arena for managing all type allocations (extends base_arena_t)
-    type, extends(base_arena_t), public :: type_arena_t
+    type, extends(base_arena_t) :: type_arena_t
         type(arena_t) :: arena ! Underlying memory arena
         integer :: next_type_id = 1 ! Unique ID counter
         integer :: mono_count = 0 ! Statistics
@@ -92,7 +92,7 @@ module type_system_arena
     end type type_arena_t
 
     ! Type arena statistics
-    type, public :: type_arena_stats_t
+    type :: type_arena_stats_t
         integer :: mono_types = 0
         integer :: poly_types = 0
         integer :: arg_arrays = 0

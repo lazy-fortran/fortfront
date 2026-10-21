@@ -102,8 +102,9 @@ module ast_nodes_bounds
 
 contains
 
+    ! Returned pointers borrow their node from the caller's TARGET arena.
     function get_array_bounds_node(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(array_bounds_node), pointer :: node
 
@@ -117,7 +118,7 @@ contains
     end function get_array_bounds_node
 
     function get_array_slice_node(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(array_slice_node), pointer :: node
 
@@ -131,7 +132,7 @@ contains
     end function get_array_slice_node
 
     function get_range_expression_node(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(range_expression_node), pointer :: node
 
@@ -145,7 +146,7 @@ contains
     end function get_range_expression_node
 
     function get_array_operation_node(arena, index) result(node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: index
         type(array_operation_node), pointer :: node
 

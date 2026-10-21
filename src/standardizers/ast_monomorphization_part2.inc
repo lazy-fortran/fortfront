@@ -3,7 +3,7 @@
                                        module_count, module_names, preserved_indices, &
                                        preserved_count, &
                                        program_indices, program_count, updated_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
         integer, intent(in) :: child_idx
         integer, allocatable, intent(inout) :: module_indices(:)
@@ -75,7 +75,7 @@
     end subroutine process_container_entry
 
     subroutine promote_double_literal_assignments(arena, prog_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: prog_idx
         type(program_node), pointer :: prog
         integer :: i, stmt_idx, target_idx, value_idx
@@ -175,7 +175,7 @@
                                            module_count, module_names, &
                                            program_indices, &
                                            program_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(inout) :: root_index
         logical, intent(in) :: is_multi_unit
         integer, intent(in) :: preserved_indices(:)
@@ -247,7 +247,7 @@
     end subroutine finalize_monomorphized_root
 
     subroutine get_root_body_indices(arena, root_index, body_indices)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), target, intent(in) :: arena
         integer, intent(in) :: root_index
         integer, allocatable, intent(out) :: body_indices(:)
 
@@ -258,7 +258,7 @@
 
     subroutine create_multi_unit_root(arena, root_index, module_indices, &
                                       module_count, original_prog_idx, line, column)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(inout) :: root_index
         integer, intent(in) :: module_indices(:)
         integer, intent(in) :: module_count
@@ -285,7 +285,7 @@
     end subroutine create_multi_unit_root
 
     subroutine ensure_program_has_uses(arena, prog_idx, module_names, module_count)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: prog_idx
         character(len=*), intent(in) :: module_names(:)
         integer, intent(in) :: module_count
@@ -378,7 +378,7 @@
     end subroutine mark_existing_use
 
     subroutine set_parent_if_valid(arena, child_idx, parent_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: child_idx
         integer, intent(in) :: parent_idx
 
@@ -775,7 +775,7 @@
 
     function clone_function_with_signature(arena, func_idx, signature) &
         result(new_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: func_idx
         type(type_signature_t), intent(in) :: signature
         integer :: new_idx
@@ -841,7 +841,7 @@
 
     function clone_function_parameters(arena, orig_func, signature) &
         result(new_param_indices)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         type(function_def_node), pointer, intent(in) :: orig_func
         type(type_signature_t), intent(in) :: signature
         integer, allocatable :: new_param_indices(:)
@@ -852,7 +852,7 @@
 
     function clone_parameter_list(arena, param_indices, signature) &
         result(new_param_indices)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, allocatable, intent(in) :: param_indices(:)
         type(type_signature_t), intent(in) :: signature
         integer, allocatable :: new_param_indices(:)
@@ -895,7 +895,7 @@
 
     function clone_subroutine_with_signature(arena, sub_idx, signature) &
         result(new_idx)
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: sub_idx
         type(type_signature_t), intent(in) :: signature
         integer :: new_idx
@@ -991,7 +991,7 @@
     subroutine infer_intent_for_cloned_subroutine(arena, sub_idx, sub_def)
         use ast_nodes_data, only: parameter_declaration_node, INTENT_IN
         use ast_nodes_data, only: INTENT_INOUT, INTENT_OUT
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), target, intent(inout) :: arena
         integer, intent(in) :: sub_idx
         type(subroutine_def_node), intent(in) :: sub_def
         type(param_metadata_t) :: metadata
