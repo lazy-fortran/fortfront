@@ -11,6 +11,17 @@ sketched in an earlier issue is not a mandatory implementation.
 
 ## Current goals
 
+[V] 2026-10-21 Flang bootstrap repair: declare accessibility once, initialize
+nested handles explicitly, and keep borrowed node pointers associated with
+TARGET arenas throughout bounds, transformation and monomorphization calls.
+GCC 12.2 aCluster job 21817050 builds all 377 library sources and passes six
+affected arena, query, bounds and multi-unit tests. The real
+[Fo](https://github.com/lazy-fortran/fo) bootstrap and native FPM/CMake consumers
+pass with Flang 21.1.8 and 22.1.8 (21817061/21817062, COMPLETED 0:0), using
+the separate Fx manifest repair in Fx #70. This is full Fo consumer evidence,
+not a full FortFront suite result under Flang. CI runs the existing GNU
+platform matrix on merge groups too.
+
 2026-10-07 cleanup: the broad `fortfront`, `ast_nodes_control`, and
 `ast_factory` facades, the `ast_arena_compat` inheritance layer, unused
 parser/type wrappers and token aliases are removed. Indexed AST storage now

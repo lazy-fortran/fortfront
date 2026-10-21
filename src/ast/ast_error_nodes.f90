@@ -6,7 +6,7 @@ module ast_error_nodes
     public :: error_node_t, create_error_node
 
     ! Error node for unknown AST node types - safer than source= allocation
-    type, extends(ast_node), public :: error_node_t
+    type, extends(ast_node) :: error_node_t
         character(len=:), allocatable :: error_message
         character(len=:), allocatable :: original_data
         integer :: error_code = -1
