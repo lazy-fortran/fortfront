@@ -9,6 +9,7 @@ module parser_common_statement_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
+    use string_types, only: append_string
     use ast_nodes_data, only: declaration_node
     use ast_factory_statements, only: push_common_block
     use parser_declaration_attributes_module, only: parse_array_dimensions
@@ -56,7 +57,7 @@ contains
                     block_names = [block_names, string_t("")]
                     current_block = size(block_names)
                 end if
-                member_names = [member_names, string_t(trim(token%text))]
+                call append_string(member_names, trim(token%text))
                 member_block = [member_block, current_block]
                 token = parser%consume()
                 call parse_member_array_spec(parser, arena, trim(token%text))
