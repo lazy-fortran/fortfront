@@ -17,6 +17,7 @@ module parser_enum_statement_module
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
+    use string_types, only: append_string
     use ast_factory_statements, only: push_enum
     use semantic_constant_values, only: integer_literal_fits_default_kind
     implicit none
@@ -192,7 +193,7 @@ contains
             token = parser%peek()
             if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) exit
             if (token%kind == TK_IDENTIFIER) then
-                names = [names, string_t(trim(token%text))]
+                call append_string(names, trim(token%text))
                 token = parser%consume()
                 this_value = next_value
                 call skip_inline_trivia(parser)
