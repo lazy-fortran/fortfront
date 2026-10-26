@@ -35,8 +35,8 @@ contains
         result%has_mixed_constructs = .false.
         result%num_implicit_ranges = 0
         result%num_explicit_ranges = 0
-        allocate (result%implicit_ranges(100, 2)) ! Max 100 ranges
-        allocate (result%explicit_ranges(100, 2))
+        allocate (result%implicit_ranges(16, 2))
+        allocate (result%explicit_ranges(16, 2))
 
         i = 1
         do while (i <= size(tokens))
@@ -53,9 +53,8 @@ contains
                 call find_declaration_range(tokens, i, range_end)
 
                 ! Add to implicit ranges
-                result%num_implicit_ranges = result%num_implicit_ranges + 1
-                result%implicit_ranges(result%num_implicit_ranges, 1) = range_start
-                result%implicit_ranges(result%num_implicit_ranges, 2) = range_end
+                call append_range(result%implicit_ranges, &
+                    result%num_implicit_ranges, range_start, range_end)
 
                 i = range_end + 1
 
@@ -65,9 +64,8 @@ contains
                 call find_program_unit_range(tokens, i, range_end)
 
                 ! Add to explicit ranges
-                result%num_explicit_ranges = result%num_explicit_ranges + 1
-                result%explicit_ranges(result%num_explicit_ranges, 1) = range_start
-                result%explicit_ranges(result%num_explicit_ranges, 2) = range_end
+                call append_range(result%explicit_ranges, &
+                    result%num_explicit_ranges, range_start, range_end)
 
                 i = range_end + 1
 
@@ -112,6 +110,24 @@ contains
             end block
         end if
     end subroutine detect_mixed_constructs
+
+    ! Append a [start, end] pair, doubling the capacity when it is exhausted
+    subroutine append_range(ranges, n_ranges, range_start, range_end)
+        integer, allocatable, intent(inout) :: ranges(:, :)
+        integer, intent(inout) :: n_ranges
+        integer, intent(in) :: range_start, range_end
+
+        integer, allocatable :: grown(:, :)
+
+        if (n_ranges >= size(ranges, 1)) then
+            allocate (grown(max(16, 2*size(ranges, 1)), 2))
+            grown(1:n_ranges, :) = ranges(1:n_ranges, :)
+            call move_alloc(grown, ranges)
+        end if
+        n_ranges = n_ranges + 1
+        ranges(n_ranges, 1) = range_start
+        ranges(n_ranges, 2) = range_end
+    end subroutine append_range
 
     ! Check if token sequence represents a top-level declaration
     function is_top_level_declaration(tokens, start_pos) result(is_declaration)
