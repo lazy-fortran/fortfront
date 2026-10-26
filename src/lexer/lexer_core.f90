@@ -745,9 +745,11 @@ contains
         end if
 
         if (allocated(tokens(current_count)%leading_trivia)) then
-            deallocate (tokens(current_count)%leading_trivia)
+            tokens(current_count)%leading_trivia = &
+                [buffer, tokens(current_count)%leading_trivia]
+        else
+            tokens(current_count)%leading_trivia = buffer
         end if
-        tokens(current_count)%leading_trivia = buffer
 
         call clear_trivia(buffer)
     end subroutine attach_pending_trivia
