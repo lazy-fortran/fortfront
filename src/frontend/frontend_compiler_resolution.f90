@@ -44,6 +44,11 @@ module frontend_compiler_resolution
         integer :: association = ASSOCIATION_NONE
     end type declaration_binding_t
 
+    type :: use_resolution_path_t
+        integer :: scope_node_index = 0
+        type(use_resolution_path_t), pointer :: previous => null()
+    end type use_resolution_path_t
+
     public :: get_scope_bindings
     ! Scope enumeration primitives, shared with the semantic validators that
     ! diagnose per-scoping-unit conflicts (issues #2887 and #2888).
@@ -186,6 +191,7 @@ contains
         type(declaration_binding_t), intent(out) :: binding
         character(len=:), allocatable, intent(out) :: error_msg
         integer :: host_scope
+        logical :: ambiguous
 
         call clear_binding(binding)
         call set_empty(error_msg)
@@ -196,7 +202,12 @@ contains
         call resolve_separate_module_dummy(arena, scope_node_index, name, binding)
         if (binding%found) return
 
-        call resolve_use_binding(arena, scope_node_index, name, binding)
+        call resolve_use_binding_checked(arena, scope_node_index, name, binding, &
+            ambiguous)
+        if (ambiguous) then
+            error_msg = 'ambiguous USE association for '//trim(name)
+            return
+        end if
         if (binding%found) return
 
         host_scope = find_host_scope(arena, scope_node_index)
@@ -393,44 +404,102 @@ contains
         integer, intent(in) :: scope_node_index
         character(len=*), intent(in) :: name
         type(declaration_binding_t), intent(out) :: binding
+        logical :: ambiguous
+
+        call resolve_use_binding_checked(arena, scope_node_index, name, binding, &
+            ambiguous)
+    end subroutine resolve_use_binding
+
+    subroutine resolve_use_binding_checked(arena, scope_node_index, name, binding, &
+            ambiguous)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        character(len=*), intent(in) :: name
+        type(declaration_binding_t), intent(out) :: binding
+        logical, intent(out) :: ambiguous
+        type(use_resolution_path_t), target :: path
+
+        path%scope_node_index = scope_node_index
+        nullify (path%previous)
+        call resolve_use_binding_impl(arena, scope_node_index, name, binding, &
+            path, ambiguous)
+    end subroutine resolve_use_binding_checked
+
+    recursive subroutine resolve_use_binding_impl(arena, scope_node_index, name, &
+            binding, path, ambiguous)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_node_index
+        character(len=*), intent(in) :: name
+        type(declaration_binding_t), intent(out) :: binding
+        type(use_resolution_path_t), intent(in), target :: path
+        logical, intent(out) :: ambiguous
+        logical :: candidate_ambiguous
+        type(declaration_binding_t) :: candidate
         integer, allocatable :: indices(:)
         integer :: i
 
         call clear_binding(binding)
+        ambiguous = .false.
         call get_scope_statement_indices(arena, scope_node_index, indices)
         do i = 1, size(indices)
             if (.not. arena%has_node_at(indices(i))) cycle
             select type (node => arena%entries(indices(i))%node)
             type is (use_statement_node)
-                call resolve_from_use_statement(arena, node, name, binding)
-                if (binding%found) return
+                call resolve_from_use_statement(arena, node, name, candidate, &
+                    path, candidate_ambiguous)
+                if (candidate_ambiguous) then
+                    call clear_binding(binding)
+                    ambiguous = .true.
+                    return
+                end if
+                if (.not. candidate%found) cycle
+                if (binding%found) then
+                    if (binding%declaration_node_index /= &
+                        candidate%declaration_node_index .or. &
+                        binding%declaration_entity_index /= &
+                        candidate%declaration_entity_index .or. &
+                        binding%scope_node_index /= candidate%scope_node_index) then
+                        call clear_binding(binding)
+                        ambiguous = .true.
+                        return
+                    end if
+                else
+                    binding = candidate
+                end if
             end select
         end do
-    end subroutine resolve_use_binding
+    end subroutine resolve_use_binding_impl
 
-    subroutine resolve_from_use_statement(arena, node, name, binding)
+    recursive subroutine resolve_from_use_statement(arena, node, name, binding, &
+            path, ambiguous)
         type(ast_arena_t), intent(in) :: arena
         type(use_statement_node), intent(in) :: node
         character(len=*), intent(in) :: name
         type(declaration_binding_t), intent(out) :: binding
+        type(use_resolution_path_t), intent(in), target :: path
+        logical, intent(out) :: ambiguous
         character(len=:), allocatable :: remote_name
         character(len=:), allocatable :: module_name
 
         call clear_binding(binding)
+        ambiguous = .false.
         if (node%is_intrinsic) return
         if (.not. allocated(node%module_name)) return
         module_name = trim(node%module_name)
         if (len_trim(module_name) == 0) return
 
         if (find_rename_remote(node, name, remote_name)) then
-            call resolve_module_export(arena, module_name, remote_name, binding)
+            call resolve_module_export(arena, module_name, remote_name, binding, &
+                path, ambiguous)
         else if (node%has_only) then
             if (.not. list_contains(node%only_list, name)) return
-            call resolve_module_export(arena, module_name, name, binding)
+            call resolve_module_export(arena, module_name, name, binding, path, &
+                ambiguous)
             remote_name = trim(name)
         else
             if (is_renamed_remote(node, name)) return
-            call resolve_module_export(arena, module_name, name, binding)
+            call resolve_module_export(arena, module_name, name, binding, path, &
+                ambiguous)
             remote_name = trim(name)
         end if
 
@@ -441,22 +510,52 @@ contains
         binding%module_name = trim(module_name)
     end subroutine resolve_from_use_statement
 
-    subroutine resolve_module_export(arena, module_name, name, binding)
+    recursive subroutine resolve_module_export(arena, module_name, name, binding, &
+            path, ambiguous)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in) :: name
         type(declaration_binding_t), intent(out) :: binding
+        type(use_resolution_path_t), intent(in), target :: path
+        logical, intent(out) :: ambiguous
         integer :: module_index
+        type(use_resolution_path_t), target :: next_path
 
         call clear_binding(binding)
+        ambiguous = .false.
         module_index = find_module_index(arena, module_name)
         if (module_index <= 0) return
+        if (.not. module_binding_is_public(arena, module_index, name)) return
         call resolve_local_binding(arena, module_index, name, binding)
-        if (.not. binding%found) return
-        if (.not. module_binding_is_public(arena, module_index, name)) then
-            call clear_binding(binding)
-        end if
+        if (binding%found) return
+
+        ! Re-exported USE names retain their original declaration/entity/scope
+        ! tuple. Bound malformed import cycles while preserving each module's
+        ! accessibility and rename rules along the complete import path.
+        if (path_contains_scope(path, module_index)) return
+        ! The recursive call finishes before this local TARGET goes out of scope.
+        ! Path state grows with import depth, without arena-sized allocation.
+        next_path%scope_node_index = module_index
+        next_path%previous => path
+        call resolve_use_binding_impl(arena, module_index, name, binding, next_path, &
+            ambiguous)
     end subroutine resolve_module_export
+
+    logical function path_contains_scope(path, scope_node_index) result(found)
+        type(use_resolution_path_t), intent(in), target :: path
+        integer, intent(in) :: scope_node_index
+        type(use_resolution_path_t), pointer :: current
+
+        found = .false.
+        current => path
+        do while (associated(current))
+            if (current%scope_node_index == scope_node_index) then
+                found = .true.
+                return
+            end if
+            current => current%previous
+        end do
+    end function path_contains_scope
 
     subroutine collect_scope_bindings(arena, scope_node_index, association, &
                                       bindings, count)

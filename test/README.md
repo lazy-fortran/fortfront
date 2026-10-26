@@ -34,6 +34,13 @@ This directory contains the complete test suite for fortfront, organized by subs
 kind-selector AST and the public diagnostic identity/span, using the canonical
 invalid-function and accepted-inquiry examples for issue #2970.
 
+`api/test_transitive_use_binding_identity.f90` checks canonical variable,
+parameter, procedure, and derived-type identities through public USE re-export
+and rename chains, host references, and ASSOCIATE selectors. It also checks
+private exports, hidden remote spellings, and malformed import cycles.
+`examples/f90/invalid_transitive_use_ambiguity.f90` witnesses the ambiguity
+refusal, including an unrelated host declaration with the same spelling.
+
 ## Key Concepts
 
 `api/test_inquire_nested_specifiers.f90` checks nested FILE expressions,

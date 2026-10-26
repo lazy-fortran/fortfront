@@ -12,6 +12,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 |------|-------------|
 | frontend_compiler_api.f90 | Public compiler-facing API returning AST, semantic context, tokens, and diagnostics without codegen |
 | frontend_compiler_queries.f90 | Safe compiler-facing AST queries for backend consumers |
+| frontend_compiler_resolution.f90 | Canonical declaration identities across local, host, ASSOCIATE, and same-arena transitive USE associations |
 | frontend_compiler_type_queries.f90 | Resolved expression category, exact kind, storage size, rank, and derived-type queries |
 | frontend_compiler_node_queries.f90 | Compiler-facing declaration, derived-type, label, and GOTO node metadata queries |
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
@@ -156,6 +157,17 @@ end subroutine
   binary operations. `is_literal` and `get_literal_info` (value text,
   literal type) do the same for literals. `is_identifier` and
   `get_identifier_name` do the same for identifier references.
+- **Name resolution**: `resolve_name_in_scope` and `resolve_name_at_node`
+  preserve the original declaration node, entity, and owning scope across
+  same-arena `USE` re-export chains. Each module's accessibility, `ONLY`, and
+  rename rules remain effective at every hop. Host references and ASSOCIATE
+  selectors retain that identity; malformed import cycles terminate without
+  inventing declarations. Multiple import paths to the same declaration agree;
+  distinct declarations with one visible spelling remain unresolved and report
+  ambiguity before any host fallback. Modules absent from the arena remain
+  unresolved.
+  See `examples/f90/transitive_use_binding_identity.f90` and
+  `test/api/test_transitive_use_binding_identity.f90` for the API oracle.
 - **Call argument mapping**: `query_call_arguments` resolves a same-arena
   function or subroutine call into formal-parameter order. Each
   `call_argument_query_t` preserves the original actual node and its value
