@@ -12,14 +12,12 @@ supported subset through LIRIC.
 
 ## Features
 
-- End-to-end pipeline: lexing, parsing, semantic checks, and Fortran emission
-- Validation of duplicate local declarations, type/entity name collisions,
-  named-constant definition contexts, character inquiry arity, and closing
-  program/DO construct names, while preserving legal local shadowing
-- Nested named DO constructs retain their complete loop structure and closing names
-- Numeric literals followed directly by dotted operators remain separate tokens
-- Lazy Fortran to standard Fortran conversion with automatic type inference
-- CLI and library APIs for scripting, pipelines, and embedding in larger tools
+- Pipeline of lexing, parsing, semantic analysis and standard Fortran emission
+- Lazy Fortran to standard Fortran conversion with type inference
+- Semantic checks such as duplicate local declarations, type/entity name
+  collisions, assignments to named constants and mismatched closing construct
+  names, while preserving legal shadowing
+- CLI and library APIs for scripting, pipelines and embedding in other tools
 
 Current limits:
 
@@ -83,7 +81,16 @@ specialized semantic query helpers are still a roadmap item.
 - `fortfront_tooling` - Convenience functions for tool developers
 - `fortfront_compiler` - Compiler-facing parse and semantic result API
 
-See docs/guides/LIBRARY_USAGE.md for worked examples.
+See [docs/guides/LIBRARY_USAGE.md](docs/guides/LIBRARY_USAGE.md) for worked examples.
 
-## Links
-- [ffc](https://github.com/lazy-fortran/ffc) | [fluff](https://github.com/lazy-fortran/fluff) | [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)
+## Related projects
+
+- [ffc](https://github.com/lazy-fortran/ffc): compiler driver that lowers the fortfront AST to native code
+- [fluff](https://github.com/lazy-fortran/fluff): linter and formatter built on fortfront
+- [fortrun](https://github.com/lazy-fortran/fortrun): experimental build/run helper (on hold)
+
+More material: [examples/](examples/), [docs/](docs/).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
