@@ -79,6 +79,35 @@ module parser_expressions_module
 
 contains
 
+    logical function has_complex_separator(parser, view) result(found)
+        type(parser_state_t), intent(in) :: parser
+        type(token_view_t), intent(in) :: view
+        integer :: i, paren_depth, bracket_depth
+
+        found = .false.
+        paren_depth = 0
+        bracket_depth = 0
+        do i = parser%current_token - view%base_index + 1, view%count
+            if (view%kind(i) /= TK_OPERATOR) cycle
+            select case (trim(view%text(i)))
+            case ("(")
+                paren_depth = paren_depth + 1
+            case (")")
+                paren_depth = paren_depth - 1
+                if (paren_depth == 0) return
+            case ("[")
+                bracket_depth = bracket_depth + 1
+            case ("]")
+                bracket_depth = bracket_depth - 1
+            case (",")
+                if (paren_depth == 1 .and. bracket_depth == 0) then
+                    found = .true.
+                    return
+                end if
+            end select
+        end do
+    end function has_complex_separator
+
     recursive function try_parse_complex_literal(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -98,6 +127,9 @@ contains
         open_paren = view_peek_token(view, parser)
         if (open_paren%kind /= TK_OPERATOR) return
         if (trim(open_paren%text) /= "(") return
+
+        ! Speculating on ordinary groups duplicates their entire expression tree.
+        if (.not. has_complex_separator(parser, view)) return
 
         open_paren = view_consume_token(view, parser)
 
@@ -507,410 +539,367 @@ contains
         iteration_count = 0
 
         main_loop: do while (iteration_count < MAX_ITERATIONS)
-        iteration_count = iteration_count + 1
-        token = view_peek_token(view, parser)
-        if (token%kind == TK_EOF) exit main_loop
+            iteration_count = iteration_count + 1
+            token = view_peek_token(view, parser)
+            if (token%kind == TK_EOF) exit main_loop
 
-        if (token%kind == TK_COMMENT) then
-            if (is_trailing_comment(parser)) then
-                exit main_loop
-            else
+            if (token%kind == TK_COMMENT) then
+                if (is_trailing_comment(parser)) then
+                    exit main_loop
+                else
+                    token = view_consume_token(view, parser)
+                    cycle
+                end if
+            else if (is_expression_trivia_token(token)) then
                 token = view_consume_token(view, parser)
                 cycle
             end if
-        else if (is_expression_trivia_token(token)) then
-            token = view_consume_token(view, parser)
-            cycle
-        end if
 
-        if (.not. expect_operand) then
-            if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
-                if (operator_stack_has_open_group(operators)) then
-                    call handle_closing_paren(parser, arena, view, operators, &
-                        operands, prefix_stack, token, &
-                        expect_operand)
-                    cycle
-                else
-                    exit main_loop
-                end if
-            end if
-        end if
-
-        if (token_is_terminator(token, terminators)) exit main_loop
-
-        if (expect_operand) then
-            if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
-                if (is_legacy_array_literal_start(parser, view)) then
-                    call handle_operand_token(parser, arena, view, operands, &
-                        prefix_stack, token, &
-                        expect_operand)
-                    cycle
+            if (.not. expect_operand) then
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                    if (operator_stack_has_open_group(operators)) then
+                        call handle_closing_paren(parser, arena, view, operators, &
+                            operands, prefix_stack, token, &
+                            expect_operand)
+                        cycle
+                    else
+                        exit main_loop
+                    end if
                 end if
             end if
 
-            ! Handle .not. operator with correct precedence (lower than comparison)
-            ! ISO/IEC 1539-1:2018 Table 10.1: .not. binds looser than relational ops
-            if (is_not_operator_token(token)) then
-                ! Push virtual 0 operand for unary .not.
-                call operand_stack_push(operands, 0)
-                ! Create operator entry for .not. with PREC_NOT precedence
-                block
-                    type(operator_entry_t) :: not_entry
-                    type(token_t) :: not_token
-                    not_entry%symbol = token%text
-                    not_entry%precedence = PREC_NOT
-                    not_entry%right_associative = .true.
-                    not_token = view_consume_token(view, parser)
-                    not_entry%token_line = not_token%line
-                    not_entry%token_column = not_token%column
-                    call reduce_operators_for_incoming(operators, operands, arena, &
-                        not_entry)
-                    call operator_stack_push(operators, not_entry)
-                end block
-                expect_operand = .true.
-                cycle
-            end if
+            if (token_is_terminator(token, terminators)) exit main_loop
 
-            ! Handle a user-defined operator in prefix position (unary defined
-            ! operator, e.g. .negation. x). Emit a binary op with a virtual 0
-            ! left operand and the operand on the right, exactly like .not., so
-            ! the single operand is a resolvable arena node (issue #2838).
-            if (is_defined_operator_token(token)) then
-                call operand_stack_push(operands, 0)
-                block
-                    type(operator_entry_t) :: defined_entry
-                    type(token_t) :: defined_token
-                    defined_entry%symbol = token%text
-                    defined_entry%precedence = PREC_UNARY
-                    defined_entry%right_associative = .true.
-                    defined_token = view_consume_token(view, parser)
-                    defined_entry%token_line = defined_token%line
-                    defined_entry%token_column = defined_token%column
-                    call reduce_operators_for_incoming(operators, operands, arena, &
-                        defined_entry)
-                    call operator_stack_push(operators, defined_entry)
-                end block
-                expect_operand = .true.
-                cycle
-            end if
-
-            ! Handle high-precedence prefix operators (+, -) that bind immediately
-            if (is_immediate_prefix_token(token)) then
-                call token_stack_push(prefix_stack, &
-                    view_consume_token(view, parser))
-                cycle
-            end if
-
-            if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
-                block
-                    integer :: complex_index
-                    complex_index = try_parse_complex_literal(parser, arena, view)
-                    if (complex_index > 0) then
-                        complex_index = apply_prefix_stack(arena, prefix_stack, &
-                            complex_index)
-                        complex_index = parse_postfix_ops(parser, arena, view, &
-                            complex_index)
-                        call operand_stack_push(operands, complex_index)
-                        expect_operand = .false.
+            if (expect_operand) then
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    if (is_legacy_array_literal_start(parser, view)) then
+                        call handle_operand_token(parser, arena, view, operands, &
+                            prefix_stack, token, &
+                            expect_operand)
                         cycle
                     end if
-                end block
-            end if
+                end if
 
-            if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
-                block
-                    type(token_t) :: marker
-                    marker%text = ""
-                    marker%kind = PREFIX_MARKER_KIND
-                    marker%line = token%line
-                    marker%column = token%column
-                    call token_stack_push(prefix_stack, marker)
-                end block
-                call push_group_marker(operators, view_consume_token(view, parser))
-                expect_operand = .true.
+                ! Handle .not. operator with correct precedence (lower than comparison)
+                ! ISO/IEC 1539-1:2018 Table 10.1: .not. binds looser than relational ops
+                if (is_not_operator_token(token)) then
+                    ! Push virtual 0 operand for unary .not.
+                    call operand_stack_push(operands, 0)
+                    ! Create operator entry for .not. with PREC_NOT precedence
+                    block
+                        type(operator_entry_t) :: not_entry
+                        type(token_t) :: not_token
+                        not_entry%symbol = token%text
+                        not_entry%precedence = PREC_NOT
+                        not_entry%right_associative = .true.
+                        not_token = view_consume_token(view, parser)
+                        not_entry%token_line = not_token%line
+                        not_entry%token_column = not_token%column
+                        call reduce_operators_for_incoming(operators, operands, arena, &
+                            not_entry)
+                        call operator_stack_push(operators, not_entry)
+                    end block
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                ! Handle a user-defined operator in prefix position (unary defined
+                ! operator, e.g. .negation. x). Emit a binary op with a virtual 0
+                ! left operand and the operand on the right, exactly like .not., so
+                ! the single operand is a resolvable arena node (issue #2838).
+                if (is_defined_operator_token(token)) then
+                    call operand_stack_push(operands, 0)
+                    block
+                        type(operator_entry_t) :: defined_entry
+                        type(token_t) :: defined_token
+                        defined_entry%symbol = token%text
+                        defined_entry%precedence = PREC_UNARY
+                        defined_entry%right_associative = .true.
+                        defined_token = view_consume_token(view, parser)
+                        defined_entry%token_line = defined_token%line
+                        defined_entry%token_column = defined_token%column
+                        call reduce_operators_for_incoming(operators, operands, arena, &
+                            defined_entry)
+                        call operator_stack_push(operators, defined_entry)
+                    end block
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                ! Handle high-precedence prefix operators (+, -) that bind immediately
+                if (is_immediate_prefix_token(token)) then
+                    call token_stack_push(prefix_stack, &
+                        view_consume_token(view, parser))
+                    cycle
+                end if
+
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    block
+                        integer :: complex_index
+                        complex_index = try_parse_complex_literal(parser, arena, view)
+                        if (complex_index > 0) then
+                            complex_index = apply_prefix_stack(arena, prefix_stack, &
+                                complex_index)
+                            complex_index = parse_postfix_ops(parser, arena, view, &
+                                complex_index)
+                            call operand_stack_push(operands, complex_index)
+                            expect_operand = .false.
+                            cycle
+                        end if
+                    end block
+                end if
+
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    block
+                        type(token_t) :: marker
+                        marker%text = ""
+                        marker%kind = PREFIX_MARKER_KIND
+                        marker%line = token%line
+                        marker%column = token%column
+                        call token_stack_push(prefix_stack, marker)
+                    end block
+                    call push_group_marker(operators, view_consume_token(view, parser))
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                call handle_operand_token(parser, arena, view, operands, &
+                    prefix_stack, token, expect_operand)
+                cycle
+            else
+                call handle_infix_operator(parser, view, operators, operands, arena, &
+                    token, minimum_precedence, expect_operand, &
+                    should_exit)
+                if (should_exit) exit main_loop
                 cycle
             end if
+        end do main_loop
 
-            call handle_operand_token(parser, arena, view, operands, &
-                prefix_stack, token, expect_operand)
-            cycle
-        else
-            call handle_infix_operator(parser, view, operators, operands, arena, &
-                token, minimum_precedence, expect_operand, &
-                should_exit)
-            if (should_exit) exit main_loop
-            cycle
+        call reduce_all_operators(operators, operands, arena)
+        expr_index = operand_stack_pop(operands)
+    end function parse_expression_with_precedence
+
+    !=================================================================================
+    ! MAIN ENTRY POINT
+    !=================================================================================
+
+    ! Main expression parsing entry point with stack
+    function parse_expression(tokens, arena, parent_parser) result(expr_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(in), optional :: parent_parser
+        integer :: expr_index
+        type(parser_state_t) :: parser
+
+        parser = create_parser_state(tokens)
+        if (present(parent_parser)) then
+            if (associated(parent_parser%diagnostic_sink)) then
+                parser%diagnostic_sink => parent_parser%diagnostic_sink
+            end if
         end if
-    end do main_loop
+        expr_index = parse_range(parser, arena)
+    end function parse_expression
 
-    call reduce_all_operators(operators, operands, arena)
-    expr_index = operand_stack_pop(operands)
-end function parse_expression_with_precedence
+    ! Parse logical EQV/NEQV operators (lowest precedence)
+    recursive function parse_logical_eqv(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-!=================================================================================
-! MAIN ENTRY POINT
-!=================================================================================
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_EQV)
+    end function parse_logical_eqv
 
-! Main expression parsing entry point with stack
-function parse_expression(tokens, arena, parent_parser) result(expr_index)
-    type(token_t), intent(in) :: tokens(:)
-    type(ast_arena_t), intent(inout) :: arena
-    type(parser_state_t), intent(in), optional :: parent_parser
-    integer :: expr_index
-    type(parser_state_t) :: parser
+    ! Parse logical OR operators
+    recursive function parse_logical_or(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    parser = create_parser_state(tokens)
-    if (present(parent_parser)) then
-        if (associated(parent_parser%diagnostic_sink)) then
-            parser%diagnostic_sink => parent_parser%diagnostic_sink
-        end if
-    end if
-    expr_index = parse_range(parser, arena)
-end function parse_expression
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_OR)
+    end function parse_logical_or
 
-! Parse logical EQV/NEQV operators (lowest precedence)
-recursive function parse_logical_eqv(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse logical AND operators
+    recursive function parse_logical_and(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_EQV)
-end function parse_logical_eqv
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_AND)
+    end function parse_logical_and
 
-! Parse logical OR operators
-recursive function parse_logical_or(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse comparison operators
+    recursive function parse_comparison(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_OR)
-end function parse_logical_or
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_COMPARISON)
+    end function parse_comparison
 
-! Parse logical AND operators
-recursive function parse_logical_and(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse string concatenation operator (//) - Issue #214
+    recursive function parse_concatenation(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_AND)
-end function parse_logical_and
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_CONCAT)
+    end function parse_concatenation
+    ! Parse addition and subtraction
+    recursive function parse_term(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-! Parse comparison operators
-recursive function parse_comparison(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_TERM)
+    end function parse_term
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_COMPARISON)
-end function parse_comparison
+    ! Parse multiplication and division
+    recursive function parse_factor(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-! Parse string concatenation operator (//) - Issue #214
-recursive function parse_concatenation(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_FACTOR)
+    end function parse_factor
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_CONCAT)
-end function parse_concatenation
-! Parse addition and subtraction
-recursive function parse_term(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse exponentiation (**) - right-associative
+    recursive function parse_power(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_TERM)
-end function parse_term
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_POWER)
+    end function parse_power
 
-! Parse multiplication and division
-recursive function parse_factor(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse unary operators (+, -, .NOT.) - Issue #215
+    recursive function parse_unary(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_FACTOR)
-end function parse_factor
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_UNARY)
+    end function parse_unary
 
-! Parse exponentiation (**) - right-associative
-recursive function parse_power(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    ! Parse primary expressions (literals, identifiers, parentheses)
+    recursive function parse_primary(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_POWER)
-end function parse_power
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
+    end function parse_primary
 
-! Parse unary operators (+, -, .NOT.) - Issue #215
-recursive function parse_unary(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
+    recursive function parse_expression_until(parser, arena, terminators) &
+            result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in), optional :: terminators(:)
+        integer :: expr_index
+        character(len=MAX_OPERATOR_LEN), allocatable :: local_terms(:)
 
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_UNARY)
-end function parse_unary
-
-! Parse primary expressions (literals, identifiers, parentheses)
-recursive function parse_primary(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
-
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
-end function parse_primary
-
-recursive function parse_expression_until(parser, arena, terminators) &
-        result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    character(len=*), intent(in), optional :: terminators(:)
-    integer :: expr_index
-    character(len=MAX_OPERATOR_LEN), allocatable :: local_terms(:)
-
-    if (present(terminators)) then
-        if (size(terminators) > 0) then
-            allocate (character(len=MAX_OPERATOR_LEN) :: &
-                local_terms(size(terminators)))
-            local_terms = terminators
-            expr_index = parse_expression_with_precedence(parser, arena, &
-                PREC_RANGE + 1, &
-                local_terms)
+        if (present(terminators)) then
+            if (size(terminators) > 0) then
+                allocate (character(len=MAX_OPERATOR_LEN) :: &
+                    local_terms(size(terminators)))
+                local_terms = terminators
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1, &
+                    local_terms)
+            else
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1)
+            end if
         else
             expr_index = parse_expression_with_precedence(parser, arena, &
                 PREC_RANGE + 1)
         end if
-    else
-        expr_index = parse_expression_with_precedence(parser, arena, &
-            PREC_RANGE + 1)
-    end if
-end function parse_expression_until
+    end function parse_expression_until
 
-recursive function parse_postfix_chain(parser, arena, base_expr) &
-        result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer, intent(in) :: base_expr
-    integer :: expr_index
-    type(token_view_t) :: view
+    recursive function parse_postfix_chain(parser, arena, base_expr) &
+            result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        type(token_view_t) :: view
 
-    expr_index = base_expr
-    if (expr_index <= 0) return
+        expr_index = base_expr
+        if (expr_index <= 0) return
 
-    call build_token_view(view, parser)
-    expr_index = parse_postfix_ops(parser, arena, view, expr_index)
-end function parse_postfix_chain
+        call build_token_view(view, parser)
+        expr_index = parse_postfix_ops(parser, arena, view, expr_index)
+    end function parse_postfix_chain
 
-logical function is_trailing_comment(parser) result(is_trailing)
-    type(parser_state_t), intent(in) :: parser
-    integer :: pos, i
+    logical function is_trailing_comment(parser) result(is_trailing)
+        type(parser_state_t), intent(in) :: parser
+        integer :: pos, i
 
-    is_trailing = .false.
-    if (.not. associated(parser%tokens)) return
-    pos = parser%current_token + 1
-    if (pos > size(parser%tokens)) return
+        is_trailing = .false.
+        if (.not. associated(parser%tokens)) return
+        pos = parser%current_token + 1
+        if (pos > size(parser%tokens)) return
 
-    do i = pos, size(parser%tokens)
-        select case (parser%tokens(i)%kind)
-        case (TK_WHITESPACE)
-            cycle
-        case (TK_NEWLINE, TK_EOF)
-            is_trailing = .true.
-            return
+        do i = pos, size(parser%tokens)
+            select case (parser%tokens(i)%kind)
+            case (TK_WHITESPACE)
+                cycle
+            case (TK_NEWLINE, TK_EOF)
+                is_trailing = .true.
+                return
+            case default
+                return
+            end select
+        end do
+        is_trailing = .true.
+    end function is_trailing_comment
+
+    pure logical function is_expression_trivia_token(token) result(is_trivia)
+        type(token_t), intent(in) :: token
+
+        select case (token%kind)
+        case (TK_WHITESPACE, TK_COMMENT)
+            is_trivia = .true.
         case default
-            return
+            is_trivia = .false.
         end select
-    end do
-    is_trailing = .true.
-end function is_trailing_comment
+    end function is_expression_trivia_token
 
-pure logical function is_expression_trivia_token(token) result(is_trivia)
-    type(token_t), intent(in) :: token
+    !=================================================================================
+    ! RANGE EXPRESSION PARSING SECTION
+    !=================================================================================
 
-    select case (token%kind)
-    case (TK_WHITESPACE, TK_COMMENT)
-        is_trivia = .true.
-    case default
-        is_trivia = .false.
-    end select
-end function is_expression_trivia_token
+    ! Parse range/slice operator (:) - lowest precedence after logical operators
+    recursive function parse_range(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        integer :: stride_index
+        logical :: double_colon
+        type(token_t) :: op_token
 
-!=================================================================================
-! RANGE EXPRESSION PARSING SECTION
-!=================================================================================
-
-! Parse range/slice operator (:) - lowest precedence after logical operators
-recursive function parse_range(parser, arena) result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: expr_index
-    integer :: right_index
-    integer :: stride_index
-    logical :: double_colon
-    type(token_t) :: op_token
-
-    op_token = parser%peek()
-    ! Handle assumed-rank (..) - Fortran 2018 feature for SELECT RANK
-    if (op_token%kind == TK_OPERATOR .and. op_token%text == "..") then
-        op_token = parser%consume()
-        expr_index = push_assumed_rank_bounds(arena, &
-            line=op_token%line, &
-            column=op_token%column)
-        return
-    end if
-
-    if (op_token%kind == TK_OPERATOR .and. op_token%text == "*") then
-        op_token = parser%consume()
-        expr_index = push_assumed_size_bounds(arena, &
-            line=op_token%line, &
-            column=op_token%column)
-        return
-    end if
-
-    if (op_token%kind == TK_OPERATOR .and. &
-        (op_token%text == ":" .or. op_token%text == "::")) then
-        op_token = parser%consume()
-        expr_index = 0
-        double_colon = op_token%text == "::"
-
-        if (double_colon) then
-            right_index = 0
-        else if (.not. parser%is_at_end()) then
-            block
-                type(token_t) :: next_tok
-                next_tok = parser%peek()
-                if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                    (next_tok%text == ")" .or. next_tok%text == "]" .or. &
-                    next_tok%text == &
-                    ","))) then
-                    right_index = parse_expression_with_precedence(parser, arena, &
-                        PREC_ASSIGNMENT)
-                else
-                    right_index = 0
-                end if
-            end block
-        else
-            right_index = 0
-        end if
-
-        if (double_colon) then
-            stride_index = parse_logical_eqv(parser, arena)
-        else
-            stride_index = parse_stride_component(parser, arena)
-        end if
-
-        expr_index = push_range_expression(arena, expr_index, right_index, &
-            stride_index=stride_index, &
-            line=op_token%line, &
-            column=op_token%column)
-        return
-    end if
-
-    ! Use PREC_ASSIGNMENT to allow keyword arguments in calls (e.g., name=value)
-    expr_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
-
-    if (.not. parser%is_at_end()) then
         op_token = parser%peek()
+        ! Handle assumed-rank (..) - Fortran 2018 feature for SELECT RANK
+        if (op_token%kind == TK_OPERATOR .and. op_token%text == "..") then
+            op_token = parser%consume()
+            expr_index = push_assumed_rank_bounds(arena, &
+                line=op_token%line, &
+                column=op_token%column)
+            return
+        end if
+
+        if (op_token%kind == TK_OPERATOR .and. op_token%text == "*") then
+            op_token = parser%consume()
+            expr_index = push_assumed_size_bounds(arena, &
+                line=op_token%line, &
+                column=op_token%column)
+            return
+        end if
+
         if (op_token%kind == TK_OPERATOR .and. &
             (op_token%text == ":" .or. op_token%text == "::")) then
             op_token = parser%consume()
+            expr_index = 0
             double_colon = op_token%text == "::"
 
             if (double_colon) then
@@ -920,12 +909,11 @@ recursive function parse_range(parser, arena) result(expr_index)
                     type(token_t) :: next_tok
                     next_tok = parser%peek()
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                        (next_tok%text == ")" .or. next_tok%text &
-                        == "]" .or. &
+                        (next_tok%text == ")" .or. next_tok%text == "]" .or. &
                         next_tok%text == &
                         ","))) then
-                        right_index = parse_expression_with_precedence( &
-                            parser, arena, PREC_ASSIGNMENT)
+                        right_index = parse_expression_with_precedence(parser, arena, &
+                            PREC_ASSIGNMENT)
                     else
                         right_index = 0
                     end if
@@ -940,124 +928,168 @@ recursive function parse_range(parser, arena) result(expr_index)
                 stride_index = parse_stride_component(parser, arena)
             end if
 
-            expr_index = push_range_expression(arena, expr_index, &
-                right_index, &
+            expr_index = push_range_expression(arena, expr_index, right_index, &
                 stride_index=stride_index, &
                 line=op_token%line, &
                 column=op_token%column)
+            return
         end if
-    end if
-end function parse_range
-! Helper function to parse stride (third component of range expression)
-function parse_stride_component(parser, arena) result(stride_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    integer :: stride_index
-    type(token_t) :: op_token, next_tok
 
-    stride_index = 0
-    if (.not. parser%is_at_end()) then
-        op_token = parser%peek()
-        if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
-            op_token = parser%consume()
-            if (.not. parser%is_at_end()) then
-                next_tok = parser%peek()
-                if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                    (next_tok%text == ")" .or. next_tok%text == "," .or. &
-                    next_tok%text == "]" .or. next_tok%text == ";"))) then
+        ! Use PREC_ASSIGNMENT to allow keyword arguments in calls (e.g., name=value)
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
+
+        if (.not. parser%is_at_end()) then
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. &
+                (op_token%text == ":" .or. op_token%text == "::")) then
+                op_token = parser%consume()
+                double_colon = op_token%text == "::"
+
+                if (double_colon) then
+                    right_index = 0
+                else if (.not. parser%is_at_end()) then
+                    block
+                        type(token_t) :: next_tok
+                        next_tok = parser%peek()
+                        if (.not. (next_tok%kind == TK_OPERATOR .and. &
+                            (next_tok%text == ")" .or. next_tok%text &
+                            == "]" .or. &
+                            next_tok%text == &
+                            ","))) then
+                            right_index = parse_expression_with_precedence( &
+                                parser, arena, PREC_ASSIGNMENT)
+                        else
+                            right_index = 0
+                        end if
+                    end block
+                else
+                    right_index = 0
+                end if
+
+                if (double_colon) then
                     stride_index = parse_logical_eqv(parser, arena)
+                else
+                    stride_index = parse_stride_component(parser, arena)
+                end if
+
+                expr_index = push_range_expression(arena, expr_index, &
+                    right_index, &
+                    stride_index=stride_index, &
+                    line=op_token%line, &
+                    column=op_token%column)
+            end if
+        end if
+    end function parse_range
+    ! Helper function to parse stride (third component of range expression)
+    function parse_stride_component(parser, arena) result(stride_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stride_index
+        type(token_t) :: op_token, next_tok
+
+        stride_index = 0
+        if (.not. parser%is_at_end()) then
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
+                op_token = parser%consume()
+                if (.not. parser%is_at_end()) then
+                    next_tok = parser%peek()
+                    if (.not. (next_tok%kind == TK_OPERATOR .and. &
+                        (next_tok%text == ")" .or. next_tok%text == "," .or. &
+                        next_tok%text == "]" .or. next_tok%text == ";"))) then
+                        stride_index = parse_logical_eqv(parser, arena)
+                    end if
                 end if
             end if
         end if
-    end if
-end function parse_stride_component
+    end function parse_stride_component
 
-!=================================================================================
-! ARRAY LITERAL PARSING SECTION
-!=================================================================================
+    !=================================================================================
+    ! ARRAY LITERAL PARSING SECTION
+    !=================================================================================
 
-!=================================================================================
-! POSTFIX OPERATIONS SECTION
-!=================================================================================
+    !=================================================================================
+    ! POSTFIX OPERATIONS SECTION
+    !=================================================================================
 
-! Parse array indexing or function call postfix operator using parentheses: (...)
-! Parse postfix operators on an expression
-recursive function parse_postfix_ops(parser, arena, view, base_expr) &
-        result(expr_index)
-    type(parser_state_t), intent(inout) :: parser
-    type(ast_arena_t), intent(inout) :: arena
-    type(token_view_t), intent(in) :: view
-    integer, intent(in) :: base_expr
-    integer :: expr_index
-    type(token_t) :: op_token
-    integer :: loop_count
-    type(array_parse_helpers_t) :: array_helpers
-    character(len=:), allocatable :: instantiation_text
+    ! Parse array indexing or function call postfix operator using parentheses: (...)
+    ! Parse postfix operators on an expression
+    recursive function parse_postfix_ops(parser, arena, view, base_expr) &
+            result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        type(token_t) :: op_token
+        integer :: loop_count
+        type(array_parse_helpers_t) :: array_helpers
+        character(len=:), allocatable :: instantiation_text
 
-    array_helpers%parse_comparison => parse_comparison
-    array_helpers%parse_unary => parse_unary
-    array_helpers%parse_logical_eqv => parse_logical_eqv
-    array_helpers%parse_range => parse_range
+        array_helpers%parse_comparison => parse_comparison
+        array_helpers%parse_unary => parse_unary
+        array_helpers%parse_logical_eqv => parse_logical_eqv
+        array_helpers%parse_range => parse_range
 
-    expr_index = base_expr
-    loop_count = 0
+        expr_index = base_expr
+        loop_count = 0
 
-    ! Handle postfix operators in a loop
-    do while (.not. parser%is_at_end() .and. loop_count < 1000)
-        loop_count = loop_count + 1
-        op_token = view_peek_token(view, parser)
+        ! Handle postfix operators in a loop
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
+            op_token = view_peek_token(view, parser)
 
-        if (op_token%kind == TK_OPERATOR .and. &
-            (op_token%text == "%" .or. op_token%text == ".")) then
-            op_token = view_consume_token(view, parser)
-            expr_index = parse_component_access_postfix(parser, arena, &
-                expr_index, op_token)
-            if (expr_index <= 0) exit
-        else if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == "{" .or. op_token%text == "^")) then
-            call consume_inline_instantiation(parser, instantiation_text, view)
-            if (allocated(instantiation_text)) then
-                call append_inline_instantiation_to_name(arena, expr_index, &
-                    instantiation_text)
-                deallocate (instantiation_text)
+            if (op_token%kind == TK_OPERATOR .and. &
+                (op_token%text == "%" .or. op_token%text == ".")) then
+                op_token = view_consume_token(view, parser)
+                expr_index = parse_component_access_postfix(parser, arena, &
+                    expr_index, op_token)
+                if (expr_index <= 0) exit
+            else if (op_token%kind == TK_OPERATOR .and. &
+                    (op_token%text == "{" .or. op_token%text == "^")) then
+                call consume_inline_instantiation(parser, instantiation_text, view)
+                if (allocated(instantiation_text)) then
+                    call append_inline_instantiation_to_name(arena, expr_index, &
+                        instantiation_text)
+                    deallocate (instantiation_text)
+                end if
+            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
+                expr_index = parse_array_indexing_postfix(parser, arena, expr_index, &
+                    array_helpers)
+            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "[") then
+                expr_index = parse_square_indexing_postfix(parser, arena, expr_index, &
+                    array_helpers)
+            else
+                exit
             end if
-        else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
-            expr_index = parse_array_indexing_postfix(parser, arena, expr_index, &
-                array_helpers)
-        else if (op_token%kind == TK_OPERATOR .and. op_token%text == "[") then
-            expr_index = parse_square_indexing_postfix(parser, arena, expr_index, &
-                array_helpers)
-        else
-            exit
-        end if
-    end do
-end function parse_postfix_ops
+        end do
+    end function parse_postfix_ops
 
-subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
-    use ast_nodes_core, only: identifier_node, component_access_node
-    type(ast_arena_t), intent(inout) :: arena
-    integer, intent(in) :: expr_index
-    character(len=*), intent(in) :: inst_text
+    subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
+        use ast_nodes_core, only: identifier_node, component_access_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: expr_index
+        character(len=*), intent(in) :: inst_text
 
-    if (.not. arena%has_node_at(expr_index)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
-    if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
 
-    select type (node => arena%entries(expr_index)%node)
-        type is (identifier_node)
-        if (allocated(node%name)) then
-            node%name = node%name//inst_text
-        end if
-        type is (component_access_node)
-        if (allocated(node%component_name)) then
-            node%component_name = node%component_name//inst_text
-        end if
-    class default
-    end select
-end subroutine append_inline_instantiation_to_name
+        select type (node => arena%entries(expr_index)%node)
+            type is (identifier_node)
+            if (allocated(node%name)) then
+                node%name = node%name//inst_text
+            end if
+            type is (component_access_node)
+            if (allocated(node%component_name)) then
+                node%component_name = node%component_name//inst_text
+            end if
+        class default
+        end select
+    end subroutine append_inline_instantiation_to_name
 
-!=================================================================================
-! PRIMARY EXPRESSION PARSING SECTION
-!=================================================================================
+    !=================================================================================
+    ! PRIMARY EXPRESSION PARSING SECTION
+    !=================================================================================
 
 end module parser_expressions_module
