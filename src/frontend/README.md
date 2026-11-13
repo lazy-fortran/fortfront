@@ -325,9 +325,10 @@ end subroutine
   `class(abstract_type)` array. A resolved result carries the selector
   declaration identity, positive rank, abstract declared type, and exact
   declared/dynamic type indices and names. Exact identity additionally requires
-  a non-polymorphic MOVE_ALLOC source matching the guard. Before SELECT TYPE,
-  only intrinsic scalar assignments of integer, real or logical literals to
-  other variables of the same intrinsic type category are allowed. A guard
+  a non-polymorphic MOVE_ALLOC source matching the guard. Between MOVE_ALLOC
+  and SELECT TYPE, only intrinsic scalar assignments of integer, real or
+  logical literals to other variables of the same intrinsic type category are
+  allowed. A guard
   alone does not exclude extensions. The query refuses `TYPE IS`,
   `CLASS DEFAULT`, abstract guards, associate or pointer/TARGET aliases,
   borrowed dummies, module/SAVE/COMMON state, and control-flow-nested arms.
@@ -521,6 +522,9 @@ end subroutine
   An inherited implementation is accepted when its passed-object type is an
   ancestor of the concrete guard type, while an unresolved hierarchy or
   ownership-changing selector returns no implementation target.
+  A concrete `CLASS IS` guard can also match extensions. Preserve runtime
+  dispatch unless a separate proof establishes the selector's exact dynamic
+  type; the guard's binding metadata alone does not establish that identity.
   An abstract `CLASS IS` guard is not a concrete runtime target: it sets both
   `is_abstract_guard` and `is_unresolved`, and leaves `implementation` and
   `implementation_node_index` empty. Consumers must not reuse a statically
@@ -531,18 +535,9 @@ end subroutine
   arithmetic or another call, array subscripts, and unresolved dynamic
   dispatch remain refusals; the query never invents a runtime target.
 - **Owned-array CLASS IS dynamic identity query**:
-  `query_select_type_owned_array(arena, arm_node_index)` proves one direct
-  `CLASS IS` arm's exact mapping from a local `STORAGE_OWNED` allocatable
-  `class(abstract_type)` array to its concrete guard type after a matching
-  concrete MOVE_ALLOC acquisition. Intervening calls or unknown acquisitions
-  are refused because CLASS IS also matches extensions. The result carries
-  selector declaration identity, positive rank, declared and dynamic type
-  indices/names, and the selector storage record. `TYPE IS`, `CLASS DEFAULT`,
-  abstract guards, associate or pointer/TARGET aliases, borrowed dummies,
-  module/SAVE/COMMON state, and control-flow-nested arms remain refusal-only
-  boundaries through `has_unresolved_alias`,
-  `has_global_mutable_state`, and `has_control_flow_boundary`; no dynamic
-  type may be inferred from a refused result.
+  See the earlier `query_select_type_owned_array` description for acquisition
+  and refusal boundaries. No dynamic type may be inferred from a refused
+  result.
 - **SELECT TYPE type-bound generic dispatch query**:
   `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
   enumerates the specifics of a generic `CALL selector%generic(...)` after a

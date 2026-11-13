@@ -9,7 +9,7 @@ build:
 
 libfortfront.a:
 	@echo "Building fortfront static library..."
-	fpm build
+	fpm build --no-prune
 	@lib_path=$$(find build -type f -path 'build/gfortran_*/fortfront/libfortfront.a' 2>/dev/null | xargs ls -t 2>/dev/null | head -n 1); \
 	if [ -z "$$lib_path" ]; then \
 	    echo "ERROR: no libfortfront.a produced by fpm build"; \

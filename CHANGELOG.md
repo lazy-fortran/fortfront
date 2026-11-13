@@ -19,3 +19,4 @@
   probe execution leaves an incomplete report.
 - Expose the character-type dependency to fpm so clean builds schedule it
   before program emission.
+- Include all public modules in the standalone static library build.
