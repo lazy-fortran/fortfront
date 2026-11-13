@@ -9,6 +9,7 @@ program test_issue_3018_literal_substring
                             compiler_frontend_options_t, compile_frontend_from_string, &
                           INPUT_MODE_STANDARD, array_slice_query_t, query_array_slice, &
                    range_expression_query_t, query_range_expression, get_identifier_name
+    use fortfront_compiler, only: compiler_diagnostic_t, get_compiler_diagnostics
     implicit none
 
     character(len=:), allocatable :: lowered, error_msg
@@ -23,23 +24,69 @@ program test_issue_3018_literal_substring
     call check_fold("'xyzw'(4:4)", "'w'", "'xyzw'(")
     call check_runtime_bounds()
 
-    ! Out-of-range bounds are NOT folded (gfortran rejects them at compile
-    ! time); the slice must survive to be refused loudly downstream.
-    total = total + 1
-    call transform_lazy_fortran_string( &
-        "program p"//new_line('a')// &
-        "  print *, 'abcdef'(3:10)"//new_line('a')// &
-        "end program p"//new_line('a'), lowered, error_msg)
-    if (index(lowered, "'bcd'") > 0) then
-        print *, 'FAIL: out-of-range literal range was folded wrongly'
-    else
-        passed = passed + 1
-    end if
+    call check_rejected("'abcdef'(3:10)")
+    call check_rejected("'abcdef'(0:2)")
+    call check_rejected("'abcdef'(-1:2)")
+    call check_rejected("''(1:1)")
+    call check_rejected("'a''b'(1:4)")
+    call check_rejected("'abcdef'(1:4:1)")
+    call check_rejected("'abcdef'(1:4:)")
+    call check_rejected("'abcdef'(::)")
+    call check_rejected("'abcdef'(1:4]")
+    call check_rejected("'abcdef'(1:4")
+    call check_rejected("'abcdef'(1:4,)")
+    call check_rejected("'abcdef'(1:4::)")
+    call check_rejected("'abcdef'(1:2,3:4)")
+    call check_rejected("'abcdef'(2)")
+    call check_rejected("'abcdef'(1.0:2)")
+    call check_rejected("'abcdef'(n:2.0)")
+    call check_rejected("'abcdef'(1_8:7_8)")
+    call check_rejected("'abcdef'(1_8:2147483648_8)")
+    call check_fold("'abcdef'(10:9)", "''", "'abcdef'(")
+    call check_fold("'abcdef'(-1:-2)", "''", "'abcdef'(")
+    call check_fold("'abcdef'(:0)", "''", "'abcdef'(")
+    call check_fold("'abcdef'(10:)", "''", "'abcdef'(")
+    call check_fold("'abcdef'(2147483648_8:2147483647_8)", "''", "'abcdef'(")
+    call check_fold("''(:)", "''", "''(")
 
     print '(a,i0,a,i0)', 'test_issue_3018: ', passed, '/', total
     if (passed /= total) stop 1
 
 contains
+
+    subroutine check_rejected(expression)
+        character(len=*), intent(in) :: expression
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        type(compiler_diagnostic_t), allocatable :: diagnostics(:)
+        character(len=:), allocatable :: source
+        integer :: column
+
+        source = 'program p'//new_line('a')//'print *, '//expression// &
+                 new_line('a')//'end program p'//new_line('a')
+        options%input_mode = INPUT_MODE_STANDARD
+        call compile_frontend_from_string(source, result, options)
+        if (result%success()) then
+            print '(a,a)', 'FAIL: invalid substring accepted: ', expression
+            error stop 1
+        end if
+        if (index(result%diagnostic_text, 'literal substring') == 0) &
+            error stop 'invalid substring has no specific diagnostic'
+        diagnostics = get_compiler_diagnostics(result)
+        if (size(diagnostics) /= 1) &
+            error stop 'invalid substring has no single structured diagnostic'
+        column = len('print *, ') + index(expression, '(')
+        if (diagnostics(1)%span%start%line /= 2 .or. &
+            diagnostics(1)%span%start%column /= column) &
+            error stop 'invalid substring diagnostic lost its source location'
+        call transform_lazy_fortran_string(source, lowered, error_msg)
+        if (.not. allocated(error_msg)) &
+            error stop 'invalid substring transformation has no diagnostic'
+        if (index(error_msg, 'literal substring') == 0) &
+            error stop 'invalid substring transformation silently succeeded'
+        total = total + 1
+        passed = passed + 1
+    end subroutine check_rejected
 
     subroutine check_runtime_bounds()
         type(compiler_frontend_options_t) :: options

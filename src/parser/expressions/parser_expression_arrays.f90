@@ -1,10 +1,11 @@
 module parser_expression_arrays_module
+    use, intrinsic :: iso_fortran_env, only: int64
     use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_KEYWORD, &
         TK_NEWLINE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
-        identifier_node, literal_node
+                              identifier_node, literal_node, binary_op_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
     use ast_factory_control, only: push_do_loop
@@ -861,8 +862,8 @@ contains
         expr_index = apply_index_postfix(parser, arena, base_expr, helpers, "]")
     end function parse_square_indexing_postfix
 
-    recursive function apply_index_postfix(parser, arena, base_expr, helpers, closing_char) &
-            result(expr_index)
+    recursive function apply_index_postfix(parser, arena, base_expr, helpers, &
+                                           closing_char) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -872,10 +873,11 @@ contains
         type(token_t) :: open_token, close_token
         integer, allocatable :: arg_indices(:)
         character(len=:), allocatable :: call_name
-        integer :: base_expr_for_call
+        integer :: base_expr_for_call, open_token_index
 
         expr_index = base_expr
         if (.not. associated(helpers%parse_range)) return
+        open_token_index = parser%current_token
         open_token = parser%consume()
 
         call collect_index_arguments(parser, arena, helpers, closing_char, &
@@ -884,19 +886,16 @@ contains
 
         call extract_target_name(arena, expr_index, call_name)
         if (.not. allocated(call_name)) then
-            ! Substring of a literal base, 'abcdef'(2:4): a literal carries
-            ! no target name, but the range postfix is legal Fortran and
-            ! must not be dropped (#3018) - silently printing the whole
-            ! literal is a miscompile. Keep the literal as the slice base;
-            ! the backend folds the constant range.
-            if (base_expr > 0 .and. base_expr <= arena%size .and. &
-                any_range_argument(arena, arg_indices)) then
-                expr_index = fold_literal_substring(arena, base_expr, &
-                    arg_indices, close_token%line, close_token%column)
+            if (base_expr > 0 .and. base_expr <= arena%size) then
+                expr_index = fold_literal_substring(parser, arena, base_expr, &
+                                             arg_indices, open_token_index, close_token)
                 if (expr_index == 0) then
-                    expr_index = push_array_slice(arena, base_expr, &
-                        arg_indices, size(arg_indices), close_token%line, &
-                        close_token%column)
+                    expr_index = base_expr
+                    if (any_range_argument(arena, arg_indices)) then
+                        expr_index = push_array_slice(arena, base_expr, &
+                                     arg_indices, size(arg_indices), close_token%line, &
+                                                      close_token%column)
+                    end if
                 end if
             end if
             return
@@ -979,24 +978,22 @@ contains
         end if
     end subroutine collect_index_arguments
 
-    integer function fold_literal_substring(arena, base_expr, arg_indices, &
-            line, column) result(folded)
-        ! Fold 'abcdef'(2:4) to the literal 'bcd' at parse time (#3018).
-        ! Standard rules: l >= 1, u >= l, out-of-range upper bound pads with
-        ! blanks, deeper bound truncates. ASCII text only; every other shape
-        ! returns 0 so the caller keeps the slice and the backend refuses it
-        ! loudly instead of silently dropping the range.
+    integer function fold_literal_substring(parser, arena, base_expr, arg_indices, &
+                                           open_token_index, close_token) result(folded)
+        type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
         integer, intent(in) :: arg_indices(:)
-        integer, intent(in) :: line, column
+        integer, intent(in) :: open_token_index
+        type(token_t), intent(in) :: close_token
+        type(token_t) :: source_token, token
         character(len=:), allocatable :: text, inner
-        integer :: lo, up, inner_len, i
+        integer(int64) :: lo, up
+        integer :: inner_len, i, lower_index, upper_index, depth, colons, commas
         character :: quote
-        logical :: ok
+        logical :: wrong_type, escaped, lower_known, upper_known
 
         folded = 0
-        if (size(arg_indices) /= 1) return
         if (.not. arena%has_node_at(base_expr)) return
         select type (base => arena%entries(base_expr)%node)
         type is (literal_node)
@@ -1008,7 +1005,6 @@ contains
             if (quote /= "'" .and. quote /= '"') return
             if (text(len(text):len(text)) /= quote) return
             inner = text(2:len(text) - 1)
-            if (index(inner, quote) > 0) return  ! doubled-quote escapes
             do i = 1, len(inner)
                 if (iachar(inner(i:i)) > 127) return
             end do
@@ -1016,69 +1012,147 @@ contains
             return
         end select
 
+        source_token = parser%get_token_at_index(open_token_index)
+        if (source_token%text /= '(' .or. close_token%text /= ')') then
+            call parser%error_at_token( &
+                'Invalid literal substring: expected a closing parenthesis', &
+                source_token)
+            return
+        end if
+        if (size(arg_indices) /= 1) then
+            call parser%error_at_token( &
+                'Invalid literal substring: expected one lower:upper range', &
+                source_token)
+            return
+        end if
+        colons = 0
+        commas = 0
+        depth = 0
+        do i = open_token_index + 1, parser%current_token - 2
+            token = parser%get_token_at_index(i)
+            if (token%kind /= TK_OPERATOR) cycle
+            select case (token%text)
+            case ('(', '[')
+                depth = depth + 1
+            case (')', ']')
+                depth = depth - 1
+            case (':')
+                if (depth == 0) colons = colons + 1
+            case ('::')
+                if (depth == 0) colons = colons + 2
+            case (',')
+                if (depth == 0) commas = commas + 1
+            end select
+        end do
+        if (colons /= 1 .or. commas > 0) then
+            call parser%error_at_token( &
+                'Invalid literal substring: expected one complete lower:upper range', &
+                source_token)
+            return
+        end if
         if (.not. arena%has_node_at(arg_indices(1))) return
         select type (rng => arena%entries(arg_indices(1))%node)
         type is (range_expression_node)
-            ! 0 and -1 both spell "absent" for these sentinels here.
-            if (rng%stride_index /= -1 .and. rng%stride_index /= 0) return
-            inner_len = len(inner)
-            lo = 1
-            up = inner_len
-            if (rng%start_index > 0) then
-                if (.not. literal_integer_value(arena, rng%start_index, lo, &
-                    LITERAL_INTEGER)) return
-            end if
-            if (rng%end_index > 0) then
-                if (.not. literal_integer_value(arena, rng%end_index, up, &
-                    LITERAL_INTEGER)) return
-            end if
+            lower_index = rng%start_index
+            upper_index = rng%end_index
         type is (array_bounds_node)
-            ! parse_range pushes array bounds for `l:u` in this dialect.
-            if (rng%stride_index > 0 .or. rng%is_assumed_shape) return
-            inner_len = len(inner)
-            lo = 1
-            up = inner_len
-            if (rng%lower_bound_index > 0) then
-                if (.not. literal_integer_value(arena, &
-                    rng%lower_bound_index, lo, LITERAL_INTEGER)) return
-            end if
-            if (rng%upper_bound_index > 0) then
-                if (.not. literal_integer_value(arena, &
-                    rng%upper_bound_index, up, LITERAL_INTEGER)) return
-            end if
+            lower_index = rng%lower_bound_index
+            upper_index = rng%upper_bound_index
         class default
+            call parser%error_at_token( &
+                'Invalid literal substring: expected a lower:upper range', source_token)
             return
         end select
 
-        ! gfortran rejects a literal-base substring whose bounds leave the
-        ! literal (compile error "substring ... exceeds string length"), so
-        ! stay inside it; out-of-range shapes keep the slice and the backend
-        ! refuses them loudly instead.
-        if (lo < 1 .or. up > inner_len) return
+        inner_len = 0
+        escaped = .false.
+        i = 1
+        do while (i <= len(inner))
+            if (inner(i:i) == quote) then
+                if (i == len(inner)) return
+                if (inner(i + 1:i + 1) /= quote) return
+                escaped = .true.
+                i = i + 1
+            end if
+            inner_len = inner_len + 1
+            i = i + 1
+        end do
+        lo = 1
+        up = inner_len
+        lower_known = .true.
+        upper_known = .true.
+        if (lower_index > 0) then
+            lower_known = literal_integer_value(arena, lower_index, lo, wrong_type)
+            if (wrong_type) then
+                call parser%error_at_token( &
+                    'Invalid literal substring: bounds must be scalar integers', &
+                    source_token)
+                return
+            end if
+        end if
+        if (upper_index > 0) then
+            upper_known = literal_integer_value(arena, upper_index, up, wrong_type)
+            if (wrong_type) then
+                call parser%error_at_token( &
+                    'Invalid literal substring: bounds must be scalar integers', &
+                    source_token)
+                return
+            end if
+        end if
+        if (.not. lower_known .or. .not. upper_known) return
+        ! Empty ranges are valid even when their endpoints lie outside the string.
+        if (lo > up) then
+            folded = push_literal(arena, quote//quote, LITERAL_STRING, &
+                                  close_token%line, close_token%column)
+            return
+        end if
+        if (lo < 1 .or. up > inner_len) then
+            call parser%error_at_token( &
+                'Invalid literal substring bounds: '// &
+                'nonempty range is outside the string', &
+                source_token)
+            return
+        end if
+        if (escaped) return
         inner = inner(lo:up)
         folded = push_literal(arena, quote//inner//quote, LITERAL_STRING, &
-            line, column)
+                              close_token%line, close_token%column)
     end function fold_literal_substring
 
-    logical function literal_integer_value(arena, node_index, value, kind) &
-            result(ok)
+    recursive logical function literal_integer_value(arena, node_index, value, &
+                                                     wrong_type) result(ok)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        integer, intent(in) :: kind
-        integer, intent(out) :: value
-        integer :: io_stat
+        integer(int64), intent(out) :: value
+        logical, intent(out) :: wrong_type
+        integer :: io_stat, kind_separator
         character(len=:), allocatable :: text
 
         ok = .false.
+        wrong_type = .false.
         value = 0
         if (.not. arena%has_node_at(node_index)) return
         select type (lit => arena%entries(node_index)%node)
         type is (literal_node)
-            if (lit%literal_kind /= kind) return
+            if (lit%literal_kind /= LITERAL_INTEGER) then
+                wrong_type = .true.
+                return
+            end if
             if (.not. allocated(lit%value)) return
             text = adjustl(lit%value)
+            kind_separator = index(text, '_')
+            if (kind_separator > 1) text = text(:kind_separator - 1)
             read(text, *, iostat=io_stat) value
             ok = io_stat == 0
+        type is (binary_op_node)
+            if (.not. lit%is_unary_minus) return
+            ok = literal_integer_value(arena, lit%right_index, value, wrong_type)
+            if (.not. ok) return
+            if (value == -huge(value) - 1) then
+                ok = .false.
+                return
+            end if
+            value = -value
         end select
     end function literal_integer_value
 
