@@ -14,7 +14,7 @@ program test_derived_type_extends
         "end type derived_type"
 
     type(token_t), allocatable :: tokens(:)
-    type(ast_arena_t) :: arena
+    type(ast_arena_t), target :: arena
     integer :: mod_index, node_type, type_index
     character(len=:), allocatable :: error_msg
     type(derived_type_node), pointer :: dtype

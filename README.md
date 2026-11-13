@@ -7,8 +7,8 @@ Fortran and exposes AST/tooling APIs for downstream tools.
 
 FortFront is not a complete compiler backend. It does not emit backend IR,
 objects, or executables. Compiler work belongs in downstream drivers such as
-`ffc`, which consumes FortFront through compiler-facing APIs and lowers the
-supported subset through LIRIC.
+[ffc](https://github.com/lazy-fortran/ffc), which consumes FortFront through
+compiler-facing APIs and lowers the supported subset to native code.
 
 ## Features
 
@@ -25,6 +25,8 @@ Current limits:
 - The C API is a small validation/status bridge, not a full AST or semantic API.
 - Nested internal procedures and some newer/legacy Fortran constructs remain
   unsupported.
+- Fortran 2023 conditional expressions and conditional arguments are diagnosed
+  as unsupported.
 
 ## Lazy Fortran vs Standard Fortran
 
@@ -47,14 +49,13 @@ x = add(5, 3)
 ## Building
 ```sh
 fpm build
-make clean  # Remove build artifacts, logs, .mod/.o/.a files
 ```
 
 ## Usage
 
 ```sh
-fortfront input.lf > output.f90
-echo "x = 5" | fortfront > output.f90
+fpm run --target fortfront -- input.lf > output.f90
+echo "x = 5" | fpm run --target fortfront > output.f90
 ```
 
 ### Options
@@ -89,7 +90,9 @@ See [docs/guides/LIBRARY_USAGE.md](docs/guides/LIBRARY_USAGE.md) for worked exam
 - [fluff](https://github.com/lazy-fortran/fluff): linter and formatter built on fortfront
 - [fortrun](https://github.com/lazy-fortran/fortrun): experimental build/run helper (on hold)
 
-More material: [examples/](examples/), [docs/](docs/).
+See [support and limitations](docs/STATUS.md), the [documentation index](docs/README.md),
+[contribution guide](CONTRIBUTING.md) and [changelog](CHANGELOG.md).
+Citation metadata is available in [CITATION.cff](CITATION.cff).
 
 ## License
 

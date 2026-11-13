@@ -1,6 +1,5 @@
 name: Repository hygiene
 on:
-  pull_request:
   merge_group:
 permissions:
   contents: read

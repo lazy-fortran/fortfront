@@ -62,14 +62,12 @@ done
 [[ -n "$out" ]] || die "--out is required"
 
 resolve_probe() {
-    local newest="" newest_mtime=-1 candidate mtime
+    local newest="" candidate
     for candidate in "$project_root"/build/fo/app/frontend_probe \
         "$project_root"/build/gfortran_*/app/frontend_probe; do
         [[ -x "$candidate" ]] || continue
-        mtime=$(stat -c %Y "$candidate")
-        if ((mtime > newest_mtime)); then
+        if [[ -z "$newest" || "$candidate" -nt "$newest" ]]; then
             newest=$candidate
-            newest_mtime=$mtime
         fi
     done
     printf '%s\n' "$newest"
@@ -108,7 +106,8 @@ probe_one() {
     local rel line status rc err
     rel=${file#"$project_root"/}
     err=$(mktemp)
-    line=$(timeout "$FF_GATE_TIMEOUT_S" "$FF_GATE_PROBE" "$file" 2>"$err")
+    line=$("$project_root/scripts/with_timeout.sh" "$FF_GATE_TIMEOUT_S" \
+        "$FF_GATE_PROBE" "$file" 2>"$err")
     rc=$?
     # Anything the probe writes to stderr -- a runtime abort, a scanner
     # invariant, an instrumentation trace -- used to be discarded here, which
@@ -134,8 +133,12 @@ export project_root
 
 mkdir -p "$(dirname -- "$out")"
 : >"$out.stderr.log"
-xargs -a "$file_list" -d '\n' -P "$jobs" -n 1 \
-    bash -c 'probe_one "$0"' | sort -k2,2 >"$out"
+if ! tr '\n' '\0' <"$file_list" | xargs -0 -P "$jobs" -n 1 \
+    bash -c 'probe_one "$0"' | sort -k2,2 >"$out"; then
+    die "failed to execute the corpus probes"
+fi
+reported=$(wc -l <"$out")
+((reported == total)) || die "incomplete corpus report: $reported of $total files"
 
 accepted=$(grep -c '^ACCEPTED' "$out" || true)
 rejected=$(grep -c '^REJECTED' "$out" || true)

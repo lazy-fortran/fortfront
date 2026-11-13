@@ -26,6 +26,9 @@ echo "x = 5" | fortfront > output.f90
 fortfront --trace input.lf > output.f90   # Enable debug tracing
 fortfront --std=lf input.lf > output.f90  # Strict mode (requires explicit program unit)
 fortfront --std lf input.lf > output.f90  # Strict mode (space-separated form)
+
+# Inspect the parsed abstract syntax tree of a source file as JSON
+debug_ast input.f90
 ```
 
 **Command-Line Interface**

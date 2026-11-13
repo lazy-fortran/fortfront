@@ -1,7 +1,8 @@
 module frontend_compiler_select_type_queries
     use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use ast_nodes_core, only: assignment_node, identifier_node, &
-        call_or_subscript_node
+                              call_or_subscript_node, literal_node
     use ast_nodes_conditional, only: if_node, select_case_node, &
         select_rank_node, select_type_node, type_guard_block_node
     use ast_nodes_array, only: where_node
@@ -21,9 +22,10 @@ module frontend_compiler_select_type_queries
         global_reference_query_t, query_type_binding_hierarchy
     use frontend_compiler_resolution, only: declaration_binding_t, &
         resolve_name_at_node, BINDING_ASSOCIATE_NAME, BINDING_FUNCTION, &
-        BINDING_SUBROUTINE
+    BINDING_SUBROUTINE, find_enclosing_scope, get_scope_statement_indices
     use frontend_compiler_type_queries, only: resolved_type_query_t, &
         query_resolved_type
+    use semantic_procedure_signature, only: type_category
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -74,9 +76,8 @@ module frontend_compiler_select_type_queries
     type, public :: select_type_owned_array_query_t
         !! Bounded dynamic-type identity for one local owned polymorphic array.
         !!
-        !! A resolved result proves that a direct CLASS IS arm narrows one
-        !! local allocatable array from its declared polymorphic type to the
-        !! concrete guard type.  The query deliberately does not follow an
+        !! Exact identity additionally requires a concrete MOVE_ALLOC acquisition.
+        !! The query deliberately does not follow an
         !! associate or pointer alias, mutable global state, or a branch
         !! nested in another control-flow construct.
         logical :: found = .false.
@@ -734,10 +735,104 @@ contains
             return
         end if
 
+        if (.not. owned_array_exact_acquisition(arena, &
+                       query%select_type_node_index, query%selector_declaration_index, &
+                                                query%dynamic_type_name)) then
+            query%dynamic_type_index = 0
+            query%dynamic_type_name = ''
+            call refuse_owned_array(query, &
+                                   'CLASS IS guard lacks an exact concrete acquisition')
+            return
+        end if
+
         query%is_owned_array = .true.
         query%is_dynamic_type_concrete = .true.
         query%is_resolved = .true.
     end function query_select_type_owned_array
+
+    logical function owned_array_exact_acquisition(arena, select_index, &
+                                            declaration_index, guard_name) result(exact)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: select_index, declaration_index
+        character(len=*), intent(in) :: guard_name
+        type(storage_query_t) :: source_storage, target_storage
+        type(declaration_binding_t) :: source_binding, target_binding, call_binding
+        character(len=:), allocatable :: error_msg, name, category
+        integer, allocatable :: statements(:)
+        integer :: scope_index, position, node_index
+        logical :: harmless_assignment
+
+        exact = .false.
+        scope_index = find_enclosing_scope(arena, select_index)
+        call get_scope_statement_indices(arena, scope_index, statements)
+        do position = 1, size(statements)
+            if (statements(position) == select_index) exit
+        end do
+        if (position > size(statements)) return
+        do position = position - 1, 1, -1
+            node_index = statements(position)
+            ! Intervening calls can change an acquired dynamic type.
+            harmless_assignment = .false.
+            if (.not. arena%has_node_at(node_index)) return
+            select type (node => arena%entries(node_index)%node)
+            type is (assignment_node)
+                call get_identifier_name(arena, node%target_index, name, error_msg)
+                call resolve_name_at_node(arena, node%target_index, name, &
+                                          target_binding, error_msg)
+                if (.not. target_binding%found) return
+                if (target_binding%declaration_node_index == declaration_index) return
+                target_storage = query_storage(arena, &
+                                               target_binding%declaration_node_index)
+                if (.not. target_storage%found) return
+                if (target_storage%rank /= 0) return
+                if (target_storage%is_derived .or. target_storage%is_polymorphic) return
+                if (target_storage%is_pointer) return
+                category = type_category(target_storage%type_name)
+                select case (category)
+                case ('integer', 'real', 'logical')
+                case default
+                    return
+                end select
+                if (.not. arena%has_node_at(node%value_index)) return
+                select type (value => arena%entries(node%value_index)%node)
+                type is (literal_node)
+                    select case (category)
+                    case ('integer')
+                        harmless_assignment = value%literal_kind == LITERAL_INTEGER
+                    case ('real')
+                        harmless_assignment = value%literal_kind == LITERAL_REAL
+                    case ('logical')
+                        harmless_assignment = value%literal_kind == LITERAL_LOGICAL
+                    end select
+                end select
+            type is (subroutine_call_node)
+                if (.not. same_name(node%name, 'move_alloc')) return
+                call resolve_name_at_node(arena, node_index, node%name, &
+                                          call_binding, error_msg)
+                if (call_binding%found) return
+                if (.not. allocated(node%arg_indices)) return
+                if (size(node%arg_indices) /= 2) return
+                call get_identifier_name(arena, node%arg_indices(2), name, error_msg)
+                call resolve_name_at_node(arena, node%arg_indices(2), name, &
+                                          target_binding, error_msg)
+                if (.not. target_binding%found) return
+                if (target_binding%declaration_node_index /= declaration_index) return
+                call get_identifier_name(arena, node%arg_indices(1), name, error_msg)
+                call resolve_name_at_node(arena, node%arg_indices(1), name, &
+                                          source_binding, error_msg)
+                if (.not. source_binding%found) return
+                source_storage = query_storage(arena, &
+                                               source_binding%declaration_node_index)
+                if (.not. source_storage%is_allocatable) return
+                if (.not. source_storage%is_concrete_derived) return
+                if (source_storage%is_pointer .or. source_storage%is_target) return
+                exact = same_name(declared_type_name(source_storage%type_name), &
+                                  guard_name)
+                return
+            end select
+            if (.not. harmless_assignment) return
+        end do
+    end function owned_array_exact_acquisition
 
     function query_select_type_owned_array_binding(arena, arm_node_index, &
             binding_name) result(query)

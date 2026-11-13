@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check for inline multi-line source blocks in tests.
 
-CLAUDE.md zero-duplication policy applies to end-to-end tests:
+CONTRIBUTING.md fixture policy applies to end-to-end tests:
 - End-to-end: extract full programs to examples/ and use read_example()
 - Unit tests: small inline snippets are allowed
 
@@ -245,7 +245,7 @@ def main() -> int:
 
     print("=== Checking for End-to-End Test Duplication Violations ===")
     print()
-    print("CLAUDE.md policy: End-to-end tests MUST use examples/, not inline code")
+    print("CONTRIBUTING.md policy: End-to-end tests MUST use examples/, not inline code")
     print("Unit tests with small inline snippets are OK")
     print()
 
@@ -305,7 +305,7 @@ def main() -> int:
         print("  2. Update test to use: call read_example('examples/.../file.ext', source)")
         print("  3. Verify test still passes with: fpm test <test_name>")
         print()
-        print("See CLAUDE.md for complete migration guide")
+        print("See CONTRIBUTING.md for test organization")
         return 1
 
     print("✓ PASS: No end-to-end test violations found")

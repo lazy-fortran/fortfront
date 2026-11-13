@@ -126,14 +126,14 @@ run_suite() {
                 --suite "$suite_name" \
                 --gcc-root "$gfortran_root" \
                 --report "$suite_report" \
-                "${extra_args[@]}"
+                ${extra_args[@]+"${extra_args[@]}"}
             ;;
         lfortran)
             "$python_bin" "$project_root/scripts/run_gfortran_roundtrip.py" \
                 --suite "$suite_name" \
                 --lfortran-root "$lfortran_root" \
                 --report "$suite_report" \
-                "${extra_args[@]}"
+                ${extra_args[@]+"${extra_args[@]}"}
             ;;
     esac
     status=$?

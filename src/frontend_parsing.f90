@@ -93,6 +93,7 @@ contains
         type(mixed_construct_result_t) :: mixed_result
         logical :: has_explicit_program
         logical :: debug_units
+        integer :: i
         integer, allocatable :: unit_indices(:)
         type(token_t), allocatable :: tokens_local(:)
         character(len=:), allocatable :: nested_error
@@ -107,6 +108,19 @@ contains
         call reset_statement_label_error()
         call clear_parser_errors()
         call ensure_if_do_registration()
+
+        ! Keep unsupported conditional syntax from becoming a different expression.
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_OPERATOR) cycle
+            if (tokens(i)%text /= '?') cycle
+            write (error_msg, '(A,I0,A,I0)') &
+                'Conditional expressions and arguments are not supported at line ', &
+                tokens(i)%line, ', column ', tokens(i)%column
+            call diagnostics%add_error_with_token( &
+                'Conditional expressions and arguments are not supported', tokens(i))
+            call export_parser_errors(diagnostics, parser_errors)
+            return
+        end do
 
         tokens_local = tokens
         call normalize_keyword_identifiers(tokens_local)

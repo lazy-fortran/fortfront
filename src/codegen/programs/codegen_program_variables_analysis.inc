@@ -230,7 +230,6 @@
             ! Issue #2075: Deferred-shape arrays in local scope must be allocatable
             ! If dimension(:), dimension(:,:), etc. without allocatable, add it
             block
-                use codegen_character_types, only: is_deferred_shape_array
                 logical :: needs_alloc
                 needs_alloc = is_deferred_shape_array(type_buf)
                 if (needs_alloc .and. index(to_lower(trim(type_buf)), &
