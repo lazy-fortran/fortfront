@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use FortFront in your work, please cite this software."
+type: software
+title: FortFront
+authors:
+  - family-names: Albert
+    given-names: Christopher
+license: MIT
+repository-code: "https://github.com/lazy-fortran/fortfront"
+url: "https://github.com/lazy-fortran/fortfront"

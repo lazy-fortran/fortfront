@@ -5,6 +5,10 @@ program test_issue_3018_literal_substring
     ! was lowered - a silent miscompile (ffc printed 'abcdef', gfortran
     ! printed 'bcd').
     use transformation_api, only: transform_lazy_fortran_string
+    use fortfront_compiler, only: compiler_frontend_result_t, &
+                            compiler_frontend_options_t, compile_frontend_from_string, &
+                          INPUT_MODE_STANDARD, array_slice_query_t, query_array_slice, &
+                   range_expression_query_t, query_range_expression, get_identifier_name
     implicit none
 
     character(len=:), allocatable :: lowered, error_msg
@@ -17,6 +21,7 @@ program test_issue_3018_literal_substring
     call check_fold("'hello'(2:4)", "'ell'", "'hello'(")
     call check_fold('"dqtest"(2:3)', '"qt"', '"dqtest"(')
     call check_fold("'xyzw'(4:4)", "'w'", "'xyzw'(")
+    call check_runtime_bounds()
 
     ! Out-of-range bounds are NOT folded (gfortran rejects them at compile
     ! time); the slice must survive to be refused loudly downstream.
@@ -35,6 +40,44 @@ program test_issue_3018_literal_substring
     if (passed /= total) stop 1
 
 contains
+
+    subroutine check_runtime_bounds()
+        type(compiler_frontend_options_t) :: options
+        type(compiler_frontend_result_t) :: result
+        type(array_slice_query_t) :: slice
+        type(range_expression_query_t) :: bounds
+        character(len=:), allocatable :: source, name, message
+        integer :: i, slices
+
+        source = 'program p'//new_line('a')// &
+                 'integer :: n'//new_line('a')//'n=3'//new_line('a')// &
+                 "print *, 'abcdef'(n:n)"//new_line('a')//'end program p'
+        options%input_mode = INPUT_MODE_STANDARD
+        options%run_semantics = .true.
+        call compile_frontend_from_string(source, result, options)
+        if (.not. result%success()) error stop 'runtime literal substring rejected'
+        slices = 0
+        do i = 1, result%arena%size
+            slice = query_array_slice(result%arena, i)
+            if (.not. slice%found) cycle
+            slices = slices + 1
+            if (.not. slice%is_character_substring) &
+                error stop 'literal substring reported as an array section'
+            if (size(slice%bounds_node_indices) /= 1) &
+                error stop 'runtime substring lost its bounds'
+            bounds = query_range_expression(result%arena, slice%bounds_node_indices(1))
+            if (.not. bounds%found) error stop 'runtime substring range missing'
+            call get_identifier_name(result%arena, bounds%start_node_index, &
+                                     name, message)
+            if (name /= 'n') error stop 'runtime substring lost lower bound'
+            call get_identifier_name(result%arena, bounds%end_node_index, &
+                                     name, message)
+            if (name /= 'n') error stop 'runtime substring lost upper bound'
+        end do
+        if (slices /= 1) error stop 'literal substring was dropped'
+        total = total + 1
+        passed = passed + 1
+    end subroutine check_runtime_bounds
 
     subroutine check_fold(src_frag, expect, forbid)
         character(len=*), intent(in) :: src_frag, expect, forbid

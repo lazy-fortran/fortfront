@@ -31,6 +31,7 @@ module codegen_program_variables
         record_use_associated_name, &
         record_use_module_name, &
         seed_namelist_groups_from_text
+    use codegen_character_types, only: is_deferred_shape_array
     use codegen_type_utils, only: get_type_standardization
     use codegen_type_inference_utils, only: canonicalize_type, &
         deduce_type_from_arguments, &

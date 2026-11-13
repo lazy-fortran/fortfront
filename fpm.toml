@@ -16,3 +16,8 @@ source-form = "free"
 path = "examples"
 kind = "directory"
 role = "test-fixture"
+
+[[extra.fo.inputs]]
+path = "scripts"
+kind = "directory"
+role = "test-fixture"

@@ -1,7 +1,7 @@
 program test_type_string_utils
     use type_string_utils, only: is_character_type_string, mono_type_to_string
     use type_system_unified, only: create_mono_type, mono_type_t, TINT, TREAL, &
-        TCHAR, TLOGICAL, TARRAY
+                   TCHAR, TLOGICAL, TARRAY, mono_handle_t, type_var_t, allocation_info_t
     implicit none
 
     integer :: total, passed
@@ -84,7 +84,8 @@ contains
         call expect_string_equal(type_str, "real, dimension(:), allocatable", &
             "mono_type_to_string allocatable array")
 
-        invalid_type = mono_type_t()
+        invalid_type = mono_type_t(handle=mono_handle_t(), var=type_var_t(), &
+              alloc_info=allocation_info_t())
         type_str = mono_type_to_string(invalid_type, success=success)
         call expect_true(.not. success, &
             "mono_type_to_string reports failure for invalid type")
