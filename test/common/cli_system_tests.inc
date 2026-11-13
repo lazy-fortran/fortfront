@@ -50,19 +50,24 @@
         end if
     end function should_run_system_tests
 
-    subroutine find_executable(exe_path, found)
+    subroutine find_executable(exe_path, found, executable_name)
         character(len=*), intent(out) :: exe_path
         logical, intent(out) :: found
+        character(len=*), intent(in), optional :: executable_name
+        character(len=:), allocatable :: name
         integer :: exit_code, unit_num
         character(len=512) :: search_output
         logical :: file_exists
         character(len=32) :: temp_file
 
+        name = 'fortfront'
+        if (present(executable_name)) name = executable_name
+
         ! Cross-platform executable search
         if (is_windows()) then
             temp_file = 'fortfront_search.txt'
             call execute_command_line( &
-                'dir /s /b build\fortfront.exe 2>nul > ' // trim(temp_file), &
+                'dir /s /b build\'//name//'.exe 2>nul > ' // trim(temp_file), &
                 exitstat=exit_code)
             if (exit_code == 0) then
                 open (newunit=unit_num, file=trim(temp_file), status='old', &
@@ -85,7 +90,7 @@
         else
             temp_file = 'fortfront_search.txt'
             call execute_command_line( &
-                'find build -name "fortfront" -type f | head -1 > ' // &
+                'find build -name "'//name//'" -type f | head -1 > ' // &
                 trim(temp_file), exitstat=exit_code)
             if (exit_code == 0) then
                 open (newunit=unit_num, file=trim(temp_file), status='old', &

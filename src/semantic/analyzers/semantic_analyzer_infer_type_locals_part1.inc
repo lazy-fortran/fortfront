@@ -172,6 +172,7 @@
             type is (array_slice_node)
                 node_type = infer_array_slice_type(arena, expr, &
                                                    module_get_node_type_wrapper)
+                expr%is_character_substring = node_type%kind == TCHAR
                 call finalize_node(node_index, node_type)
             type is (if_node)
                 call process_if_node_branches(expr, node_type)

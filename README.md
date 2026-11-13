@@ -25,6 +25,8 @@ Current limits:
 - The C API is a small validation/status bridge, not a full AST or semantic API.
 - Nested internal procedures and some newer/legacy Fortran constructs remain
   unsupported.
+- Fortran 2023 conditional expressions and conditional arguments are diagnosed
+  as unsupported.
 
 ## Lazy Fortran vs Standard Fortran
 
