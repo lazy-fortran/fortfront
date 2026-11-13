@@ -13,7 +13,7 @@ FortFront has three practical integration levels:
 
 It does not expose backend IR, object emission, executable emission, or a
 complete C ABI for AST traversal. Downstream compiler work should use the
-Fortran compiler API and lower to LIRIC or another backend outside FortFront.
+Fortran compiler API and lower to a backend outside FortFront.
 
 ### Project Setup with fpm
 
@@ -30,13 +30,14 @@ fortfront = { path = "../fortfront" }
 ```fortran
 program minimal_example
     use fortfront_transform, only: transform_lazy_fortran_string
+    use fortfront_tooling, only: message_has_error
     implicit none
     character(len=:), allocatable :: input, output, error_msg
 
     input = "x = 5"
     call transform_lazy_fortran_string(input, output, error_msg)
 
-    if (.not. allocated(error_msg) .or. len_trim(error_msg) == 0) then
+    if (.not. message_has_error(error_msg)) then
         print '(a)', output
     else
         print '(a)', 'Transformation failed: ' // error_msg
@@ -125,9 +126,11 @@ print '(a)', format_diagnostic(diag)
 ! Pattern 1: Check allocatable error strings
 character(len=:), allocatable :: error_msg
 call some_api_function(..., error_msg)
-if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-    print '(a)', "Error: " // trim(error_msg)
-    return
+if (allocated(error_msg)) then
+    if (len_trim(error_msg) > 0) then
+        print '(a)', "Error: " // trim(error_msg)
+        return
+    end if
 end if
 
 ! Pattern 2: Use result types
@@ -149,16 +152,9 @@ do i = 1, num_files
 end do
 ```
 
-**Thread safety**: APIs are reentrant with separate contexts. Use one arena per thread:
-```fortran
-!$omp parallel private(arena, root_index, error_msg)
-    !$omp do
-    do i = 1, num_files
-        call tooling_load_ast_from_file(files(i), arena, root_index, error_msg)
-    end do
-    !$omp end do
-!$omp end parallel
-```
+**Thread safety**: concurrent calls within one process are not supported.
+Semantic analysis uses process-wide state. Use separate processes when
+processing files in parallel.
 
 ## Linking
 
@@ -166,9 +162,8 @@ end do
 
 **Manual static library**:
 ```sh
-cd fortfront && fpm build --flag "-fPIC"
-ar rcs libfortfront.a build/gfortran_*/fortfront/lib/*.o
-gfortran -o my_tool my_tool.f90 -L./fortfront -lfortfront
+make libfortfront.a
+gfortran -I build/fortfront_modules -o my_tool my_tool.f90 -L. -lfortfront
 ```
 
 ## C/Python Integration
@@ -190,14 +185,39 @@ The intended compiler boundary is:
 2. Run semantic analysis and collect diagnostics.
 3. Return the typed AST plus semantic data to the compiler driver through
    `fortfront_compiler`.
-4. Let the compiler driver lower to LIRIC or another backend IR outside
-   FortFront.
+4. Let the compiler driver generate backend code outside FortFront.
 
 The compiler API is Fortran-only today. A full C ABI for typed AST traversal is
 not implemented.
 
-Consumers using `fortfront_compiler` can query array-bound and range nodes
-without importing concrete AST node types:
+A complete compiler-facing client can inspect slices without importing concrete
+AST node types:
+
+```fortran
+program inspect_slices
+    use fortfront_compiler, only: compiler_frontend_result_t, &
+        compile_frontend_from_string, array_slice_query_t, query_array_slice
+    implicit none
+    type(compiler_frontend_result_t) :: result
+    type(array_slice_query_t) :: slice
+    integer :: node_index
+    character(len=*), parameter :: nl = new_line('a')
+
+    call compile_frontend_from_string( &
+        'program p' // nl // 'integer :: values(4)' // nl // &
+        'print *, values(2:4)' // nl // 'end program p', result)
+    if (.not. result%success()) then
+        if (allocated(result%error_msg)) print '(a)', result%error_msg
+        stop 1
+    end if
+    do node_index = 1, result%arena%entry_count
+        slice = query_array_slice(result%arena, node_index)
+        if (slice%found) print *, 'slice node:', node_index
+    end do
+end program inspect_slices
+```
+
+After obtaining a bounds node index, query its lower, upper and stride indices:
 
 ```fortran
 use fortfront_compiler, only: array_bounds_query_t, query_array_bounds
@@ -315,6 +335,8 @@ concrete leaf, the result preserves the effective implementation and its
 declaring type, including an implementation inherited through an abstract
 intermediate or base type. `is_inherited` and `declaring_type_name` identify
 that provenance without requiring a consumer to rebuild the `EXTENDS` chain.
+A concrete `CLASS IS` guard can also match extensions. Preserve runtime
+dispatch unless independent evidence establishes the exact dynamic type.
 
 An abstract `CLASS IS` guard remains a refusal because it matches a set of
 possible concrete extensions. Such a result sets `is_abstract_guard`,
@@ -326,14 +348,15 @@ binding as a guessed runtime target. The focused GNU runtime/API oracle is
 
 ## Owned-array CLASS IS dynamic identity
 
-`query_select_type_owned_array(arena, arm_node_index)` is the bounded bridge
-from a direct `CLASS IS` arm to an owned polymorphic array. A resolved result
-proves the exact mapping from the selector declaration's abstract
-`class(base_t), allocatable :: values(:)` storage to the concrete guard type,
-including the selector declaration identity, rank, storage class, declared
-type index/name, and dynamic type index/name. This is a source-order identity
-fact for consumers such as FortAD; it does not inspect runtime elements or
-infer a derivative.
+`query_select_type_owned_array(arena, arm_node_index)` exposes exact dynamic
+identity for a bounded owned-array acquisition. It requires a non-polymorphic
+`MOVE_ALLOC` source, such as `TYPE(guard_t)`, whose declared type matches the
+`CLASS IS` guard. Intervening statements are limited to intrinsic scalar
+assignments of an integer, real or logical literal to another variable of the
+same intrinsic type category. Defined assignment is refused. A guard alone also
+matches extensions and cannot establish exact identity. Unknown or mismatched
+acquisitions and intervening calls are refused, so the query cannot select a
+parent implementation for an extended dynamic value.
 
 The query resolves only a direct `CLASS IS` arm over a local, allocatable,
 rank-positive `class(abstract_type)` array with `STORAGE_OWNED` storage and a
@@ -341,8 +364,8 @@ concrete guard type. `TYPE IS`, `CLASS DEFAULT`, abstract guards, associate or
 pointer/TARGET aliases, borrowed dummies, module/SAVE/COMMON state, and arms
 containing or nested in control flow remain explicit refusals through
 `is_refused`, `is_unresolved`, and the corresponding alias, global-state, or
-control-flow flags. No dynamic identity fields are populated as a guess at
-those boundaries.
+control-flow flags. A guard name retained in a refused result is not
+evidence of exact dynamic identity.
 
 See `examples/f90/owned_array_class_is_dynamic_identity.f90` and
 `test/api/test_owned_array_class_is_identity.f90` for the GNU syntax and
@@ -355,7 +378,7 @@ extends that proof to one type-bound binding. The result keeps
 separate. `is_resolved` is true only when the dynamic binding is non-generic,
 non-ambiguous, non-deferred, and has a source-resolved implementation procedure;
 `implementation_node_index`, `declaring_type_name`, and `is_inherited` identify
-that target for consumers such as FortAD. The owned-array refusal flags and
+that target for downstream compiler consumers. The owned-array refusal flags and
 storage boundaries are propagated unchanged, so aliases, globals, and
 control-flow-nested arms never receive a guessed binding target.
 
@@ -467,7 +490,7 @@ procedure's body remain `is_refused`/`is_unresolved` facts through
 `is_ambiguous`, `has_conversion`, `has_unknown_types`,
 `has_pointer_operand`, `has_global_mutable_state`, and
 `has_invalid_arity`, with `refusal_reason` identifying the first boundary.
-This lets FortAD consume a concrete operator procedure without duplicating
+This lets a downstream compiler consume a concrete operator procedure without duplicating
 generic resolution while keeping unsupported state explicit. See
 `examples/f90/defined_operator_query.f90` and
 `test/api/test_defined_operator_query.f90` for the GNU-checked independent
@@ -477,7 +500,9 @@ oracle.
 
 `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
 resolves a type-bound generic only after a concrete `TYPE IS` or `CLASS IS`
-guard has narrowed the receiver. It enumerates every same-arena specific in
+guard has narrowed the receiver. A `CLASS IS` guard may also match extensions;
+a consumer must preserve runtime dispatch unless independent evidence fixes
+the dynamic type. The query enumerates every same-arena specific in
 `candidates`, including its procedure node, implementation name, ordered
 `signature`, and exact-match flag. `is_resolved` is true only when exactly one
 specific matches every supplied actual by semantic type, kind, and rank; the

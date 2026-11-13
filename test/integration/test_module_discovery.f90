@@ -42,12 +42,6 @@ contains
             end if
         end if
 
-        candidate = find_module_dir_from_compile_commands(executable_path)
-        if (len_trim(candidate) > 0) then
-            module_dir = trim(candidate)
-            return
-        end if
-
         current_dir = directory_from_path(executable_path)
         do while (len_trim(current_dir) > 0)
             if (set_module_dir_if_exists(current_dir, module_dir)) return
@@ -56,6 +50,12 @@ contains
             if (trim(parent_dir) == trim(current_dir)) exit
             current_dir = parent_dir
         end do
+
+        candidate = find_module_dir_from_compile_commands(executable_path)
+        if (len_trim(candidate) > 0) then
+            module_dir = trim(candidate)
+            return
+        end if
 
         candidate = extract_module_candidate(executable_path, '/app/')
         if (len_trim(candidate) > 0) then
@@ -262,6 +262,13 @@ contains
         sep = path_separator_for(base)
         if (module_directory_has_module(base, sep)) then
             module_dir = trim(base)
+            set_module_dir_if_exists = .true.
+            return
+        end if
+
+        candidate = join_path(base, 'mod', sep)
+        if (module_directory_has_module(candidate, sep)) then
+            module_dir = trim(candidate)
             set_module_dir_if_exists = .true.
             return
         end if

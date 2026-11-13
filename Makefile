@@ -52,7 +52,7 @@ TEST_STACK_KB ?= 1024
 test-small-stack:
 	ulimit -s $(TEST_STACK_KB); fpm test
 
-# Check for test duplication violations (CLAUDE.md compliance)
+# Check canonical end-to-end test fixtures
 check-duplication:
 	@python3 scripts/check_test_duplication.py
 

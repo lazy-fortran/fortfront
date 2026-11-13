@@ -1,15 +1,17 @@
     function test_executable_path(stem) result(path)
         character(len=*), intent(in) :: stem
         character(len=:), allocatable :: path
+        character(len=24) :: process_id
 
+        write (process_id, '(I0)') getpid()
         if (is_windows()) then
             ! MinGW's command runner does not resolve a bare relative path
             ! beginning with a directory name. Keep the output under the
             ! project build tree, but make the current-directory prefix and
             ! Windows separators explicit for execute_command_line.
-            path = '.\build\'//trim(stem)//'.exe'
+            path = '.\build\'//trim(stem)//'_'//trim(process_id)//'.exe'
         else
-            path = '/tmp/'//trim(stem)
+            path = '/tmp/'//trim(stem)//'_'//trim(process_id)
         end if
     end function test_executable_path
 

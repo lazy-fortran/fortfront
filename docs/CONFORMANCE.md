@@ -38,7 +38,7 @@ stdout with gfortran and permits no silently accepted invalid programs.
 Identifier hashes use bounded modular arithmetic with the same stored hash
 values. A scope stack owns and finalizes its identifier storage; copied stacks
 own independent storage, and their scope environments borrow from that copy.
-Sanitized tests cover repeated compilation and scope-stack copying and reset.
+Regression tests cover repeated compilation and scope-stack copying and reset.
 
 ## Suites
 

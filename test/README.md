@@ -46,7 +46,7 @@ ordered WRITE objects and malformed iterator rejection using
 
 **Test Hierarchy and Zero-Duplication Policy**
 
-For complete test organization policy, see [CLAUDE.md Examples & Tests Organization](../CLAUDE.md#examples--tests-organization).
+For complete test organization policy, see [contribution guide](../CONTRIBUTING.md#tests).
 
 **Quick Summary**:
 - **Unit tests**: Inline code encouraged (test individual functions)

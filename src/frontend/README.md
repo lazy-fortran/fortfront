@@ -324,12 +324,17 @@ end subroutine
   `CLASS IS` alternative for a local `STORAGE_OWNED` allocatable
   `class(abstract_type)` array. A resolved result carries the selector
   declaration identity, positive rank, abstract declared type, and exact
-  declared/dynamic type indices and names for the concrete guard type. It
-  refuses `TYPE IS`, `CLASS DEFAULT`, abstract guards, associate or
-  pointer/TARGET aliases, borrowed dummies, module/SAVE/COMMON state, and
-  control-flow-nested arms; `has_unresolved_alias`,
-  `has_global_mutable_state`, and `has_control_flow_boundary` identify those
-  boundaries without exposing a guessed dynamic type.
+  declared/dynamic type indices and names. Exact identity additionally requires
+  a non-polymorphic MOVE_ALLOC source matching the guard. Before SELECT TYPE,
+  only intrinsic scalar assignments of integer, real or logical literals to
+  other variables of the same intrinsic type category are allowed. A guard
+  alone does not exclude extensions. The query refuses `TYPE IS`,
+  `CLASS DEFAULT`, abstract guards, associate or pointer/TARGET aliases,
+  borrowed dummies, module/SAVE/COMMON state, and control-flow-nested arms.
+  `has_unresolved_alias`, `has_global_mutable_state`, and
+  `has_control_flow_boundary` identify those boundaries; a retained guard name
+  is not dynamic identity.
+
 
   Explicit `CALL` statements with an indexed receiver, such as
   `call values(i)%run()`, retain the full receiver designator while resolving
@@ -528,14 +533,16 @@ end subroutine
 - **Owned-array CLASS IS dynamic identity query**:
   `query_select_type_owned_array(arena, arm_node_index)` proves one direct
   `CLASS IS` arm's exact mapping from a local `STORAGE_OWNED` allocatable
-  `class(abstract_type)` array to its concrete guard type. The result carries
+  `class(abstract_type)` array to its concrete guard type after a matching
+  concrete MOVE_ALLOC acquisition. Intervening calls or unknown acquisitions
+  are refused because CLASS IS also matches extensions. The result carries
   selector declaration identity, positive rank, declared and dynamic type
   indices/names, and the selector storage record. `TYPE IS`, `CLASS DEFAULT`,
   abstract guards, associate or pointer/TARGET aliases, borrowed dummies,
   module/SAVE/COMMON state, and control-flow-nested arms remain refusal-only
   boundaries through `has_unresolved_alias`,
   `has_global_mutable_state`, and `has_control_flow_boundary`; no dynamic
-  type is guessed for them.
+  type may be inferred from a refused result.
 - **SELECT TYPE type-bound generic dispatch query**:
   `query_select_type_generic_dispatch(arena, arm_node_index, call_node_index)`
   enumerates the specifics of a generic `CALL selector%generic(...)` after a
