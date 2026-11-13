@@ -6,6 +6,9 @@
   arguments instead of silently accepting a changed expression.
 - Identify character substrings with runtime bounds correctly in compiler
   queries, including substrings of character literals.
+- Diagnose malformed ranges in substrings of character literals and
+  out-of-range integer literal bounds in nonempty ranges, while preserving
+  valid empty substrings and runtime bounds.
 - Make `debug_ast FILE` inspect the supplied source and report read or parse
   failures on standard error.
 - Initialize nested type components explicitly in the type-string utility
