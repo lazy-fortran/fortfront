@@ -8,6 +8,3 @@ Preserve accepted language semantics, public query contracts, source locations
 and arena lifetimes. Keep unsupported behavior explicit and verify changed
 behavior with an independent regression. Never bypass hooks or weaken a test
 to obtain a pass. Stage only the paths belonging to the change.
-
-Local workspace instructions, including the required native build and resident
-Fortran verification lane, still apply.

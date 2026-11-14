@@ -1,0 +1,7 @@
+#!/bin/sh
+# Landing check on fortyard: fo test as the GitHub CI ran it. CI=true lets the
+# distribution tests that rebuild the whole library inside a test skip, as
+# they did on GitHub; they exceed the per-test cap on a cold runner.
+set -eu
+export CI=true
+fo test
