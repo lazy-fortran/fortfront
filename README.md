@@ -1,5 +1,7 @@
 # FortFront
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24223531.svg)](https://doi.org/10.5281/zenodo.24223531)
+
 > **Note**: This project is experimental. The main implementation of a Fortran variant for "lazy" developers is now in [LFortran](https://github.com/lfortran/lfortran) via its interactive mode and planned `infer` mode.
 
 A Fortran frontend that transforms Lazy Fortran to standard-conforming
@@ -46,14 +48,10 @@ end function
 x = add(5, 3)
 ```
 
-## Building
+## Build and run
+
 ```sh
 fpm build
-```
-
-## Usage
-
-```sh
 fpm run --target fortfront -- input.lf > output.f90
 echo "x = 5" | fpm run --target fortfront > output.f90
 ```
@@ -73,8 +71,6 @@ FortFront provides a modular API for integration into downstream tools such as
 linters and formatters. Compiler drivers should use `fortfront_compiler`; more
 specialized semantic query helpers are still a roadmap item.
 
-### API Modules
-
 - `fortfront_lexer` - Tokenization and lexical analysis
 - `fortfront_ast` - AST node types and traversal utilities
 - `fortfront_semantic` - Type inference and semantic validation
@@ -92,8 +88,12 @@ See [docs/guides/LIBRARY_USAGE.md](docs/guides/LIBRARY_USAGE.md) for worked exam
 
 See [support and limitations](docs/STATUS.md), the [documentation index](docs/README.md),
 [contribution guide](CONTRIBUTING.md) and [changelog](CHANGELOG.md).
-Citation metadata is available in [CITATION.cff](CITATION.cff).
+FortFront is released under the MIT licence, see [LICENSE](LICENSE).
 
-## License
+## Citation
 
-MIT, see [LICENSE](LICENSE).
+Cite fortfront through its Zenodo record,
+[doi:10.5281/zenodo.24223531](https://doi.org/10.5281/zenodo.24223531), which
+always resolves to the latest release; release 0.2.0 is
+[doi:10.5281/zenodo.24223532](https://doi.org/10.5281/zenodo.24223532).
+[CITATION.cff](CITATION.cff) holds the full citation metadata.
