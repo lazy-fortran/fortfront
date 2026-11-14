@@ -1,7 +1,6 @@
 # Changelog
 
-## Unreleased
-
+## 0.2.0 (2026-11-14)
 - Diagnose unsupported Fortran 2023 conditional expressions and conditional
   arguments instead of silently accepting a changed expression.
 - Identify character substrings with runtime bounds correctly in compiler
