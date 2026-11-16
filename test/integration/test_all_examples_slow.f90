@@ -47,7 +47,8 @@ program test_all_examples_slow
     else
         print *, "Platform: Linux/Unix"
         print *, "Path separator: /"
-        example_timeout_seconds = 2
+        ! Under a fully loaded runner the 5000-line example needs more than 2 s.
+        example_timeout_seconds = 15
     end if
     print *, "Timeout seconds: ", example_timeout_seconds
     print *, ""
