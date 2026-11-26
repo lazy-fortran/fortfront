@@ -1,325 +1,123 @@
-name: Tests
-
+# Tests run in the merge queue and at night, not on every push to a pull
+# request. The merge queue builds one pull request per commit on top of the
+# ones before it, so HEAD^ is the state it lands on and `fo test --since HEAD^`
+# runs the cases it affects. The nightly run tests everything, slow cases
+# included, and is skipped when main has not moved since the last green
+# nightly run of less than a week ago. Everything runs in the gcc:16 image
+# (GNU Fortran 16 on Debian), with the Debian packages that
+# .github/ci/apt-packages lists, one per line.
+name: ci
 on:
+  pull_request:
   merge_group:
-    types: [checks_requested]
-
+  schedule:
+    - cron: '17 1 * * *'
+  workflow_dispatch:
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  pages: write
-  actions: read
-  checks: write
-
+  contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  build-test:
-    strategy:
-      fail-fast: true  # Cancel all jobs immediately when any OS fails
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v4
-
-    # ============= LINUX SETUP =============
-    - name: Cache FPM binary (Linux)
-      if: runner.os == 'Linux'
-      id: cache-fpm
-      uses: actions/cache@v4
-      with:
-        path: /usr/local/bin/fpm
-        key: ${{ runner.os }}-fpm-0.12.0
-
-    - name: Setup FPM (Linux)
-      if: runner.os == 'Linux' && steps.cache-fpm.outputs.cache-hit != 'true'
-      run: |
-        curl -L -o fpm-0.12.0-linux-x86_64-gcc-12 https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
-        chmod +x fpm-0.12.0-linux-x86_64-gcc-12
-        sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
-
-    - name: Setup newer GCC (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        # Add GCC 14 PPA for Ubuntu
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get install -y gfortran-14 gcc-14 g++-14
-        # Set GCC 14 as default
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
-        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-14 100
-
-    - name: Cache FPM dependencies (Linux)
-      if: runner.os == 'Linux'
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.local/share/fpm
-          build/dependencies
-        key: ${{ runner.os }}-fpm-deps-v2-${{ hashFiles('fpm.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-fpm-deps-v2-
-
-    - name: Setup Python (Linux)
-      if: runner.os == 'Linux'
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-
-    - name: Show compiler versions (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        gfortran --version
-        fpm --version
-        python3 --version
-
-    - name: Check Test Duplication
-      if: runner.os == 'Linux'
-      run: |
-        echo "Checking for end-to-end test duplication violations..."
-        make check-duplication
-        echo "Negative control: the gate must still be able to fail (issue #2910)"
-        make check-duplication-gate
-
-    - name: Clean Project Root Before Tests (issue #2148)
-      if: runner.os == 'Linux'
-      run: |
-        echo "Cleaning project root before tests..."
-        rm -f *.mod *.a *.o *.lf *.f90 *.txt
-        echo "✅ Project root cleaned"
-
-    - name: Build and Test (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        # Simulate a smaller Windows-like stack on Linux to catch stack bugs
-        ulimit -s 512 || true
-        make
-        ulimit -s 512 || true
-        RUN_SYSTEM_TESTS=1 make test
-
-    - name: Corpus Rejection Gate (issue #2924)
-      if: runner.os == 'Linux'
-      run: |
-        echo "Checking that no corpus file became newly rejected..."
-        make check-rejection-gate
-
-    - name: Verify Project Root Cleanliness After Tests (issue #2148)
-      if: runner.os == 'Linux'
-      run: |
-        echo "Verifying project root is clean after tests..."
-        polluting_count=$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$' 2>/dev/null | wc -l || echo 0)
-        if [ "$polluting_count" -gt 0 ]; then
-          echo "⚠️  WARNING: Tests created $polluting_count polluting files in project root"
-          echo "Found the following polluting files:"
-          ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$'
-          echo ""
-          echo "Cleaning up..."
-          rm -f *.mod *.a *.o *.lf *.f90 *.txt
-          echo "✅ Cleaned up test artifacts"
-        else
-          echo "✅ Project root is still clean after tests"
-        fi
-
-    # ============= WINDOWS SETUP =============
-    - name: Setup Self-Contained MinGW Environment (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "🔧 Setting up self-contained MinGW environment..."
-
-        # Use MSYS2 toolchains which are preinstalled on GitHub Actions Windows runners
-        # NOTE: Some runner images ship gfortran under ucrt64 instead of mingw64.
-        $candidatePaths = @(
-          "C:\msys64\mingw64\bin",
-          "C:\msys64\ucrt64\bin"
-        )
-
-        function Invoke-Msys2Bash([string]$Command) {
-          & C:\msys64\usr\bin\bash.exe -lc $Command
-          if ($LASTEXITCODE -ne 0) {
-            throw "MSYS2 command failed (exit $LASTEXITCODE): $Command"
-          }
-        }
-
-        function Invoke-WithRetry([scriptblock]$Action, [int]$MaxAttempts = 4, [int]$SleepSeconds = 15) {
-          for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-            try {
-              & $Action
-              return
-            } catch {
-              if ($attempt -ge $MaxAttempts) {
-                throw
-              }
-              Write-Host "⚠️ Attempt $attempt failed: $($_.Exception.Message)"
-              Write-Host "Retrying in $SleepSeconds seconds..."
-              Start-Sleep -Seconds $SleepSeconds
-            }
-          }
-        }
-
-        $mingwPath = $null
-        foreach ($candidate in $candidatePaths) {
-          $gfortranPath = Join-Path $candidate "gfortran.exe"
-          if (Test-Path $gfortranPath) {
-            $mingwPath = $candidate
-            break
-          }
-        }
-        if ($null -eq $mingwPath) {
-          foreach ($candidate in $candidatePaths) {
-            if (Test-Path $candidate) {
-              $mingwPath = $candidate
-              break
-            }
-          }
-        }
-
-        # Check if path exists
-        if ($null -ne $mingwPath -and (Test-Path $mingwPath)) {
-          echo $mingwPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          Write-Host "✅ MinGW path added: $mingwPath"
-
-          # Verify gfortran is available
-          $gfortranPath = Join-Path $mingwPath "gfortran.exe"
-          if (Test-Path $gfortranPath) {
-            Write-Host "✅ GFortran found at: $gfortranPath"
-          } else {
-            Write-Host "⚠️ GFortran not found, attempting to install via MSYS2 pacman..."
-
-            $mirrorRoot = "C:\msys64\etc\pacman.d"
-            $mingw64List = Join-Path $mirrorRoot "mirrorlist.mingw64"
-            $ucrt64List = Join-Path $mirrorRoot "mirrorlist.ucrt64"
-            $mingw32List = Join-Path $mirrorRoot "mirrorlist.mingw32"
-            $msysList = Join-Path $mirrorRoot "mirrorlist.msys"
-
-            $mingw64Mirrors = @(
-              'Server = https://repo.msys2.org/mingw/mingw64'
-              'Server = https://mirror.msys2.org/mingw/mingw64'
-            )
-            $ucrt64Mirrors = @(
-              'Server = https://repo.msys2.org/mingw/ucrt64'
-              'Server = https://mirror.msys2.org/mingw/ucrt64'
-            )
-            $mingw32Mirrors = @(
-              'Server = https://repo.msys2.org/mingw/mingw32'
-              'Server = https://mirror.msys2.org/mingw/mingw32'
-            )
-            $msysMirrors = @(
-              'Server = https://repo.msys2.org/msys/x86_64'
-              'Server = https://mirror.msys2.org/msys/x86_64'
-            )
-
-            Set-Content -Path $mingw64List -Value $mingw64Mirrors -Encoding ascii
-            Set-Content -Path $ucrt64List -Value $ucrt64Mirrors -Encoding ascii
-            Set-Content -Path $mingw32List -Value $mingw32Mirrors -Encoding ascii
-            Set-Content -Path $msysList -Value $msysMirrors -Encoding ascii
-
-            $fortranPackage = "mingw-w64-x86_64-gcc-fortran"
-            if ($mingwPath -like "*\\ucrt64\\bin") {
-              $fortranPackage = "mingw-w64-ucrt-x86_64-gcc-fortran"
-            }
-
-            Invoke-WithRetry { Invoke-Msys2Bash "pacman -Sy --noconfirm --disable-download-timeout msys2-keyring" }
-            Invoke-WithRetry { Invoke-Msys2Bash "pacman -Syy --noconfirm --disable-download-timeout" }
-            Invoke-WithRetry { Invoke-Msys2Bash ("pacman -S --needed --noconfirm --disable-download-timeout " + $fortranPackage) }
-
-            if (-not (Test-Path $gfortranPath)) {
-              throw "GFortran installation completed but gfortran.exe still not found at: $gfortranPath"
-            }
-            Write-Host "✅ GFortran installed at: $gfortranPath"
-          }
-        } else {
-          Write-Error "❌ MSYS2 toolchain path not found (checked: $($candidatePaths -join ', '))"
-          Write-Host "Checking other possible locations..."
-
-          # Try GitHub Actions default MinGW location
-          $altPath = "C:\mingw64\bin"
-          if (Test-Path $altPath) {
-            echo $altPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-            Write-Host "✅ Alternative MinGW path added: $altPath"
-          } else {
-            Write-Error "❌ No MinGW installation found"
-            exit 1
-          }
-        }
-
-    - name: Cache FPM binary (Windows)
-      if: runner.os == 'Windows'
-      id: cache-fpm-win
-      uses: actions/cache@v4
-      with:
-        path: C:\tools\fpm\fpm.exe
-        key: ${{ runner.os }}-fpm-0.12.0
-
-    - name: Install FPM (Windows)
-      if: runner.os == 'Windows' && steps.cache-fpm-win.outputs.cache-hit != 'true'
-      shell: pwsh
-      run: |
-        Write-Host "📦 Installing FPM directly from GitHub releases..."
-        New-Item -ItemType Directory -Force -Path "C:\tools\fpm"
-        Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "C:\tools\fpm\fpm.exe"
-
-        # Add FPM to PATH
-        echo "C:\tools\fpm" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-        # Verify installation
-        & "C:\tools\fpm\fpm.exe" --version
-
-    - name: Cache FPM dependencies (Windows)
-      if: runner.os == 'Windows'
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~\AppData\Local\fpm
-          build\dependencies
-        key: ${{ runner.os }}-fpm-deps-v2-${{ hashFiles('fpm.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-fpm-deps-v2-
-
-    - name: Show compiler versions (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $env:PATH = "C:\tools\fpm;$env:PATH"
-        gfortran --version
-        fpm --version
-
-    - name: Build and Test (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      env:
-        RUN_SYSTEM_TESTS: '1'
-      run: |
-        $env:PATH = "C:\tools\fpm;$env:PATH"
-
-        # GFortran 16+ on MinGW generates larger stack frames for
-        # select-type dispatch with many branches. -fno-stack-arrays
-        # moves local arrays to the heap; 256 MiB stack covers the rest.
-        $env:FPM_FFLAGS = "-fno-stack-arrays"
-        $env:FPM_LDFLAGS = "-Wl,--stack,268435456"
-        fpm build
-        fpm test
-
-  # Summary job for branch protection - org ruleset requires "test" to pass
-  # This aggregates the matrix build-test results into a single required check
-  test:
-    name: test
-    needs: [build-test]
-    if: always()
+  check:
+    # Required by the main ruleset; skipped (and so passing) on pull requests.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    container: gcc:16
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      actions: read
+    env:
+      FPM_VERSION: 0.13.0
+      GIT_TERMINAL_PROMPT: 0
+      MPLBACKEND: Agg
+      DEBIAN_FRONTEND: noninteractive
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Check test results
+      - name: Base packages
         run: |
-          echo "Build-test result: ${{ needs.build-test.result }}"
-          if [ "${{ needs.build-test.result }}" != "success" ]; then
-            echo "::error::Tests failed on one or more platforms"
-            exit 1
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends cmake ninja-build curl ca-certificates ccache jq python3 > /dev/null
+      - name: Skip a nightly run of an unchanged main
+        id: stale
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=schedule&status=success&per_page=1" |
+            jq -r '.workflow_runs[0] | "\(.head_sha) \(.created_at)"' 2>/dev/null || true)
+          sha=${last%% *} when=${last#* }
+          if [ "$sha" = "$GITHUB_SHA" ] && [ -n "$when" ] &&
+            [ "$(date -d "$when" +%s)" -gt "$(date -d '7 days ago' +%s)" ]; then
+            echo "main at $GITHUB_SHA passed the nightly run of $when; nothing to do."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
           fi
-          echo "All platform tests passed (Ubuntu + Windows)"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.stale.outputs.skip != '1'
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Repository packages
+        if: steps.stale.outputs.skip != '1' && hashFiles('.github/ci/apt-packages') != ''
+        run: grep -v '^#' .github/ci/apt-packages | xargs apt-get install -y -qq --no-install-recommends > /dev/null
+      - name: Places
+        if: steps.stale.outputs.skip != '1'
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          fo=$(git ls-remote https://github.com/lazy-fortran/fo.git refs/heads/main | cut -f1)
+          test -n "$fo"
+          echo "FO_COMMIT=$fo" >> "$GITHUB_ENV"
+          echo "FO_TOOLS=$RUNNER_TOOL_CACHE/fo-$fo" >> "$GITHUB_ENV"
+          echo "FO_CACHE_DIR=$RUNNER_TEMP/fo-cache" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+      - name: fo cache
+        if: steps.stale.outputs.skip != '1'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.FO_TOOLS }}
+          key: fo-gcc16-${{ env.FO_COMMIT }}-fpm-${{ env.FPM_VERSION }}
+      - name: Build cache
+        if: steps.stale.outputs.skip != '1'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ env.FO_CACHE_DIR }}
+            ${{ env.CCACHE_DIR }}
+            build/dependencies
+          key: build-${{ env.FO_COMMIT }}-${{ hashFiles('fpm.toml', 'CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ env.FO_COMMIT }}-${{ hashFiles('fpm.toml', 'CMakeLists.txt') }}-
+            build-${{ env.FO_COMMIT }}-
+      - name: fo
+        if: steps.stale.outputs.skip != '1'
+        run: |
+          # fo at main, built once per commit with fpm's release binary of the
+          # pinned checksum.
+          if [ ! -x "$FO_TOOLS/bin/fo" ]; then
+            mkdir -p "$FO_TOOLS/bin"
+            curl -fsSL -o "$FO_TOOLS/bin/fpm" \
+              "https://github.com/fortran-lang/fpm/releases/download/v$FPM_VERSION/fpm-$FPM_VERSION-linux-x86_64-gcc-12"
+            echo "2e50a8649ac4136b9cf6b63c5d1b01adf26c02eedc18f32e16261c0ce655d46d  $FO_TOOLS/bin/fpm" | sha256sum -c -
+            chmod +x "$FO_TOOLS/bin/fpm"
+            git init --quiet "$RUNNER_TEMP/fo-src"
+            git -C "$RUNNER_TEMP/fo-src" fetch --quiet --depth 1 https://github.com/lazy-fortran/fo.git "$FO_COMMIT"
+            git -C "$RUNNER_TEMP/fo-src" checkout --quiet FETCH_HEAD
+            (cd "$RUNNER_TEMP/fo-src" && "$FO_TOOLS/bin/fpm" install --profile release --prefix "$FO_TOOLS")
+          fi
+          echo "$FO_TOOLS/bin" >> "$GITHUB_PATH"
+      - name: Check
+        if: steps.stale.outputs.skip != '1'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            [ -f .github/ci/check ] && exec ./.github/ci/check
+            fo build
+            exec fo test --since HEAD^
+          fi
+          [ -f .github/ci/nightly ] && exec ./.github/ci/nightly
+          [ -f .github/ci/verify ] && exec ./.github/ci/verify
+          fo build
+          FO_TEST_RERUN=1 exec fo test --all
